@@ -1,0 +1,4 @@
+interface:
+  display_name: "Effect Design"
+  short_description: "Local Effect review after the installed Effect guide"
+  default_prompt: "Use $effect-design for this repository's native-capability review and local Effect rulings. Read node_modules/effect/AGENTS.md and its linked fixtures first; that guide owns Effect structure and style."

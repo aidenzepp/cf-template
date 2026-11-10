@@ -1,0 +1,4 @@
+# Block the push unless it would pass CI: formatting, lint and types with warnings treated
+# as errors, then the tests.
+bun run check
+bun run test

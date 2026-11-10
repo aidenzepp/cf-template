@@ -1,0 +1,28 @@
+{
+  "name": "typescript-template",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "vp check --deny-warnings",
+    "fix": "vp check --fix",
+    "test": "bun test tools && vp test",
+    "prepare": "vp config --no-agent"
+  },
+  "dependencies": {
+    "effect": "4.1.2"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.1.2",
+    "@stylistic/eslint-plugin": "5.10.0",
+    "@types/bun": "1.4.4",
+    "@types/node": "26.6.6",
+    "typescript": "7.0.2",
+    "ultracite": "8.1.1",
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0",
+    "vite-plus": "1.5.0"
+  },
+  "overrides": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0"
+  },
+  "packageManager": "bun@1.4.3"
+}

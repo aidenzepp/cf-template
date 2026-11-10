@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.env*
+!.env.example
+.DS_Store
+.worktrees/
+.vivi/
+work/
+docs/superpowers/
+.claude/settings.local.json
