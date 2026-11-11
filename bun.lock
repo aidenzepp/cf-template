@@ -105,6 +105,7 @@
         "@alchemy.run/cloudflare": "2.0.0-beta.85",
         "@alchemy.run/github": "2.0.0-beta.85",
         "@effect/platform-bun": "4.1.2",
+        "@workspace/budget-guard": "workspace:*",
         "@workspace/config": "workspace:*",
         "@workspace/knobs-kv": "workspace:*",
         "alchemy": "2.0.0-beta.85",

@@ -1,7 +1,8 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, Logger, Predicate, Ref } from "effect";
 import { TestClock } from "effect/testing";
-import { makeCheck, periodEnd } from "./live.ts";
+import { periodEnd } from "./latch.ts";
+import { makeCheck } from "./live.ts";
 
 const BODY =
   '{"type":"/problems/budget-latched","title":"Service paused","status":503,"detail":"Request volume crossed the project\'s budget line; serving resumes when the latch clears."}';
