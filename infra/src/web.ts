@@ -50,6 +50,8 @@ interface WebBindings extends Record<keyof WebEnv, string | object> {
  * @param workers.api - The `api` Worker resource.
  * @param workers.auth - The `auth` Worker resource.
  * @param origin - The stage's public origin, the same value `auth` receives.
+ * @param blockBindings - The plain bindings the blocks add to `web`'s env, as name and resource
+ *   pairs; a block binds its own resource here from the attach file, so this module names none.
  * @returns The `web` Worker resource.
  */
 export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
@@ -60,6 +62,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     readonly knobs: Effect.Success<ReturnType<typeof knobsNamespace>>;
   },
   origin: Effect.Success<ReturnType<typeof publicOrigin>>,
+  blockBindings: ReadonlyArray<readonly [name: string, binding: object]> = [],
 ) {
   const { stack, stage } = identity;
   const path = yield* Path.Path;
@@ -85,13 +88,15 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     }),
   } satisfies WebBindings;
 
+  const bindings = { ...env, ...Object.fromEntries(blockBindings) };
+
   const domain = yield* domainFor(stage);
 
   const web = yield* Cloudflare.Website.Vite("Web", {
     assets: { runWorkerFirst: [...FORWARD_PREFIXES] },
     compatibility,
     domain: domain.domain,
-    env,
+    env: bindings,
     limits: limitsFor("web", { ...knobs, scrypt: AUTH_PASSWORD_SCRYPT.default }),
     name: yield* workerName({ stack, stage, worker: "web" }),
     observability: webObservability(stage),
@@ -105,7 +110,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     yield* Cloudflare.Worker("WebProd", {
       assets: { directory: path.join(dist, "client"), runWorkerFirst: [...FORWARD_PREFIXES] },
       compatibility,
-      env,
+      env: bindings,
       main: path.join(dist, "server", "server.js"),
       name: yield* workerName({ stack, stage, worker: "web-prod" }),
       workersDev: false,

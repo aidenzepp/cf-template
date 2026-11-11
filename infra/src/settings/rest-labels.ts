@@ -6,9 +6,11 @@ import type { Kind } from "./rest.ts";
 import type { Tier } from "./tier.ts";
 
 /**
- * The GitHub default labels the declaration does not name.
+ * The GitHub default labels the declaration does not name. `accessibility` is the seventh default
+ * label on a new repository, observed on the probe repository.
  */
 export const DEFAULT_LABELS = [
+  "accessibility",
   "duplicate",
   "good first issue",
   "help wanted",

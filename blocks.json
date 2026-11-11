@@ -3,6 +3,7 @@
     "apps/api/src/blocks.ts",
     "apps/auth/src/blocks.ts",
     "apps/web/src/blocks.ts",
+    "apps/web/src/request-layers.ts",
     "infra/alchemy.run.ts",
     "packages/contract/src/api/api.ts",
     "tools/knob/registry.ts"
@@ -21,5 +22,17 @@
       "keep": ["apps/api/src/notes/table.ts"]
     }
   ],
-  "blocks": []
+  "blocks": [
+    {
+      "name": "budget-guard",
+      "paths": [
+        "packages/budget-guard/",
+        "packages/config/src/budget-guard.ts",
+        "packages/config/src/budget-guard.test.ts",
+        "infra/src/guard-plan.ts",
+        "infra/src/guard-threshold.ts",
+        "infra/src/guard-threshold.test.ts"
+      ]
+    }
+  ]
 }

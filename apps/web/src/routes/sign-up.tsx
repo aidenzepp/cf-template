@@ -41,8 +41,8 @@ const SignUp = () => {
 };
 
 export const Route = createFileRoute("/sign-up")({
-  beforeLoad: ({ context }) => (context.session._tag === "signedIn" ? redirect({ to: "/" }) : {}),
-  component: SignUp,
-  loader: () => run(OrphanGraceSeconds),
   validateSearch: validateRedirectSearch,
+  beforeLoad: ({ context }) => (context.session._tag === "signedIn" ? redirect({ to: "/" }) : {}),
+  loader: () => run(OrphanGraceSeconds),
+  component: SignUp,
 });

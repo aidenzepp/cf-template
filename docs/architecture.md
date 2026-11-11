@@ -4,19 +4,23 @@ Written 2026-11-10 against `main` `013dea6`. The frozen `cloudflare-monorepo-tem
 no code or pattern of it is a model here.
 
 This document settles design; it files no issue and changes no convention. Every convention it builds on is
-listed under `## Conventions` with its state against the conventions record. A convention this document would
-need and the record does not have is written as a numbered settlement with a proposal row (`PENDING` until
-ruled; the nine proposals stand as written) in `## Settlements`, never as a silent decision.
+ruled in its family file under `docs/decisions/`, one file per family; `## Conventions` is a one-line pointer there.
+A convention this document would need and the decisions do not have is written as a numbered settlement in
+`## Settlements`, never as a silent decision.
 Numbered settlements ST1-ST14 (the eight routed
 conflicts and the six unowned decisions) and the client bundle budget proposal live in `## Settlements`; the
 deploy, settings, spin-up, Paid, external-dependency and auth design as ruled, and the producer facts the first
-issues must prove, live in `## Platform operations`; the open items and what each blocks live in
-`## Open items`.
+issues must prove, live in `## Platform operations`; the open items, recorded wants that block no
+issue, live in `## Open items`.
 
 Reading conventions: `Cn` is a convention row of the conventions record, `Cn<letter>` a part; `Rn`/`Kn`/`DCn`/`RSn`/
 `SUn`/`LKn`/`CEn`/`SCn`/`EXn`/`ATn`/`BKn`/`UKn`/`CGn`/`CSn`/`PBn`/`En`/`Mn`/`On` are merit corrections from the
 plan review; `OQ`/`FQ`/`DQ`/`SQ`/`LQ`/`LR`/`PB` are rulings by the maintainer or the maintainer's delegate. A fact
 marked **inferred** was not proved by a unit; the first issue that depends on it proves it.
+
+Citations to the maintainer brief, to review digests (such as digest V1) and to named research reports or topics (such
+as the gates research) refer to working material that is not in the repository. The plan states every conclusion it
+relies on itself; those labels say where a conclusion came from, not where to look it up.
 
 ## Scope
 
@@ -47,7 +51,7 @@ art with its findings; the supdoc day-one docs above stay.
 
 Later add-ins, out of day one: R2, Queues and Workflows, Durable Objects, AI, email (a block under C32i, ST9), a
 landing site, the contract-derived CLI and MCP surfaces (a Later feature-request issue gated on the generator FRs,
-C45), generators for add-ins, the budget guard block (LR-4), KV Instant (a want), XState (a want), a second CI identity (M2, DQ-1's trigger). Out of this plan entirely: Cloudflare official skills,
+C45), generators for add-ins, KV Instant (a want), XState (a want), a second CI identity (M2, DQ-1's trigger). Out of this plan entirely: Cloudflare official skills,
 renaming sibling repos, the global `work/` rule, the contract-strategy revisit, Grizzle (brief section 7).
 
 "Removable" names two contracts in this plan: a **block** passes the pull-out test with C32i A1-A3 (the knobs
@@ -74,12 +78,13 @@ one-line switch" is the first contract (ST9), not a third.
    (C25e). The `prod`-destructive gate is the owner-only `workflow_dispatch` confirmation on every tier
    (the GitHub Pro protection probe: environment required reviewers 422 on private Pro); Actions on private repositories draw on
    the included credit (a flagged meter); private-repository CI is Linux-only.
-3. The trust statement, with DQ-1 open: one GitHub identity, one Cloudflare account and one token, copied into the
+3. The trust statement, with DQ-1 ruled (C19n, C25h): one GitHub identity, one Cloudflare account and one token, copied into the
    `prod` environment where environments exist (a same-value copy of the repository secret, N-4: the environment
    gives the `main`-only deployment-branch rule and a record of which jobs may name `prod`, and becomes a
    credential boundary only when two tokens are minted, O2 (b), DQ-1 (c)), so the preview token is
-   `prod`-equivalent and every actor, label, fingerprint and reviewer check is satisfiable by the owner identity the
-   agents hold. Day one buys a record and review attestation (DC1; default (a)); the runbook's "what you are agreeing
+   `prod`-equivalent. Agents push, open PRs and merge as the C24j GitHub App, never as the maintainer, so the
+   `triggering_actor` check is a real boundary (C19n, C25h); the label, fingerprint and reviewer checks stay
+   satisfiable by the owner identity. Day one buys a record and review attestation (DC1; default (a)); the runbook's "what you are agreeing
    to" block states it (C33), and states plainly, as its fifth sentence, that there is no self-service account
    recovery (no password reset, no email verification) until the email add-in is on (FQ-2 (a)), with the passkey
    nudge at sign-up as the mitigation and the one-line email switch (ST9) as the exit.
@@ -89,8 +94,8 @@ one-line switch" is the first contract (ST9), not a third.
 **What this plan is not.** It settles design, not implementation order: the issue DAG slices it
 vertically with one end-to-end path early (digest V1, V2). It builds on the frozen predecessor's direction, never
 its code. Every custom piece below names its ladder rung (Cloudflare, Alchemy, Effect, own code, external) with a
-citation or a steelmanned reason (the ladder rules); the ladder walks are in the
-research sections and are restated here only where this plan adds or changes an element. Deferred item C1 of the
+citation or a steelmanned reason (the ladder rules); the ladder walks themselves are working material that is
+not in the repository, so this plan states each rung it relies on. Deferred item C1 of the
 maintainer brief ("one contract, many surfaces", the contract research): every contract-derived surface is Later, the API
 reference pages with the docs site (C44, deferred) and the CLI and MCP (C45), each a Later feature-request
 issue; nothing derives a docs surface on day one, the supdoc day-one docs stay, and day one does not block them (the
@@ -118,7 +123,7 @@ flowchart TB
     knobs["packages/knobs-kv · @workspace/knobs-kv<br/>block: ./live, ./contract · the tier (c) adapter"]
   end
     infra["infra · @workspace/infra<br/>alchemy.run.ts, stage schema, the web Website declaration"]
-  tools["tools/lint, tools/knob, tools/mirrors, tools/supdoc<br/>repository tooling, not workspaces"]
+  tools["tools/lint, tools/knob, tools/mirrors<br/>repository tooling, not workspaces"]
 
     infra --> web & api & auth & knobs & config
   web --> contract & ui & config
@@ -143,7 +148,7 @@ corrected, and this plan's lines for the packages the C1 list did not name, sett
 | `packages/ui`       | everything the registries write, the one `components.json`, `globals.css`, its own tsconfig and typecheck                                          | first-party components (those are `apps/<app>/src/components`), any edit by hand (C10c, LR-3 (b))                                                                       |
 | `packages/knobs-kv` | the KV adapter: `./live` declares the namespace, binds it and provides the `LiveKnobs` port; `./contract` the adapter's own schema                 | the port's type (that is `packages/config`), any knob definition, any write path (writes are the knob command's, C37k)                                                  |
 | `infra`             | the Stack, the stage schema and `Stages` record, Worker composition, secret wiring, the state store, `web`'s `Website` declaration (ST13)          | request code, schemas, product logic                                                                                                                                    |
-| `tools/*`           | repository rules (`tools/lint`), the knob command (`tools/knob`), mirrors (`tools/mirrors`), the interim supdoc installer (`tools/supdoc`)         | runtime code any Worker imports                                                                                                                                         |
+| `tools/*`           | repository rules (`tools/lint`), the knob command (`tools/knob`), mirrors (`tools/mirrors`)                                                        | runtime code any Worker imports                                                                                                                                         |
 
 Dependency direction is enforced by five `no-restricted-imports` overrides (K13, C6i): R1 an app imports
 another app only as `@workspace/<app>/contract` and never `@workspace/infra`; R3 `packages/contract/src/domain/**`
@@ -433,7 +438,7 @@ flowchart LR
 | The runbook's verified column                                                                                                                                                                           | a unit that ran the step's command and saw its signal                                                                                                                                                                                                                                                                                                | the derived `I-docs` check fails an untagged row, a verified row citing only a source line, or an unlisted `I-` label                                                                                                                                                                                                                                                                                                                                   | SU15                                         |
 | `bun run bootstrap`                                                                                                                                                                                     | `settings` then `credentials`                                                                                                                                                                                                                                                                                                                        | a stateless wrapper; each half runnable alone                                                                                                                                                                                                                                                                                                                                                                                                           | C33b, RS11, RS18                             |
 | C37m `knob status` before every deploy, C37n `retain` on the KV namespace                                                                                                                               | the deploy log and the C41e stateful list                                                                                                                                                                                                                                                                                                            | report-only in `plan-prod`; the D6 retain test                                                                                                                                                                                                                                                                                                                                                                                                          | LK17                                         |
-| The conventions record                                                                                                                                                                                  | delegate and maintainer rulings                                                                                                                                                                                                                                                                                                                      | `docs/decisions/`, one file per convention family; this plan's `## Conventions` reads the record                                                                                                                                                                                                                                                                                                                                                        | the planning spec                            |
+| The conventions record                                                                                                                                                                                  | delegate and maintainer rulings                                                                                                                                                                                                                                                                                                                      | `docs/decisions/`, one file per convention family; this plan's `## Conventions` points to the record                                                                                                                                                                                                                                                                                                                                                    | the planning spec                            |
 
 Not derived, by decision: `.env.example` lists five fixed names (C33f, SU19) and is not generated from the knob
 schemas, because knob variables are never declared by a stack and the schema default applies until the maintainer
@@ -611,8 +616,8 @@ post-merge = bun install                   # tracked hook; runs only when bun.lo
 Ordering inside the chain, this plan's: the hook check first because it is the cheapest and names the fix; `vp check`
 before the migration checks because the latter run the Better Auth CLI on Node; `knip` and the ratchet last because
 they read the tree the earlier steps leave. `prepare` runs fix A's hooks step (`git config --local core.hooksPath
-.vite-hooks`), then `effect-tsgo patch --oxlint` (OQ-1 (a)), then `tools/supdoc/install.ts` (C22a): hooks first so a
-failing patch still leaves the repository guarded, the supdoc install last because it is the one network step.
+.vite-hooks`), then `effect-tsgo patch --oxlint` (OQ-1 (a)); supdoc is an exact npm devDependency (`supdoc`, with per-platform `@supdoc/*`
+binaries) that `bun install` places, so `prepare` has no supdoc step.
 
 ### Placement map
 
@@ -684,8 +689,8 @@ the screens it checks change rarely.
 
 The eight conflicts the report routed to this unit (rows 14, 31, 32, 33, 34, 39, 44, 45) and the six unowned
 decisions, each with its reason. A settlement that is layout, lint or scope carries a
-proposed part id in `## Conventions` (all nine ruled "stand as written" by the maintainer's delegate, so
-`APPROVED` as proposals); the rest apply a ruling already given. The ids are `ST<n>` so they never collide with
+part id, ruled in its family file under `docs/decisions/` (all nine proposals were ruled "stand as written" by the
+maintainer's delegate); the rest apply a ruling already given. The ids are `ST<n>` so they never collide with
 the screens rulings S1-S8, which this document cites as `screens ruling S<n>`.
 
 | #    | Settles                                                                                                                                                       | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Reason                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -826,9 +831,10 @@ volume `CustomAlert`, created on every stage whose `Stages` entry sets `volumeAl
 placeholder, PB-8) over the Worker names derived from the `Workers` list in `infra/stages.ts` (`web`, `api`, `auth` on day one; I-45)
 plus the state store `<stack>-state`, the one Worker with a public address beside `web` (an unauthenticated flood on
 it bills any invocation that reaches a script like `web`'s and has no rate-limit binding we control; N-6), so a block
-that adds a Worker joins the alert with no alert-list edit; Cloudflare's default $10 account alert kept (C40j, number pending PB-9). The budget guard (C40k,
-C40l: an SQL-API alert into a KV latch read by `web`, 503 while latched) is deferred with CG8's triggers (LR-4 default
-(a); the maintainer's session recommends (b); open). A distributed flood has no automatic stop on day one; the runbook's
+that adds a Worker joins the alert with no alert-list edit; Cloudflare's default $10 account alert kept, with a `worker_requests` usage alert at 5,000,000 beside it, both
+account-wide and declared once per account (C40j). The budget guard (C40k, C40l: an SQL-API alert into a KV latch read
+by `web`, 503 while latched) is a removable day-one block built as I-44 (C40k); CG8's triggers no longer gate a build
+and remain the runbook's re-check points (C40l). A distributed flood has no automatic stop on day one; the runbook's
 first step is the manual route stop (disable `web`'s `workers.dev` route or `workersDev: false` and redeploy, CG7).
 Every money-stopping control is **inferred** until the first test stage (CG9).
 
@@ -839,7 +845,7 @@ runner code with no grant is not. Kept: Cloudflare Paid and its credentials; the
 Secrets Store (flagged, the one accepted unknown meter); Logs and Traces inside the allowance; Monitors and alerts;
 npm; GitHub with the C24j App; SHA-pinned Actions (`setup-bun`, Alchemy's Action); hosted Renovate (D1 stands after
 the Dependabot-on-Bun probe refuted Dependabot on `npm:` aliases and beta pins); `bun audit`; OSV-Scanner on the runner;
-supdoc's digest-pinned release download; the three registries; the inert `@sortui-pro` entry with
+the `supdoc` npm package; the three registries; the inert `@sortui-pro` entry with
 `${SORTUI_LICENSE_KEY}` (E8, C10r); GitHub and Google OAuth opt-in; the Cloudflare API MCP optional. Configured:
 Alchemy telemetry off. Deferred: the guard webhook receiver (LR-4), Flagship (unpriced, C37b), Turnstile (want on
 outside users, N8), Email Service (the email block), an owned domain with one WAF rule (O1, before the first outside user), and the
@@ -886,7 +892,7 @@ Producer facts this plan builds on without proof, each owned by the first issue 
 
 ## Open items
 
-The convention parts this plan left open are ruled; each ruling is in its family file under `docs/decisions/`.
+The convention parts this plan left open are ruled; each ruling is in its family file under `docs/decisions/`, except C2 (task runner), whose file still carries only its topic line.
 
 Recorded wants, not questions: telemetry defaults of the shadcn CLI, Vite+ and Bun; the KV Instant swap;
 the bundle-size ratchet; the XState revisit; per-module Effect imports
@@ -895,7 +901,7 @@ observed orphan); the deletion signal `auth` to `api`; Turnstile (outside users)
 
 ## Conventions
 
-Every convention this plan builds on, with its ruling, is in its family file under `docs/decisions/`, one file per family.
+Every convention this plan builds on is in its family file under `docs/decisions/`, one file per family. The file for C2 (task runner) still carries only its topic line and no ruling.
 
 ## Build plan
 
