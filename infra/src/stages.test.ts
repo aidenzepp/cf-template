@@ -1,6 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Exit, Schema } from "effect";
 import { Digest } from "effect/crypto";
+import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { LogLevelKnob } from "@workspace/config/log-level";
 import {
   LONGEST_STAGE,
@@ -106,6 +107,23 @@ describe("Stages", () => {
 
       assert.strictEqual(test.LOG_LEVEL, "Error");
       assert.strictEqual(prod.LOG_LEVEL, Stages.prod.LOG_LEVEL);
+    }),
+  );
+
+  it.effect("binds a scrypt cost the Worker's own config reads back for every kind", () =>
+    Effect.gen(function* binds() {
+      for (const values of Object.values(Stages)) {
+        const bound = yield* AUTH_PASSWORD_SCRYPT.encode(values.AUTH_PASSWORD_SCRYPT);
+
+        const read = yield* AUTH_PASSWORD_SCRYPT.config.pipe(
+          Effect.provide(
+            ConfigProvider.layer(ConfigProvider.fromUnknown({ AUTH_PASSWORD_SCRYPT: bound })),
+          ),
+        );
+
+        assert.deepStrictEqual(read, values.AUTH_PASSWORD_SCRYPT);
+        assert.deepStrictEqual(values.AUTH_PASSWORD_SCRYPT, AUTH_PASSWORD_SCRYPT.default);
+      }
     }),
   );
 });

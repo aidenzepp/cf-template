@@ -1,6 +1,7 @@
 import { Config, Effect, Option, Schema, SchemaTransformation } from "effect";
 import type { LogLevel } from "effect";
 import { Digest } from "effect/crypto";
+import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { LogLevelKnob } from "@workspace/config/log-level";
 import { AuthCheckSessionTimeoutKnob, ProblemDetailsIncludeKnob } from "../apps/api/src/config.ts";
 import { ExampleFeatureKnob } from "../apps/api/src/notes/knob.ts";
@@ -215,6 +216,7 @@ export interface StageValues {
   readonly AUTH_CHECK_SESSION_TIMEOUT_MS: typeof AuthCheckSessionTimeoutKnob.default;
   readonly AUTH_COOKIE_CACHE_MAX_AGE_S: typeof CookieCacheMaxAgeKnob.default;
   readonly AUTH_COOKIE_CACHE_STRATEGY: typeof CookieCacheStrategyKnob.default;
+  readonly AUTH_PASSWORD_SCRYPT: typeof AUTH_PASSWORD_SCRYPT.default;
   readonly EXAMPLE_FEATURE_ENABLED: typeof ExampleFeatureKnob.default;
   readonly LOG_LEVEL: LogLevel.LogLevel;
   readonly PROBLEM_DETAILS_INCLUDE: typeof ProblemDetailsIncludeKnob.default;
@@ -237,6 +239,7 @@ const stageRow = (
   AUTH_CHECK_SESSION_TIMEOUT_MS: validated(AuthCheckSessionTimeoutKnob, "500"),
   AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob.default,
   AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
+  AUTH_PASSWORD_SCRYPT: AUTH_PASSWORD_SCRYPT.default,
   EXAMPLE_FEATURE_ENABLED: validated(ExampleFeatureKnob, api.exampleFeature),
   LOG_LEVEL: validated(LogLevelKnob, logLevel),
   PROBLEM_DETAILS_INCLUDE: validated(ProblemDetailsIncludeKnob, api.problemDetails),

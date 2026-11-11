@@ -1,6 +1,7 @@
 import type * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import { Config, Effect, Layer, Option, Path, Schema } from "effect";
+import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { AuthMethods } from "@workspace/config/auth-methods";
 import { PublicOrigin, WEB_DEV_PORT } from "@workspace/config/public-origin";
 import { Auth } from "../../apps/auth/src/contract.ts";
@@ -87,9 +88,10 @@ export const resolvePublicOrigin = Effect.fn("resolvePublicOrigin")(
 /**
  * Declare the auth D1 database and the `auth` Worker with its bindings.
  *
- * The Worker binds `PUBLIC_ORIGIN`, `AUTH_METHODS`, the two cookie-cache values from the stage's
- * row, and `BETTER_AUTH_SECRET`, an `Alchemy.Random` per stage that only `auth` reads. It keeps no
- * `workers.dev` address, domain or route. The D1 binding is made by the Worker's own program.
+ * The Worker binds `PUBLIC_ORIGIN`, `AUTH_METHODS`, the two cookie-cache values and the scrypt cost
+ * from the stage's row, and `BETTER_AUTH_SECRET`, an `Alchemy.Random` per stage that only `auth`
+ * reads. It keeps no `workers.dev` address, domain or route. The D1 binding is made by the Worker's
+ * own program.
  *
  * @param identity - The stack name and decoded stage.
  * @param identity.stack - The stack name from `resolveStackName`.
@@ -110,6 +112,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
   const secret = yield* Alchemy.Random("BetterAuthSecret");
   const origin = yield* resolvePublicOrigin({ stack, stage });
   const methods = yield* encodedAuthMethods;
+  const scrypt = yield* AUTH_PASSWORD_SCRYPT.encode(values.AUTH_PASSWORD_SCRYPT);
   const main = yield* path.fromFileUrl(new URL("../../apps/auth/src/worker.ts", import.meta.url));
 
   const props = {
@@ -118,6 +121,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
       AUTH_COOKIE_CACHE_MAX_AGE_S: values.AUTH_COOKIE_CACHE_MAX_AGE_S,
       AUTH_COOKIE_CACHE_STRATEGY: values.AUTH_COOKIE_CACHE_STRATEGY,
       AUTH_METHODS: methods,
+      AUTH_PASSWORD_SCRYPT: scrypt,
       BETTER_AUTH_SECRET: secret.text,
       LOG_LEVEL: values.LOG_LEVEL,
       PUBLIC_ORIGIN: origin,
