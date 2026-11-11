@@ -74,10 +74,8 @@ export default defineConfig({
     },
   },
   // Tests run on Vitest with @effect/vitest. The lint-rule tests in tools/lint import bun:test
-  // and run under `bun test`; `bun run test` runs both. The template ships no source, so an empty
-  // Vitest suite passes; delete `passWithNoTests` once the project has its first test.
+  // and run under `bun test`; `bun run test` runs both.
   test: {
-    passWithNoTests: true,
     projects: [
       { test: { exclude: ["tools/lint/**"], include: ["tools/**/*.test.ts"], name: "tools" } },
       { test: { include: ["test/**/*.test.ts"], name: "root" } },
