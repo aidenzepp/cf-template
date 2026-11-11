@@ -2,7 +2,6 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import { Config, Effect, Layer, Path, Schema } from "effect";
 import { Digest } from "effect/crypto";
-import { TaggedError as taggedError } from "effect/Schema";
 import { declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
 import { declareDatabase as declareAuthDb } from "../apps/auth/src/db/database.ts";
 import { Stage, stageValues, workerName } from "./stages.ts";
@@ -16,7 +15,7 @@ import { StackNameError, requiresStackNamePin, resolveStackName } from "./src/st
  * A stack file cannot tell the phases apart, so the refusal covers every phase and `phase` names
  * them all.
  */
-export class ProdStageRefused extends taggedError<ProdStageRefused>()("ProdStageRefused", {
+export class ProdStageRefused extends Schema.TaggedError<ProdStageRefused>()("ProdStageRefused", {
   phase: Schema.String,
   stage: Schema.String,
 }) {
