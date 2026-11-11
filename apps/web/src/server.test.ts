@@ -87,7 +87,9 @@ export default {
     const mode = headers.get("x-test-sec-fetch-mode");
     headers.delete("x-test-sec-fetch-mode");
     if (mode !== null) headers.set("sec-fetch-mode", mode);
-    const target = headers.get("x-test-web") === "bad-auth-methods" ? env.WEB_BAD : env.WEB;
+    const which = headers.get("x-test-web");
+    const target =
+      which === "bad-auth-methods" ? env.WEB_BAD : which === "github" ? env.WEB_GITHUB : env.WEB;
     headers.delete("x-test-web");
     return target.fetch(new Request(request, { headers, redirect: "manual" }));
   },
@@ -148,7 +150,30 @@ const WebProdLive = Layer.effect(WebProd)(
                 modules: true,
                 name: "driver",
                 script: driverScript,
-                serviceBindings: { WEB: "web", WEB_BAD: "web-bad-auth-methods" },
+                serviceBindings: {
+                  WEB: "web",
+                  WEB_BAD: "web-bad-auth-methods",
+                  WEB_GITHUB: "web-github",
+                },
+              },
+              {
+                assets: {
+                  directory: client,
+                  routerConfig: {
+                    has_user_worker: true,
+                    static_routing: { user_worker: [...FORWARD_PREFIXES] },
+                  },
+                },
+                bindings: {
+                  AUTH_METHODS: '{"email":false,"providers":["github"]}',
+                  PUBLIC_ORIGIN: "http://x",
+                },
+                compatibilityDate: COMPAT_DATE,
+
+                modules: files.map((file) => ({ path: path.join(server, file), type: "ESModule" })),
+                modulesRoot: server,
+                name: "web-github",
+                serviceBindings: { API: "api", AUTH: "auth" },
               },
               {
                 assets: {
@@ -534,6 +559,90 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
         expect(html).toContain('type="email"');
         expect(html).toContain('type="password"');
         expect(html).not.toContain("Continue with");
+      }
+    }),
+  );
+
+  it.effect("shows the no-email copy on sign-in and sign-up when email is off", () =>
+    Effect.gen(function* copy() {
+      const web = yield* WebProd;
+
+      const read = (path: string) =>
+        web.request(path, { headers: { accept: "text/html" } }).pipe(
+          Effect.flatMap(text),
+          Effect.map((html) => html.replaceAll("&#x27;", "'")),
+        );
+
+      expect(yield* read("/sign-in")).toContain(
+        "Forgot your password? It can't be reset on this site yet. If you added a passkey or linked an account, sign in with that.",
+      );
+      expect(yield* read("/sign-up")).toContain(
+        "Add a passkey in Settings after you sign up. Without email it is your way back in if you forget your password.",
+      );
+    }),
+  );
+
+  it.effect("renders one GitHub button for providers [github]", () =>
+    Effect.gen(function* github() {
+      const web = yield* WebProd;
+
+      const response = yield* web.request("/sign-in", {
+        headers: { accept: "text/html", "x-test-web": "github" },
+      });
+
+      const html = yield* text(response);
+
+      expect(html.match(/Continue with/gu)).toHaveLength(1);
+      expect(html).toContain("Continue with GitHub");
+    }),
+  );
+
+  it.effect("renders /oauth-error with fixed copy for an allowlisted code", () =>
+    Effect.gen(function* known() {
+      const web = yield* WebProd;
+
+      const response = yield* web.request("/oauth-error?error=access_denied", {
+        headers: { accept: "text/html" },
+      });
+
+      expect(response.status).toBe(200);
+      expect(yield* text(response)).toContain("Sign-in was cancelled.");
+    }),
+  );
+
+  it.effect("renders only the generic copy for a crafted /oauth-error query", () =>
+    Effect.gen(function* crafted() {
+      const web = yield* WebProd;
+
+      const query = new URLSearchParams({
+        error: "<script>alert(1)</script>",
+        error_description: "<img src=x onerror=alert(1)> leak-token-0a1b2c3d4e5f",
+        extra: "leak-extra-6a7b8c9d0e1f",
+      });
+
+      const first = yield* web.request(`/oauth-error?${query.toString()}`, {
+        headers: { accept: "text/html" },
+      });
+
+      const firstHtml = yield* text(first);
+      const location = first.headers.get("location") ?? "";
+
+      // The router canonicalizes the URL: the crafted values leave the address bar and the page.
+      expect(first.status).toBe(307);
+      expect(location).not.toContain("alert");
+      expect(location).not.toContain("leak-");
+      expect(firstHtml).not.toContain("leak-");
+
+      const response = yield* web.request(location, { headers: { accept: "text/html" } });
+      const html = (yield* text(response)).replaceAll("&#x27;", "'");
+
+      expect(response.status).toBe(200);
+      expect(html).toContain(
+        "Sign-in with that account didn't work. Try again, or use another way to sign in.",
+      );
+
+      for (const leaked of ["alert(1)", "onerror", "leak-", "script>alert"]) {
+        expect(html).not.toContain(leaked);
       }
     }),
   );

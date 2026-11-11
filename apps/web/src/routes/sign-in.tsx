@@ -21,7 +21,7 @@ const SignIn = () => {
       redirect={requested}
       title="Sign in"
     >
-      <SignInForm providers={authMethods.providers} redirect={target} />
+      <SignInForm email={authMethods.email} providers={authMethods.providers} redirect={target} />
     </AuthFormShell>
   );
 };
