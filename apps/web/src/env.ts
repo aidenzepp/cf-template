@@ -1,3 +1,5 @@
+import type { RateLimitBinding } from "./ratelimit.ts";
+
 /**
  * The calls `web` makes on a service binding: a fetch of a web `Request`.
  */
@@ -14,4 +16,6 @@ export interface WebEnv {
   readonly AUTH_METHODS: string;
   readonly AUTH_ORPHAN_GRACE_SECONDS: string;
   readonly PUBLIC_ORIGIN: string;
+  readonly RATELIMIT_CREDENTIAL: RateLimitBinding;
+  readonly RATELIMIT_PUBLIC: RateLimitBinding;
 }
