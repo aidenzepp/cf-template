@@ -66,6 +66,19 @@ it.effect.each(["untagged", "unverified-cite", "unlisted-label"] as const)(
     }).pipe(Effect.provide(BunServices.layer)),
 );
 
+it.effect("reports no finding on docs/spin-up.md", () =>
+  Effect.gen(function* spinUp() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    const runbook = yield* fs.readFileString(
+      yield* path.fromFileUrl(new URL("../../docs/spin-up.md", import.meta.url)),
+    );
+
+    assert.deepStrictEqual(checkRunbook(runbook, yield* planLabels()), []);
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
 it.effect("passes a valid runbook", () =>
   Effect.gen(function* valid() {
     const runbook = [
