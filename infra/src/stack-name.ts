@@ -43,7 +43,7 @@ const NO_SOURCE_MESSAGE =
  * @param text - The repository reference.
  * @returns The owner and repository, or none when the text has neither form.
  */
-const parseRepository = (
+export const parseRepository = (
   text: string,
 ): Option.Option<{ readonly owner: string; readonly repo: string }> => {
   const match =
@@ -96,7 +96,7 @@ const normalize = Effect.fn("normalize")(function* normalize(repository: {
  *
  * @returns The trimmed URL, or none when the command fails or prints nothing.
  */
-const readOrigin = Effect.fn("readOrigin")(function* readOrigin() {
+export const readOrigin = Effect.fn("readOrigin")(function* readOrigin() {
   const command = yield* Config.String("STACK_NAME_ORIGIN_COMMAND").pipe(
     Config.withDefault(DEFAULT_ORIGIN_COMMAND),
   );

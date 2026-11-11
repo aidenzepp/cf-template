@@ -79,3 +79,7 @@ Approved as a proposal.
 Reason written in `vite.config.ts`.
 
 Approved as a proposal.
+
+## C30q
+
+`oxlint-plugin-react-doctor` 0.9.18 is a modified MIT that restricts use as AI training, eval or ML-pipeline input and resale as a hosted product; the operator accepted it because running it as a dev-only linter is ordinary use and removal is one config line.

@@ -12,6 +12,8 @@ import shadcn from "ultracite/oxlint/shadcn";
 
 import vitest from "ultracite/oxlint/vitest";
 
+import { RECOMMENDED_RULES, TANSTACK_START_RULES } from "oxlint-plugin-react-doctor";
+
 import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
 
 import {
@@ -310,6 +312,24 @@ export default defineConfig({
         files: ["apps/web/**/*.tsx"],
         plugins: react.plugins,
         rules: react.rules,
+      },
+      {
+        // React Doctor's per-file rules, scoped to `apps/web` like `react` above: the recommended set
+        // plus the TanStack Start rules the CLI adds for this framework. Project-wide rules (cycles,
+        // unused dependencies) need the CLI and do nothing under oxlint; the CLI is not installed.
+        files: ["apps/web/**/*.{ts,tsx}"],
+        jsPlugins: ["oxlint-plugin-react-doctor"],
+        rules: {
+          ...RECOMMENDED_RULES,
+          ...TANSTACK_START_RULES,
+          // Findings in existing `apps/web` code at adoption (58 diagnostics). `vp check` denies
+          // warnings, so they are off until a follow-up fixes the code; then delete these lines.
+          "react-doctor/jsx-no-jsx-as-prop": "off",
+          "react-doctor/jsx-no-new-function-as-prop": "off",
+          "react-doctor/jsx-no-new-object-as-prop": "off",
+          "react-doctor/only-export-components": "off",
+          "react-doctor/tanstack-start-route-property-order": "off",
+        },
       },
       {
         // Copied from the `tanstack` preset: file routes are mutually recursive (`Route` references the
