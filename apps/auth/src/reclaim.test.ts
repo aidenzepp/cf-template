@@ -1,8 +1,9 @@
 import { assert, it, layer } from "@effect/vitest";
 import { Config, ConfigProvider, Effect, Logger, Ref, References, Tracer } from "effect";
 import { TestClock } from "effect/testing";
+import { makeDatabase } from "@workspace/db/database";
 import type { RawDatabase } from "@workspace/db/database";
-import { AUTH_ORPHAN_GRACE_SECONDS } from "./reclaim.ts";
+import { AUTH_ORPHAN_GRACE_SECONDS, deleteOrphan } from "./reclaim.ts";
 import { LocalAuthD1, asExecution, authOver, signUp } from "./test-harness.ts";
 
 /**
@@ -185,7 +186,7 @@ layer(LocalAuthD1.layer)("the orphan reclaim hook", (live) => {
 
       yield* orphanOf(binding, "young@example.com");
 
-      const { lines } = yield* retry(binding, "young@example.com", 598);
+      const { lines } = yield* retry(binding, "young@example.com", 300);
 
       assert.strictEqual(yield* rowsFor(binding, "young@example.com"), 1);
       assert.lengthOf(reclaims(lines), 0);
@@ -252,15 +253,123 @@ layer(LocalAuthD1.layer)("the orphan reclaim hook", (live) => {
     }),
   );
 
-  live.effect("reclaims the lowercase row for a padded mixed-case address", () =>
-    Effect.gen(function* mixedCase() {
+  live.effect(
+    "reclaims the lowercase row for a mixed-case address and lets the retry sign up",
+    () =>
+      Effect.gen(function* mixedCase() {
+        const binding = yield* LocalAuthD1;
+
+        yield* orphanOf(binding, "mixed@example.com");
+
+        const { lines, value } = yield* retry(binding, "Mixed@Example.COM", 601);
+
+        assert.strictEqual(value, 200);
+        assert.lengthOf(reclaims(lines), 1);
+      }),
+  );
+
+  live.effect("deletes nothing for a padded address, which Better Auth does not trim", () =>
+    Effect.gen(function* padded() {
       const binding = yield* LocalAuthD1;
 
-      yield* orphanOf(binding, "mixed@example.com");
+      yield* orphanOf(binding, "padded@example.com");
 
-      const { lines } = yield* retry(binding, "  Mixed@Example.COM ", 601);
+      const { lines, value } = yield* retry(binding, "  padded@example.com ", 3600);
 
-      assert.lengthOf(reclaims(lines), 1);
+      assert.notStrictEqual(value, 200);
+      assert.strictEqual(yield* rowsFor(binding, "padded@example.com"), 1);
+      assert.lengthOf(reclaims(lines), 0);
+    }),
+  );
+
+  live.effect("the guarded delete keeps a row unless every guard holds", () =>
+    Effect.gen(function* guards() {
+      const binding = yield* LocalAuthD1;
+
+      const run = (statement: string, ...values: readonly string[]) =>
+        Effect.promise(() =>
+          binding
+            .prepare(statement)
+            .bind(...values)
+            .run(),
+        );
+
+      const attempt = (id: string, overrides: Partial<Parameters<typeof deleteOrphan>[1]>) =>
+        Effect.gen(function* delete_() {
+          const access = yield* makeDatabase(binding);
+          const { db } = yield* access;
+
+          return yield* deleteOrphan(db, {
+            address: "never@example.com",
+            cutoff: new Date(Date.now() + 60_000),
+            id,
+            ...overrides,
+          });
+        }).pipe(asExecution);
+
+      const fresh = (name: string) =>
+        orphanOf(binding, `${name}@example.com`).pipe(
+          Effect.map((id) => ({ address: `${name}@example.com`, id })),
+        );
+
+      const kept = (name: string, id: string) =>
+        rowsFor(binding, `${name}@example.com`).pipe(
+          Effect.tap((rows) =>
+            Effect.sync(() => {
+              assert.strictEqual(rows, 1, `${name}: ${id}`);
+            }),
+          ),
+        );
+
+      const verified = yield* fresh("guard-verified");
+
+      yield* run("update user set email_verified = 1 where id = ?", verified.id);
+      assert.lengthOf(yield* attempt(verified.id, { address: verified.address }), 0);
+      yield* kept("guard-verified", verified.id);
+
+      const old = yield* fresh("guard-age");
+
+      assert.lengthOf(
+        yield* attempt(old.id, { address: old.address, cutoff: new Date(Date.now() - 3_600_000) }),
+        0,
+      );
+      yield* kept("guard-age", old.id);
+
+      const withAccount = yield* fresh("guard-account");
+
+      yield* run(
+        "insert into account (id, account_id, provider_id, user_id, updated_at) values ('guard-acc', 'x', 'credential', ?, 0)",
+        withAccount.id,
+      );
+      assert.lengthOf(yield* attempt(withAccount.id, { address: withAccount.address }), 0);
+      yield* kept("guard-account", withAccount.id);
+
+      const withPasskey = yield* fresh("guard-passkey");
+
+      yield* run(
+        "insert into passkey (id, public_key, user_id, credential_id, counter, device_type, backed_up) values ('guard-pk', 'key', ?, 'guard-cred', 0, 'singleDevice', 0)",
+        withPasskey.id,
+      );
+      assert.lengthOf(yield* attempt(withPasskey.id, { address: withPasskey.address }), 0);
+      yield* kept("guard-passkey", withPasskey.id);
+
+      const otherId = yield* fresh("guard-id");
+
+      assert.lengthOf(yield* attempt("not-this-id", { address: otherId.address }), 0);
+      yield* kept("guard-id", otherId.id);
+
+      const otherAddress = yield* fresh("guard-address");
+
+      assert.lengthOf(yield* attempt(otherAddress.id, { address: "someone-else@example.com" }), 0);
+      yield* kept("guard-address", otherAddress.id);
+
+      const control = yield* fresh("guard-control");
+
+      assert.deepStrictEqual(
+        (yield* attempt(control.id, { address: control.address })).map((row) => row.id),
+        [control.id],
+      );
+      assert.strictEqual(yield* rowsFor(binding, control.address), 0);
     }),
   );
 });

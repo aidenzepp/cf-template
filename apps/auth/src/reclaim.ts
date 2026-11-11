@@ -46,6 +46,37 @@ const SignUpBody = Schema.Struct({ email: Schema.String });
 const Held = Schema.Array(Schema.Struct({ account: Schema.Int, passkey: Schema.Int }));
 
 /**
+ * The one guarded `DELETE`: the row goes only when its id and address match, it is unverified,
+ * `created_at` is before the cutoff, and no `account` or `passkey` row references it. Every guard
+ * is evaluated by the statement itself, so a write that lands after any earlier check still keeps
+ * the row.
+ *
+ * @param db - The Drizzle database.
+ * @param target - The row to delete.
+ * @param target.address - The stored (lowercase) address.
+ * @param target.cutoff - Rows created before this instant may go.
+ * @param target.id - The user id.
+ * @returns The ids deleted: one, or none when a guard held the row.
+ */
+export const deleteOrphan = (
+  db: EffectSQLiteD1Database,
+  target: { readonly address: string; readonly cutoff: Date; readonly id: string },
+) =>
+  db
+    .delete(user)
+    .where(
+      and(
+        eq(user.id, target.id),
+        eq(user.email, target.address),
+        eq(user.emailVerified, false),
+        lt(user.createdAt, target.cutoff),
+        sql`not exists (select 1 from ${account} where ${account.userId} = ${target.id})`,
+        sql`not exists (select 1 from ${passkey} where ${passkey.userId} = ${target.id})`,
+      ),
+    )
+    .returning({ id: user.id });
+
+/**
  * Delete the user row of `email` when it is an abandoned orphan, and log the reclaim.
  *
  * The row goes only when `email_verified = 0`, no `account` row and no `passkey` row references it,
@@ -56,13 +87,14 @@ const Held = Schema.Array(Schema.Struct({ account: Schema.Int, passkey: Schema.I
  * never logged or annotated.
  *
  * @param db - The Drizzle database.
- * @param email - The submitted address, trimmed and lowercased here as Better Auth does.
+ * @param email - The submitted address, lowercased here as Better Auth does (it does not trim, so
+ *   a padded address matches no row and fails its own validation).
  * @param graceSeconds - The minimum age of a reclaimable row, in seconds.
  * @returns An effect that deletes at most that one row.
  */
 export const reclaimOrphan = (db: EffectSQLiteD1Database, email: string, graceSeconds: number) =>
   Effect.gen(function* reclaim() {
-    const address = email.trim().toLowerCase();
+    const address = email.toLowerCase();
 
     const [row] = yield* db
       .select({ createdAt: user.createdAt, emailVerified: user.emailVerified, id: user.id })
@@ -88,19 +120,7 @@ export const reclaimOrphan = (db: EffectSQLiteD1Database, email: string, graceSe
       return;
     }
 
-    const deleted = yield* db
-      .delete(user)
-      .where(
-        and(
-          eq(user.id, row.id),
-          eq(user.email, address),
-          eq(user.emailVerified, false),
-          lt(user.createdAt, cutoff),
-          sql`not exists (select 1 from ${account} where ${account.userId} = ${row.id})`,
-          sql`not exists (select 1 from ${passkey} where ${passkey.userId} = ${row.id})`,
-        ),
-      )
-      .returning({ id: user.id });
+    const deleted = yield* deleteOrphan(db, { address, cutoff, id: row.id });
 
     if (deleted.length === 0) {
       return;
