@@ -7,21 +7,26 @@ import { RestSettingsError } from "./rest.ts";
 const analyses = `GET ${base}/code-scanning/analyses`;
 
 /**
- * Answer the analyses read with one analysis and the rulesets read with `existing`.
+ * Answer the analyses read with one analysis and the rulesets read with one page of `pages` per
+ * `page` number (empty past the last). Without `includes_parents=false`, `parent` is listed first.
  *
- * @param existing - The live rulesets.
+ * @param pages - The repository's own rulesets, one array per page.
+ * @param parent - An organization ruleset that only an unfiltered listing shows.
  * @returns The `answer` function for `harness`.
  */
-const withAnalysis = (existing: ReadonlyArray<unknown>) => (call: string) => {
-  const bodies = new Map([
-    [analyses, [{ id: 1 }]],
-    [`GET ${base}/rulesets`, existing],
-  ]);
+const withAnalysis =
+  (pages: ReadonlyArray<ReadonlyArray<unknown>>, parent: ReadonlyArray<unknown> = []) =>
+  (call: string, search: string) => {
+    const params = new URLSearchParams(search);
+    const own = pages[Number(params.get("page") ?? 1) - 1] ?? [];
+    const listed = params.get("includes_parents") === "false" ? own : [...parent, ...own];
 
-  const body = bodies.get(call);
+    if (call === analyses) {
+      return { body: [{ id: 1 }], status: 200 };
+    }
 
-  return body === undefined ? undefined : { body, status: 200 };
-};
+    return call === `GET ${base}/rulesets` ? { body: listed, status: 200 } : undefined;
+  };
 
 /**
  * Answer the analyses read with 404 (none yet) and each listed call with its status.
@@ -76,12 +81,45 @@ describe("applyRestLabels", () => {
       const updated = harness(
         applyRestLabels,
         PRO,
-        withAnalysis([{ id: 7, name: "code-scanning" }]),
+        withAnalysis([[{ id: 7, name: "code-scanning" }]]),
       );
 
       yield* updated.run;
       assert.isTrue(updated.requests.some((request) => request.call === `PUT ${base}/rulesets/7`));
       assert.isFalse(updated.requests.some((request) => request.call === `POST ${base}/rulesets`));
+    }),
+  );
+
+  it.effect("finds the repository's own ruleset on the second page", () =>
+    Effect.gen(function* paged() {
+      const { requests, run } = harness(
+        applyRestLabels,
+        PRO,
+        withAnalysis([[{ id: 3, name: "other" }], [{ id: 7, name: "code-scanning" }]]),
+      );
+
+      yield* run;
+
+      const reads = requests.filter((request) => request.call === `GET ${base}/rulesets`);
+
+      assert.strictEqual(reads.length, 3);
+      assert.isTrue(requests.some((request) => request.call === `PUT ${base}/rulesets/7`));
+      assert.isFalse(requests.some((request) => request.call === `POST ${base}/rulesets`));
+    }),
+  );
+
+  it.effect("lists only the repository's own rulesets so an organization one is ignored", () =>
+    Effect.gen(function* parentRuleset() {
+      const { requests, run } = harness(
+        applyRestLabels,
+        PRO,
+        withAnalysis([[]], [{ id: 99, name: "code-scanning" }]),
+      );
+
+      yield* run;
+
+      assert.isTrue(requests.some((request) => request.call === `POST ${base}/rulesets`));
+      assert.isFalse(requests.some((request) => request.call === `PUT ${base}/rulesets/99`));
     }),
   );
 

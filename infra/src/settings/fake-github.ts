@@ -57,7 +57,8 @@ export interface Reply {
  *
  * @param runWith - Builds the effect from the repository and capability set.
  * @param capabilities - The tier's capabilities.
- * @param answer - The reply per `METHOD path`; return `undefined` for the default, 204.
+ * @param answer - The reply per `METHOD path` and query string; return `undefined` for the default,
+ *   204.
  * @returns The run, the recorded `METHOD path` list with bodies, and the printed lines.
  */
 export const harness = <A, E>(
@@ -66,7 +67,7 @@ export const harness = <A, E>(
     tier: { readonly capabilities: ReadonlySet<Capability> },
   ) => Effect.Effect<A, E, HttpClient.HttpClient>,
   capabilities: ReadonlyArray<Capability>,
-  answer?: (call: string) => Reply | undefined,
+  answer?: (call: string, search: string) => Reply | undefined,
 ) => {
   const requests: Array<{ readonly call: string; readonly body: unknown }> = [];
   const lines: Array<string> = [];
@@ -84,7 +85,7 @@ export const harness = <A, E>(
 
         requests.push({ body, call });
 
-        const reply = answer?.(call) ?? { status: 204 };
+        const reply = answer?.(call, url.search) ?? { status: 204 };
 
         return HttpClientResponse.fromWeb(
           request,

@@ -1,5 +1,5 @@
 import { Console, Effect, Schema } from "effect";
-import { HttpClient, HttpClientRequest } from "effect/http";
+import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
 import type { HttpMethod } from "effect/http/HttpMethod";
 import { githubToken } from "./repository.ts";
 import type { GuardedRepository } from "./repository.ts";
@@ -58,20 +58,60 @@ interface Call {
 const analysis = (key: string) => ({ security_and_analysis: { [key]: { status: "enabled" } } });
 
 /**
- * Sort an HTTP status into an outcome. 2xx applies; 403 and 422 mean the tier or plan lacks the
- * feature; a 404 where `goneIsApplied` is set means the thing is already gone.
- *
- * @param status - The response status, or 0 when the transport failed.
- * @param goneIsApplied - Whether 404 counts as applied.
- * @returns The outcome kind.
+ * What GitHub says when a feature is not offered to the plan or repository. A 403 or 422 from a
+ * tier-gated call counts as `unavailable` only when its response `message` contains one of these
+ * (case-insensitive); any other 403 or 422 is `failed`. These are GitHub's observed wordings, not a
+ * contract: "... is not available for this repository" (secret scanning, vulnerability alerts),
+ * "Advanced Security must be enabled for this repository ..." (code scanning) and "Upgrade to
+ * GitHub Pro or make this repository public ..." (rulesets, protection). Errors are documented in
+ * https://docs.github.com/en/rest/repos/repos#update-a-repository; the wording is not.
  */
-export const classify = (status: number, goneIsApplied = false): Kind => {
-  if ((status >= 200 && status < 300) || (goneIsApplied && status === 404)) {
-    return "applied";
+const PLAN_UNAVAILABLE = ["not available", "must be enabled", "upgrade to github"] as const;
+
+/**
+ * One call's outcome: its kind, the HTTP status (0 for a transport failure), and, for a rejected
+ * request, GitHub's `message`.
+ */
+interface Outcome {
+  readonly kind: Kind;
+  readonly status: number;
+  readonly detail?: string;
+}
+
+/**
+ * Sort a response into an {@link Outcome}. 2xx applies; a 404 where `goneIsApplied` is set means
+ * the thing is already gone; a 403 or 422 on a `gated` call whose message says the feature is not
+ * offered ({@link PLAN_UNAVAILABLE}) is `unavailable`. Everything else is `failed` and carries the
+ * response `message` (one line, 200 characters at most; never headers or the token).
+ *
+ * @param response - The GitHub response.
+ * @param options - `gated` marks a tier-gated call; `goneIsApplied` counts 404 as applied.
+ * @returns The outcome.
+ */
+export const settle = Effect.fn("settle")(function* settle(
+  response: HttpClientResponse.HttpClientResponse,
+  options: { readonly gated?: boolean; readonly goneIsApplied?: boolean } = {},
+) {
+  const { status } = response;
+
+  if ((status >= 200 && status < 300) || (options.goneIsApplied === true && status === 404)) {
+    return { kind: "applied", status } satisfies Outcome;
   }
 
-  return status === 403 || status === 422 ? "unavailable" : "failed";
-};
+  const { message = "" } = yield* HttpClientResponse.schemaBodyJson(
+    Schema.Struct({ message: Schema.optional(Schema.String) }),
+  )(response).pipe(Effect.orElseSucceed(() => ({ message: undefined })));
+
+  const lower = message.toLowerCase();
+
+  return (
+    options.gated === true &&
+    (status === 403 || status === 422) &&
+    PLAN_UNAVAILABLE.some((phrase) => lower.includes(phrase))
+      ? { kind: "unavailable", status }
+      : { detail: message.replaceAll(/\s+/gu, " ").slice(0, 200), kind: "failed", status }
+  ) satisfies Outcome;
+});
 
 /**
  * Print one outcome line and return its kind.
@@ -79,10 +119,33 @@ export const classify = (status: number, goneIsApplied = false): Kind => {
  * @param kind - The outcome.
  * @param setting - The setting's name.
  * @param status - The HTTP status, 0 for a transport failure, or `tier` when the call was skipped.
+ * @param detail - GitHub's message for a failed call, appended to the line when not empty.
  * @returns The kind, after the line is printed.
  */
-export const report = (kind: Kind, setting: string, status: number | "tier") =>
-  Console.log(`${kind} ${setting} ${status === 0 ? "error" : status}`).pipe(Effect.as(kind));
+export const report = (kind: Kind, setting: string, status: number | "tier", detail = "") =>
+  Console.log(
+    `${kind} ${setting} ${status === 0 ? "error" : status}${detail === "" ? "" : ` ${detail}`}`,
+  ).pipe(Effect.as(kind));
+
+/**
+ * Settle one response, print its outcome line, and return the kind. A transport failure is
+ * `failed`.
+ *
+ * @param setting - The setting's name.
+ * @param sent - The request, already built.
+ * @param options - As for {@link settle}.
+ * @returns The kind, after the line is printed.
+ */
+export const reportResponse = <E, R>(
+  setting: string,
+  sent: Effect.Effect<HttpClientResponse.HttpClientResponse, E, R>,
+  options?: { readonly gated?: boolean; readonly goneIsApplied?: boolean },
+) =>
+  sent.pipe(
+    Effect.flatMap((response) => settle(response, options)),
+    Effect.orElseSucceed((): Outcome => ({ kind: "failed", status: 0 })),
+    Effect.flatMap(({ detail, kind, status }) => report(kind, setting, status, detail)),
+  );
 
 /**
  * Total the outcomes of a run. Any failure ends the run in a {@link RestSettingsError} that carries
@@ -248,11 +311,9 @@ export const applyRest = Effect.fn("applyRest")(function* applyRest(
   const kinds = yield* Effect.forEach(callsFor(`${repository.owner}/${repository.name}`), (call) =>
     call.need !== undefined && !tier.capabilities.has(call.need)
       ? report("unavailable", call.setting, "tier")
-      : send(call.method, call.path, call.body).pipe(
-          Effect.map((response) => response.status),
-          Effect.orElseSucceed(() => 0),
-          Effect.flatMap((status) => report(classify(status), call.setting, status)),
-        ),
+      : reportResponse(call.setting, send(call.method, call.path, call.body), {
+          gated: call.need !== undefined,
+        }),
   );
 
   return yield* summarize(kinds);
