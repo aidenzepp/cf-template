@@ -11,6 +11,7 @@ import AuthWorker, { AuthDeployment } from "../../apps/auth/src/worker.ts";
 import { kindOf, workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
 import { compat } from "./compat.ts";
+import { publicOrigin } from "./origin.ts";
 
 /**
  * The refusal of a cloud stage whose `workers.dev` subdomain is unknown.
@@ -192,7 +193,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
   yield* declareDatabase(stack, stage, hint);
 
   const secret = yield* Alchemy.Random("BetterAuthSecret");
-  const origin = yield* resolvePublicOrigin({ stack, stage });
+  const origin = yield* publicOrigin({ stack, stage });
   const { methods, secrets } = yield* resolveMethods();
   const encodedMethods = yield* Schema.encodeEffect(Schema.fromJsonString(AuthMethods))(methods);
   const scrypt = yield* AUTH_PASSWORD_SCRYPT.encode(values.AUTH_PASSWORD_SCRYPT);
