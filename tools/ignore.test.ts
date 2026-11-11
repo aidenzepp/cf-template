@@ -1,17 +1,35 @@
-import { describe, expect, test } from "bun:test";
-import { fileURLToPath } from "node:url";
+import { BunServices } from "@effect/platform-bun";
+import { assert, describe, it } from "@effect/vitest";
+import { Effect, Path } from "effect";
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-const cwd = fileURLToPath(new URL("..", import.meta.url));
+/**
+ * Runs `git check-ignore -q` for a repository-relative path and returns git's exit code:
+ * 0 when the path is ignored, 1 when it is not.
+ */
+const checkIgnore = (target: string) =>
+  Effect.gen(function* run() {
+    const path = yield* Path.Path;
+    const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+    const cwd = yield* path.fromFileUrl(new URL("..", import.meta.url));
 
-const checkIgnore = (path: string): number =>
-  Bun.spawnSync(["git", "check-ignore", "-q", path], { cwd }).exitCode;
+    return yield* spawner.exitCode(
+      ChildProcess.make("git", ["check-ignore", "-q", target], { cwd }),
+    );
+  }).pipe(Effect.provide(BunServices.layer));
 
 describe("git check-ignore", () => {
-  test.each([".env", ".env.local", ".env.op", ".alchemy/x"])("ignores %s", (path) => {
-    expect(checkIgnore(path)).toBe(0);
-  });
+  for (const target of [".env", ".env.local", ".env.op", ".alchemy/x"]) {
+    it.effect(`ignores ${target}`, () =>
+      Effect.gen(function* ignored() {
+        assert.strictEqual(yield* checkIgnore(target), 0);
+      }),
+    );
+  }
 
-  test(".env.example is not ignored", () => {
-    expect(checkIgnore(".env.example")).toBe(1);
-  });
+  it.effect(".env.example is not ignored", () =>
+    Effect.gen(function* notIgnored() {
+      assert.strictEqual(yield* checkIgnore(".env.example"), 1);
+    }),
+  );
 });
