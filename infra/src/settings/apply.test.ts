@@ -97,6 +97,30 @@ describe("applySettings", () => {
       }),
     );
   }
+
+  for (const value of ["https://api.github.com", "https://api.github.com/"]) {
+    it.effect(`accepts GITHUB_API_URL=${value}, the default Actions runners set`, () =>
+      Effect.gen(function* accepted() {
+        const { calls, run } = harness({ GITHUB_API_URL: value }, true);
+
+        yield* run;
+
+        assert.strictEqual(calls[0], "GET /repos/acme/widget");
+      }),
+    );
+  }
+
+  it.effect("refuses GITHUB_API_URL set to another host without printing it", () =>
+    Effect.gen(function* refused() {
+      const { calls, run } = harness({ GITHUB_API_URL: "https://ghe.example.com/api/v3" }, true);
+      const failure = yield* Effect.flip(run);
+
+      assert.instanceOf(failure, AmbientCredentialsError);
+      assert.include(failure.message, "GITHUB_API_URL");
+      assert.notInclude(failure.message, "ghe.example.com");
+      assert.deepStrictEqual(calls, []);
+    }),
+  );
 });
 
 describe("withToken", () => {

@@ -1,6 +1,6 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { assert, describe, it } from "@effect/vitest";
-import { Context, DateTime, Effect, Schema } from "effect";
+import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { makeHandler } from "../worker.ts";
@@ -24,7 +24,12 @@ describe("the notes store of the api Worker", () => {
    */
   const callOn = (notes: NotesService, request: Request) =>
     Effect.gen(function* call() {
-      const handler = yield* makeHandler(() => Effect.succeed(ada), Context.make(Notes, notes));
+      // No live adapter: `LiveKnobs` falls back to its tier (b) default, as with an empty namespace.
+      const handler = yield* makeHandler(
+        () => Effect.succeed(ada),
+        Context.make(Notes, notes),
+        Layer.empty,
+      );
 
       const response = yield* handler.pipe(
         Effect.provideService(

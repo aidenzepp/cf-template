@@ -41,7 +41,7 @@ const noAnalysis =
   });
 
 describe("applyRestLabels", () => {
-  it.effect("deletes the six default labels and treats a missing one as applied", () =>
+  it.effect("deletes the seven default labels and treats a missing one as applied", () =>
     Effect.gen(function* labels() {
       const { lines, requests, run } = harness(
         applyRestLabels,
@@ -66,7 +66,7 @@ describe("applyRestLabels", () => {
       const { lines, requests, run } = harness(applyRestLabels, PRO, noAnalysis());
       const summary = yield* run;
 
-      assert.deepStrictEqual(summary, { applied: 6, failed: 0, unavailable: 0 });
+      assert.deepStrictEqual(summary, { applied: 7, failed: 0, unavailable: 0 });
       assert.include(lines, "PENDING code-scanning ruleset: no analysis on main yet");
       assert.isFalse(requests.some((request) => request.call.endsWith("/rulesets")));
     }),
@@ -128,7 +128,7 @@ describe("applyRestLabels", () => {
       const skipped = harness(applyRestLabels, []);
       const summary = yield* skipped.run;
 
-      assert.deepStrictEqual(summary, { applied: 6, failed: 0, unavailable: 1 });
+      assert.deepStrictEqual(summary, { applied: 7, failed: 0, unavailable: 1 });
       assert.include(skipped.lines, "unavailable code-scanning-ruleset tier");
       assert.isFalse(skipped.requests.some((request) => request.call === analyses));
 

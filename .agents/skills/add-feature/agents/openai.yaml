@@ -1,0 +1,4 @@
+interface:
+  display_name: "Add Feature"
+  short_description: "Add a feature slice that declares no resource and adds no Worker"
+  default_prompt: "Use $add-feature to name the slice and its paths, write the contract first, write the api service and attach it with one attach line, add the contract exports entry, write the web route and atoms, regenerate the route tree, add tests beside the code, and run bun run check then bun run test."

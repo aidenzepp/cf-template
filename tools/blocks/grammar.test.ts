@@ -208,18 +208,19 @@ it.effect("the three real blocks.ts files parse without an unknown attach shape"
         // block:notes start
         "ExampleFeatureGateLive",
         // block:notes end
+        "KnobsKvLive",
         "NoIsolateServices",
         // block:notes start
         "NotesIsolateLive",
         // block:notes end
       ],
-      [],
-      [],
+      ["KnobsKvLive"],
+      ["KnobsKvLive"],
     ]);
   }).pipe(Effect.provide(BunServices.layer)),
 );
 
-it.effect("the real api blocks.ts collapsed onto single lines still yields its six names", () =>
+it.effect("the real api blocks.ts collapsed onto single lines still yields its seven names", () =>
   Effect.gen(function* collapsedReal() {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -252,6 +253,7 @@ it.effect("the real api blocks.ts collapsed onto single lines still yields its s
         // block:notes start
         "ExampleFeatureGateLive",
         // block:notes end
+        "KnobsKvLive",
         "NoIsolateServices",
         // block:notes start
         "NotesIsolateLive",
@@ -269,7 +271,7 @@ it.effect("the real blocks.json decodes", () =>
       yield* path.fromFileUrl(new URL("../../blocks.json", import.meta.url)),
     );
 
-    assert.strictEqual(manifest.attachFiles.length, 6);
+    assert.strictEqual(manifest.attachFiles.length, 7);
     assert.deepStrictEqual(
       manifest.slices.map((slice) => [slice.name, slice.keep]),
       [
@@ -278,6 +280,11 @@ it.effect("the real blocks.json decodes", () =>
         // block:notes end
       ],
     );
-    assert.deepStrictEqual(manifest.blocks, []);
+    // block:budget-guard start
+    assert.deepStrictEqual(
+      manifest.blocks.map((block) => block.name),
+      ["budget-guard"],
+    );
+    // block:budget-guard end
   }).pipe(Effect.provide(BunServices.layer)),
 );

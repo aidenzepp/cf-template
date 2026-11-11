@@ -16,8 +16,10 @@ import { PublicOrigin, WEB_DEV_PORT } from "@workspace/config/public-origin";
 import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "./config.ts";
 import { AUTH_BASE_PATH, OAUTH_ERROR_PATH } from "./contract.ts";
 import * as schema from "./db/schema.ts";
+import { authRelations } from "./db/schema.ts";
 import { createAuthMiddleware } from "better-auth/api";
 import { requireFreshSession } from "./fresh-session.ts";
+import { betterAuthLogger } from "./logger.ts";
 import { passkeyPlugin } from "./passkeys.ts";
 import { passwordFor, rehashAfterSignIn } from "./password.ts";
 import type { RunEffect } from "./password.ts";
@@ -231,7 +233,7 @@ export const adapterOptions = {
  * `db.transaction`.
  */
 const adapterFor = Effect.fnUntraced(function* adapterFor(binding: RawDatabase) {
-  const access = yield* makeDatabase(binding);
+  const access = yield* makeDatabase(binding, authRelations);
   const { db } = yield* access;
   const services = yield* Effect.context();
 
@@ -331,6 +333,9 @@ const makeInstance = Effect.gen(function* makeInstance() {
         await reclaim(ctx);
       }),
     },
+    logger: betterAuthLogger((effect) => {
+      Effect.runForkWith(services)(effect);
+    }),
     migrate: false,
     secret: Effect.succeed(settings.secret),
     session: {
