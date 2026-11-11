@@ -1,7 +1,7 @@
 import { assert, layer } from "@effect/vitest";
 import { Effect, Layer, Logger, Option, Ref } from "effect";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
-import { Scrypt, hashEffect, needsRehash, parse, verifyEffect } from "./password.ts";
+import { Scrypt, ScryptError, hashEffect, needsRehash, parse, verifyEffect } from "./password.ts";
 import { LocalAuthD1, asExecution, authOver, signIn, signUp } from "./test-harness.ts";
 
 /**
@@ -95,6 +95,23 @@ layer(Layer.empty)("password hasher", (it) => {
     }),
   );
 
+  it.effect("answers false and logs a fixed event when scrypt fails", () =>
+    Effect.gen(function* failing() {
+      const stored = yield* hashEffect(OLDER, "pw");
+
+      const broken = {
+        derive: () => Effect.fail(new ScryptError({ cause: "secret-cause", keyLength: 64 })),
+      };
+
+      const { lines, value } = yield* logged(
+        verifyEffect({ hash: stored, password: "pw" }).pipe(Effect.provideService(Scrypt, broken)),
+      );
+
+      assert.isFalse(value);
+      assert.deepStrictEqual(lines, ['["auth.password.verify_failed"]']);
+    }),
+  );
+
   it.effect("parses the parts and compares the cost with the knob", () =>
     Effect.gen(function* costs() {
       const stored = yield* hashEffect(OLDER, "pw");
@@ -146,6 +163,93 @@ layer(LocalAuthD1.layer)("rehash on sign-in", (it) => {
         assert.isFalse(needsRehash(after, CURRENT));
         assert.isTrue(yield* verifyEffect({ hash: after, password: "correct horse battery" }));
       }).pipe(Effect.provide(authOver(binding)), asExecution);
+    }),
+  );
+});
+
+layer(LocalAuthD1.layer)("rehash compare-and-set", (it) => {
+  it.effect("leaves a password changed during the rehash untouched", () =>
+    Effect.gen(function* race() {
+      const binding = yield* LocalAuthD1;
+      const email = "race@example.test";
+      const changed = yield* hashEffect(CURRENT, "a newer password");
+      const older = yield* hashEffect(OLDER, "correct horse battery");
+      const { derive } = Scrypt.defaultValue();
+      const calls = yield* Ref.make(0);
+
+      const racing = {
+        derive: (...args: Parameters<typeof derive>) =>
+          Effect.gen(function* step() {
+            const count = yield* Ref.updateAndGet(calls, (n) => n + 1);
+
+            if (count === 2) {
+              yield* Effect.promise(() =>
+                binding
+                  .prepare("UPDATE account SET password = ? WHERE provider_id = 'credential'")
+                  .bind(changed)
+                  .run(),
+              );
+            }
+
+            return yield* derive(...args);
+          }),
+      };
+
+      yield* Effect.gen(function* flow() {
+        assert.strictEqual((yield* signUp(email)).status, 200);
+
+        yield* Effect.promise(() =>
+          binding
+            .prepare("UPDATE account SET password = ? WHERE provider_id = 'credential'")
+            .bind(older)
+            .run(),
+        );
+
+        yield* Ref.set(calls, 0);
+        assert.strictEqual((yield* signIn(email)).status, 200);
+
+        const row = yield* Effect.promise(() =>
+          binding
+            .prepare("SELECT password FROM account WHERE provider_id = 'credential'")
+            .first<{ password: string }>(),
+        );
+
+        assert.strictEqual(row?.password, changed);
+      }).pipe(
+        Effect.provide(authOver(binding).pipe(Layer.provide(Layer.succeed(Scrypt, racing)))),
+        asExecution,
+      );
+    }),
+  );
+});
+
+layer(LocalAuthD1.layer)("sign-in when scrypt fails", (it) => {
+  it.effect("answers 401, not a server error", () =>
+    Effect.gen(function* failing() {
+      const binding = yield* LocalAuthD1;
+      const { derive } = Scrypt.defaultValue();
+      const calls = yield* Ref.make(0);
+
+      const failAfterSignUp = {
+        derive: (...args: Parameters<typeof derive>) =>
+          Ref.updateAndGet(calls, (n) => n + 1).pipe(
+            Effect.flatMap((count) =>
+              count === 1
+                ? derive(...args)
+                : Effect.fail(new ScryptError({ cause: "boom", keyLength: 64 })),
+            ),
+          ),
+      };
+
+      yield* Effect.gen(function* flow() {
+        assert.strictEqual((yield* signUp("fails@example.test")).status, 200);
+        assert.strictEqual((yield* signIn("fails@example.test")).status, 401);
+      }).pipe(
+        Effect.provide(
+          authOver(binding).pipe(Layer.provide(Layer.succeed(Scrypt, failAfterSignUp))),
+        ),
+        asExecution,
+      );
     }),
   );
 });

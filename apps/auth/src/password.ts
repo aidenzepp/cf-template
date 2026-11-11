@@ -220,8 +220,9 @@ export const hashEffect = (params: ScryptCost, password: string) =>
 /**
  * The effect of checking a password against a stored hash.
  *
- * A malformed or legacy string logs `auth.password.malformed` and answers `false` before any
- * scrypt call. The comparison is constant-time and runs only on equal lengths.
+ * A malformed or legacy string logs `auth.password.malformed` and answers `false` before any scrypt
+ * call; a failed derivation logs `auth.password.verify_failed` and answers `false`. The comparison
+ * is constant-time and runs only on equal lengths.
  *
  * @param input - The stored hash and the candidate password.
  * @returns Whether the password matches.
@@ -237,9 +238,19 @@ export const verifyEffect = (input: { readonly hash: string; readonly password: 
     }
 
     const { key, params, salt } = parsed.value;
-    const derived = yield* derive(input.password.normalize("NFKC"), salt, params, key.length);
 
-    return derived.length === key.length && timingSafeEqual(derived, key);
+    const derived = yield* derive(input.password.normalize("NFKC"), salt, params, key.length).pipe(
+      Effect.asSome,
+      Effect.catchTag("ScryptError", () =>
+        Effect.logWarning("auth.password.verify_failed").pipe(Effect.as(Option.none())),
+      ),
+    );
+
+    return (
+      Option.isSome(derived) &&
+      derived.value.length === key.length &&
+      timingSafeEqual(derived.value, key)
+    );
   });
 
 /**
@@ -292,14 +303,29 @@ export const rehashAfterSignIn = (params: ScryptCost, run: RunEffect): BetterAut
 
               const stored = account?.password;
 
-              if (stored === undefined || stored === null || !needsRehash(stored, params)) {
+              if (
+                account === null ||
+                account === undefined ||
+                stored === undefined ||
+                stored === null ||
+                !needsRehash(stored, params)
+              ) {
                 return;
               }
 
               const replacement = yield* hashEffect(params, body.value.password);
 
+              // Compare-and-set: only the row still holding the hash just verified is rewritten, so a
+              // password changed meanwhile is never reverted.
               yield* Effect.tryPromise(() =>
-                ctx.context.internalAdapter.updatePassword(userId, replacement),
+                ctx.context.adapter.updateMany({
+                  model: "account",
+                  update: { password: replacement },
+                  where: [
+                    { field: "id", value: account.id },
+                    { field: "password", value: stored },
+                  ],
+                }),
               );
             }).pipe(Effect.catchCause(() => Effect.logWarning("auth.password.rehash_failed"))),
           );
