@@ -106,6 +106,8 @@ const passwordOptions = (params: ScryptCost, run: RunEffect, origin: string) => 
  * schema. Later issues add the hasher, the hooks and the providers here.
  */
 export const authOptions = {
+  // Only the edge-set client address is trusted; `web` strips the client-suppliable headers.
+  advanced: { ipAddress: { ipAddressHeaders: Array.of("cf-connecting-ip") } },
   basePath: AUTH_BASE_PATH,
   onAPIError: { errorURL: OAUTH_ERROR_PATH },
   ...passwordOptions(AUTH_PASSWORD_SCRYPT.default, Effect.runPromise, DEV_ORIGIN),

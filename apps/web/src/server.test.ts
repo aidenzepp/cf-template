@@ -350,6 +350,28 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
     }),
   );
 
+  it.effect("strips spoofable client-address headers and keeps cf-connecting-ip", () =>
+    Effect.gen(function* spoof() {
+      const web = yield* WebProd;
+
+      const body = yield* web
+        .request("/auth/x", {
+          headers: {
+            "cf-connecting-ip": "203.0.113.7",
+            forwarded: "for=198.51.100.1",
+            "x-forwarded-for": "198.51.100.1",
+            "x-real-ip": "198.51.100.1",
+          },
+        })
+        .pipe(Effect.flatMap((response) => decodeBody(Echo, response)));
+
+      expect(body.headers["cf-connecting-ip"]).toBe("203.0.113.7");
+      expect(body.headers["x-forwarded-for"]).toBeUndefined();
+      expect(body.headers["x-real-ip"]).toBeUndefined();
+      expect(body.headers.forwarded).toBeUndefined();
+    }),
+  );
+
   it.effect("answers 502 HTML to a navigation when the binding throws", () =>
     Effect.gen(function* html() {
       const web = yield* WebProd;

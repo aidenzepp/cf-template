@@ -8,9 +8,18 @@ import { FORWARD_PREFIXES } from "./forward-prefixes.ts";
 export type ForwardTarget = "API" | "AUTH";
 
 /**
- * The trace-context headers dropped from every forwarded request. `web` injects none of its own.
+ * The headers dropped from every forwarded request: the trace-context headers (`web` injects none
+ * of its own) and the client-address headers a caller can spoof. `cf-connecting-ip`, which the
+ * edge sets, is the only client address left.
  */
-const STRIPPED_HEADERS = ["traceparent", "tracestate", "b3"] as const;
+const STRIPPED_HEADERS = [
+  "traceparent",
+  "tracestate",
+  "b3",
+  "x-forwarded-for",
+  "x-real-ip",
+  "forwarded",
+] as const;
 
 /**
  * The binding that owns each prefix of {@link FORWARD_PREFIXES}.
@@ -98,7 +107,8 @@ const failedForward = (request: Request, render: Effect.Effect<Response>) =>
 /**
  * Forward a request to a service binding with its path, cookies and other headers intact.
  *
- * Inbound `traceparent`, `tracestate` and `b3` are removed and nothing is injected. Any status the
+ * Inbound `traceparent`, `tracestate`, `b3`, `x-forwarded-for`, `x-real-ip` and `forwarded` are
+ * removed and nothing is injected. Any status the
  * binding returns, 4xx and 5xx included, passes through unchanged. The forward fails only when the
  * binding rejects or throws, and that failure answers 502: the outage page for a navigation, the
  * problem document for anything else. The response is the binding's own object, so `Set-Cookie`
