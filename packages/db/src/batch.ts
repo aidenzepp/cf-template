@@ -5,7 +5,7 @@ import type { NonEmptyReadonlyArray } from "effect/Array";
  * A Drizzle builder reduced to what `batch` reads from it: its compiled SQL and parameters.
  */
 interface Compilable {
-  toSQL: () => { readonly params: readonly unknown[]; readonly sql: string };
+  toSQL: () => { readonly params: ReadonlyArray<unknown>; readonly sql: string };
 }
 
 /**

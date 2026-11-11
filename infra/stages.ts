@@ -201,14 +201,12 @@ export const workerName = (parts: {
  * Decode `raw` through `knob`, failing at module load when it is invalid.
  *
  * @param knob - The knob whose codec validates the value.
- * @param knob.decode - The knob's string codec.
+ * @param knob.decodeSync - The knob's synchronous string codec.
  * @param raw - The string form of the value.
  * @returns The decoded value.
  */
-const validated = <A>(
-  knob: { readonly decode: (raw: string) => Effect.Effect<A, Schema.SchemaError> },
-  raw: string,
-): A => Effect.runSync(knob.decode(raw));
+const validated = <A>(knob: { readonly decodeSync: (raw: string) => A }, raw: string): A =>
+  knob.decodeSync(raw);
 
 /**
  * The knob values of one stage kind.

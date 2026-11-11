@@ -73,7 +73,7 @@ const CODE_COPY: Readonly<Record<OAuthErrorCodeValue, string>> = {
 /**
  * Every allowlisted code, for the test that compares it with Better Auth's.
  */
-export const OAUTH_ERROR_CODES: readonly string[] = Object.keys(CODE_COPY);
+export const OAUTH_ERROR_CODES: ReadonlyArray<string> = Object.keys(CODE_COPY);
 
 const decodeCode = Schema.decodeUnknownOption(OAuthErrorCode);
 

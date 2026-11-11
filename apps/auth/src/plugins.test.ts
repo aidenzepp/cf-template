@@ -19,7 +19,7 @@ const ALLOWED_PLUGIN_IDS: ReadonlySet<string> = new Set(["passkey", "rehash-afte
  * @param plugins - The plugins of a Better Auth instance.
  * @returns The ids outside the allowlist, in order.
  */
-const outsideAllowlist = (plugins: readonly Pick<BetterAuthPlugin, "id">[]) =>
+const outsideAllowlist = (plugins: ReadonlyArray<Pick<BetterAuthPlugin, "id">>) =>
   plugins.flatMap(({ id }) => (ALLOWED_PLUGIN_IDS.has(id) ? [] : [id]));
 
 it("carries only plugins the orphan reclaim predicate was reviewed against", () => {

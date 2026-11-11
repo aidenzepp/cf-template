@@ -75,7 +75,14 @@ const WebProdLive = Layer.effect(WebProd)(
       .exitCode(
         ChildProcess.make("bun", ["run", "build:prod-harness", "--outDir", outDir], { cwd: web }),
       )
-      .pipe(Effect.mapError((cause) => new HarnessError({ message: cause.message })));
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new HarnessError({
+              message: `the production harness build could not be spawned: ${cause.message}`,
+            }),
+        ),
+      );
 
     if (build !== 0) {
       return yield* new HarnessError({ message: `build:prod-harness exited ${build}` });
@@ -90,7 +97,10 @@ const WebProdLive = Layer.effect(WebProd)(
 
     const mf = yield* Effect.acquireRelease(
       Effect.tryPromise({
-        catch: (cause) => new HarnessError({ message: String(cause) }),
+        catch: (cause) =>
+          new HarnessError({
+            message: `Miniflare could not start the web Worker: ${String(cause)}`,
+          }),
         try: async () => {
           const instance = new Miniflare({
             workers: [
@@ -131,7 +141,10 @@ const WebProdLive = Layer.effect(WebProd)(
     return WebProd.of({
       get: (target, cookie) =>
         Effect.tryPromise({
-          catch: (cause) => new HarnessError({ message: String(cause) }),
+          catch: (cause) =>
+            new HarnessError({
+              message: `the harness request to ${target} did not complete: ${String(cause)}`,
+            }),
           try: async () => {
             const response = await mf.dispatchFetch(`http://web.test${target}`, {
               headers: { accept: "text/html", cookie: cookie ?? "" },
@@ -154,7 +167,12 @@ const readsOf = Effect.gen(function* readsOf() {
   const { html } = yield* (yield* WebProd).get("/api/session-reads");
 
   return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Reads))(html).pipe(
-    Effect.mapError((cause) => new HarnessError({ message: String(cause) })),
+    Effect.mapError(
+      (cause) =>
+        new HarnessError({
+          message: `the session-reads response did not match the expected schema: ${String(cause)}`,
+        }),
+    ),
   );
 });
 
@@ -170,8 +188,9 @@ layer(WebProdLive, { timeout: 120_000 })("protected routes", (it) => {
       const { last } = yield* readsOf;
 
       expect(last?.cookie).toBe("stub=in");
-      expect(last?.names).not.toContain("authorization");
-      expect(last?.names).not.toContain("x-forwarded-for");
+      expect(
+        last?.names.filter((name) => name === "authorization" || name === "x-forwarded-for"),
+      ).toStrictEqual([]);
     }),
   );
 

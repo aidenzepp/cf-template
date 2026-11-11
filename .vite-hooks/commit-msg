@@ -1,0 +1,4 @@
+#!/bin/sh
+set -eu
+PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
+bun tools/commit-msg/validate.ts "$1"

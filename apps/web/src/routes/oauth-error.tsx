@@ -21,7 +21,7 @@ const OAuthError = () => {
     <main className="mx-auto flex min-h-svh w-full max-w-sm flex-col justify-center gap-4 p-4">
       <Card>
         <CardHeader>
-          <CardTitle>We couldn't sign you in</CardTitle>
+          <CardTitle>We couldn&apos;t sign you in</CardTitle>
           <CardDescription>{oauthErrorCopy(error)}</CardDescription>
         </CardHeader>
         <CardContent>

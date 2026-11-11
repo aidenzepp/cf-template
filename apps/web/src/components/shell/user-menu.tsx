@@ -92,7 +92,9 @@ export const UserMenu = () => {
   }
 
   return data === null ? (
-    <Skeleton aria-label="Loading account" className="size-8" role="status" />
+    <output aria-label="Loading account" className="block">
+      <Skeleton className="size-8" />
+    </output>
   ) : (
     <AccountMenu user={data.user} />
   );

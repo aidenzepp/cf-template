@@ -1,0 +1,28 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [],
+        "patterns": [
+          {
+            "group": [
+              "@workspace/web",
+              "@workspace/web/*",
+              "@workspace/api",
+              "@workspace/api/*",
+              "@workspace/auth",
+              "@workspace/auth/*",
+              "!@workspace/*/contract"
+            ],
+            "message": "an app imports another app only as @workspace/<app>/contract"
+          },
+          {
+            "group": ["@workspace/infra", "@workspace/infra/*"],
+            "message": "an app never imports infra"
+          }
+        ]
+      }
+    ]
+  }
+}

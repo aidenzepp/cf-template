@@ -90,7 +90,7 @@ export const decideLocationHint = (input: {
  * @returns Success, or {@link D1LocationHintChanged} for the first database that would change.
  */
 export const guardLocationHints = Effect.fn("guardLocationHints")(function* guardLocationHints(
-  databases: readonly string[],
+  databases: ReadonlyArray<string>,
   desired: Option.Option<string>,
 ) {
   const stage = yield* Alchemy.Stage;

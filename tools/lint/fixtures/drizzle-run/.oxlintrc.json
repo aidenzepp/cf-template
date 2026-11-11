@@ -1,0 +1,19 @@
+{
+  "rules": {
+    "no-restricted-properties": [
+      "error",
+      { "object": "db", "property": "run", "message": "raw SQL only in packages/db" },
+      { "object": "db", "property": "all", "message": "raw SQL only in packages/db" },
+      { "object": "db", "property": "get", "message": "raw SQL only in packages/db" },
+      { "object": "db", "property": "values", "message": "raw SQL only in packages/db" },
+      { "object": "tx", "property": "run", "message": "raw SQL only in packages/db" },
+      { "object": "tx", "property": "all", "message": "raw SQL only in packages/db" },
+      { "object": "tx", "property": "get", "message": "raw SQL only in packages/db" },
+      { "object": "tx", "property": "values", "message": "raw SQL only in packages/db" },
+      { "object": "database", "property": "run", "message": "raw SQL only in packages/db" },
+      { "object": "database", "property": "all", "message": "raw SQL only in packages/db" },
+      { "object": "database", "property": "get", "message": "raw SQL only in packages/db" },
+      { "object": "database", "property": "values", "message": "raw SQL only in packages/db" }
+    ]
+  }
+}

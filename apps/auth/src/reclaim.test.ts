@@ -29,8 +29,8 @@ interface Line {
  */
 const observed = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* observe() {
-    const lines = yield* Ref.make<readonly Line[]>([]);
-    const spans: Tracer.NativeSpan[] = [];
+    const lines = yield* Ref.make<ReadonlyArray<Line>>([]);
+    const spans: Array<Tracer.NativeSpan> = [];
 
     const logger = Logger.make(({ fiber, message }) => {
       const annotations = fiber.getRef(References.CurrentLogAnnotations);
@@ -158,7 +158,7 @@ const retry = (
  * @param lines - Every line written.
  * @returns The lines named `auth.orphan.reclaim`.
  */
-const reclaims = (lines: readonly Line[]) =>
+const reclaims = (lines: ReadonlyArray<Line>) =>
   lines.filter((line) => line.message === '["auth.orphan.reclaim"]');
 
 layer(LocalAuthD1.layer)("the orphan reclaim hook", (live) => {
@@ -287,7 +287,7 @@ layer(LocalAuthD1.layer)("the orphan reclaim hook", (live) => {
     Effect.gen(function* guards() {
       const binding = yield* LocalAuthD1;
 
-      const run = (statement: string, ...values: readonly string[]) =>
+      const run = (statement: string, ...values: ReadonlyArray<string>) =>
         Effect.promise(() =>
           binding
             .prepare(statement)

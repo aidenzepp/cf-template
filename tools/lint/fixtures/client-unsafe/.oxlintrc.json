@@ -1,0 +1,5 @@
+{
+  "rules": {
+    "no-restricted-properties": ["error", { "property": "unsafe", "message": "raw SQL only in packages/db" }]
+  }
+}

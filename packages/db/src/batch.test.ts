@@ -28,7 +28,7 @@ layer(LocalD1.layer)("batch", (it) => {
 
         const rows = yield* db.select().from(items).orderBy(items.id);
 
-        expect(rows).toEqual([
+        expect(rows).toStrictEqual([
           { id: "a", n: 1 },
           { id: "b", n: 2 },
         ]);
@@ -54,7 +54,7 @@ layer(LocalD1.layer)("batch", (it) => {
         const rows = yield* db.select().from(items);
 
         expect(failure._tag).toBe("SqlError");
-        expect(rows).toEqual([]);
+        expect(rows).toStrictEqual([]);
       }),
     ),
   );

@@ -47,23 +47,30 @@ describe("migrations directories", () => {
 });
 
 describe("d1Props", () => {
-  for (const { extra, name, nonProdName, props } of databases) {
-    it(`leaves the ${name} prod database unnamed, without jurisdiction or hint`, () => {
+  it.each(databases)(
+    "leaves the $name prod database unnamed, without jurisdiction or hint",
+    ({ extra, props }) => {
       const prod = props("stack", "prod", Option.none());
 
       assert.deepStrictEqual(prod, { ...extra });
-    });
+    },
+  );
 
-    it(`sets the ${name} prod location hint only for a Some hint`, () => {
+  it.each(databases)(
+    "sets the $name prod location hint only for a Some hint",
+    ({ extra, props }) => {
       const prod = props("stack", "prod", Option.some("weur"));
 
       assert.deepStrictEqual(prod, { ...extra, primaryLocationHint: "weur" });
-    });
+    },
+  );
 
-    it(`names the ${name} non-prod database explicitly and ignores the hint`, () => {
+  it.each(databases)(
+    "names the $name non-prod database explicitly and ignores the hint",
+    ({ extra, nonProdName, props }) => {
       const test = props("stack", "test-i05", Option.some("weur"));
 
       assert.deepStrictEqual(test, { ...extra, name: nonProdName("test-i05") });
-    });
-  }
+    },
+  );
 });

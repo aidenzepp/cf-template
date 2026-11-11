@@ -64,9 +64,9 @@ const NO_OUTCOME: Outcome = { failed: false, text: null };
  */
 const useLoaded = <Item,>(
   call: () => PromiseLike<Settled>,
-  decode: (settled: Settled) => Option.Option<readonly Item[]>,
+  decode: (settled: Settled) => Option.Option<ReadonlyArray<Item>>,
 ) => {
-  const [items, setItems] = useState<readonly Item[]>([]);
+  const [items, setItems] = useState<ReadonlyArray<Item>>([]);
   const [failure, setFailure] = useState<string | null>(null);
   const [reloads, setReloads] = useState(0);
 
@@ -99,6 +99,7 @@ const useLoaded = <Item,>(
     return () => {
       current = false;
     };
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- reloads is the Reload trigger: bumping it reruns the effect; the effect intentionally does not read it
   }, [call, decode, reloads]);
 
   return {
@@ -354,7 +355,7 @@ const AccountsCard = ({
   providers,
 }: {
   readonly askFresh: (retry: () => void) => void;
-  readonly providers: readonly string[];
+  readonly providers: ReadonlyArray<string>;
 }) => {
   const { outcome, pending, run } = useRun(askFresh);
   const { failure, items: accounts, reload } = useLoaded(calls.listAccounts, accountsOf);

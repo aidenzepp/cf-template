@@ -8,8 +8,8 @@
 export const PasswordResetNotice = ({ email }: { readonly email: boolean }) =>
   email ? null : (
     <p className="text-muted-foreground text-sm">
-      Forgot your password? It can't be reset on this site yet. If you added a passkey or linked an
-      account, sign in with that.
+      Forgot your password? It can&apos;t be reset on this site yet. If you added a passkey or
+      linked an account, sign in with that.
     </p>
   );
 

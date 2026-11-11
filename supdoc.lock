@@ -18,3 +18,8 @@ hash = "49c615d7cb85a7a91224f316ecbd5e4f2b2d0955d7a21003565e7be3d2da7058"
 source = ".agents/skills/trace-effect/SKILL.md"
 target = ".agents/skills/trace-effect/references/examples.md"
 hash = "abb8725cb1c585dccb23d0501a55f957e7b63b41c166947fd58cc76d5ba25476"
+
+[[link]]
+source = ".agents/skills/write-migration/SKILL.md"
+target = ".agents/skills/write-migration/references/examples.md"
+hash = "bdda1772c118ac9bbdeaac9d74d3eff9ab717ce2085dfbec3964acaa8d64966e"

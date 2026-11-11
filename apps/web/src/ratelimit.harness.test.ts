@@ -83,7 +83,7 @@ class WebProd extends Context.Service<
       headers: Record<string, string>,
     ) => Effect.Effect<HarnessResponse, HarnessError>;
     readonly limiterCalls: (name: "credential" | "public") => Effect.Effect<number, HarnessError>;
-    readonly stderr: () => readonly string[];
+    readonly stderr: () => ReadonlyArray<string>;
   }
 >()("@workspace/web/RateLimitWebProd") {}
 
@@ -105,7 +105,14 @@ const WebProdLive = Layer.effect(WebProd)(
           extendEnv: true,
         }),
       )
-      .pipe(Effect.mapError((cause) => new HarnessError({ message: cause.message })));
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new HarnessError({
+              message: `the production harness build could not be spawned: ${cause.message}`,
+            }),
+        ),
+      );
 
     if (build !== 0) {
       return yield* new HarnessError({ message: `build:prod-harness exited ${build}` });
@@ -118,11 +125,14 @@ const WebProdLive = Layer.effect(WebProd)(
       file.endsWith(".js"),
     );
 
-    const stderr: string[] = [];
+    const stderr: Array<string> = [];
 
     const mf = yield* Effect.acquireRelease(
       Effect.tryPromise({
-        catch: (cause) => new HarnessError({ message: String(cause) }),
+        catch: (cause) =>
+          new HarnessError({
+            message: `Miniflare could not start the web Worker: ${String(cause)}`,
+          }),
         try: async () => {
           const instance = new Miniflare({
             handleRuntimeStdio: (_stdout: StderrStream, err: StderrStream) => {
@@ -182,7 +192,10 @@ const WebProdLive = Layer.effect(WebProd)(
     return WebProd.of({
       limiterCalls: (name) =>
         Effect.tryPromise({
-          catch: (cause) => new HarnessError({ message: String(cause) }),
+          catch: (cause) =>
+            new HarnessError({
+              message: `the rate limiter call count for ${name} could not be read: ${String(cause)}`,
+            }),
           try: async () => {
             const worker = await mf.getWorker(`limit-${name}`);
             const reply = await worker.fetch("http://limiter.test/");
@@ -193,7 +206,10 @@ const WebProdLive = Layer.effect(WebProd)(
         }),
       send: (method, target, headers) =>
         Effect.tryPromise({
-          catch: (cause) => new HarnessError({ message: String(cause) }),
+          catch: (cause) =>
+            new HarnessError({
+              message: `the harness ${method} request to ${target} did not complete: ${String(cause)}`,
+            }),
           try: () =>
             mf.dispatchFetch(`http://web.test${target}`, { headers, method, redirect: "manual" }),
         }),
@@ -293,9 +309,10 @@ layer(WebProdLive, { timeout: 180_000 })("front-door rate limit", (it) => {
       const response = yield* web.send("POST", signIn, {});
 
       expect(response.status).not.toBe(429);
-      expect([yield* web.limiterCalls("public"), yield* web.limiterCalls("credential")]).toEqual(
-        before,
-      );
+      expect([
+        yield* web.limiterCalls("public"),
+        yield* web.limiterCalls("credential"),
+      ]).toStrictEqual(before);
     }),
   );
 });
