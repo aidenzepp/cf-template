@@ -1,0 +1,77 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":pinAllExceptPeerDependencies",
+    "helpers:pinGitHubActionDigests",
+    ":configMigration"
+  ],
+  "enabledManagers": ["bun", "github-actions", "custom.regex"],
+  "timezone": "UTC",
+  "schedule": ["* 0-5 * * 1"],
+  "minimumReleaseAge": "3 days",
+  "internalChecksFilter": "strict",
+  "prConcurrentLimit": 3,
+  "semanticCommits": "enabled",
+  "osvVulnerabilityAlerts": true,
+  "dependencyDashboard": true,
+  "lockFileMaintenance": { "enabled": true, "schedule": ["* 0-5 1 * *"] },
+  "packageRules": [
+    {
+      "matchPackageNames": ["alchemy", "@alchemy.run/**", "drizzle-orm", "drizzle-kit"],
+      "groupName": "alchemy",
+      "addLabels": ["alchemy-upgrade"],
+      "prBodyNotes": [
+        "Alchemy bump checklist: (a) telemetry opt-out still honoured (`ALCHEMY_TELEMETRY_DISABLED=1` in the `alchemy` script); (b) no `TelemetryLive` in the state-store Worker; (c) the Secrets Store and Flagship pricing pages re-read; (d) the `action.yml` diff between the old and new pinned commits of Alchemy's Action read. A PR with the `alchemy-upgrade` label runs checks only, no preview; its `prod` plan probe says whether merging upgrades the state store one way."
+      ]
+    },
+    {
+      "matchPackageNames": ["alchemy", "@alchemy.run/**"],
+      "allowedVersions": "/^\\d+\\.\\d+\\.\\d+(-beta\\.\\d+)?$/",
+      "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": ["drizzle-orm", "drizzle-kit"],
+      "allowedVersions": "/^\\d+\\.\\d+\\.\\d+(-rc\\.\\d+)?$/",
+      "ignoreUnstable": false
+    },
+    {
+      "matchPackageNames": ["effect", "@effect/**", "!@effect/tsgo", "!@effect/language-service"],
+      "groupName": "effect"
+    },
+    {
+      "matchPackageNames": [
+        "typescript",
+        "@effect/tsgo",
+        "vite-plus",
+        "@voidzero-dev/vite-plus-core"
+      ],
+      "groupName": "type-check toolchain",
+      "prBodyNotes": [
+        "Type-check engine re-check (C29h): T1, `npm view tsrs dist-tags.latest` has no prerelease suffix and targets the `typescript` version this repository pins; T2, this PR's `@effect/tsgo` is at least 3 days old (the release age above), lists that tsrs in its Supported Package Versions and no longer marks `--tsrs-lint` experimental. If both hold, open the engine-swap issue: it runs on the Linux CI runner and diffs the full `vp check` diagnostic set on the real tree under both engines. Whatever the result, the swap keeps `\"diagnostics\": false` in the Effect language-service plugin entry of `tsconfig.json` unless `Effect-TS/tsgo#1025` is closed."
+      ]
+    },
+    { "matchPackageNames": ["bun", "@types/bun"], "groupName": "bun" },
+    {
+      "matchPackageNames": ["vitest", "oxlint", "oxfmt", "oxlint-tsgolint"],
+      "enabled": false
+    },
+    { "matchManagers": ["github-actions"], "groupName": "github actions" },
+    {
+      "matchDatasources": ["github-releases"],
+      "matchDepNames": ["aidenzepp/supdoc"],
+      "minimumReleaseAge": null
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "managerFilePatterns": ["/^tools/supdoc/pin\\.txt$/"],
+      "matchStrings": ["(?m)^tag v(?<currentValue>\\d+\\.\\d+\\.\\d+)$"],
+      "depNameTemplate": "aidenzepp/supdoc",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
+  ],
+  "vulnerabilityAlerts": { "labels": ["security"] }
+}
