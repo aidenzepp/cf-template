@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+# Reinstall after a merge that changed bun.lock. A hook never rewrites bun.lock.
+PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
+if [ -n "$(git diff-tree -r --name-only --no-commit-id ORIG_HEAD HEAD -- bun.lock)" ]; then
+  bun install --frozen-lockfile
+fi

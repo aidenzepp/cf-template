@@ -1,4 +1,7 @@
-# Block the push unless it would pass CI: formatting, lint and types with warnings treated
-# as errors, then the tests.
+#!/bin/sh
+set -eu
+# Block the push unless it would pass CI: checks, build, then the tests.
+PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
 bun run check
+bun run build
 bun run test
