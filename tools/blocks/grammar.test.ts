@@ -201,11 +201,17 @@ it.effect("the three real blocks.ts files parse without an unknown attach shape"
     assert.deepStrictEqual(names, [
       [
         "SystemApiHandlers",
+        // block:notes start
         "NotesApiHandlersNoDeps",
+        // block:notes end
         "SessionMiddlewareLive",
+        // block:notes start
         "ExampleFeatureGateLive",
+        // block:notes end
         "NoIsolateServices",
+        // block:notes start
         "NotesIsolateLive",
+        // block:notes end
       ],
       [],
       [],
@@ -228,6 +234,7 @@ it.effect("the real api blocks.ts collapsed onto single lines still yields its s
         `Layer.mergeAll(${body
           .split("\n")
           .map((entry) => entry.trim().replace(/,$/u, ""))
+          .filter((entry) => !entry.startsWith("//"))
           .join(", ")})`,
     );
 
@@ -236,11 +243,17 @@ it.effect("the real api blocks.ts collapsed onto single lines still yields its s
       (yield* parseAttach("mergeAll", "collapsed-api-blocks", collapsed)).map((line) => line.name),
       [
         "SystemApiHandlers",
+        // block:notes start
         "NotesApiHandlersNoDeps",
+        // block:notes end
         "SessionMiddlewareLive",
+        // block:notes start
         "ExampleFeatureGateLive",
+        // block:notes end
         "NoIsolateServices",
+        // block:notes start
         "NotesIsolateLive",
+        // block:notes end
       ],
     );
   }).pipe(Effect.provide(BunServices.layer)),
@@ -257,7 +270,11 @@ it.effect("the real blocks.json decodes", () =>
     assert.strictEqual(manifest.attachFiles.length, 6);
     assert.deepStrictEqual(
       manifest.slices.map((slice) => [slice.name, slice.keep]),
-      [["notes", ["apps/api/src/notes/table.ts", "apps/api/src/db/schema.ts"]]],
+      [
+        // block:notes start
+        ["notes", ["apps/api/src/notes/table.ts", "apps/api/src/db/schema.ts"]],
+        // block:notes end
+      ],
     );
     assert.deepStrictEqual(manifest.blocks, []);
   }).pipe(Effect.provide(BunServices.layer)),
