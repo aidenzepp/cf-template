@@ -11,6 +11,11 @@ declare module "@tanstack/react-router" {
 const decodePath = Schema.decodeUnknownOption(Schema.String);
 
 /**
+ * The props a nav link takes while its route is active. Shared across renders.
+ */
+const activeProps = { "aria-current": "page" } as const;
+
+/**
  * The shell's navigation, built from the `nav` static data of the router's routes and sorted by
  * `order`. A route without the key has no link.
  *
@@ -33,7 +38,7 @@ export const Nav = () => {
   return (
     <nav aria-label="Main" className="flex items-center gap-4 text-sm">
       {items.map((item) => (
-        <Link activeProps={{ "aria-current": "page" }} key={item.to} to={item.to}>
+        <Link activeProps={activeProps} key={item.to} to={item.to}>
           {item.label}
         </Link>
       ))}
