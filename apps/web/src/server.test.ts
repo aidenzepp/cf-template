@@ -461,7 +461,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       const web = yield* WebProd;
 
       const body = yield* web
-        .request("/api/notes", {
+        .request("/api/items", {
           body: '{"title":"t"}',
           headers: {
             authorization: "Bearer probe",

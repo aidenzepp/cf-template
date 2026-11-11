@@ -1,8 +1,17 @@
 import { Schema } from "effect";
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/http-api";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiMiddleware, HttpApiSchema } from "effect/http-api";
 import { Note, NoteCreate, NoteId, NotePatch } from "../domain/note.ts";
-import { NoteNotFound, NoteQuotaExceeded } from "../domain/note-errors.ts";
-import { ExampleFeatureGate, SessionMiddleware } from "./authorization.ts";
+import { NoteNotFound, NoteQuotaExceeded, NotesUnavailable } from "../domain/note-errors.ts";
+import { SessionMiddleware } from "./authorization.ts";
+
+/**
+ * Fails with `NotesUnavailable` while the example feature is off; implemented in `apps/api`. It is
+ * the notes slice's own middleware, so it lives here and not beside `SessionMiddleware`.
+ */
+export class ExampleFeatureGate extends HttpApiMiddleware.Service<ExampleFeatureGate>()(
+  "@workspace/contract/ExampleFeatureGate",
+  { error: NotesUnavailable },
+) {}
 
 /**
  * The notes endpoints under `/api`. The gate is declared before the session middleware, so the

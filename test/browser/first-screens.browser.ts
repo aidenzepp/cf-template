@@ -56,12 +56,14 @@ const SCREENS = [
     path: "/sign-up",
     shows: "Choose a name, an email",
   },
+  // block:notes start
   {
     cookie: undefined,
     name: "notes list",
     path: "/notes",
     shows: "First note",
   },
+  // block:notes end
 ] as const;
 
 describe("the first screens", () => {

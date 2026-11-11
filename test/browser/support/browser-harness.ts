@@ -31,9 +31,11 @@ export default {
         ? new Response("no", { status: 401 })
         : Response.json({ email: "a@b.test", expiresAt: "2030-01-01T00:00:00.000Z", image: null, name: "A", userId: "u1" });
     }
+    // block:notes start
     if (pathname === "/api/notes") {
       return Response.json([{ body: "Body", createdAt: "2030-01-01T00:00:00.000Z", id: "n1", title: "First note", updatedAt: "2030-01-01T00:00:00.000Z" }]);
     }
+    // block:notes end
     return new Response("nope", { status: 404 });
   },
 };

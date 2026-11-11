@@ -9,6 +9,16 @@
     "apps/api/src/worker.ts": "import { Layer } from \"effect\";\nimport { widget } from \"./widgets/widget.ts\";\n\nexport const worker = Layer.empty;\n",
     "apps/api/src/blocks.ts": "export const Attached = 1;\n"
   },
+  "marked-import": {
+    "apps/api/src/widgets/widget.ts": "export const widget = 1;\n",
+    "apps/api/src/worker.ts": "import { widget } from \"./widgets/widget.ts\"; // block:widgets\n// block:widgets start\nimport { other } from \"./widgets/widget.ts\";\n// block:widgets end\n\nexport const worker = 1;\n",
+    "apps/api/src/blocks.ts": "export const Attached = 1;\n"
+  },
+  "generated-import": {
+    "apps/api/src/widgets/widget.ts": "export const widget = 1;\n",
+    "apps/api/src/routes.gen.ts": "import { widget } from \"./widgets/widget.ts\";\n\nexport const routes = widget;\n",
+    "apps/api/src/blocks.ts": "export const Attached = 1;\n"
+  },
   "attach-import": {
     "apps/api/src/widgets/widget.ts": "export const widget = 1;\n",
     "apps/api/src/worker.ts": "import { Attached } from \"./blocks.ts\";\n\nexport const worker = Attached;\n",

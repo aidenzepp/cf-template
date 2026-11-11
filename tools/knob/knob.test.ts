@@ -157,16 +157,26 @@ describe("reportStored", () => {
       const lines = yield* reportStored([
         { key: "LOG_LEVEL", value: "not-a-level" },
         { key: "STALE", value: "x" },
+        // block:notes start
         { key: "EXAMPLE_FEATURE_ENABLED", value: "true" },
+        // block:notes end
       ]);
 
       assert.deepStrictEqual(
         lines.map((entry) => entry.bad),
-        [true, true, false],
+        [
+          true,
+          true,
+          // block:notes start
+          false,
+          // block:notes end
+        ],
       );
       assert.include(lines[0]?.line, "LOG_LEVEL REJECTED");
       assert.include(lines[1]?.line, "STALE ORPHAN");
+      // block:notes start
       assert.include(lines[2]?.line, "EXAMPLE_FEATURE_ENABLED ok");
+      // block:notes end
     }),
   );
 });

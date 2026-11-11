@@ -36,7 +36,9 @@ export const declareApi = Effect.fn("declareApi")(function* declareApi(
     compatibility: { date: compat.date, flags: compat.flags.map((flag) => flag.name) },
     env: {
       AUTH_CHECK_SESSION_TIMEOUT_MS: values.AUTH_CHECK_SESSION_TIMEOUT_MS,
+      // block:notes start
       EXAMPLE_FEATURE_ENABLED: values.EXAMPLE_FEATURE_ENABLED,
+      // block:notes end
       LOG_LEVEL: values.LOG_LEVEL,
       PROBLEM_DETAILS_INCLUDE: values.PROBLEM_DETAILS_INCLUDE,
     },

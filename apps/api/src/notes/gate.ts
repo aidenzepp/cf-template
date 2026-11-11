@@ -1,5 +1,5 @@
 import { Effect, Layer } from "effect";
-import { ExampleFeatureGate } from "@workspace/contract/api/authorization";
+import { ExampleFeatureGate } from "@workspace/contract/api/notes";
 import { NotesUnavailable } from "@workspace/contract/domain/note-errors";
 import { LiveKnobs } from "@workspace/config/knob";
 import { ExampleFeatureKnob } from "./knob.ts";
