@@ -4,6 +4,7 @@ import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Miniflare } from "miniflare";
 import { FORWARD_PREFIXES } from "../forward-prefixes.ts";
+import { PROBLEM_COPY, PROBLEM_FALLBACK_TITLE } from "../lib/problem-copy.ts";
 
 /**
  * The failure of the harness itself: the build or the workerd runtime did not start.
@@ -217,12 +218,36 @@ layer(WebProdLive, { timeout: 120_000 })("protected routes", (it) => {
     }),
   );
 
-  it.effect("renders instead of redirecting when the session read is unavailable", () =>
+  it.effect("answers 503 with Retry-After and the retry screen when the session read fails", () =>
     Effect.gen(function* unavailable() {
-      const { response } = yield* (yield* WebProd).get("/", "stub=503");
+      const { html, response } = yield* (yield* WebProd).get("/", "stub=503");
+
+      expect(response.status).toBe(503);
+      expect(response.headers.get("retry-after")).toBe("5");
+      expect(response.headers.get("location")).toBeNull();
+      expect(html).toContain("We could not check your sign-in.");
+    }),
+  );
+
+  it.effect("renders the authored copy of each known problem slug", () =>
+    Effect.gen(function* knownProblems() {
+      const web = yield* WebProd;
+
+      for (const [slug, text] of PROBLEM_COPY) {
+        const { html, response } = yield* web.get(slug, "stub=in");
+
+        expect(response.status).toBe(200);
+        expect(html).toContain(text);
+      }
+    }),
+  );
+
+  it.effect("renders the fallback title for an unknown problem slug", () =>
+    Effect.gen(function* unknownProblem() {
+      const { html, response } = yield* (yield* WebProd).get("/problems/nope", "stub=in");
 
       expect(response.status).toBe(200);
-      expect(response.headers.get("location")).toBeNull();
+      expect(html).toContain(PROBLEM_FALLBACK_TITLE);
     }),
   );
 

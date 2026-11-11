@@ -40,6 +40,12 @@ describe("Api OpenAPI document", () => {
     }
   });
 
+  it("lists the 503 problem+json response of GET /api/session", () => {
+    const response = spec.paths["/api/session"]?.get?.responses["503"];
+
+    expect(response?.content?.["application/problem+json"]).toBeDefined();
+  });
+
   it("serves no path under /auth", () => {
     expect(Object.keys(spec.paths).filter((path) => path.startsWith("/auth"))).toEqual([]);
   });

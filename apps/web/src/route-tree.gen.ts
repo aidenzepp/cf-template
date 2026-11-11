@@ -16,6 +16,7 @@ import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as UnavailableRouteImport } from './routes/unavailable'
 import { Route as NotesIndexRouteImport } from './routes/notes/index'
 import { Route as NotesNoteIdRouteImport } from './routes/notes/$note-id'
+import { Route as ProblemsSlugRouteImport } from './routes/problems.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,11 @@ const NotesNoteIdRoute = NotesNoteIdRouteImport.update({
   path: '/notes/$note-id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProblemsSlugRoute = ProblemsSlugRouteImport.update({
+  id: '/problems/$slug',
+  path: '/problems/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/sign-up': typeof SignUpRoute
   '/unavailable': typeof UnavailableRoute
   '/notes/$note-id': typeof NotesNoteIdRoute
+  '/problems/$slug': typeof ProblemsSlugRoute
   '/notes/': typeof NotesIndexRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof SignUpRoute
   '/unavailable': typeof UnavailableRoute
   '/notes/$note-id': typeof NotesNoteIdRoute
+  '/problems/$slug': typeof ProblemsSlugRoute
   '/notes': typeof NotesIndexRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/sign-up': typeof SignUpRoute
   '/unavailable': typeof UnavailableRoute
   '/notes/$note-id': typeof NotesNoteIdRoute
+  '/problems/$slug': typeof ProblemsSlugRoute
   '/notes/': typeof NotesIndexRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/unavailable'
     | '/notes/$note-id'
+    | '/problems/$slug'
     | '/notes/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/unavailable'
     | '/notes/$note-id'
+    | '/problems/$slug'
     | '/notes'
   id:
     | '__root__'
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/unavailable'
     | '/notes/$note-id'
+    | '/problems/$slug'
     | '/notes/'
   fileRoutesById: FileRoutesById
 }
@@ -118,6 +130,7 @@ export interface RootRouteChildren {
   SignUpRoute: typeof SignUpRoute
   UnavailableRoute: typeof UnavailableRoute
   NotesNoteIdRoute: typeof NotesNoteIdRoute
+  ProblemsSlugRoute: typeof ProblemsSlugRoute
   NotesIndexRoute: typeof NotesIndexRoute
 }
 
@@ -172,6 +185,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotesNoteIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/problems/$slug': {
+      id: '/problems/$slug'
+      path: '/problems/$slug'
+      fullPath: '/problems/$slug'
+      preLoaderRoute: typeof ProblemsSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -182,6 +202,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignUpRoute: SignUpRoute,
   UnavailableRoute: UnavailableRoute,
   NotesNoteIdRoute: NotesNoteIdRoute,
+  ProblemsSlugRoute: ProblemsSlugRoute,
   NotesIndexRoute: NotesIndexRoute,
 }
 export const routeTree = rootRouteImport
