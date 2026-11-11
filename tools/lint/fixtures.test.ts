@@ -19,9 +19,15 @@ const Report = Schema.fromJsonString(
  * engine (`tsrs-lint`) from Oxlint 1.92 on.
  */
 const toolchain = Effect.gen(function* resolve() {
+  const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const root = yield* path.fromFileUrl(new URL("../..", import.meta.url));
-  const fromVitePlus = createRequire(path.join(root, "node_modules", "vite-plus", "package.json"));
+
+  // Resolution starts at the real package directory: the `node_modules/vite-plus` link does not
+  // sit beside its dependencies in an isolated install.
+  const vitePlus = yield* fs.realPath(path.join(root, "node_modules", "vite-plus", "package.json"));
+
+  const fromVitePlus = createRequire(vitePlus);
 
   const tsgolint = fromVitePlus.resolve("oxlint-tsgolint/bin/tsgolint");
 
