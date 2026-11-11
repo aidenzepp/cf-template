@@ -3,7 +3,8 @@ import { Config, ConfigProvider, Effect, Logger, Ref, References, Tracer } from 
 import { TestClock } from "effect/testing";
 import { makeDatabase } from "@workspace/db/database";
 import type { RawDatabase } from "@workspace/db/database";
-import { AUTH_ORPHAN_GRACE_SECONDS, deleteOrphan } from "./reclaim.ts";
+import { AUTH_ORPHAN_GRACE_SECONDS } from "@workspace/config/auth-orphan-grace";
+import { deleteOrphan } from "./reclaim.ts";
 import { LocalAuthD1, asExecution, authOver, signUp } from "./test-harness.ts";
 
 /**

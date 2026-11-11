@@ -6,6 +6,7 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
 import { Config, ConfigProvider, Context, Effect, Layer, Option, Predicate } from "effect";
 import { makeDatabase } from "@workspace/db/database";
 import type { RawDatabase } from "@workspace/db/database";
+import { AUTH_ORPHAN_GRACE_SECONDS } from "@workspace/config/auth-orphan-grace";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import type { ScryptCost } from "@workspace/config/auth-password";
 import { AUTH_METHODS } from "@workspace/config/auth-methods";
@@ -19,11 +20,7 @@ import { passkeyPlugin } from "./passkeys.ts";
 import { passwordFor, rehashAfterSignIn } from "./password.ts";
 import type { RunEffect } from "./password.ts";
 import { socialProviders } from "./providers.ts";
-import {
-  AUTH_ORPHAN_GRACE_SECONDS,
-  ReclaimDatabase,
-  reclaimOrphanBeforeSignUp,
-} from "./reclaim.ts";
+import { ReclaimDatabase, reclaimOrphanBeforeSignUp } from "./reclaim.ts";
 
 /**
  * The origin the schema generator and the shared options assume: the local dev server. The Worker

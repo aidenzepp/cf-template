@@ -1,11 +1,11 @@
 import type * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import { Config, ConfigProvider, Effect, Layer, Option, Path, Schema } from "effect";
+import { AUTH_ORPHAN_GRACE_SECONDS } from "@workspace/config/auth-orphan-grace";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { AuthMethods } from "@workspace/config/auth-methods";
 import { Auth } from "../../apps/auth/src/contract.ts";
 import { declareDatabase } from "../../apps/auth/src/db/database.ts";
-import { AUTH_ORPHAN_GRACE_SECONDS } from "../../apps/auth/src/reclaim.ts";
 import AuthWorker, { AuthDeployment } from "../../apps/auth/src/worker.ts";
 import { workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
