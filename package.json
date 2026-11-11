@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "check": "vp check --deny-warnings",
+    "check": "vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings",
     "fix": "vp check --fix",
     "test": "bun test tools && vp test",
-    "prepare": "vp config --no-agent"
+    "prepare": "vp config --no-agent && bun tools/supdoc/install.ts"
   },
   "dependencies": {
     "effect": "4.1.2"
