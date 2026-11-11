@@ -18,7 +18,7 @@ Budget guard: the latch also clears itself at the billing-period end, because th
 
 Re-check the guard when the first project with outside users runs on `workers.dev` without an owned domain, and when a native Cloudflare spend cap becomes available to this account, after which the block is pulled out with `bun run pullout budget-guard`.
 
-The reset command lands with part 3 of I-44.
+Reset a stage's latch with `bun packages/budget-guard/scripts/reset.ts --stage <stage>`: it finds the one namespace titled `<stack>-<stage>-guard`, deletes its `state` key, and prints the namespace id, title and result. `prod` is refused unless `CI=true`, and zero or several matching namespaces write nothing.
 
 ## Domain
 
