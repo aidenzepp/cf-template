@@ -20,12 +20,24 @@ const effectLogStatement = {
 
 export default defineConfig({
   fmt: {
-    ignorePatterns: [".agents/**", ".worktrees/**", "bun.lock", "work/**"],
+    ignorePatterns: [
+      ".agents/**",
+      ".worktrees/**",
+      "apps/auth/src/db/schema.ts",
+      "bun.lock",
+      "work/**",
+    ],
     jsdoc: { commentLineStrategy: "multiline", lineWrappingStyle: "balance" },
   },
   lint: {
     extends: [core, antiSlop],
-    ignorePatterns: [".agents/**", ".worktrees/**", "dist/**", "work/**"],
+    ignorePatterns: [
+      ".agents/**",
+      ".worktrees/**",
+      "apps/auth/src/db/schema.ts",
+      "dist/**",
+      "work/**",
+    ],
     jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin"],
     // `vp check` runs type-aware rules and the type check only when both are enabled.
     // https://viteplus.dev/guide/check

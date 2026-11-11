@@ -3,10 +3,29 @@
   "private": true,
   "description": "Owns the Better Auth instance, the auth D1, checkSession, its Tag and Shape in contract.ts. Must not own app data, product routes, UI, or any public address except through web.",
   "type": "module",
-  "exports": {},
+  "exports": {
+    "./contract": "./src/contract.ts"
+  },
+  "scripts": {
+    "auth:generate": "node ./node_modules/.bin/auth generate --config ./auth.config.ts --output ./src/db/schema.ts --yes && ./node_modules/.bin/drizzle-kit generate && bun ./scripts/migrations-digest.ts"
+  },
   "dependencies": {
+    "@alchemy.run/better-auth": "2.0.0-beta.85",
     "@alchemy.run/cloudflare": "2.0.0-beta.85",
+    "@better-auth/drizzle-adapter": "1.7.19",
+    "@workspace/config": "workspace:*",
+    "@workspace/contract": "workspace:*",
+    "@workspace/db": "workspace:*",
     "alchemy": "2.0.0-beta.85",
+    "better-auth": "1.7.19",
+    "drizzle-orm": "1.0.0-rc.5",
     "effect": "4.1.2"
+  },
+  "devDependencies": {
+    "@effect/platform-bun": "4.1.2",
+    "@effect/vitest": "4.1.2",
+    "auth": "1.7.19",
+    "drizzle-kit": "1.0.0-rc.5",
+    "miniflare": "4.20260730.0"
   }
 }
