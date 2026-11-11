@@ -65,19 +65,52 @@ export const badGateway = (request: Request): Response => {
 };
 
 /**
+ * The 502 of a failed forward. A navigation gets the outage page `render` produces, with the status
+ * and `Vary` of {@link badGateway}; anything else, and a navigation whose render fails or does not
+ * answer 200, gets {@link badGateway}. The render is never retried.
+ *
+ * @param request - The request whose forward failed.
+ * @param render - The render of the outage page, an effect of its HTML response.
+ * @returns The 502 response.
+ */
+const failedForward = (request: Request, render: Effect.Effect<Response>) =>
+  wantsHtml(request.headers)
+    ? render.pipe(
+        Effect.map((page) =>
+          page.ok
+            ? new Response(page.body, {
+                headers: {
+                  "content-type": "text/html; charset=utf-8",
+                  vary: "Sec-Fetch-Mode, Accept",
+                },
+                status: 502,
+              })
+            : badGateway(request),
+        ),
+        Effect.catchCause((cause) =>
+          Cause.hasInterruptsOnly(cause)
+            ? Effect.failCause(cause)
+            : Effect.succeed(badGateway(request)),
+        ),
+      )
+    : Effect.succeed(badGateway(request));
+
+/**
  * Forward a request to a service binding with its path, cookies and other headers intact.
  *
  * Inbound `traceparent`, `tracestate` and `b3` are removed and nothing is injected. Any status the
  * binding returns, 4xx and 5xx included, passes through unchanged. The forward fails only when the
- * binding rejects or throws, and that failure answers 502 through {@link badGateway}. The response
- * is the binding's own object, so `Set-Cookie` lines and redirects reach the client unchanged.
+ * binding rejects or throws, and that failure answers 502: the outage page for a navigation, the
+ * problem document for anything else. The response is the binding's own object, so `Set-Cookie`
+ * lines and redirects reach the client unchanged.
  *
  * @param binding - The service binding to call.
  * @param request - The inbound request.
+ * @param render - The render of the outage page for the HTML branch of a failed forward.
  * @returns The binding's response, or the 502 of a failed forward.
  */
 export const forward = Effect.fn("web.forward")(
-  function* forward(binding: ServiceBinding, request: Request) {
+  function* forward(binding: ServiceBinding, request: Request, _render: Effect.Effect<Response>) {
     const headers = new Headers(request.headers);
 
     for (const name of STRIPPED_HEADERS) {
@@ -90,10 +123,8 @@ export const forward = Effect.fn("web.forward")(
       binding.fetch(new Request(request, { headers, redirect: "manual" })),
     );
   },
-  (effect, _binding, request) =>
+  (effect, _binding, request, render) =>
     Effect.catchCause(effect, (cause) =>
-      Cause.hasInterruptsOnly(cause)
-        ? Effect.failCause(cause)
-        : Effect.succeed(badGateway(request)),
+      Cause.hasInterruptsOnly(cause) ? Effect.failCause(cause) : failedForward(request, render),
     ),
 );

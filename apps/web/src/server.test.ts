@@ -334,7 +334,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       expect(response.status).toBe(502);
       expect(response.headers.get("content-type")).toContain("text/html");
       expect(response.headers.get("vary")).toBe("Sec-Fetch-Mode, Accept");
-      expect(yield* text(response)).toContain("<h1>Bad Gateway</h1>");
+      expect(yield* text(response)).toContain("Sign-in is unavailable right now.");
     }),
   );
 
