@@ -6,7 +6,7 @@
     "helpers:pinGitHubActionDigests",
     ":configMigration"
   ],
-  "enabledManagers": ["bun", "github-actions", "custom.regex"],
+  "enabledManagers": ["bun", "github-actions"],
   "timezone": "UTC",
   "schedule": ["* 0-5 * * 1"],
   "minimumReleaseAge": "3 days",
@@ -58,19 +58,9 @@
     },
     { "matchManagers": ["github-actions"], "groupName": "github actions" },
     {
-      "matchDatasources": ["github-releases"],
-      "matchDepNames": ["aidenzepp/supdoc"],
+      "matchPackageNames": ["supdoc", "@supdoc/**"],
+      "groupName": "supdoc",
       "minimumReleaseAge": null
-    }
-  ],
-  "customManagers": [
-    {
-      "customType": "regex",
-      "managerFilePatterns": ["/^tools/supdoc/pin\\.txt$/"],
-      "matchStrings": ["(?m)^tag v(?<currentValue>\\d+\\.\\d+\\.\\d+)$"],
-      "depNameTemplate": "aidenzepp/supdoc",
-      "datasourceTemplate": "github-releases",
-      "extractVersionTemplate": "^v(?<version>.*)$"
     }
   ],
   "vulnerabilityAlerts": { "labels": ["security"] }

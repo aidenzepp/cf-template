@@ -118,7 +118,7 @@ flowchart TB
     knobs["packages/knobs-kv · @workspace/knobs-kv<br/>block: ./live, ./contract · the tier (c) adapter"]
   end
     infra["infra · @workspace/infra<br/>alchemy.run.ts, stage schema, the web Website declaration"]
-  tools["tools/lint, tools/knob, tools/mirrors, tools/supdoc<br/>repository tooling, not workspaces"]
+  tools["tools/lint, tools/knob, tools/mirrors<br/>repository tooling, not workspaces"]
 
     infra --> web & api & auth & knobs & config
   web --> contract & ui & config
@@ -143,7 +143,7 @@ corrected, and this plan's lines for the packages the C1 list did not name, sett
 | `packages/ui`       | everything the registries write, the one `components.json`, `globals.css`, its own tsconfig and typecheck                                          | first-party components (those are `apps/<app>/src/components`), any edit by hand (C10c, LR-3 (b))                                                                       |
 | `packages/knobs-kv` | the KV adapter: `./live` declares the namespace, binds it and provides the `LiveKnobs` port; `./contract` the adapter's own schema                 | the port's type (that is `packages/config`), any knob definition, any write path (writes are the knob command's, C37k)                                                  |
 | `infra`             | the Stack, the stage schema and `Stages` record, Worker composition, secret wiring, the state store, `web`'s `Website` declaration (ST13)          | request code, schemas, product logic                                                                                                                                    |
-| `tools/*`           | repository rules (`tools/lint`), the knob command (`tools/knob`), mirrors (`tools/mirrors`), the interim supdoc installer (`tools/supdoc`)         | runtime code any Worker imports                                                                                                                                         |
+| `tools/*`           | repository rules (`tools/lint`), the knob command (`tools/knob`), mirrors (`tools/mirrors`)                                                        | runtime code any Worker imports                                                                                                                                         |
 
 Dependency direction is enforced by five `no-restricted-imports` overrides (K13, C6i): R1 an app imports
 another app only as `@workspace/<app>/contract` and never `@workspace/infra`; R3 `packages/contract/src/domain/**`
@@ -611,8 +611,8 @@ post-merge = bun install                   # tracked hook; runs only when bun.lo
 Ordering inside the chain, this plan's: the hook check first because it is the cheapest and names the fix; `vp check`
 before the migration checks because the latter run the Better Auth CLI on Node; `knip` and the ratchet last because
 they read the tree the earlier steps leave. `prepare` runs fix A's hooks step (`git config --local core.hooksPath
-.vite-hooks`), then `effect-tsgo patch --oxlint` (OQ-1 (a)), then `tools/supdoc/install.ts` (C22a): hooks first so a
-failing patch still leaves the repository guarded, the supdoc install last because it is the one network step.
+.vite-hooks`), then `effect-tsgo patch --oxlint` (OQ-1 (a)); supdoc is an exact npm devDependency (`supdoc`, with per-platform `@supdoc/*`
+binaries) that `bun install` places, so `prepare` has no supdoc step.
 
 ### Placement map
 
@@ -839,7 +839,7 @@ runner code with no grant is not. Kept: Cloudflare Paid and its credentials; the
 Secrets Store (flagged, the one accepted unknown meter); Logs and Traces inside the allowance; Monitors and alerts;
 npm; GitHub with the C24j App; SHA-pinned Actions (`setup-bun`, Alchemy's Action); hosted Renovate (D1 stands after
 the Dependabot-on-Bun probe refuted Dependabot on `npm:` aliases and beta pins); `bun audit`; OSV-Scanner on the runner;
-supdoc's digest-pinned release download; the three registries; the inert `@sortui-pro` entry with
+the `supdoc` npm package; the three registries; the inert `@sortui-pro` entry with
 `${SORTUI_LICENSE_KEY}` (E8, C10r); GitHub and Google OAuth opt-in; the Cloudflare API MCP optional. Configured:
 Alchemy telemetry off. Deferred: the guard webhook receiver (LR-4), Flagship (unpriced, C37b), Turnstile (want on
 outside users, N8), Email Service (the email block), an owned domain with one WAF rule (O1, before the first outside user), and the
