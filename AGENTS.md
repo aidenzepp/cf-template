@@ -33,7 +33,7 @@ class PinError extends Schema.TaggedError<PinError>()("PinError", { message: Sch
 // File system read through the platform service
 const text = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
-  return yield* fs.readFileString("tools/supdoc/pin.txt");
+  return yield* fs.readFileString("supdoc.lock");
 }).pipe(Effect.provide(BunFileSystem.layer));
 ```
 
