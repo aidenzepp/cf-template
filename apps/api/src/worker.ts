@@ -178,7 +178,9 @@ export default ApiWorker.make(
       }),
     );
 
-    const isolate = yield* Effect.context<ApiIsolateServices>().pipe(
+    const isolate = yield* Effect.contextWith((services: Context.Context<ApiIsolateServices>) =>
+      Effect.succeed(services),
+    ).pipe(
       Effect.provide(
         ApiWorkerIsolateLayers.pipe(
           Layer.provide(Layer.succeed(AppDatabase, withHostContext(database).pipe(Effect.orDie))),
