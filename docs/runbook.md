@@ -12,7 +12,13 @@ Subrequests: once a `test-<slug>` stage measures p99 subrequests per invocation,
 
 `AUTH_CPU_LIMIT_MS` follows the hash cost through `CPU_LIMIT_HEADROOM`; the hash cost is never lowered to fit a limit.
 
-I-44 fills the rest of this section.
+Budget guard: the latch also clears itself at the billing-period end, because the receiver puts `state` with a KV `expiration` at the start of the next UTC month.
+
+`CPU_MS_PER_REQUEST` and `BYTES_PER_REQUEST` set the guard threshold and have no default. Measure both on a bounded `test-<slug>` run (p99 CPU per invocation and bytes served per request) and set them as deploy knobs; until both are set, no guard alert is declared.
+
+Re-check the guard when the first project with outside users runs on `workers.dev` without an owned domain, and when a native Cloudflare spend cap becomes available to this account, after which the block is pulled out with `bun run pullout budget-guard`.
+
+The reset command lands with part 3 of I-44.
 
 ## Domain
 
