@@ -13,6 +13,7 @@
     "ui": "cd packages/ui && bunx shadcn@4.23.0",
     "ui:typecheck": "bun run --filter @workspace/ui typecheck",
     "fix": "vp check --fix",
+    "mirrors": "bun tools/mirrors/mirror.ts",
     "alchemy": "ALCHEMY_TELEMETRY_DISABLED=1 alchemy",
     "test": "bun test .test.mjs && vp test --project '!e2e-local'",
     "test:browser": "vp test --config vite.browser.config.ts",
