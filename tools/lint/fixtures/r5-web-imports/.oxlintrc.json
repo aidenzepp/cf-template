@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [],
+        "patterns": [
+          {
+            "group": ["@workspace/api/contract", "@workspace/auth/contract"],
+            "message": "browser code imports no app contract; the server entry is the exception"
+          },
+          { "group": ["cloudflare:workers"] }
+        ]
+      }
+    ]
+  }
+}

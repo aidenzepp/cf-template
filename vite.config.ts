@@ -2,6 +2,7 @@ import { defineConfig } from "vite-plus";
 import core from "ultracite/oxlint/core";
 import antiSlop from "ultracite/oxlint/anti-slop";
 import shadcn from "ultracite/oxlint/shadcn";
+import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
 
 /**
  * Matches module declarations and calls without spacing local call groups.
@@ -32,6 +33,49 @@ const effectLogStatement = {
  *   run by `bun run check`.
  */
 const vendored = ["packages/ui/src/**", "packages/ui/components.json"];
+
+/**
+ * R1: an app imports another app only through its contract, and never imports infra. Web overrides
+ * repeat it because an override replaces the options of every earlier matching override.
+ */
+const appImports = [
+  {
+    group: [
+      "@workspace/web",
+      "@workspace/web/*",
+      "@workspace/api",
+      "@workspace/api/*",
+      "@workspace/auth",
+      "@workspace/auth/*",
+      "!@workspace/*/contract",
+    ],
+    message: "an app imports another app only as @workspace/<app>/contract",
+  },
+  { group: ["@workspace/infra", "@workspace/infra/*"], message: "an app never imports infra" },
+];
+
+/**
+ * R5: browser code imports no app contract; the server entry is the exception (ST10).
+ */
+const webContracts = {
+  group: ["@workspace/api/contract", "@workspace/auth/contract"],
+  message: "browser code imports no app contract; the server entry is the exception",
+};
+
+/**
+ * R5: `cloudflare:workers` is a server runtime module. `server.ts`, `runtime.ts` and
+ * `api-client.ts` are the ruled boundaries that read the bindings; tests may also import it.
+ */
+const workersModule = { group: ["cloudflare:workers"] };
+
+/**
+ * R5: no server functions in `web` (ST10), including from the server entry.
+ */
+const noServerFunctions = {
+  importNames: ["createServerFn"],
+  message: "no server functions in web (ST10)",
+  name: "@tanstack/react-start",
+};
 
 export default defineConfig({
   fmt: {
@@ -66,6 +110,36 @@ export default defineConfig({
     // https://viteplus.dev/guide/check
     options: { typeAware: true, typeCheck: true },
     overrides: [
+      restrictImports(["apps/*/src/**"], { patterns: appImports }),
+      restrictImports(["packages/contract/src/domain/**"], {
+        patterns: [
+          {
+            group: ["effect/http", "effect/http/*", "@alchemy.run/*", "../api/*", "**/api/*"],
+            message:
+              "the domain imports no HTTP server module, no Alchemy and no api module; effect/http-api is allowed because the Problem classes are the domain's error model",
+          },
+        ],
+      }),
+      restrictImports(["apps/web/src/**"], {
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts, workersModule],
+      }),
+      // The server entry reads the bindings and imports `@workspace/auth/contract` (the credential
+      // paths); it keeps the createServerFn ban.
+      restrictImports(["apps/web/src/server.ts"], {
+        paths: [noServerFunctions],
+        patterns: appImports,
+      }),
+      // Runtime boundaries that read the bindings: they lift only the `cloudflare:workers` group.
+      restrictImports(["apps/web/src/runtime.ts", "apps/web/src/api-client.ts"], {
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts],
+      }),
+      // Tests lift only the `cloudflare:workers` group.
+      restrictImports(["apps/web/src/**/*.test.ts"], {
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts],
+      }),
       {
         // The lint-rule tests import bun:test from plain JavaScript. The type-aware checker does
         // not load those types for an .mjs file; the tests still run under bun test.

@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [],
+        "patterns": [
+          {
+            "group": ["effect/http", "effect/http/*", "@alchemy.run/*", "../api/*", "**/api/*"],
+            "message": "the domain imports no HTTP server module, no Alchemy and no api module; effect/http-api is allowed because the Problem classes are the domain's error model"
+          }
+        ]
+      }
+    ]
+  }
+}
