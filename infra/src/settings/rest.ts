@@ -1,6 +1,7 @@
-import { Config, Console, Effect, Schema } from "effect";
+import { Console, Effect, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
 import type { HttpMethod } from "effect/http/HttpMethod";
+import { githubToken } from "./repository.ts";
 import type { GuardedRepository } from "./repository.ts";
 import type { Capability, Tier } from "./tier.ts";
 
@@ -113,7 +114,7 @@ export const summarize = (kinds: ReadonlyArray<Kind>) => {
  * A GitHub REST sender: bearer-authenticated with `GITHUB_TOKEN`, rooted at `api.github.com`.
  */
 export const restClient = Effect.gen(function* restClient() {
-  const token = yield* Config.Redacted("GITHUB_TOKEN");
+  const token = yield* githubToken;
 
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequest((request) =>

@@ -29,6 +29,56 @@ export class AdminGuardError extends Schema.TaggedError<AdminGuardError>()("Admi
 }) {}
 
 /**
+ * The refusal of {@link refuseAmbientCredentials}: an environment variable could make the
+ * `@alchemy.run/github` provider authenticate as, or talk to, something the admin guard never
+ * checked.
+ */
+export class AmbientCredentialsError extends Schema.TaggedError<AmbientCredentialsError>()(
+  "AmbientCredentialsError",
+  { message: Schema.String },
+) {}
+
+/**
+ * The one token of a settings run: the admin guard, the REST calls and the provider all use it.
+ */
+export const githubToken = Config.Redacted("GITHUB_TOKEN");
+
+/**
+ * The variables the GitHub provider reads on its own: a second token that wins over `GITHUB_TOKEN`
+ * and three that move it to an enterprise host.
+ */
+const AMBIENT_VARIABLES = [
+  "GITHUB_ACCESS_TOKEN",
+  "GH_HOST",
+  "GITHUB_BASE_URL",
+  "GITHUB_API_URL",
+] as const;
+
+/**
+ * Refuse to start when any provider-side credential or host variable is set. Runs before any
+ * network call; the message names the variable and never its value.
+ *
+ * @returns Nothing, or an {@link AmbientCredentialsError} naming the first variable set.
+ */
+export const refuseAmbientCredentials = Effect.fn("refuseAmbientCredentials")(
+  function* refuseAmbientCredentials() {
+    yield* Effect.forEach(
+      AMBIENT_VARIABLES,
+      Effect.fn(function* checkVariable(name) {
+        const value = yield* Config.String(name).pipe(Config.option);
+
+        return yield* Option.isSome(value)
+          ? new AmbientCredentialsError({
+              message: `${name} is set. The settings run uses only GITHUB_TOKEN on github.com; unset ${name} and run again.`,
+            })
+          : Effect.void;
+      }),
+      { discard: true },
+    );
+  },
+);
+
+/**
  * The fields of `GET /repos/{owner}/{name}` the settings program reads.
  */
 const RepositoryResponse = Schema.Struct({
@@ -77,7 +127,7 @@ export const getJson = Effect.fn("getJson")(function* getJson<S extends Schema.C
   path: string,
   schema: S,
 ) {
-  const token = yield* Config.Redacted("GITHUB_TOKEN");
+  const token = yield* githubToken;
 
   const client = (yield* HttpClient.HttpClient).pipe(
     HttpClient.mapRequest((request) =>
