@@ -1,19 +1,35 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, FileSystem, Path, Stream } from "effect";
+import { Config, Effect, FileSystem, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 /**
- * Git exports these to hooks such as `pre-push`; left in place they would aim the test's git
- * commands at the repository running the hook instead of the temporary one.
+ * The environment every spawned command receives: only `PATH` and `HOME`, with `extendEnv` off,
+ * so no inherited `GIT_*` variable (git exports several to hooks such as `pre-push`) can aim a
+ * command at the repository that is running the tests instead of the temporary one. Fails if a
+ * `GIT_DIR` ever appears outside `cwd`.
  */
-const gitEnvironment = {
-  GIT_COMMON_DIR: undefined,
-  GIT_DIR: undefined,
-  GIT_INDEX_FILE: undefined,
-  GIT_PREFIX: undefined,
-  GIT_WORK_TREE: undefined,
-};
+const isolatedEnvironment = Effect.fn("hooks.test.environment")(function* isolatedEnvironment(
+  cwd: string,
+) {
+  const environment = {
+    HOME: yield* Config.String("HOME"),
+    PATH: yield* Config.String("PATH"),
+  };
+
+  const entries = Object.entries(environment);
+
+  assert.isTrue(
+    entries.every(([key, value]) => key !== "GIT_DIR" || value.startsWith(cwd)),
+    "GIT_DIR must stay inside cwd",
+  );
+  assert.deepStrictEqual(
+    entries.filter(([key]) => key.startsWith("GIT_")),
+    [],
+  );
+
+  return environment;
+});
 
 /**
  * Runs `command` in `cwd` and returns its exit code and stderr.
@@ -24,11 +40,12 @@ const run = Effect.fn("hooks.test.run")(function* run(
   args: readonly string[],
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const env = yield* isolatedEnvironment(cwd);
 
   return yield* Effect.scoped(
     Effect.gen(function* spawned() {
       const handle = yield* spawner.spawn(
-        ChildProcess.make(command, args, { cwd, env: gitEnvironment, extendEnv: true }),
+        ChildProcess.make(command, args, { cwd, env, extendEnv: false }),
       );
 
       const [stderr, code] = yield* Effect.all(
