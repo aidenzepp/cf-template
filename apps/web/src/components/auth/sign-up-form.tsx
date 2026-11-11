@@ -22,14 +22,15 @@ export const orphanGraceLine = (
   error: { readonly status: number; readonly code?: string | undefined },
   graceSeconds: number,
 ): string | null => {
-  const minutes = Math.ceil(graceSeconds / 60);
+  const count = Math.ceil(graceSeconds / 60);
+  const minutes = count === 1 ? "1 minute" : `${count} minutes`;
 
   if (error.status >= 500) {
-    return `We couldn't finish creating your account. Wait ${minutes} minutes, then sign up again with the same email, or use another email.`;
+    return `We couldn't finish creating your account. Wait ${minutes}, then sign up again with the same email, or use another email.`;
   }
 
   return error.code === "USER_ALREADY_EXISTS"
-    ? `If you just tried to sign up and it failed, wait ${minutes} minutes and sign up again.`
+    ? `If you just tried to sign up and it failed, wait ${minutes} and sign up again.`
     : null;
 };
 

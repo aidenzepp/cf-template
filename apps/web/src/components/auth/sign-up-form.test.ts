@@ -25,6 +25,13 @@ describe("sign-up orphan-grace lines", () => {
     );
   });
 
+  it("says 1 minute at the 60 second floor", () => {
+    expect(orphanGraceLine({ status: 500 }, 60)).toContain("Wait 1 minute,");
+    expect(orphanGraceLine({ code: "USER_ALREADY_EXISTS", status: 422 }, 60)).toContain(
+      "wait 1 minute and",
+    );
+  });
+
   it("adds nothing to other failures", () => {
     expect(orphanGraceLine({ code: "PASSWORD_TOO_SHORT", status: 400 }, 600)).toBeNull();
     expect(orphanGraceLine({ status: 429 }, 600)).toBeNull();
