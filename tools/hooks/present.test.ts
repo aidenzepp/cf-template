@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
-import { assert, describe, it } from "@effect/vitest";
-import { Config, Effect, FileSystem, Path, Stream } from "effect";
+import { assert, it } from "@effect/vitest";
+import { Config, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 /**
@@ -59,6 +59,67 @@ const run = Effect.fn("hooks.test.run")(function* run(
 });
 
 /**
+ * Runs `git` in `cwd` with the environment inherited exactly as a hook would see it, and returns
+ * its trimmed stdout, or an empty string when git exits non-zero (an unset key).
+ */
+const inherited = Effect.fn("hooks.test.inherited")(function* inherited(
+  cwd: string,
+  args: readonly string[],
+) {
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+
+  return yield* Effect.scoped(
+    Effect.gen(function* spawned() {
+      const handle = yield* spawner.spawn(ChildProcess.make("git", args, { cwd }));
+
+      const [stdout, code] = yield* Effect.all(
+        [Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode],
+        { concurrency: 2 },
+      );
+
+      return code === 0 ? stdout.trim() : "";
+    }),
+  );
+});
+
+/**
+ * Reads the real repository's local configuration: every key name, plus the values of the keys a
+ * stray `git init` or `git config` would change. Values of other keys, such as remote URLs, are
+ * never read.
+ */
+const realConfiguration = Effect.fn("hooks.test.realConfiguration")(function* realConfiguration() {
+  const path = yield* Path.Path;
+  const here = yield* path.fromFileUrl(new URL(".", import.meta.url));
+  const common = path.resolve(here, yield* inherited(here, ["rev-parse", "--git-common-dir"]));
+
+  const config = (args: readonly string[]) =>
+    inherited(here, [`--git-dir=${common}`, "config", "--local", ...args]);
+
+  return {
+    bare: yield* config(["--get", "core.bare"]),
+    hooksPath: yield* config(["--get", "core.hookspath"]),
+    names: yield* config(["--list", "--name-only"]),
+    worktree: yield* config(["--get", "core.worktree"]),
+  };
+});
+
+/**
+ * Snapshots the real repository's configuration before the suite and fails the suite if it differs
+ * afterwards, so a test that writes to the repository running it cannot pass.
+ */
+const realRepositoryUnchanged = Layer.effectDiscard(
+  Effect.acquireRelease(Effect.orDie(realConfiguration()), (before) =>
+    Effect.orDie(realConfiguration()).pipe(
+      Effect.flatMap((after) =>
+        Effect.sync(() => {
+          assert.deepStrictEqual(after, before);
+        }),
+      ),
+    ),
+  ),
+).pipe(Layer.provide(BunServices.layer));
+
+/**
  * Creates a git repository under this worktree's `work/` directory, removed when the scope ends.
  * With `mode` set, `core.hooksPath` points at a `hooks` directory holding a `pre-push` of that
  * mode.
@@ -86,7 +147,7 @@ const repository = Effect.fn("hooks.test.repository")(function* repository(mode?
 
 const script = new URL("present.ts", import.meta.url).pathname;
 
-describe("presence check", () => {
+it.layer(realRepositoryUnchanged)("presence check", () => {
   it.effect("exits 0 when pre-push resolves and is executable", () =>
     Effect.gen(function* executable() {
       const root = yield* repository(0o755);
