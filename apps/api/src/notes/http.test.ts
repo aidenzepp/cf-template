@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ConfigProvider, DateTime, Effect, Layer, Ref } from "effect";
+import { ConfigProvider, DateTime, Effect, Layer, Ref, Schema } from "effect";
 import { HttpServer } from "effect/http";
 import { HttpApiTest } from "effect/http-api";
 import { Api } from "@workspace/contract/api/api";
@@ -29,6 +29,18 @@ const sessionOf = (id: string) =>
 const ada = sessionOf("ada");
 
 const grace = sessionOf("grace");
+
+/**
+ * The session as `auth` hands it over the service binding: a real `JSON.stringify` and parse, so
+ * the stubs carry plain values and never a class instance.
+ *
+ * @param session - The session to send.
+ * @returns The encoded session.
+ */
+const wire = (session: Session) =>
+  Schema.decodeUnknownSync(Schema.fromJsonString(Schema.toEncoded(Session)))(
+    JSON.stringify(session),
+  );
 
 /**
  * The typed client of the notes group.
@@ -64,7 +76,13 @@ const withNotesApi = <A, E, R>(
             layerProblemDetails({ includeDetails: false }),
           ).pipe(
             Layer.provide(SessionLookup.layer),
-            Layer.provide(Layer.succeed(AuthCheckSession, () => Ref.get(options.current))),
+            Layer.provide(
+              Layer.succeed(AuthCheckSession, () =>
+                Ref.get(options.current).pipe(
+                  Effect.map((session) => (session === null ? null : wire(session))),
+                ),
+              ),
+            ),
             Layer.provide(
               ConfigProvider.layer(
                 ConfigProvider.fromUnknown({

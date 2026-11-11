@@ -1,9 +1,10 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { RuntimeContext } from "alchemy";
+import { makeExecutionMemo } from "alchemy/Runtime/ExecutionMemo";
 import type { InputProps } from "alchemy/Input";
 import type { MainRpc } from "alchemy/Platform";
 import * as Http from "alchemy/Http";
-import { Context, Effect, Layer, Option } from "effect";
+import { ConfigProvider, Context, Effect, Layer, Option } from "effect";
 import { HttpRouter } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 import type { Auth } from "@workspace/auth/contract";
@@ -63,26 +64,25 @@ export interface ApiEntrypoint extends MainRpc<RuntimeContext> {
 export class ApiWorker extends Cloudflare.Worker<ApiWorker, ApiEntrypoint>()("Api") {}
 
 /**
- * The `api` Worker: the contract's `HttpApi` over the in-memory notes, the session middleware that
- * asks `auth` through its service binding, the example-feature gate, and Problem Details on every
- * error it produces. It has no public address; `web` forwards `/api/*` to it.
+ * Build the request handler of one execution from the Worker's own bindings.
  *
- * `PROBLEM_DETAILS_INCLUDE` is read once when the Worker starts, so a bad value fails the start
- * instead of a request.
+ * The three knobs are read from `WorkerEnvironment` when an execution starts, never through the
+ * deployer's `Config` while the stack plans: Alchemy resolves a `Config` read in Worker init
+ * against the deployer's environment and binds that value over the one `infra` binds per stage. A
+ * missing or invalid binding is a defect of that execution's requests and nothing else.
+ *
+ * @param checkSession - The `checkSession` method of the bound `auth` Worker.
+ * @returns The router's HTTP effect, built on the execution scope.
  */
-export default ApiWorker.make(
-  ApiDeployment.pipe(Effect.map(({ props }) => props)),
-  Effect.gen(function* buildApi() {
-    const { auth } = yield* ApiDeployment;
-    const authBinding = yield* Cloudflare.bindWorker(auth);
-    const includeDetails = yield* ProblemDetailsIncludeKnob.config;
+const makeHandler = (checkSession: typeof AuthCheckSession.Service) =>
+  Effect.gen(function* buildHandler() {
+    const env = yield* Cloudflare.WorkerEnvironment;
+    const provider = ConfigProvider.layer(ConfigProvider.fromUnknown(env));
+
+    const includeDetails = yield* ProblemDetailsIncludeKnob.config.pipe(Effect.provide(provider));
 
     const sessions = SessionLookup.layer.pipe(
-      Layer.provide(
-        Layer.succeed(AuthCheckSession, (input) =>
-          withHostContext(authBinding.checkSession(input)),
-        ),
-      ),
+      Layer.provide(Layer.succeed(AuthCheckSession, checkSession)),
     );
 
     const handlers = Layer.mergeAll(NotesApiHandlersNoDeps, SystemApiHandlers).pipe(
@@ -96,8 +96,34 @@ export default ApiWorker.make(
       Layer.provide(layerProblemDetails({ includeDetails })),
       Layer.provide(Http.Platform),
       Layer.merge(ProblemAdapter),
+      Layer.provide(provider),
     );
 
-    return { fetch: yield* HttpRouter.toHttpEffect(routes) };
+    return yield* HttpRouter.toHttpEffect(routes);
+  });
+
+/**
+ * The `api` Worker: the contract's `HttpApi` over the in-memory notes, the session middleware that
+ * asks `auth` through its service binding, the example-feature gate, and Problem Details on every
+ * error it produces. It has no public address; `web` forwards `/api/*` to it.
+ *
+ * Initialization binds `auth` and reads no setting; the handler is built on first use in each
+ * execution and shared by the rest of it.
+ */
+export default ApiWorker.make(
+  ApiDeployment.pipe(Effect.map(({ props }) => props)),
+  Effect.gen(function* buildApi() {
+    const { auth } = yield* ApiDeployment;
+    const authBinding = yield* Cloudflare.bindWorker(auth);
+    const context = yield* Effect.context<Cloudflare.WorkerEnvironment>();
+
+    const handler = yield* makeExecutionMemo(
+      makeHandler((input) => withHostContext(authBinding.checkSession(input))).pipe(
+        Effect.provideContext(context),
+        Effect.orDie,
+      ),
+    );
+
+    return { fetch: Effect.flatten(handler) };
   }),
 );

@@ -8,6 +8,7 @@ import {
   ErrorReporter,
   Layer,
   Ref,
+  Schema,
 } from "effect";
 import { HttpRouter, HttpServer, HttpServerRequest } from "effect/http";
 import { HttpApiBuilder, HttpApiError } from "effect/http-api";
@@ -27,6 +28,18 @@ const ada = new Session({
   name: "Ada",
   userId: UserId.make("ada"),
 });
+
+/**
+ * The session as `auth` hands it over the service binding: a real `JSON.stringify` and parse, so
+ * the stubs carry plain values and never a class instance.
+ *
+ * @param session - The session to send.
+ * @returns The encoded session.
+ */
+const wire = (session: Session) =>
+  Schema.decodeUnknownSync(Schema.fromJsonString(Schema.toEncoded(Session)))(
+    JSON.stringify(session),
+  );
 
 /**
  * A `Notes` whose `list` dies with `defect`, so a test can make the handler fault.
@@ -69,7 +82,7 @@ const serve = (options: {
       ),
       Layer.provide([SessionMiddlewareLive, ExampleFeatureGateLive]),
       Layer.provide(SessionLookup.layer),
-      Layer.provide(Layer.succeed(AuthCheckSession, () => Effect.succeed(ada))),
+      Layer.provide(Layer.succeed(AuthCheckSession, () => Effect.succeed(wire(ada)))),
       Layer.provide(layerProblemDetails({ includeDetails: options.includeDetails })),
       Layer.provide(HttpServer.layerServices),
       Layer.merge(ProblemAdapter),
