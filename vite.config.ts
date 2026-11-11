@@ -77,8 +77,17 @@ export default defineConfig({
   // and run under `bun test`; `bun run test` runs both. The template ships no source, so an empty
   // Vitest suite passes; delete `passWithNoTests` once the project has its first test.
   test: {
-    exclude: ["tools/lint/**"],
-    include: ["src/**/*.test.ts", "test/**/*.test.ts", "tools/**/*.test.ts"],
     passWithNoTests: true,
+    projects: [
+      { test: { exclude: ["tools/lint/**"], include: ["tools/**/*.test.ts"], name: "tools" } },
+      { test: { include: ["test/**/*.test.ts"], name: "root" } },
+      { test: { include: ["apps/web/src/**/*.test.ts"], name: "web" } },
+      { test: { include: ["apps/api/src/**/*.test.ts"], name: "api" } },
+      { test: { include: ["apps/auth/src/**/*.test.ts"], name: "auth" } },
+      { test: { include: ["packages/contract/src/**/*.test.ts"], name: "contract" } },
+      { test: { include: ["packages/db/src/**/*.test.ts"], name: "db" } },
+      { test: { include: ["packages/config/src/**/*.test.ts"], name: "config" } },
+      { test: { include: ["infra/**/*.test.ts"], name: "infra" } },
+    ],
   },
 });

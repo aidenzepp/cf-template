@@ -1,0 +1,7 @@
+{
+  "name": "@workspace/db",
+  "private": true,
+  "description": "Owns makeDatabase and batch, the only atomic-write path. Must not own schemas, migrations, any table, or the Better Auth promise view.",
+  "type": "module",
+  "exports": {}
+}
