@@ -12,10 +12,18 @@ import { Api } from "@workspace/contract/api/api";
 import { makeDatabase } from "@workspace/db/database";
 import { ProblemDetailsIncludeKnob } from "./config.ts";
 import { AuthCheckSession, SessionLookup } from "./authorization.ts";
-import { ApiWorkerHandlerGroupLayers, ApiWorkerMiddlewareLayers } from "./blocks.ts";
-import { Notes, NotesDatabase } from "./notes/notes.ts";
-import type { NotesService } from "./notes/notes.ts";
+import { AppDatabase } from "./app-database.ts";
+import {
+  ApiWorkerHandlerGroupLayers,
+  ApiWorkerIsolateLayers,
+  ApiWorkerMiddlewareLayers,
+} from "./blocks.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
+
+/**
+ * The services built once per isolate, as the isolate layers of `blocks.ts` provide them.
+ */
+export type ApiIsolateServices = Layer.Success<typeof ApiWorkerIsolateLayers>;
 
 /**
  * Run a call on the `auth` binding with the host context of the request in progress.
@@ -104,14 +112,18 @@ export class ApiWorker extends Cloudflare.Worker<ApiWorker, ApiEntrypoint>()("Ap
  * against the deployer's environment and binds that value over the one `infra` binds per stage. A
  * missing or invalid binding is a defect of that execution's requests and nothing else.
  *
- * The notes service is not built here: it holds the store, so it is built once per isolate and
- * shared by every execution; a store built per execution would be empty on every request.
+ * The isolate services are not built here: they hold state such as a store, so they are built once
+ * per isolate and shared by every execution; a store built per execution would be empty on every
+ * request.
  *
  * @param checkSession - The `checkSession` method of the bound `auth` Worker.
- * @param notes - The notes service of the isolate.
+ * @param isolate - The services of the isolate, built from `ApiWorkerIsolateLayers`.
  * @returns The router's HTTP effect, built on the execution scope.
  */
-export const makeHandler = (checkSession: typeof AuthCheckSession.Service, notes: NotesService) =>
+export const makeHandler = (
+  checkSession: typeof AuthCheckSession.Service,
+  isolate: Context.Context<ApiIsolateServices>,
+) =>
   Effect.gen(function* buildHandler() {
     const env = yield* Cloudflare.WorkerEnvironment;
     const provider = ConfigProvider.layer(ConfigProvider.fromUnknown(env));
@@ -122,7 +134,7 @@ export const makeHandler = (checkSession: typeof AuthCheckSession.Service, notes
       Layer.provide(Layer.succeed(AuthCheckSession, checkSession)),
     );
 
-    const handlers = ApiWorkerHandlerGroupLayers.pipe(Layer.provide(Layer.succeed(Notes, notes)));
+    const handlers = ApiWorkerHandlerGroupLayers.pipe(Layer.provide(Layer.succeedContext(isolate)));
 
     const routes = HttpApiBuilder.layer(Api).pipe(
       Layer.provide(handlers),
@@ -142,9 +154,9 @@ export const makeHandler = (checkSession: typeof AuthCheckSession.Service, notes
  * middleware that asks `auth` through its service binding, the example-feature gate, and Problem
  * Details on every error it produces. It has no public address; `web` forwards `/api/*` to it.
  *
- * Initialization binds `auth` and the `AppDb` database, reads no setting and builds the notes
- * service once for the isolate; the database client is built on first use in each execution, and
- * so is the handler, which reads the knobs.
+ * Initialization binds `auth` and the `AppDb` database, reads no setting and builds the isolate
+ * services (`ApiWorkerIsolateLayers`, the notes store among them) once; the database client is
+ * built on first use in each execution, and so is the handler, which reads the knobs.
  */
 export default ApiWorker.make(
   apiProps,
@@ -166,16 +178,16 @@ export default ApiWorker.make(
       }),
     );
 
-    const notes = yield* Notes.pipe(
+    const isolate = yield* Effect.context<ApiIsolateServices>().pipe(
       Effect.provide(
-        Notes.layer().pipe(
-          Layer.provide(Layer.succeed(NotesDatabase, withHostContext(database).pipe(Effect.orDie))),
+        ApiWorkerIsolateLayers.pipe(
+          Layer.provide(Layer.succeed(AppDatabase, withHostContext(database).pipe(Effect.orDie))),
         ),
       ),
     );
 
     const handler = yield* makeExecutionMemo(
-      makeHandler((input) => withHostContext(authBinding.checkSession(input)), notes).pipe(
+      makeHandler((input) => withHostContext(authBinding.checkSession(input)), isolate).pipe(
         Effect.provideContext(context),
         Effect.orDie,
       ),

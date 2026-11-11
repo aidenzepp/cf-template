@@ -30,10 +30,38 @@ const markerPatterns = (unit: string) => {
 };
 
 /**
- * The marked-line step of the pull-out on `text`, the contents of `file`: drops each line that ends
- * in a `// block:<unit>` or block-comment `block:<unit>` marker, and each region from a line
- * holding `block:<unit> start` through the next line holding `block:<unit> end`, both lines
- * included. A `start` with no `end` fails naming `file` and the line.
+ * The lines of `text` that the pull-out of `unit` deletes: each line that ends in a
+ * `// block:<unit>` or block-comment `block:<unit>` marker, and each region from a line holding
+ * `block:<unit> start` through the next line holding `block:<unit> end`, both lines included.
+ *
+ * @param unit - The unit name.
+ * @param text - The contents of a file.
+ * @returns The 1-based numbers of the deleted lines, and the 1-based line of a `start` that has no
+ *   `end` (`0` when every region closes).
+ */
+export const markedLines = (unit: string, text: string) => {
+  const { end, start, trailing } = markerPatterns(unit);
+  const lines = new Set<number>();
+  let opened = 0;
+
+  for (const [index, line] of text.split("\n").entries()) {
+    if (opened > 0) {
+      lines.add(index + 1);
+      opened = end.test(line) ? 0 : opened;
+    } else if (start.test(line)) {
+      lines.add(index + 1);
+      opened = index + 1;
+    } else if (trailing.test(line)) {
+      lines.add(index + 1);
+    }
+  }
+
+  return { lines, unterminated: opened };
+};
+
+/**
+ * The marked-line step of the pull-out on `text`, the contents of `file`: drops the lines
+ * {@link markedLines} names. A `start` with no `end` fails naming `file` and the line.
  */
 export const removeMarked = (
   unit: string,
@@ -41,27 +69,20 @@ export const removeMarked = (
   text: string,
 ): Effect.Effect<string, UnterminatedRegionError> =>
   Effect.suspend(() => {
-    const { end, start, trailing } = markerPatterns(unit);
-    const kept: Array<string> = [];
-    let opened = 0;
+    const { lines, unterminated } = markedLines(unit, text);
 
-    for (const [index, line] of text.split("\n").entries()) {
-      if (opened > 0) {
-        opened = end.test(line) ? 0 : opened;
-      } else if (start.test(line)) {
-        opened = index + 1;
-      } else if (!trailing.test(line)) {
-        kept.push(line);
-      }
-    }
-
-    return opened === 0
-      ? Effect.succeed(kept.join("\n"))
+    return unterminated === 0
+      ? Effect.succeed(
+          text
+            .split("\n")
+            .filter((_, index) => !lines.has(index + 1))
+            .join("\n"),
+        )
       : Effect.fail(
           new UnterminatedRegionError({
             file,
-            line: opened,
-            message: `unterminated block:${unit} region ${file}:${opened}`,
+            line: unterminated,
+            message: `unterminated block:${unit} region ${file}:${unterminated}`,
           }),
         );
   });

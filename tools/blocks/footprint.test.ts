@@ -84,6 +84,18 @@ describe("footprint", () => {
     }),
   );
 
+  it.effect("an import the pull-out deletes by a block marker is not a core reference", () =>
+    Effect.gen(function* marked() {
+      assert.deepStrictEqual((yield* measured("marked-import")).failures, []);
+    }),
+  );
+
+  it.effect("a generated file is not scanned", () =>
+    Effect.gen(function* generated() {
+      assert.deepStrictEqual((yield* measured("generated-import")).failures, []);
+    }),
+  );
+
   it.effect("an attach file may import the unit", () =>
     Effect.gen(function* attachImport() {
       assert.deepStrictEqual((yield* measured("attach-import")).failures, []);

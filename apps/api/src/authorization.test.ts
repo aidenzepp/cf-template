@@ -19,9 +19,11 @@ import { RpcCallError } from "alchemy/Rpc";
 import { Api } from "@workspace/contract/api/api";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
+// block:notes start
 import { ExampleFeatureGateLive } from "./notes/gate.ts";
 import { NotesApiHandlersNoDeps } from "./notes/http.ts";
 import { Notes } from "./notes/notes.ts";
+// block:notes end
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
 import { SystemApiHandlers } from "./system/http.ts";
 
