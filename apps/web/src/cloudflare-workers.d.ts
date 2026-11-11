@@ -19,6 +19,12 @@ declare module "cloudflare:workers" {
     readonly AUTH_METHODS: string;
     readonly AUTH_ORPHAN_GRACE_SECONDS: string;
     readonly PUBLIC_ORIGIN: string;
+    readonly RATELIMIT_CREDENTIAL: {
+      readonly limit: (options: { readonly key: string }) => Promise<{ readonly success: boolean }>;
+    };
+    readonly RATELIMIT_PUBLIC: {
+      readonly limit: (options: { readonly key: string }) => Promise<{ readonly success: boolean }>;
+    };
   };
 }
 
