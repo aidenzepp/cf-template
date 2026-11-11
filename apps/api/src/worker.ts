@@ -14,6 +14,7 @@ import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./author
 import { ExampleFeatureGateLive } from "./notes/gate.ts";
 import { NotesApiHandlersNoDeps } from "./notes/http.ts";
 import { Notes } from "./notes/notes.ts";
+import type { NotesService } from "./notes/notes.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
 import { SystemApiHandlers } from "./system.ts";
 
@@ -78,10 +79,14 @@ export class ApiWorker extends Cloudflare.Worker<ApiWorker, ApiEntrypoint>()("Ap
  * against the deployer's environment and binds that value over the one `infra` binds per stage. A
  * missing or invalid binding is a defect of that execution's requests and nothing else.
  *
+ * The notes service is not built here: it holds the store, so it is built once per isolate and
+ * shared by every execution; a store built per execution would be empty on every request.
+ *
  * @param checkSession - The `checkSession` method of the bound `auth` Worker.
+ * @param notes - The notes service of the isolate.
  * @returns The router's HTTP effect, built on the execution scope.
  */
-const makeHandler = (checkSession: typeof AuthCheckSession.Service) =>
+export const makeHandler = (checkSession: typeof AuthCheckSession.Service, notes: NotesService) =>
   Effect.gen(function* buildHandler() {
     const env = yield* Cloudflare.WorkerEnvironment;
     const provider = ConfigProvider.layer(ConfigProvider.fromUnknown(env));
@@ -93,7 +98,7 @@ const makeHandler = (checkSession: typeof AuthCheckSession.Service) =>
     );
 
     const handlers = Layer.mergeAll(NotesApiHandlersNoDeps, SystemApiHandlers).pipe(
-      Layer.provide(Notes.layerMemory),
+      Layer.provide(Layer.succeed(Notes, notes)),
     );
 
     const routes = HttpApiBuilder.layer(Api).pipe(
@@ -114,17 +119,19 @@ const makeHandler = (checkSession: typeof AuthCheckSession.Service) =>
  * asks `auth` through its service binding, the example-feature gate, and Problem Details on every
  * error it produces. It has no public address; `web` forwards `/api/*` to it.
  *
- * Initialization binds `auth` and reads no setting; the handler is built on first use in each
- * execution and shared by the rest of it.
+ * Initialization binds `auth`, reads no setting and builds the in-memory notes store once for the
+ * isolate; the handler, which reads the knobs, is built on first use in each execution and shared
+ * by the rest of it.
  */
 export default ApiWorker.make(
   apiProps,
   Effect.gen(function* buildApi() {
     const authBinding = yield* Cloudflare.bindWorker(Auth);
     const context = yield* Effect.context<Cloudflare.WorkerEnvironment>();
+    const notes = yield* Notes.pipe(Effect.provide(Notes.layerMemory));
 
     const handler = yield* makeExecutionMemo(
-      makeHandler((input) => withHostContext(authBinding.checkSession(input))).pipe(
+      makeHandler((input) => withHostContext(authBinding.checkSession(input)), notes).pipe(
         Effect.provideContext(context),
         Effect.orDie,
       ),
