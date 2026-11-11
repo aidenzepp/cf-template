@@ -1,7 +1,13 @@
 import { createFileRoute, useRouteContext, useSearch } from "@tanstack/react-router";
 import { Alert, AlertDescription } from "@workspace/ui/components/ui/alert";
 import { Button } from "@workspace/ui/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@workspace/ui/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/ui/card";
 import { Checkbox } from "@workspace/ui/components/ui/checkbox";
 import {
   Field,
@@ -11,19 +17,32 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/ui/field";
 import { Input } from "@workspace/ui/components/ui/input";
-import { Effect } from "effect";
-import { useState } from "react";
+import { Effect, Option } from "effect";
+import { useEffect, useState } from "react";
 import type { SyntheticEvent } from "react";
 import { Reauthenticate } from "../components/auth/reauthenticate.tsx";
 import { readField } from "../components/auth/use-auth-submit.ts";
 import { authClient } from "../lib/auth-client.ts";
 import { authErrorCopy } from "../lib/auth-error-copy.ts";
 import { oauthErrorCode, oauthErrorCopy } from "../lib/oauth-error-copy.ts";
-import { needsFreshSession, settingsCalls, settle } from "../lib/settings-calls.ts";
+import {
+  PASSKEY_FALLBACK_NAME,
+  decodeAccounts,
+  decodePasskeys,
+  needsFreshSession,
+  passkeyHint,
+  providerName,
+  settingsCalls,
+  settle,
+} from "../lib/settings-calls.ts";
 import type { Settled } from "../lib/settings-calls.ts";
 import { run as runEffect } from "../runtime.ts";
 
 const calls = settingsCalls(authClient);
+
+const passkeysOf = ({ data }: Settled) => decodePasskeys(data);
+
+const accountsOf = ({ data }: Settled) => decodeAccounts(data);
 
 /**
  * The outcome line of one card.
@@ -34,6 +53,62 @@ interface Outcome {
 }
 
 const NO_OUTCOME: Outcome = { failed: false, text: null };
+
+/**
+ * Loads a list when the card mounts and again after `reload`. A failed load leaves the list empty
+ * and keeps the error line to show.
+ *
+ * @param call - Reads the list.
+ * @param decode - Decodes the list from the call's data.
+ * @returns The list, the error line of a failed load, and `reload`.
+ */
+const useLoaded = <Item,>(
+  call: () => PromiseLike<Settled>,
+  decode: (settled: Settled) => Option.Option<readonly Item[]>,
+) => {
+  const [items, setItems] = useState<readonly Item[]>([]);
+  const [failure, setFailure] = useState<string | null>(null);
+  const [reloads, setReloads] = useState(0);
+
+  useEffect(() => {
+    let current = true;
+
+    void runEffect(
+      settle(call).pipe(
+        Effect.tap((settled) =>
+          Effect.sync(() => {
+            if (!current) {
+              return;
+            }
+
+            const { error } = settled;
+            const list = decode(settled);
+
+            setItems(Option.getOrElse(list, () => []));
+            setFailure(
+              authErrorCopy({
+                aborted: false,
+                error: error ?? (Option.isNone(list) ? { status: 500 } : null),
+              }),
+            );
+          }),
+        ),
+      ),
+    );
+
+    return () => {
+      current = false;
+    };
+  }, [call, decode, reloads]);
+
+  return {
+    failure,
+    items,
+    reload: () => {
+      setReloads((count) => count + 1);
+    },
+  };
+};
 
 /**
  * Runs a card's calls and keeps its outcome line. A call the server refuses for a stale session
@@ -196,6 +271,139 @@ const PasswordCard = ({ askFresh }: { readonly askFresh: (retry: () => void) => 
   );
 };
 
+const PasskeysCard = ({
+  askFresh,
+  emailLive,
+}: {
+  readonly askFresh: (retry: () => void) => void;
+  readonly emailLive: boolean;
+}) => {
+  const { outcome, pending, run } = useRun(askFresh);
+  const { failure, items: passkeys, reload } = useLoaded(calls.listPasskeys, passkeysOf);
+  const hint = passkeyHint(emailLive);
+
+  const onAdd = (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const name = readField(new FormData(event.currentTarget), "name");
+
+    run(() => calls.addPasskey(name), "Passkey added.", reload);
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Passkeys</CardTitle>
+        {hint === null ? null : <CardDescription>{hint}</CardDescription>}
+      </CardHeader>
+      <CardContent>
+        <FieldGroup>
+          {passkeys.map((passkey) => (
+            <form
+              key={passkey.id}
+              onSubmit={(event) => {
+                event.preventDefault();
+
+                const name = readField(new FormData(event.currentTarget), "name");
+
+                run(() => calls.renamePasskey(passkey.id, name), "Passkey renamed.", reload);
+              }}
+            >
+              <Field orientation="horizontal">
+                <Input
+                  aria-label="Passkey name"
+                  defaultValue={passkey.name ?? PASSKEY_FALLBACK_NAME}
+                  name="name"
+                  required
+                  type="text"
+                />
+                <Button disabled={pending} type="submit" variant="outline">
+                  Rename
+                </Button>
+                <Button
+                  disabled={pending}
+                  onClick={() => {
+                    run(() => calls.deletePasskey(passkey.id), "Passkey deleted.", reload);
+                  }}
+                  type="button"
+                  variant="outline"
+                >
+                  Delete
+                </Button>
+              </Field>
+            </form>
+          ))}
+          <form onSubmit={onAdd}>
+            <Field orientation="horizontal">
+              <Input aria-label="New passkey name" name="name" placeholder="Name" type="text" />
+              <Button disabled={pending} type="submit">
+                Add passkey
+              </Button>
+            </Field>
+          </form>
+          <FieldError>{failure}</FieldError>
+          <OutcomeLine outcome={outcome} />
+        </FieldGroup>
+      </CardContent>
+    </Card>
+  );
+};
+
+const AccountsCard = ({
+  askFresh,
+  providers,
+}: {
+  readonly askFresh: (retry: () => void) => void;
+  readonly providers: readonly string[];
+}) => {
+  const { outcome, pending, run } = useRun(askFresh);
+  const { failure, items: accounts, reload } = useLoaded(calls.listAccounts, accountsOf);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Connected accounts</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <FieldGroup>
+          {providers.map((provider) => {
+            const name = providerName(provider);
+            const account = accounts.find(({ providerId }) => providerId === provider);
+
+            return account === undefined ? (
+              <Button
+                disabled={pending}
+                key={provider}
+                onClick={() => {
+                  run(() => calls.linkProvider(provider), "");
+                }}
+                type="button"
+                variant="outline"
+              >
+                {`Link ${name}`}
+              </Button>
+            ) : (
+              <Button
+                disabled={pending}
+                key={provider}
+                onClick={() => {
+                  run(() => calls.unlinkAccount(account.id), `${name} unlinked.`, reload);
+                }}
+                type="button"
+                variant="outline"
+              >
+                {`Unlink ${name}`}
+              </Button>
+            );
+          })}
+          <FieldError>{failure}</FieldError>
+          <OutcomeLine outcome={outcome} />
+        </FieldGroup>
+      </CardContent>
+    </Card>
+  );
+};
+
 /**
  * The account settings screen. The root guard keeps a signed-out caller out; a stale session is
  * answered by the server, and the prompt asks for the password again.
@@ -203,7 +411,7 @@ const PasswordCard = ({ askFresh }: { readonly askFresh: (retry: () => void) => 
  * @returns The page body.
  */
 const Settings = () => {
-  const { session } = useRouteContext({ from: "/settings" });
+  const { authMethods, session } = useRouteContext({ from: "/settings" });
   const { error } = useSearch({ from: "/settings" });
   const [retry, setRetry] = useState<(() => void) | undefined>(undefined);
 
@@ -224,6 +432,8 @@ const Settings = () => {
       )}
       <ProfileCard askFresh={askFresh} image={session.session.image} name={session.session.name} />
       <PasswordCard askFresh={askFresh} />
+      <PasskeysCard askFresh={askFresh} emailLive={authMethods.email} />
+      <AccountsCard askFresh={askFresh} providers={authMethods.providers} />
       <Reauthenticate
         email={session.session.email}
         onCancel={() => {
