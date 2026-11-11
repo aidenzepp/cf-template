@@ -278,6 +278,13 @@ export default defineConfig({
         rules: { "no-restricted-properties": ["error", ...runMembers] },
       },
       {
+        // The cloud suite's Vitest global setup is a run boundary: Vitest calls a plain async
+        // function, so the Effect that validates the stage and runs `alchemy` runs here. It keeps
+        // the data-access bans.
+        files: ["test/cloud/global-setup.ts"],
+        rules: { "no-restricted-properties": ["error", ...dataAccessMembers] },
+      },
+      {
         // Tests set up and read the database on purpose, so they lift the run-family and
         // data-access bans.
         files: ["**/*.test.ts"],
@@ -442,7 +449,14 @@ export default defineConfig({
   },
   // Tests run on Vitest with @effect/vitest. The lint-rule tests in tools/lint import bun:test
   // and run under `bun test`; `bun run test` runs both.
+  //
+  // Versions in use: Vitest 5.1.0 (bundled by Vite+ 1.5.0), Miniflare 4.20260730.0, workerd
+  // 1.20261026.1. `@cloudflare/vitest-pool-workers` is not used: it failed under Vitest 5.1.0 and
+  // its successor cannot load an Alchemy Worker module, so tier 2 is Miniflare's local D1 plus
+  // Alchemy's `dev` harness.
   test: {
+    // The deploy guard: every default project inherits it, and `vite.cloud.config.ts` never sets it.
+    env: { ALCHEMY_TEST_DEV: "1" },
     projects: [
       {
         test: {
@@ -452,7 +466,14 @@ export default defineConfig({
           name: "tools",
         },
       },
-      { test: { ...noOnly, include: ["test/**/*.test.ts"], name: "root" } },
+      {
+        test: {
+          ...noOnly,
+          exclude: ["test/local/**"],
+          include: ["test/**/*.test.ts"],
+          name: "root",
+        },
+      },
       { test: { ...noOnly, include: ["apps/web/src/**/*.test.ts"], name: "web" } },
       { test: { ...noOnly, include: ["apps/api/src/**/*.test.ts"], name: "api" } },
       { test: { ...noOnly, include: ["apps/auth/src/**/*.test.ts"], name: "auth" } },
@@ -460,6 +481,15 @@ export default defineConfig({
       { test: { ...noOnly, include: ["packages/db/src/**/*.test.ts"], name: "db" } },
       { test: { ...noOnly, include: ["packages/config/src/**/*.test.ts"], name: "config" } },
       { test: { ...noOnly, include: ["infra/**/*.test.ts"], name: "infra" } },
+      {
+        test: {
+          ...noOnly,
+          include: ["test/local/**/*.test.ts"],
+          name: "local",
+          setupFiles: ["test/local/setup.ts"],
+        },
+      },
+      { test: { ...noOnly, include: ["test/e2e/**/*.e2e.ts"], name: "e2e-local" } },
     ],
   },
 });
