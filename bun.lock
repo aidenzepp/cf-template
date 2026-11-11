@@ -40,6 +40,7 @@
         "@workspace/config": "workspace:*",
         "@workspace/contract": "workspace:*",
         "@workspace/db": "workspace:*",
+        "@workspace/knobs-kv": "workspace:*",
         "alchemy": "2.0.0-beta.85",
         "drizzle-orm": "1.0.0-rc.5",
         "effect": "4.1.2",
@@ -60,6 +61,7 @@
         "@workspace/config": "workspace:*",
         "@workspace/contract": "workspace:*",
         "@workspace/db": "workspace:*",
+        "@workspace/knobs-kv": "workspace:*",
         "alchemy": "2.0.0-beta.85",
         "better-auth": "1.7.19",
         "drizzle-orm": "1.0.0-rc.5",
@@ -82,6 +84,7 @@
         "@tanstack/react-start": "1.169.5",
         "@workspace/config": "workspace:*",
         "@workspace/contract": "workspace:*",
+        "@workspace/knobs-kv": "workspace:*",
         "@workspace/ui": "workspace:*",
         "better-auth": "1.7.19",
         "effect": "4.1.2",
@@ -110,6 +113,7 @@
         "@alchemy.run/github": "2.0.0-beta.85",
         "@effect/platform-bun": "4.1.2",
         "@workspace/config": "workspace:*",
+        "@workspace/knobs-kv": "workspace:*",
         "alchemy": "2.0.0-beta.85",
         "effect": "4.1.2",
       },
@@ -145,6 +149,19 @@
       "devDependencies": {
         "@effect/vitest": "4.1.2",
         "miniflare": "4.20260730.0",
+      },
+    },
+    "packages/knobs-kv": {
+      "name": "@workspace/knobs-kv",
+      "dependencies": {
+        "@alchemy.run/cloudflare": "2.0.0-beta.85",
+        "@workspace/config": "workspace:*",
+        "alchemy": "2.0.0-beta.85",
+        "effect": "4.1.2",
+      },
+      "devDependencies": {
+        "@effect/platform-bun": "4.1.2",
+        "@effect/vitest": "4.1.2",
       },
     },
     "packages/ui": {
@@ -976,6 +993,8 @@
     "@workspace/db": ["@workspace/db@workspace:packages/db"],
 
     "@workspace/infra": ["@workspace/infra@workspace:infra"],
+
+    "@workspace/knobs-kv": ["@workspace/knobs-kv@workspace:packages/knobs-kv"],
 
     "@workspace/ui": ["@workspace/ui@workspace:packages/ui"],
 
