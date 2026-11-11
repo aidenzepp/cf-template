@@ -1,5 +1,6 @@
 import { Console, Effect, Schema } from "effect";
 import type { Redacted } from "effect";
+import { failOnDrift, reportDrift } from "./check.ts";
 import { declarationPlan, planWarnings, reviewerAppId } from "./declare.ts";
 import type { DeclarationPlan } from "./declare.ts";
 import {
@@ -55,6 +56,10 @@ export const applySettings = <E, R>(declare: Declare<E, R>) =>
 
     yield* Effect.all(warnings.map((line) => Console.warn(line)));
 
+    yield* reportDrift(repository, "check before apply").pipe(
+      Effect.catch((error) => Console.warn(`check before apply skipped: ${error.message}`)),
+    );
+
     const declared = yield* declare(declarationPlan(repository, tier, reviewer), token);
     const rest = yield* applyRest(repository, tier);
     const labels = yield* applyRestLabels(repository, tier);
@@ -66,4 +71,6 @@ export const applySettings = <E, R>(declare: Declare<E, R>) =>
         warnings.length + rest.unavailable + labels.unavailable,
       ),
     );
+
+    yield* failOnDrift(yield* reportDrift(repository, "check after apply"));
   });

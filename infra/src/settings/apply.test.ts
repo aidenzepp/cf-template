@@ -71,7 +71,9 @@ describe("applySettings", () => {
     Effect.gen(function* guarded() {
       const { calls, run, tokens } = harness({}, true);
 
-      yield* run;
+      // This fake answers every read with the same body, so the after-apply check cannot decode
+      // live state and ends the run; check.test.ts covers that outcome with real-shaped state.
+      yield* Effect.ignore(run);
 
       assert.deepStrictEqual(tokens, ["ghp_guarded"]);
       assert.deepStrictEqual(calls.slice(0, 2), [
