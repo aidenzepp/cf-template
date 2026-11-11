@@ -1,5 +1,6 @@
 import { createSerializationAdapter } from "@tanstack/react-router";
 import { createStart } from "@tanstack/react-start";
+import { Predicate } from "effect";
 import { isAuthUnavailable } from "./components/retry.tsx";
 
 /**
@@ -23,6 +24,33 @@ const hiddenErrorAdapter = createSerializationAdapter<Error, { readonly message:
   }),
 });
 
+/**
+ * Whether a value is a dehydrated match whose loader failed with something that is not an `Error`:
+ * a bare string or a plain object. The router stores whatever the loader threw in `e` beside the
+ * status `s`, and `hiddenErrorAdapter` only sees `Error`s.
+ */
+const isNonErrorFailure = (value: unknown): value is object =>
+  Predicate.hasProperty(value, "s") &&
+  value.s === "error" &&
+  Predicate.hasProperty(value, "i") &&
+  Predicate.hasProperty(value, "u") &&
+  Predicate.hasProperty(value, "e") &&
+  !(value.e instanceof Error);
+
+/**
+ * Replaces the thrown value of a failed match with the `Error` that `hiddenErrorAdapter` then
+ * serializes without its text, so a loader's failure reaches the browser the same way whether it
+ * threw an `Error` or something else. The pair of `s` and `e` in a dehydrated match is how a thrown
+ * value is told apart from loader data. The match travels inside `match` so the serialized form
+ * does not match this adapter again.
+ */
+const hiddenFailureAdapter = createSerializationAdapter<object, { readonly match: object }>({
+  fromSerializable: ({ match }) => match,
+  key: "hidden-failure",
+  test: isNonErrorFailure,
+  toSerializable: (match) => ({ match: { ...match, e: new Error(HIDDEN_ERROR_MESSAGE) } }),
+});
+
 export const startInstance = createStart(() => ({
-  serializationAdapters: [hiddenErrorAdapter],
+  serializationAdapters: [hiddenErrorAdapter, hiddenFailureAdapter],
 }));

@@ -220,6 +220,27 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
     }),
   );
 
+  it.effect("dehydrates a loader's thrown string like an Error's failure", () =>
+    Effect.gen(function* thrownString() {
+      const { html, response } = yield* (yield* WebProd).get("/-harness-throws?kind=string");
+
+      expect(response.status).toBe(500);
+      expect(html).toContain(ERROR_HEADING);
+      expect(html).not.toContain("harness-string-secret");
+    }),
+  );
+
+  it.effect("dehydrates a loader's thrown object like an Error's failure", () =>
+    Effect.gen(function* thrownObject() {
+      const { html, response } = yield* (yield* WebProd).get("/-harness-throws?kind=object");
+
+      expect(response.status).toBe(500);
+      expect(html).toContain(ERROR_HEADING);
+      expect(html).not.toContain("harness-object-secret");
+      expect(html).not.toContain("apiKey");
+    }),
+  );
+
   const callback = "/auth/callback/github";
 
   const OUTAGE_HEADING = "Sign-in is unavailable right now.";
