@@ -134,9 +134,7 @@ export const restClient = Effect.gen(function* restClient() {
 });
 
 /**
- * Build the repository settings calls, in the order they run: only what `@alchemy.run/github`
- * (`Repository.ts`, `Ruleset.ts`, `Environment.ts`, `Label.ts`, `Variable.ts`) has no prop for.
- * Merge methods, delete-on-merge and auto-merge are `GitHub.Repository` props, not calls here.
+ * Build the repository settings calls, in the order they run.
  *
  * Endpoints and bodies, from the GitHub REST docs: "Update a repository"
  * (`PATCH /repos/{owner}/{repo}`), "Enable vulnerability alerts" (`PUT .../vulnerability-alerts`),
@@ -156,7 +154,11 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
   return [
     {
       body: {
+        allow_merge_commit: false,
+        allow_rebase_merge: false,
+        allow_squash_merge: true,
         allow_update_branch: true,
+        delete_branch_on_merge: true,
         pull_request_creation_policy: "collaborators_only",
         squash_merge_commit_message: "PR_BODY",
         squash_merge_commit_title: "PR_TITLE",
@@ -164,7 +166,14 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
       method: "PATCH",
       need: "mergeSettings",
       path: repo,
-      setting: "merge-extras",
+      setting: "merge-settings",
+    },
+    {
+      body: { allow_auto_merge: true },
+      method: "PATCH",
+      need: "autoMerge",
+      path: repo,
+      setting: "auto-merge",
     },
     {
       body: analysis("secret_scanning"),

@@ -10,16 +10,21 @@ describe("applyRest", () => {
       const summary = yield* run;
       const body = (call: string) => requests.find((request) => request.call === call)?.body;
 
-      assert.deepStrictEqual(summary, { applied: 10, failed: 0, unavailable: 0 });
+      assert.deepStrictEqual(summary, { applied: 11, failed: 0, unavailable: 0 });
       assert.deepStrictEqual(body(`PATCH ${base}`), {
+        allow_merge_commit: false,
+        allow_rebase_merge: false,
+        allow_squash_merge: true,
         allow_update_branch: true,
+        delete_branch_on_merge: true,
         pull_request_creation_policy: "collaborators_only",
         squash_merge_commit_message: "PR_BODY",
         squash_merge_commit_title: "PR_TITLE",
       });
       assert.deepStrictEqual(
-        requests.slice(1, 3).map((request) => request.body),
+        requests.slice(1, 4).map((request) => request.body),
         [
+          { allow_auto_merge: true },
           { security_and_analysis: { secret_scanning: { status: "enabled" } } },
           { security_and_analysis: { secret_scanning_push_protection: { status: "enabled" } } },
         ],
@@ -57,7 +62,7 @@ describe("applyRest", () => {
       const { lines, requests, run } = harness(applyRest, PRO);
       const summary = yield* run;
 
-      assert.deepStrictEqual(summary, { applied: 7, failed: 0, unavailable: 3 });
+      assert.deepStrictEqual(summary, { applied: 8, failed: 0, unavailable: 3 });
       assert.include(lines, "unavailable secret-scanning tier");
       assert.include(lines, "unavailable push-protection tier");
       assert.include(lines, "unavailable codeql-default-setup tier");
@@ -95,8 +100,8 @@ describe("applyRest", () => {
       const error = yield* Effect.flip(run);
 
       assert.instanceOf(error, RestSettingsError);
-      assert.deepStrictEqual([error.applied, error.unavailable, error.failed], [7, 0, 3]);
-      assert.include(lines, "failed merge-extras 500");
+      assert.deepStrictEqual([error.applied, error.unavailable, error.failed], [7, 0, 4]);
+      assert.include(lines, "failed merge-settings 500");
       assert.isTrue(
         requests.some((request) => request.call === `PUT ${base}/actions/permissions/workflow`),
       );
