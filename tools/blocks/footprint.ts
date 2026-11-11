@@ -14,9 +14,9 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { SyntaxKind } from "typescript/unstable/ast";
 import { createScanner } from "typescript/unstable/ast/scanner";
 
-import { parseAttach } from "./grammar.ts";
-import type { AttachForm } from "./grammar.ts";
+import { attachFormOf, parseAttach, unreadableMessage } from "./grammar.ts";
 import { decodeManifest } from "./manifest.ts";
+import { markedLines } from "./markers.ts";
 import { parseMeter } from "./meters.ts";
 
 /**
@@ -251,13 +251,22 @@ const candidates = (
 const sourceFile = /\.[cm]?[jt]sx?$/u;
 
 /**
+ * The matcher for generated source files, which the footprint does not scan: a tool writes them
+ * from the other files (`route-tree.gen.ts` from the routes), and the pull-out regenerates them
+ * after it removes the unit.
+ */
+const generatedFile = /\.gen\.[cm]?[jt]sx?$/u;
+
+/**
  * The matcher for the other files the footprint reads: the manifest, packages and READMEs.
  */
 const inputFile = /(?:^|\/)(?:blocks\.json|package\.json|README\.md)$/u;
 
 /**
  * The units of the tree `files`: every workspace package whose README starts with a valid `Meter:`
- * line, then every slice and block of its `blocks.json`.
+ * line, then every slice and block of its `blocks.json`. A package a slice or block names is not
+ * listed twice: the declaration owns the wider path set, and a package-only twin would flag the
+ * unit's own files as core.
  */
 const discoverUnits = Effect.fn("footprint.discoverUnits")(function* discoverUnits(
   files: Readonly<Record<string, string>>,
@@ -269,13 +278,16 @@ const discoverUnits = Effect.fn("footprint.discoverUnits")(function* discoverUni
     .filter((file) => pattern.test(file))
     .map(dirname);
 
+  const declared = new Set(extra.map((unit) => unit.name));
   const units: Array<Unit> = [];
 
   for (const dir of dirs) {
+    const name = dir.split("/").at(-1) ?? dir;
     const meter = yield* Effect.result(parseMeter(files[`${dir}/README.md`] ?? ""));
 
-    if (Result.isSuccess(meter)) {
-      units.push({ name: dir.split("/").at(-1) ?? dir, paths: [`${dir}/`] });
+    // A unit `blocks.json` declares by name owns more than its package directory, and wins.
+    if (Result.isSuccess(meter) && !declared.has(name)) {
+      units.push({ name, paths: [`${dir}/`] });
     }
   }
 
@@ -305,33 +317,30 @@ const workspacePackages = Effect.fn("footprint.workspacePackages")(function* wor
 });
 
 /**
- * Reads each attach file of `files` as every form. A collapsed line naming a unit fails the file;
- * any other shape error fails it only when no form reads it.
+ * Reads each attach file of `files` as the one form the pull-out reads it as. A line the form
+ * cannot read fails the file: a collapsed line naming a unit with the grammar's own message, any
+ * other with the file, the line and the shape the form expects.
  */
 const attachFailures = Effect.fn("footprint.attachFailures")(function* attachFailures(
   files: Readonly<Record<string, string>>,
   attachFiles: ReadonlyArray<string>,
   units: ReadonlyArray<string>,
 ) {
-  const forms: ReadonlyArray<AttachForm> = ["add", "array", "mergeAll", "yield"];
   const failures: Array<string> = [];
 
   for (const file of attachFiles.filter((name) => files[name] !== undefined)) {
-    const results = yield* Effect.all(
-      forms.map((form) => Effect.result(parseAttach(form, file, files[file] ?? "", units))),
-    );
+    const form = attachFormOf(file);
+    const result = yield* Effect.result(parseAttach(form, file, files[file] ?? "", units));
 
-    const errors = results.flatMap((result) =>
-      Result.isFailure(result) ? [result.failure.message] : [],
-    );
+    if (Result.isFailure(result)) {
+      const { message } = result.failure;
 
-    const collapsed = errors.filter((message) => message.startsWith("collapsed attach line"));
-
-    failures.push(
-      ...(collapsed.length > 0
-        ? collapsed
-        : errors.slice(0, errors.length === forms.length ? 1 : 0)),
-    );
+      failures.push(
+        message.startsWith("collapsed attach line")
+          ? message
+          : unreadableMessage(result.failure, form),
+      );
+    }
   }
 
   return failures;
@@ -342,7 +351,8 @@ const attachFailures = Effect.fn("footprint.attachFailures")(function* attachFai
  * that holds at least `blocks.json`, and returns one line per unit with its elapsed time and one
  * failure per core reference or unreadable attach line. The core of a unit is every file outside
  * its paths and the attach files; an import in the core that resolves into the unit is a failure
- * naming `file:line`. Attach files are read with the attach grammar, given the unit names.
+ * naming `file:line`, unless the line is one the pull-out deletes (a `block:<unit>` marker) or the
+ * file is generated. Attach files are read with the attach grammar, given the unit names.
  */
 export const footprint = Effect.fn("footprint.footprint")(function* footprint(
   files: Readonly<Record<string, string>>,
@@ -367,15 +377,23 @@ export const footprint = Effect.fn("footprint.footprint")(function* footprint(
     const [elapsed, references] = yield* Effect.timed(
       Effect.sync(() =>
         Object.entries(files)
-          .filter(([file]) => sourceFile.test(file) && !attach.has(file) && !owns(file))
-          .flatMap(([file, text]) =>
-            importSpecifiers(text)
-              .filter((ref) => resolves(ref, file))
+          .filter(
+            ([file]) =>
+              sourceFile.test(file) &&
+              !generatedFile.test(file) &&
+              !attach.has(file) &&
+              !owns(file),
+          )
+          .flatMap(([file, text]) => {
+            const removed = markedLines(unit.name, text).lines;
+
+            return importSpecifiers(text)
+              .filter((ref) => !removed.has(ref.line) && resolves(ref, file))
               .map(
                 (ref) =>
                   `${file}:${ref.line}: core file references ${unit.name} via "${ref.specifier}"`,
-              ),
-          ),
+              );
+          }),
       ),
     );
 

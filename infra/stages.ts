@@ -5,7 +5,9 @@ import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { LogLevelKnob } from "@workspace/config/log-level";
 import { HeadSamplingRateKnob } from "@workspace/config/observability";
 import { AuthCheckSessionTimeoutKnob, ProblemDetailsIncludeKnob } from "../apps/api/src/config.ts";
+// block:notes start
 import { ExampleFeatureKnob } from "../apps/api/src/notes/knob.ts";
+// block:notes end
 import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "../apps/auth/src/config.ts";
 
 /**
@@ -216,7 +218,9 @@ export interface StageValues {
   readonly AUTH_COOKIE_CACHE_MAX_AGE_S: typeof CookieCacheMaxAgeKnob.default;
   readonly AUTH_COOKIE_CACHE_STRATEGY: typeof CookieCacheStrategyKnob.default;
   readonly AUTH_PASSWORD_SCRYPT: typeof AUTH_PASSWORD_SCRYPT.default;
+  // block:notes start
   readonly EXAMPLE_FEATURE_ENABLED: typeof ExampleFeatureKnob.default;
+  // block:notes end
   readonly HEAD_SAMPLING_RATE: typeof HeadSamplingRateKnob.default;
   readonly LOG_LEVEL: LogLevel.LogLevel;
   readonly PROBLEM_DETAILS_INCLUDE: typeof ProblemDetailsIncludeKnob.default;
@@ -239,14 +243,21 @@ export interface StageValues {
  */
 const stageRow = (
   logLevel: string,
-  api: { readonly exampleFeature: string; readonly problemDetails: string },
+  api: {
+    // block:notes start
+    readonly exampleFeature: string;
+    // block:notes end
+    readonly problemDetails: string;
+  },
   volumeAlert: boolean,
 ): StageValues => ({
   AUTH_CHECK_SESSION_TIMEOUT_MS: validated(AuthCheckSessionTimeoutKnob, "500"),
   AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob.default,
   AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
   AUTH_PASSWORD_SCRYPT: AUTH_PASSWORD_SCRYPT.default,
+  // block:notes start
   EXAMPLE_FEATURE_ENABLED: validated(ExampleFeatureKnob, api.exampleFeature),
+  // block:notes end
   HEAD_SAMPLING_RATE: validated(HeadSamplingRateKnob, "1"),
   LOG_LEVEL: validated(LogLevelKnob, logLevel),
   PROBLEM_DETAILS_INCLUDE: validated(ProblemDetailsIncludeKnob, api.problemDetails),
@@ -258,10 +269,46 @@ const stageRow = (
  * loads. Each knob-adding block adds its key and a value per kind.
  */
 export const Stages: Record<StageKind, StageValues> = {
-  local: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }, false),
-  prod: stageRow("Info", { exampleFeature: "false", problemDetails: "false" }, true),
-  staging: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }, false),
-  test: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }, true),
+  local: stageRow(
+    "Debug",
+    {
+      // block:notes start
+      exampleFeature: "true",
+      // block:notes end
+      problemDetails: "true",
+    },
+    false,
+  ),
+  prod: stageRow(
+    "Info",
+    {
+      // block:notes start
+      exampleFeature: "false",
+      // block:notes end
+      problemDetails: "false",
+    },
+    true,
+  ),
+  staging: stageRow(
+    "Debug",
+    {
+      // block:notes start
+      exampleFeature: "true",
+      // block:notes end
+      problemDetails: "true",
+    },
+    false,
+  ),
+  test: stageRow(
+    "Debug",
+    {
+      // block:notes start
+      exampleFeature: "true",
+      // block:notes end
+      problemDetails: "true",
+    },
+    true,
+  ),
 };
 
 /**

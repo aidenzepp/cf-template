@@ -7,6 +7,39 @@ import { Effect, Schema } from "effect";
 export type AttachForm = "add" | "array" | "mergeAll" | "yield";
 
 /**
+ * The form each attach file uses; `blocks.ts` files and any unlisted file use `Layer.mergeAll(`.
+ */
+const formsByFile = new Map<string, AttachForm>([
+  ["infra/alchemy.run.ts", "yield"],
+  ["packages/contract/src/api/api.ts", "add"],
+  ["tools/knob/registry.ts", "array"],
+]);
+
+/**
+ * The form the attach file `file` is read as, by the pull-out and the footprint alike.
+ */
+export const attachFormOf = (file: string): AttachForm => formsByFile.get(file) ?? "mergeAll";
+
+/**
+ * What a line of each form must look like, for the message of a line the grammar cannot read.
+ */
+const expectedLines: Readonly<Record<AttachForm, string>> = {
+  add: "a link `.add(Name)` with a plain identifier",
+  array: "one plain identifier per line between `= [` and `]`, such as `Name,`",
+  mergeAll: "one plain identifier per line between `Layer.mergeAll(` and `)`, such as `Name,`",
+  yield: "a statement `yield* Name;` with a plain identifier",
+};
+
+/**
+ * The text of the failure for an attach line the grammar cannot read: it names the file and line
+ * and the shape `form` expects, so the line can be rewritten without reading the grammar.
+ */
+export const unreadableMessage = (
+  error: { file: string; line: number },
+  form: AttachForm,
+): string => `unknown attach shape ${error.file}:${error.line}: expected ${expectedLines[form]}`;
+
+/**
  * One attach line, normalized to the form it uses and the identifier it attaches.
  */
 export interface AttachLine {

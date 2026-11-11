@@ -6,7 +6,7 @@ describe("isSessionLess", () => {
     expect(isSessionLess("/unavailable")).toBeTruthy();
   });
 
-  it.each(["/unavailable/", "/unavailable2", "/", "/notes", "/Unavailable", ""])(
+  it.each(["/unavailable/", "/unavailable2", "/", "/other", "/Unavailable", ""])(
     "does not match %j",
     (pathname) => {
       expect(isSessionLess(pathname)).toBeFalsy();
@@ -19,7 +19,7 @@ describe("isAuthScreen", () => {
     expect(isAuthScreen(pathname)).toBeTruthy();
   });
 
-  it.each(["/sign-in/", "/sign-in2", "/", "/notes"])("does not match %j", (pathname) => {
+  it.each(["/sign-in/", "/sign-in2", "/", "/other"])("does not match %j", (pathname) => {
     expect(isAuthScreen(pathname)).toBeFalsy();
   });
 });

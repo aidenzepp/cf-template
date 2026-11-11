@@ -129,7 +129,7 @@ describe("classify", () => {
 
   it("keeps the root and other paths public", () => {
     assert.strictEqual(classify("/", CREDENTIAL_PATHS), "public");
-    assert.strictEqual(classify("/notes", CREDENTIAL_PATHS), "public");
+    assert.strictEqual(classify("/other", CREDENTIAL_PATHS), "public");
   });
 });
 

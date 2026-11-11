@@ -201,10 +201,18 @@ it.effect("the three real blocks.ts files parse without an unknown attach shape"
     assert.deepStrictEqual(names, [
       [
         "SystemApiHandlers",
+        // block:notes start
         "NotesApiHandlersNoDeps",
+        // block:notes end
         "SessionMiddlewareLive",
+        // block:notes start
         "ExampleFeatureGateLive",
+        // block:notes end
         "KnobsKvLive",
+        "NoIsolateServices",
+        // block:notes start
+        "NotesIsolateLive",
+        // block:notes end
       ],
       ["KnobsKvLive"],
       ["KnobsKvLive"],
@@ -212,7 +220,7 @@ it.effect("the three real blocks.ts files parse without an unknown attach shape"
   }).pipe(Effect.provide(BunServices.layer)),
 );
 
-it.effect("the real api blocks.ts collapsed onto single lines still yields its four names", () =>
+it.effect("the real api blocks.ts collapsed onto single lines still yields its seven names", () =>
   Effect.gen(function* collapsedReal() {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -227,17 +235,29 @@ it.effect("the real api blocks.ts collapsed onto single lines still yields its f
         `Layer.mergeAll(${body
           .split("\n")
           .map((entry) => entry.trim().replace(/,$/u, ""))
+          .filter((entry) => !entry.startsWith("//"))
           .join(", ")})`,
     );
 
+    // block:notes start
     assert.notStrictEqual(collapsed, text);
+    // block:notes end
     assert.deepStrictEqual(
       (yield* parseAttach("mergeAll", "collapsed-api-blocks", collapsed)).map((line) => line.name),
       [
         "SystemApiHandlers",
+        // block:notes start
         "NotesApiHandlersNoDeps",
+        // block:notes end
         "SessionMiddlewareLive",
+        // block:notes start
         "ExampleFeatureGateLive",
+        // block:notes end
+        "KnobsKvLive",
+        "NoIsolateServices",
+        // block:notes start
+        "NotesIsolateLive",
+        // block:notes end
       ],
     );
   }).pipe(Effect.provide(BunServices.layer)),
@@ -254,7 +274,11 @@ it.effect("the real blocks.json decodes", () =>
     assert.strictEqual(manifest.attachFiles.length, 7);
     assert.deepStrictEqual(
       manifest.slices.map((slice) => [slice.name, slice.keep]),
-      [["notes", ["apps/api/src/notes/table.ts"]]],
+      [
+        // block:notes start
+        ["notes", ["apps/api/src/notes/table.ts", "apps/api/src/db/schema.ts"]],
+        // block:notes end
+      ],
     );
     // block:budget-guard start
     assert.deepStrictEqual(

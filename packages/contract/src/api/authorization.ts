@@ -1,7 +1,6 @@
 import { Context } from "effect";
 import { HttpApiMiddleware } from "effect/http-api";
 import { AuthUnavailable, SessionRequired } from "../domain/auth-errors.ts";
-import { NotesUnavailable } from "../domain/note-errors.ts";
 import type { Session } from "../domain/session.ts";
 
 /**
@@ -20,11 +19,3 @@ export class SessionMiddleware extends HttpApiMiddleware.Service<
 >()("@workspace/contract/SessionMiddleware", {
   error: [SessionRequired, AuthUnavailable],
 }) {}
-
-/**
- * Fails with `NotesUnavailable` while the example feature is off; implemented in `apps/api`.
- */
-export class ExampleFeatureGate extends HttpApiMiddleware.Service<ExampleFeatureGate>()(
-  "@workspace/contract/ExampleFeatureGate",
-  { error: NotesUnavailable },
-) {}
