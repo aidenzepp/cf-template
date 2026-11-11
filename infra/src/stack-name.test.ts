@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect } from "effect";
+import { Digest } from "effect/crypto";
 import { STACK_NAME_MAX, base32Sha256 } from "../stages.ts";
 import { StackNameError, requiresStackNamePin, resolveStackName } from "./stack-name.ts";
 
@@ -93,7 +94,7 @@ describe("resolveStackName normalization", () => {
       assert.strictEqual(name.length, STACK_NAME_MAX);
       assert.strictEqual(
         name,
-        `${repo.slice(0, STACK_NAME_MAX - 6)}${base32Sha256(`acme/${repo}`, 6)}`,
+        `${repo.slice(0, STACK_NAME_MAX - 6)}${yield* base32Sha256(`acme/${repo}`, 6).pipe(Effect.provide(Digest.layerWebCrypto))}`,
       );
     }),
   );

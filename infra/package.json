@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {},
   "dependencies": {
+    "@effect/platform-bun": "4.1.2",
     "@workspace/config": "workspace:*",
     "effect": "4.1.2"
   }

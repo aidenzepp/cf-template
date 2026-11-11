@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Exit, Schema } from "effect";
+import { Digest } from "effect/crypto";
 import { LogLevelKnob } from "@workspace/config/log-level";
 import {
   LONGEST_STAGE,
@@ -19,7 +20,8 @@ import {
  * @param raw - The candidate stage name.
  * @returns The decoding effect.
  */
-const decodeStage = (raw: string) => Schema.decodeUnknownEffect(Stage)(raw);
+const decodeStage = (raw: string) =>
+  Schema.decodeUnknownEffect(Stage)(raw).pipe(Effect.provide(Digest.layerWebCrypto));
 
 describe("Stage", () => {
   it.effect.each(["prod", "staging-1", "staging-123456", "test-ci", "test-abc", "dev"])(
@@ -66,15 +68,20 @@ describe("derived bounds", () => {
     assert.strictEqual(STACK_NAME_MAX, 29);
   });
 
-  it("builds a Worker name and dies above 54 characters", () => {
-    assert.strictEqual(
-      workerName({ stack: "cf-template", stage: "staging-12", worker: "web" }),
-      "cf-template-web-staging-12",
-    );
-    assert.throws(() => {
-      workerName({ stack: "s".repeat(40), stage: "test-abcdefghijklmn", worker: "auth" });
-    }, WorkerNameTooLongError);
-  });
+  it.effect("builds a Worker name and fails above 54 characters", () =>
+    Effect.gen(function* builds() {
+      assert.strictEqual(
+        yield* workerName({ stack: "cf-template", stage: "staging-12", worker: "web" }),
+        "cf-template-web-staging-12",
+      );
+
+      const error = yield* Effect.flip(
+        workerName({ stack: "s".repeat(40), stage: "test-abcdefghijklmn", worker: "auth" }),
+      );
+
+      assert.instanceOf(error, WorkerNameTooLongError);
+    }),
+  );
 });
 
 describe("Stages", () => {

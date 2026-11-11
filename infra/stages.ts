@@ -1,6 +1,7 @@
-import { createHash } from "node:crypto";
 import { Config, Effect, Option, Schema, SchemaTransformation } from "effect";
 import type { LogLevel } from "effect";
+import { Digest } from "effect/crypto";
+import { TaggedError as taggedError } from "effect/Schema";
 import { LogLevelKnob } from "@workspace/config/log-level";
 
 /**
@@ -32,23 +33,28 @@ const BASE32_ALPHABET = "abcdefghijklmnopqrstuvwxyz234567";
  * Encode the SHA-256 digest of `input` in lower-case base32 and keep its first `length`
  * characters.
  *
- * The Schema transform that normalizes a long slug is synchronous, so the digest comes from
- * `node:crypto` rather than the effectful `Digest` service of `effect/crypto`.
+ * The digest comes from the effectful `Digest` service of `effect/crypto`, so the Schema
+ * transform that normalizes a long slug is effectful too and {@link Stage} requires `Digest`
+ * to decode.
  *
  * @param input - The text to hash.
  * @param length - How many base32 characters to keep.
  * @returns The first `length` base32 characters of `sha256(input)`.
  */
-export const base32Sha256 = (input: string, length: number): string => {
-  const digest = createHash("sha256").update(input).digest();
-  const bits = [...digest].map((byte) => byte.toString(2).padStart(8, "0")).join("");
+export const base32Sha256 = Effect.fn("base32Sha256")(function* base32Sha256(
+  input: string,
+  length: number,
+) {
+  const digest = yield* Digest.Digest;
+  const bytes = yield* digest.digest(Digest.sha256, new TextEncoder().encode(input));
+  const bits = [...bytes].map((byte) => byte.toString(2).padStart(8, "0")).join("");
   const chunks = bits.match(/.{1,5}/gu) ?? [];
 
   return chunks
     .map((chunk) => BASE32_ALPHABET.charAt(Number.parseInt(chunk.padEnd(5, "0"), 2)))
     .join("")
     .slice(0, length);
-};
+});
 
 /**
  * Replace the slug of a `test-<slug>` stage with its first characters and a hash tail when it
@@ -58,13 +64,15 @@ export const base32Sha256 = (input: string, length: number): string => {
  * @param stage - A `test-<slug>` stage whose slug uses `[a-z0-9-]`.
  * @returns The stage unchanged when its slug fits, otherwise the normalized stage.
  */
-const normalizeTestStage = (stage: string): string => {
+const normalizeTestStage = Effect.fn("normalizeTestStage")(function* normalizeTestStage(
+  stage: string,
+) {
   const slug = stage.slice("test-".length);
 
   return slug.length <= TEST_SLUG_MAX
     ? stage
-    : `test-${slug.slice(0, TEST_SLUG_MAX - HASH_TAIL_LENGTH)}${base32Sha256(slug, HASH_TAIL_LENGTH)}`;
-};
+    : `test-${slug.slice(0, TEST_SLUG_MAX - HASH_TAIL_LENGTH)}${yield* base32Sha256(slug, HASH_TAIL_LENGTH)}`;
+});
 
 /**
  * The stage name, decoded from `stack.stage` before any resource is declared.
@@ -82,9 +90,9 @@ export const Stage = Schema.Union([
   Schema.String.check(Schema.isPattern(/^test-[a-z0-9-]+$/u)).pipe(
     Schema.decodeTo(
       Schema.String,
-      SchemaTransformation.transform({
+      SchemaTransformation.transformEffect({
         decode: normalizeTestStage,
-        encode: (stage: string) => stage,
+        encode: (stage: string) => Effect.succeed(stage),
       }),
     ),
   ),
@@ -151,20 +159,12 @@ export const LONGEST_STAGE = Math.max(
 export const STACK_NAME_MAX = WORKER_NAME_MAX - LONGEST_WORKER - 2 - LONGEST_STAGE;
 
 /**
- * The defect raised when a derived Worker name exceeds the Worker name limit.
+ * The failure raised when a derived Worker name exceeds the Worker name limit.
  */
-export class WorkerNameTooLongError extends Error {
-  override readonly name = "WorkerNameTooLongError";
-  readonly _tag = "WorkerNameTooLong";
-  readonly workerName: string;
-
-  constructor(workerName: string) {
-    super(
-      `Worker name ${workerName} is ${workerName.length} characters; Cloudflare accepts at most ${WORKER_NAME_MAX}. Shorten the stack name or the stage.`,
-    );
-    this.workerName = workerName;
-  }
-}
+export class WorkerNameTooLongError extends taggedError<WorkerNameTooLongError>()(
+  "WorkerNameTooLongError",
+  { message: Schema.String, workerName: Schema.String },
+) {}
 
 /**
  * Construct the name of a Worker for a stage as `<stack>-<worker>-<stage>`, lower case.
@@ -173,21 +173,24 @@ export class WorkerNameTooLongError extends Error {
  * @param parts.stack - The stack name from `resolveStackName`.
  * @param parts.worker - The Worker id, an entry of {@link Workers}.
  * @param parts.stage - The decoded stage.
- * @returns The Worker name.
- * @throws {WorkerNameTooLongError} When the name exceeds the Worker name limit.
+ * @returns The Worker name, or a {@link WorkerNameTooLongError} when the name exceeds the Worker
+ *   name limit.
  */
 export const workerName = (parts: {
   readonly stack: string;
   readonly worker: string;
   readonly stage: StageName;
-}): string => {
+}): Effect.Effect<string, WorkerNameTooLongError> => {
   const name = `${parts.stack}-${parts.worker}-${parts.stage}`.toLowerCase();
 
-  if (name.length > WORKER_NAME_MAX) {
-    throw new WorkerNameTooLongError(name);
-  }
-
-  return name;
+  return name.length > WORKER_NAME_MAX
+    ? Effect.fail(
+        new WorkerNameTooLongError({
+          message: `Worker name ${name} is ${name.length} characters; Cloudflare accepts at most ${WORKER_NAME_MAX}. Shorten the stack name or the stage.`,
+          workerName: name,
+        }),
+      )
+    : Effect.succeed(name);
 };
 
 /**

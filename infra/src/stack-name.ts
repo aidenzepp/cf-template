@@ -1,6 +1,8 @@
-import { NodeServices } from "@effect/platform-node";
-import { Config, Data, Effect, Option } from "effect";
+import { BunServices } from "@effect/platform-bun";
+import { Config, Effect, Option, Schema } from "effect";
+import { Digest } from "effect/crypto";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { TaggedError as taggedError } from "effect/Schema";
 import { STACK_NAME_MAX, base32Sha256, kindOf } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 
@@ -8,9 +10,9 @@ import type { StageName } from "../stages.ts";
  * The failure of stack-name derivation: every source is absent, or the derived name is not a
  * valid stack name.
  */
-export class StackNameError extends Data.TaggedError("StackNameError")<{
-  readonly message: string;
-}> {}
+export class StackNameError extends taggedError<StackNameError>()("StackNameError", {
+  message: Schema.String,
+}) {}
 
 /**
  * The shape every stack name has: lower case alphanumerics and `-`, at least three characters,
@@ -69,10 +71,10 @@ const parseRepository = (
  * @param repository.repo - The repository name.
  * @returns The stack name, or the failure when the name cannot take the stack-name shape.
  */
-const normalize = (repository: {
+const normalize = Effect.fn("normalize")(function* normalize(repository: {
   readonly owner: string;
   readonly repo: string;
-}): Effect.Effect<string, StackNameError> => {
+}) {
   const name = repository.repo
     .toLowerCase()
     .replaceAll(/[^a-z0-9-]/gu, "-")
@@ -80,17 +82,15 @@ const normalize = (repository: {
 
   const bounded =
     name.length > STACK_NAME_MAX
-      ? `${name.slice(0, STACK_NAME_MAX - HASH_SUFFIX_LENGTH)}${base32Sha256(`${repository.owner}/${repository.repo}`, HASH_SUFFIX_LENGTH)}`
+      ? `${name.slice(0, STACK_NAME_MAX - HASH_SUFFIX_LENGTH)}${yield* base32Sha256(`${repository.owner}/${repository.repo}`, HASH_SUFFIX_LENGTH)}`
       : name;
 
   return STACK_NAME_PATTERN.test(bounded)
-    ? Effect.succeed(bounded)
-    : Effect.fail(
-        new StackNameError({
-          message: `Repository name ${repository.repo} does not form a stack name (lower case letters, digits and -, 3 to ${STACK_NAME_MAX} characters). Set STACK_NAME to a valid name.`,
-        }),
-      );
-};
+    ? bounded
+    : yield* new StackNameError({
+        message: `Repository name ${repository.repo} does not form a stack name (lower case letters, digits and -, 3 to ${STACK_NAME_MAX} characters). Set STACK_NAME to a valid name.`,
+      });
+});
 
 /**
  * Read the `origin` remote URL by running the origin command inside the Effect.
@@ -160,7 +160,7 @@ export const resolveStackName = Effect.fn("resolveStackName")(
       ? failure
       : new StackNameError({ message: `Cannot read the stack name sources: ${failure.message}` }),
   ),
-  Effect.provide(NodeServices.layer),
+  Effect.provide([BunServices.layer, Digest.layerWebCrypto]),
 );
 
 /**
