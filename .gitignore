@@ -4,6 +4,7 @@ dist/
 .env*
 !.env.example
 .alchemy/
+.tanstack/
 .DS_Store
 .worktrees/
 .vivi/

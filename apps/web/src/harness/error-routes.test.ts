@@ -173,9 +173,8 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
       expect(html).toContain(ERROR_HEADING);
       expect(html).toContain("Try again");
       expect(html).toContain("Go to the home page");
-      // The router's own dehydrated state in `<script>` still carries the error's message; the
-      // page a person reads does not.
-      expect(html.replaceAll(/<script[\s\S]*?<\/script>/gu, "")).not.toContain(HARNESS_DEFECT);
+      // The whole document, the router's dehydrated state in `<script>` included.
+      expect(html).not.toContain(HARNESS_DEFECT);
     }),
   );
 });
