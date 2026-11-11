@@ -57,7 +57,7 @@ const optionsOf = (provider: typeof ProviderId.Type) =>
  * @param env - The Worker's bindings.
  * @returns The registered providers keyed by id.
  */
-export const socialProviders = Effect.fn("socialProviders")(function* socialProviders(
+export const socialProviders = Effect.fn("auth.socialProviders")(function* socialProviders(
   methods: typeof AuthMethods.Type,
   env: typeof WorkerEnvironment.Service,
 ) {

@@ -11,31 +11,31 @@ import { Notes } from "./notes.ts";
 export const NotesApiHandlersNoDeps = HttpApiBuilder.group(
   Api,
   "notes",
-  Effect.fn("NotesApi.handlers")(function* handlers(group) {
+  Effect.fn("notes.handlers")(function* handlers(group) {
     const notes = yield* Notes;
 
     return group.handleAll({
-      create: Effect.fn("NotesApi.create")(function* create({ payload }) {
+      create: Effect.fn("notes.create")(function* create({ payload }) {
         const { userId } = yield* CurrentUser;
 
         return yield* notes.create(userId, payload);
       }),
-      get: Effect.fn("NotesApi.get")(function* get({ params }) {
+      get: Effect.fn("notes.get")(function* get({ params }) {
         const { userId } = yield* CurrentUser;
 
         return yield* notes.get(userId, params.id);
       }),
-      list: Effect.fn("NotesApi.list")(function* list() {
+      list: Effect.fn("notes.list")(function* list() {
         const { userId } = yield* CurrentUser;
 
         return yield* notes.list(userId);
       }),
-      remove: Effect.fn("NotesApi.remove")(function* remove({ params }) {
+      remove: Effect.fn("notes.remove")(function* remove({ params }) {
         const { userId } = yield* CurrentUser;
 
         yield* notes.remove(userId, params.id);
       }),
-      update: Effect.fn("NotesApi.update")(function* update({ params, payload }) {
+      update: Effect.fn("notes.update")(function* update({ params, payload }) {
         const { userId } = yield* CurrentUser;
 
         return yield* notes.update(userId, params.id, payload);

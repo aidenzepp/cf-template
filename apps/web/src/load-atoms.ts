@@ -15,7 +15,7 @@ import type { AsyncResult, Atom } from "effect/reactivity";
  * @param atoms - The query atoms to run.
  * @returns The dehydrated entries of the serializable atoms that left their initial state.
  */
-export const loadAtoms = Effect.fn("loadAtoms")(function* loadAtoms(
+export const loadAtoms = Effect.fn("web.loadAtoms")(function* loadAtoms(
   atoms: ReadonlyArray<Atom.Atom<AsyncResult.AsyncResult<unknown, unknown>>>,
 ) {
   const registry = yield* Effect.acquireRelease(

@@ -119,7 +119,7 @@ export const Scrypt = Context.Reference<ScryptPort>("@workspace/auth/Scrypt", {
  * @param length - The derived key length in bytes.
  * @returns The derived key.
  */
-const derive = Effect.fn("derive")(function* derive(
+const derive = Effect.fn("auth.derive")(function* derive(
   password: string,
   salt: Uint8Array,
   params: ScryptCost,

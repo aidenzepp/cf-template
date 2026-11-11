@@ -14,12 +14,12 @@ import { SessionLookup } from "../authorization.ts";
 export const SystemApiHandlers = HttpApiBuilder.group(
   Api,
   "system",
-  Effect.fn("SystemApi.handlers")(function* handlers(group) {
+  Effect.fn("system.handlers")(function* handlers(group) {
     const lookup = yield* SessionLookup;
 
     return group.handleAll({
       health: () => Effect.succeed({ ok: true } as const),
-      session: Effect.fn("SystemApi.session")(function* session() {
+      session: Effect.fn("system.session")(function* session() {
         return yield* lookup.current.pipe(Effect.catch(Effect.die));
       }),
     });
