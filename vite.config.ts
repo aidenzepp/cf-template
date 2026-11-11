@@ -1,10 +1,17 @@
 import { defineConfig } from "vite-plus";
+
 import core from "ultracite/oxlint/core";
+
 import antiSlop from "ultracite/oxlint/anti-slop";
+
 import drizzle from "ultracite/oxlint/drizzle";
+
 import react from "ultracite/oxlint/react";
+
 import shadcn from "ultracite/oxlint/shadcn";
+
 import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
+
 import {
   dataAccessMembers,
   fetchMessage,
@@ -322,7 +329,43 @@ export default defineConfig({
         { blankLine: "always", next: "return", prev: "*" },
         { blankLine: "always", next: "*", prev: "if" },
         { blankLine: "always", next: "*", prev: effectLogStatement },
+        // Ported from `anti-slop/require-readable-spacing` (issue #11 item 12).
+        { blankLine: "always", next: "*", prev: "import" },
+        { blankLine: "always", next: ["function", "class", "interface", "type"], prev: "*" },
+        { blankLine: "always", next: "*", prev: ["function", "class", "interface", "type"] },
+        {
+          blankLine: "always",
+          next: ["multiline-const", "multiline-let", "multiline-var", "multiline-using"],
+          prev: "*",
+        },
+        {
+          blankLine: "always",
+          next: "*",
+          prev: ["multiline-const", "multiline-let", "multiline-var", "multiline-using"],
+        },
+        {
+          blankLine: "always",
+          next: ["return", "if", "switch", "try", "for", "while", "do"],
+          prev: "*",
+        },
+        { blankLine: "always", next: "*", prev: "block-like" },
+        // The exceptions `require-readable-spacing` carries; the last matching entry wins.
+        { blankLine: "any", next: "import", prev: "import" },
+        {
+          blankLine: "any",
+          next: {
+            selector:
+              ':matches(TSDeclareFunction, FunctionDeclaration, ExportNamedDeclaration[declaration.type="TSDeclareFunction"], ExportNamedDeclaration[declaration.type="FunctionDeclaration"])',
+          },
+          prev: {
+            selector:
+              ':matches(TSDeclareFunction, ExportNamedDeclaration[declaration.type="TSDeclareFunction"])',
+          },
+        },
       ],
+      // One source for the blank-line policy: the fixture diff in tools/lint/fixtures.test.ts
+      // (blank-lines/cases.ts) shows the stylistic padding rule above reports every line this rule does.
+      "anti-slop/require-readable-spacing": "off",
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],

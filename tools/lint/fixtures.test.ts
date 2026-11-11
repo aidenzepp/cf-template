@@ -1,7 +1,24 @@
 import { BunServices } from "@effect/platform-bun";
+
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, FileSystem, Path, Schema } from "effect";
+
+import { Array as Arr, Effect, FileSystem, Order, Path, Schema } from "effect";
+
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
+import antiSlopPreset from "ultracite/oxlint/anti-slop";
+
+import config from "../../vite.config.ts";
+
+/**
+ * The lines of `blank-lines/cases.ts` that `anti-slop/require-readable-spacing` reports. The
+ * fixture diff for turning that rule off recorded them; the stylistic rule must keep reporting
+ * all of them.
+ */
+const expectedAntiSlopLines: ReadonlyArray<number> = [
+  2, 3, 5, 8, 9, 12, 13, 16, 17, 18, 19, 21, 22, 26, 27, 29, 31, 32, 34, 37, 38, 40, 41, 43, 44, 47,
+  49, 50, 53, 54, 56, 57, 60,
+];
 
 /**
  * The oxlint JSON report, reduced to the file name of each diagnostic.
@@ -68,7 +85,84 @@ const lintFixture = Effect.fnUntraced(function* lintFixture(
     diagnostics.filter((diagnostic) => path.basename(diagnostic.filename) === file).length;
 });
 
+/**
+ * The rule settings of the repository's own lint configuration.
+ */
+type LintRules = NonNullable<NonNullable<typeof config.lint>["rules"]>;
+
+/**
+ * The oxlint JSON report, reduced to the line of each diagnostic.
+ */
+const LineReport = Schema.fromJsonString(
+  Schema.Struct({
+    diagnostics: Schema.Array(
+      Schema.Struct({
+        labels: Schema.Array(Schema.Struct({ span: Schema.Struct({ line: Schema.Number }) })),
+      }),
+    ),
+  }),
+);
+
+/**
+ * Lints `blank-lines/cases.ts` with exactly one rule, from a throwaway config under `work/`, and
+ * returns the sorted, distinct lines it reports.
+ */
+const reportedLines = Effect.fnUntraced(function* reportedLines(
+  jsPlugins: ReadonlyArray<string | { name: string; specifier: string }>,
+  rules: LintRules,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const { oxlint, root, tsgolint } = yield* toolchain;
+
+  yield* fs.makeDirectory(path.join(root, "work"), { recursive: true });
+
+  const dir = yield* fs.makeTempDirectoryScoped({ directory: path.join(root, "work") });
+  const configPath = path.join(dir, "oxlintrc.json");
+
+  yield* fs.writeFileString(configPath, JSON.stringify({ jsPlugins, rules }));
+
+  const output = yield* spawner.string(
+    ChildProcess.make(
+      "node",
+      [
+        oxlint,
+        "-f",
+        "json",
+        "-c",
+        configPath,
+        path.join(root, "tools", "lint", "fixtures", "blank-lines", "cases.ts"),
+      ],
+      { cwd: root, env: { OXLINT_TSGOLINT_PATH: tsgolint }, extendEnv: true },
+    ),
+  );
+
+  const { diagnostics } = yield* Schema.decodeUnknownEffect(LineReport)(output);
+
+  return Arr.sort(
+    [...new Set(diagnostics.flatMap(({ labels }) => labels.map(({ span }) => span.line)))],
+    Order.Number,
+  );
+});
+
 describe("lint fixtures", () => {
+  it.effect("the stylistic padding rule reports every line require-readable-spacing reports", () =>
+    Effect.gen(function* superset() {
+      const antiSlop = yield* reportedLines(antiSlopPreset.jsPlugins ?? [], {
+        "anti-slop/require-readable-spacing": "error",
+      });
+
+      const stylistic = yield* reportedLines(["@stylistic/eslint-plugin"], {
+        "@stylistic/padding-line-between-statements":
+          config.lint?.rules?.["@stylistic/padding-line-between-statements"],
+      });
+
+      assert.deepStrictEqual(antiSlop, expectedAntiSlopLines);
+      assert.isTrue(antiSlop.every((line) => stylistic.includes(line)));
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+  );
+
   it.effect("the type-aware engine Vite+ uses exists", () =>
     Effect.gen(function* engine() {
       const fs = yield* FileSystem.FileSystem;
