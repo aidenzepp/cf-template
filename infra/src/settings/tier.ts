@@ -23,7 +23,9 @@ export type Capability =
   | "pushProtection"
   | "codeql"
   | "mergeSettings"
-  | "actionsSettings";
+  | "actionsSettings"
+  | "forkApproval"
+  | "privateVulnerabilityReporting";
 
 /**
  * The tier the repository sits on, with the variable values it implies.
@@ -69,10 +71,14 @@ const PAID_PRIVATE: ReadonlyArray<Capability> = [
 ];
 
 /**
- * Everything, for a public repository on any plan.
+ * Everything, for a public repository on any plan. Fork approval and private vulnerability
+ * reporting are public-only: on a private repository GitHub answers the fork-approval call 422
+ * "Fork PR approval is not allowed for private repositories." and the reporting call 404.
  */
 const PUBLIC: ReadonlyArray<Capability> = [
   ...PAID_PRIVATE,
+  "forkApproval",
+  "privateVulnerabilityReporting",
   "environmentReviewers",
   "secretScanning",
   "pushProtection",

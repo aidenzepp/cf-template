@@ -265,6 +265,7 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
     },
     {
       method: "PUT",
+      need: "privateVulnerabilityReporting",
       path: `${repo}/private-vulnerability-reporting`,
       setting: "private-vulnerability-reporting",
     },
@@ -285,7 +286,7 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
     {
       body: { approval_policy: "all_external_contributors" },
       method: "PUT",
-      need: "actionsSettings",
+      need: "forkApproval",
       path: `${repo}/actions/permissions/fork-pr-contributor-approval`,
       setting: "fork-approval",
     },
