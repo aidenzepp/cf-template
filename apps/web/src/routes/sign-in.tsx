@@ -2,6 +2,7 @@ import { createFileRoute, redirect, useRouteContext, useSearch } from "@tanstack
 import { AuthFormShell } from "../components/auth/auth-form-shell.tsx";
 import { SignInForm } from "../components/auth/sign-in-form.tsx";
 import { DEFAULT_REDIRECT, validateRedirectSearch } from "../lib/redirect-target.ts";
+import { fork } from "../runtime.ts";
 
 /**
  * The sign-in screen.
@@ -21,7 +22,12 @@ const SignIn = () => {
       redirect={requested}
       title="Sign in"
     >
-      <SignInForm email={authMethods.email} providers={authMethods.providers} redirect={target} />
+      <SignInForm
+        email={authMethods.email}
+        fork={fork}
+        providers={authMethods.providers}
+        redirect={target}
+      />
     </AuthFormShell>
   );
 };
