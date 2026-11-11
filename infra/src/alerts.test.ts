@@ -1,7 +1,12 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { Stages, Workers } from "../stages.ts";
-import { headSamplingRate, telemetryOptions } from "./telemetry.ts";
+import {
+  headSamplingRate,
+  issuesObservability,
+  telemetryOptions,
+  webObservability,
+} from "./telemetry.ts";
 import { volumeAlertThreshold, volumeAlertWorkers } from "./alerts.ts";
 
 describe("volumeAlertThreshold", () => {
@@ -52,6 +57,17 @@ describe("telemetry", () => {
     for (const stage of ["prod", "staging-1", "test-ci", "dev"] as const) {
       assert.strictEqual(headSamplingRate(stage), 1);
       assert.deepStrictEqual(telemetryOptions(stage), { headSamplingRate: 1 });
+    }
+  });
+
+  it("keeps the default logs and turns Issues on for all three Workers", () => {
+    const web = webObservability("prod");
+
+    assert.deepStrictEqual(web.traces, { enabled: true, headSamplingRate: 1 });
+
+    for (const observability of [web, issuesObservability]) {
+      assert.isTrue(observability.issues.enabled);
+      assert.deepStrictEqual(observability.logs, { enabled: true, invocationLogs: true });
     }
   });
 });

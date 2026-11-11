@@ -11,6 +11,7 @@ import { workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
 import { compat } from "./compat.ts";
 import type { publicOrigin } from "./origin.ts";
+import { issuesObservability, telemetryOptions } from "./telemetry.ts";
 
 /**
  * Read the credential pair of one OAuth provider: `<PREFIX>_CLIENT_ID` with
@@ -153,10 +154,15 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
     },
     main,
     name: yield* workerName({ stack, stage, worker: "auth" }),
+    observability: issuesObservability,
     workersDev: false,
   } satisfies Cloudflare.WorkerProps;
 
+  const telemetry = telemetryOptions(stage);
+
   return yield* Auth.pipe(
-    Effect.provide(AuthWorker.pipe(Layer.provide(Layer.succeed(AuthDeployment, { props })))),
+    Effect.provide(
+      AuthWorker.pipe(Layer.provide(Layer.succeed(AuthDeployment, { props, telemetry }))),
+    ),
   );
 });

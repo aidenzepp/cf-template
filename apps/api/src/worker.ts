@@ -1,10 +1,10 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
-import { RuntimeContext } from "alchemy";
+import { RuntimeContext, Telemetry as AlchemyTelemetry } from "alchemy";
 import { makeExecutionMemo } from "alchemy/Runtime/ExecutionMemo";
 import type { InputProps } from "alchemy/Input";
 import type { MainRpc } from "alchemy/Platform";
 import * as Http from "alchemy/Http";
-import { ConfigProvider, Context, Effect, Layer, Option } from "effect";
+import { ConfigProvider, Context, Effect, Layer, Logger, Option } from "effect";
 import { HttpRouter } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 import { Auth } from "@workspace/auth/contract";
@@ -48,7 +48,10 @@ const withHostContext = <A, E>(call: Effect.Effect<A, E, RuntimeContext>): Effec
  */
 export class ApiDeployment extends Context.Service<
   ApiDeployment,
-  { readonly props: InputProps<Cloudflare.WorkerProps> }
+  {
+    readonly props: InputProps<Cloudflare.WorkerProps>;
+    readonly telemetry: Cloudflare.CloudflareTelemetryProps;
+  }
 >()("@workspace/api/ApiDeployment") {}
 
 /**
@@ -56,6 +59,29 @@ export class ApiDeployment extends Context.Service<
  */
 export const apiProps = Effect.serviceOption(ApiDeployment).pipe(
   Effect.map(Option.match({ onNone: () => ({}), onSome: ({ props }) => props })),
+);
+
+/**
+ * The tracing options of the `api` Worker: `infra`'s when it plans, none in the deployed bundle,
+ * where the tracing layer ignores them because the Worker is already deployed.
+ */
+export const apiTelemetry = Effect.serviceOption(ApiDeployment).pipe(
+  Effect.map(Option.match({ onNone: () => ({}), onSome: ({ telemetry }) => telemetry })),
+);
+
+/**
+ * Cloudflare traces for the Worker's spans, and structured JSON logs that reach `console.error`,
+ * `console.warn` and the rest at their own level, registered once for every event of the Worker.
+ */
+export const apiObservability = Layer.unwrap(
+  apiTelemetry.pipe(
+    Effect.map((options) =>
+      Layer.mergeAll(
+        Cloudflare.Telemetry(options),
+        AlchemyTelemetry.layer(Logger.layer([Logger.withLeveledConsole(Logger.formatStructured)])),
+      ),
+    ),
+  ),
 );
 
 /**
@@ -160,5 +186,5 @@ export default ApiWorker.make(
     );
 
     return { fetch: Effect.flatten(handler) };
-  }),
+  }).pipe(Effect.provide(apiObservability)),
 );

@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import type { Layer } from "effect";
 import type AuthWorker from "./worker.ts";
-import { AuthDeployment, authProps } from "./worker.ts";
+import { AuthDeployment, authProps, authTelemetry } from "./worker.ts";
 
 /**
  * The services the Worker's layer still needs from its provider. `AuthDeployment` must not be one:
@@ -26,10 +26,21 @@ describe("the auth Worker module", () => {
   it.effect("takes the properties of the deployment when infra provides it", () =>
     Effect.gen(function* withDeployment() {
       const props = yield* authProps.pipe(
-        Effect.provideService(AuthDeployment, { props: { name: "x" } }),
+        Effect.provideService(AuthDeployment, { props: { name: "x" }, telemetry: {} }),
       );
 
       assert.deepStrictEqual(props, { name: "x" });
+    }),
+  );
+
+  it.effect("takes the tracing options of the deployment, and none in the deployed bundle", () =>
+    Effect.gen(function* tracing() {
+      const planned = yield* authTelemetry.pipe(
+        Effect.provideService(AuthDeployment, { props: {}, telemetry: { headSamplingRate: 1 } }),
+      );
+
+      assert.deepStrictEqual(planned, { headSamplingRate: 1 });
+      assert.deepStrictEqual(yield* authTelemetry, {});
     }),
   );
 });

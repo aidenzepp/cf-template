@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { createIsomorphicFn } from "@tanstack/react-start";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Effect, Layer, Logger, ManagedRuntime } from "effect";
 import { AtomRegistry } from "effect/reactivity";
 import { ApiClient } from "./api-client.ts";
 import { makeOrphanGraceLayer, makeWebLayer } from "./web-layer.ts";
@@ -51,11 +51,21 @@ export const hydrateAuthMethods = (text: string): void => {
 };
 
 /**
+ * Structured JSON logs that reach `console.error`, `console.warn` and the rest at their own level.
+ *
+ * `web` is a `Website.Vite` Worker with no Alchemy init effect, so `Cloudflare.Telemetry` has no
+ * Worker to bind to here: its Effect spans stay local and Cloudflare's own spans come from the
+ * `observability.traces` prop `infra/src/web.ts` sets.
+ */
+export const structuredLogs = Logger.layer([Logger.withLeveledConsole(Logger.formatStructured)]);
+
+/**
  * The one runtime of `web`, built on first use so the browser reads the hydrated text.
  */
 const makeRuntime = () =>
   ManagedRuntime.make(
     Layer.mergeAll(
+      structuredLogs,
       makeWebLayer({ AUTH_METHODS: authMethodsText() }),
       makeOrphanGraceLayer({ AUTH_ORPHAN_GRACE_SECONDS: orphanGraceText() }),
       AtomRegistry.make().get(ApiClient.runtime.layer),

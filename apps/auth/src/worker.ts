@@ -1,6 +1,7 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
+import { Telemetry as AlchemyTelemetry } from "alchemy";
 import type { InputProps } from "alchemy/Input";
-import { Context, Effect, Layer, Option } from "effect";
+import { Context, Effect, Layer, Logger, Option } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { AuthService, authDatabaseLayer } from "./auth.ts";
 import { Auth, AUTH_BASE_PATH } from "./contract.ts";
@@ -16,7 +17,10 @@ import { CheckSession } from "./session.ts";
  */
 export class AuthDeployment extends Context.Service<
   AuthDeployment,
-  { readonly props: InputProps<Cloudflare.WorkerProps> }
+  {
+    readonly props: InputProps<Cloudflare.WorkerProps>;
+    readonly telemetry: Cloudflare.CloudflareTelemetryProps;
+  }
 >()("@workspace/auth/AuthDeployment") {}
 
 /**
@@ -24,6 +28,29 @@ export class AuthDeployment extends Context.Service<
  */
 export const authProps = Effect.serviceOption(AuthDeployment).pipe(
   Effect.map(Option.match({ onNone: () => ({}), onSome: ({ props }) => props })),
+);
+
+/**
+ * The tracing options of the `auth` Worker: `infra`'s when it plans, none in the deployed bundle,
+ * where the tracing layer ignores them because the Worker is already deployed.
+ */
+export const authTelemetry = Effect.serviceOption(AuthDeployment).pipe(
+  Effect.map(Option.match({ onNone: () => ({}), onSome: ({ telemetry }) => telemetry })),
+);
+
+/**
+ * Cloudflare traces for the Worker's spans, and structured JSON logs that reach `console.error`,
+ * `console.warn` and the rest at their own level, registered once for every event of the Worker.
+ */
+export const authObservability = Layer.unwrap(
+  authTelemetry.pipe(
+    Effect.map((options) =>
+      Layer.mergeAll(
+        Cloudflare.Telemetry(options),
+        AlchemyTelemetry.layer(Logger.layer([Logger.withLeveledConsole(Logger.formatStructured)])),
+      ),
+    ),
+  ),
 );
 
 /**
@@ -61,5 +88,5 @@ export default Auth.make(
           : HttpServerResponse.empty({ status: 404 });
       }),
     };
-  }),
+  }).pipe(Effect.provide(authObservability)),
 );
