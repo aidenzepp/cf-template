@@ -6,14 +6,32 @@ import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
 import { Config, ConfigProvider, Context, Effect, Layer, Predicate } from "effect";
 import { makeDatabase } from "@workspace/db/database";
 import type { RawDatabase } from "@workspace/db/database";
+import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
+import type { ScryptCost } from "@workspace/config/auth-password";
 import { PublicOrigin } from "@workspace/config/public-origin";
 import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "./config.ts";
 import { AUTH_BASE_PATH } from "./contract.ts";
 import * as schema from "./db/schema.ts";
+import { passwordFor, rehashAfterSignIn } from "./password.ts";
+import type { RunEffect } from "./password.ts";
+
+/**
+ * The email and password options and the rehash plugin for one scrypt cost: the PHC-style hasher
+ * and, registered through a plugin-level `hooks.after` on `/sign-in/email`, the rehash of a stored
+ * hash whose cost differs from `params`.
+ *
+ * @param params - The cost of every new hash.
+ * @param run - Runs an effect with the services the hasher logs and traces under.
+ * @returns The `emailAndPassword` and `plugins` options.
+ */
+const passwordOptions = (params: ScryptCost, run: RunEffect) => ({
+  emailAndPassword: { enabled: true, password: passwordFor(params, run) },
+  plugins: [rehashAfterSignIn(params, run)],
+});
 
 /**
  * The Better Auth options that do not depend on the deployment: the base path, email and password
- * sign-in with Better Auth's built-in hasher, and the session cookie cache at its default.
+ * sign-in with the scrypt hasher at its default cost, and the session cookie cache at its default.
  *
  * The Worker and `auth.config.ts` (the CLI's schema generator) share this one object. The Worker
  * overrides `session.cookieCache` with the deployed knob values; the cache never changes the
@@ -21,7 +39,7 @@ import * as schema from "./db/schema.ts";
  */
 export const authOptions = {
   basePath: AUTH_BASE_PATH,
-  emailAndPassword: { enabled: true },
+  ...passwordOptions(AUTH_PASSWORD_SCRYPT.default, Effect.runPromise),
   session: {
     cookieCache: {
       enabled: true,
@@ -182,6 +200,7 @@ export const authDatabaseLayer = (
 export const AuthSettings = Config.all({
   baseURL: Config.schema(PublicOrigin, "PUBLIC_ORIGIN"),
   maxAge: CookieCacheMaxAgeKnob.config,
+  scrypt: AUTH_PASSWORD_SCRYPT.config,
   secret: Config.Redacted("BETTER_AUTH_SECRET"),
   strategy: CookieCacheStrategyKnob.config,
 });
@@ -199,8 +218,11 @@ const makeInstance = Effect.gen(function* makeInstance() {
     Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(env))),
   );
 
+  const services = yield* Effect.context();
+
   return yield* BetterAuth({
     ...authOptions,
+    ...passwordOptions(settings.scrypt, Effect.runPromiseWith(services)),
     baseURL: settings.baseURL,
     migrate: false,
     secret: Effect.succeed(settings.secret),
