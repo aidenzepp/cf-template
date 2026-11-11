@@ -33,6 +33,11 @@
     },
     "infra": {
       "name": "@workspace/infra",
+      "dependencies": {
+        "@effect/platform-bun": "4.1.2",
+        "@workspace/config": "workspace:*",
+        "effect": "4.1.2",
+      },
     },
     "packages/config": {
       "name": "@workspace/config",
