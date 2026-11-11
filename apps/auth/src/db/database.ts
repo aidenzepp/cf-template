@@ -2,6 +2,14 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import { RemovalPolicy } from "alchemy";
 import type { Effect } from "effect";
 import { Option } from "effect";
+import { AUTH_MIGRATIONS_DIGEST } from "./migrations-digest.ts";
+
+/**
+ * The directory of the committed `drizzle-kit` migrations, which the D1 resource applies on every
+ * deploy. It is absolute because Alchemy resolves a relative path against the process directory,
+ * not against this module.
+ */
+export const MIGRATIONS_DIR = new URL("../../migrations", import.meta.url).pathname;
 
 /**
  * Report whether the stage keeps its D1 database when the resource is deleted.
@@ -16,12 +24,14 @@ export const retainsD1 = (stage: string): boolean => stage === "prod";
 /**
  * The properties of the auth D1 database for a stage.
  *
- * A non-prod stage names the database `<stack>-auth-<stage>` explicitly, so a rewrite is a
+ * A non-prod stage names the database `<stack>-auth-db-<stage>-<digest>` explicitly, where
+ * `digest` is {@link AUTH_MIGRATIONS_DIGEST}, so a rewritten migrations directory is a
  * create-first replacement. `prod` omits the name (Alchemy generates it), never sets
- * `jurisdiction`, and sets `primaryLocationHint` only from the knob.
+ * `jurisdiction`, and sets `primaryLocationHint` only from the knob. Every stage applies
+ * {@link MIGRATIONS_DIR}.
  *
  * Changing `name`, `jurisdiction` or `primaryLocationHint` on `prod` replaces the database, which
- * is why the `prod` props are pinned by the tests. `migrations` is added by a later block.
+ * is why the `prod` props are pinned by the tests.
  * Removal is not a prop: {@link retainsD1} feeds `RemovalPolicy.retain` at the declaration.
  *
  * @param stack - The stack name from `resolveStackName`.
@@ -36,10 +46,10 @@ export const d1Props = (
 ): Cloudflare.D1.DatabaseProps =>
   stage === "prod"
     ? Option.match(locationHint, {
-        onNone: () => ({}),
-        onSome: (primaryLocationHint) => ({ primaryLocationHint }),
+        onNone: () => ({ migrations: MIGRATIONS_DIR }),
+        onSome: (primaryLocationHint) => ({ migrations: MIGRATIONS_DIR, primaryLocationHint }),
       })
-    : { name: `${stack}-auth-${stage}` };
+    : { migrations: MIGRATIONS_DIR, name: `${stack}-auth-db-${stage}-${AUTH_MIGRATIONS_DIGEST}` };
 
 /**
  * Declare the auth D1 database with the given resource constructor, retained on `prod` only.
