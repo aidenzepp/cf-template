@@ -269,6 +269,12 @@ export default defineConfig({
           "typescript/no-unsafe-return": "off",
         },
       },
+      {
+        // `runtime.ts` is the named web runtime boundary: the lazy per-isolate ManagedRuntime and the
+        // browser-only hydrated copies are the module state that boundary owns (Mind ruling, I-28f).
+        files: ["apps/web/src/runtime.ts"],
+        rules: { "workspace/no-mutable-module-state": "off" },
+      },
     ],
     rules: {
       "@stylistic/padding-line-between-statements": [
