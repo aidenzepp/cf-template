@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Option } from "effect";
-import { Stages, Workers } from "../stages.ts";
+import { Stages, Workers, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 import {
   headSamplingRate,
@@ -10,6 +10,7 @@ import {
 } from "./telemetry.ts";
 import {
   issueNotificationAddress,
+  rateLimitErrorQuery,
   volumeAlertQuery,
   volumeAlertThreshold,
   volumeAlertWorkers,
@@ -61,6 +62,20 @@ describe("volumeAlertQuery", () => {
       for (const worker of workers) {
         assert.include(query, `'${worker}'`);
       }
+    }),
+  );
+});
+
+describe("rateLimitErrorQuery", () => {
+  it.effect("scopes to the account, names web's script and matches the event", () =>
+    Effect.gen(function* names() {
+      const script = yield* workerName({ stack: "s", stage: "test-abc", worker: "web" });
+      const query = rateLimitErrorQuery("acct", script);
+
+      assert.include(query, "accountTag = 'acct'");
+      assert.include(query, `scriptName = '${script}'`);
+      assert.include(query, "= 'web.ratelimit.error'");
+      assert.notInclude(query, "-api-");
     }),
   );
 });

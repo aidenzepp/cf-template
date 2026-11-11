@@ -114,6 +114,49 @@ export const volumeAlert = Effect.fn("volumeAlert")(function* volumeAlert(
 });
 
 /**
+ * The SQL API query behind the rate-limit error alert: log rows of `logs.workersLogs` for the
+ * account whose `scriptName` is `script` and whose logged JSON `message` has `event` equal to
+ * `web.ratelimit.error`. The `message` column and `JSONExtractString` are unverified until a cloud
+ * run.
+ *
+ * @param accountId - The deploying account's id.
+ * @param script - The `web` Worker script name.
+ * @returns The query text.
+ */
+export const rateLimitErrorQuery = (accountId: string, script: string): string =>
+  `SELECT count() AS value FROM logs.workersLogs WHERE accountTag = '${accountId}' AND scriptName = '${script}' AND JSONExtractString(message, 'event') = 'web.ratelimit.error'`;
+
+/**
+ * Declare the `web.ratelimit.error` alert, only where the stage's kind sets `volumeAlert`.
+ *
+ * It counts {@link rateLimitErrorQuery} rows per `5m` window (300 s, which the pinned resource
+ * accepts as `${number}m`), evaluated every `5m`, and emails `address` above `0`.
+ *
+ * @param stage - The decoded stage.
+ * @param stack - The stack name.
+ * @param address - The `ISSUE_NOTIFICATION_EMAIL` value.
+ * @returns Nothing; a stage that declares no alert declares no resource.
+ */
+export const rateLimitErrorAlert = Effect.fn("rateLimitErrorAlert")(function* rateLimitErrorAlert(
+  stage: StageName,
+  stack: string,
+  address: string,
+) {
+  if (Stages[kindOf(stage)].volumeAlert) {
+    const { accountId } = yield* Cloudflare.CloudflareEnvironment.current;
+    const script = yield* workerName({ stack, stage, worker: "web" });
+
+    yield* Cloudflare.Alerting.CustomAlert("RateLimitErrorAlert", {
+      every: "5m",
+      mechanisms: { email: [{ id: address }] },
+      name: `${stack}-ratelimit-error-${stage}`,
+      query: rateLimitErrorQuery(accountId, script),
+      trigger: { operator: ">", type: "threshold", value: 0, window: "5m" },
+    });
+  }
+});
+
+/**
  * Declare the Workers Issues notification on `prod` only: one email policy and one automation for
  * each of `web`, `api` and `auth` that notifies at the first occurrence of an issue.
  *

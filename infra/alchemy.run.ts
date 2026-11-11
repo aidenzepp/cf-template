@@ -4,7 +4,12 @@ import { Config, Effect, Layer, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { APP_DB_ID, declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
 import { Stage, stageValues } from "./stages.ts";
-import { issueNotificationAddress, prodIssueNotification, volumeAlert } from "./src/alerts.ts";
+import {
+  issueNotificationAddress,
+  prodIssueNotification,
+  rateLimitErrorAlert,
+  volumeAlert,
+} from "./src/alerts.ts";
 import { declareApi } from "./src/api.ts";
 import { AUTH_DB_ID } from "../apps/auth/src/db/database.ts";
 import { declareAuth } from "./src/auth.ts";
@@ -96,6 +101,7 @@ const program = Effect.gen(function* declareStack() {
 
   if (Option.isSome(address)) {
     yield* volumeAlert(stage, stack, address.value);
+    yield* rateLimitErrorAlert(stage, stack, address.value);
     yield* prodIssueNotification(stage, stack, address.value, { api, auth, web });
   }
 
