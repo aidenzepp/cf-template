@@ -11,42 +11,19 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/ui/field";
 import { Input } from "@workspace/ui/components/ui/input";
+import { Effect } from "effect";
 import { useState } from "react";
 import type { SyntheticEvent } from "react";
-import { FRESH_SESSION_CODE, Reauthenticate } from "../components/auth/reauthenticate.tsx";
+import { Reauthenticate } from "../components/auth/reauthenticate.tsx";
 import { readField } from "../components/auth/use-auth-submit.ts";
 import { authClient } from "../lib/auth-client.ts";
-import type { AuthErrorInput } from "../lib/auth-error-copy.ts";
 import { authErrorCopy } from "../lib/auth-error-copy.ts";
 import { oauthErrorCode, oauthErrorCopy } from "../lib/oauth-error-copy.ts";
-
-/**
- * The browser auth client as far as the settings calls use it.
- */
-export type SettingsClient = typeof authClient;
-
-/**
- * The calls of the settings screen, one per action. Each goes through the `/auth/*` forward: the
- * client resolves its paths against the page's own origin.
- *
- * @param client - The browser auth client.
- * @returns One function per action.
- */
-export const settingsCalls = (client: SettingsClient) => ({
-  changePassword: (currentPassword: string, newPassword: string, revokeOtherSessions: boolean) =>
-    client.changePassword({ currentPassword, newPassword, revokeOtherSessions }),
-  updateProfile: (name: string, image: string) =>
-    client.updateUser({ image: image === "" ? null : image, name }),
-});
+import { needsFreshSession, settingsCalls, settle } from "../lib/settings-calls.ts";
+import type { Settled } from "../lib/settings-calls.ts";
+import { run as runEffect } from "../runtime.ts";
 
 const calls = settingsCalls(authClient);
-
-/**
- * What a call settles with: `error` is set when the call failed.
- */
-interface Result {
-  readonly error: AuthErrorInput["error"];
-}
 
 /**
  * The outcome line of one card.
@@ -69,29 +46,31 @@ const useRun = (askFresh: (retry: () => void) => void) => {
   const [outcome, setOutcome] = useState<Outcome>(NO_OUTCOME);
   const [pending, setPending] = useState(false);
 
-  const run = (call: () => PromiseLike<Result>, done: string, after?: () => void) => {
+  const run = (call: () => PromiseLike<Settled>, done: string, after?: () => void) => {
     const attempt = () => {
       setOutcome(NO_OUTCOME);
       setPending(true);
-      void Promise.resolve(call())
-        .catch((): Result => ({ error: { status: 0 } }))
-        .then(({ error }) => {
-          setPending(false);
+      void runEffect(
+        settle(call).pipe(
+          Effect.tap(({ error }) =>
+            Effect.sync(() => {
+              setPending(false);
 
-          if (error?.code === FRESH_SESSION_CODE) {
-            askFresh(attempt);
+              if (needsFreshSession(error)) {
+                askFresh(attempt);
 
-            return null;
-          }
+                return;
+              }
 
-          setOutcome({
-            failed: error !== null,
-            text: error === null ? done : authErrorCopy({ aborted: false, error }),
-          });
-          after?.();
-
-          return null;
-        });
+              setOutcome({
+                failed: error !== null,
+                text: error === null ? done : authErrorCopy({ aborted: false, error }),
+              });
+              after?.();
+            }),
+          ),
+        ),
+      );
     };
 
     attempt();
