@@ -4,16 +4,25 @@ import { kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 
 /**
- * Read `CUSTOM_DOMAIN` for a stage: required on `prod`, rejected on every other kind.
+ * Read `CUSTOM_DOMAIN` for a stage: required on `prod`, optional on the `test` kind, rejected on
+ * every other kind.
  *
- * A failure travels the `Config` error channel, so a deploy stops before any resource is touched.
+ * A `test` stage honours the value only when the deploy environment sets it, so the owned-domain
+ * proof can run on a throwaway slug; unset, it stays on `workers.dev`. A failure travels the
+ * `Config` error channel, so a deploy stops before any resource is touched.
  *
  * @param stage - The decoded stage.
- * @returns The domain on `prod`, and none elsewhere.
+ * @returns The domain on `prod`, the domain on a `test` stage that sets one, and none elsewhere.
  */
 export const customDomain = Effect.fn("customDomain")(function* customDomain(stage: StageName) {
-  if (kindOf(stage) === "prod") {
+  const kind = kindOf(stage);
+
+  if (kind === "prod") {
     return Option.some(yield* Config.schema(CustomDomain, "CUSTOM_DOMAIN"));
+  }
+
+  if (kind === "test") {
+    return yield* Config.schema(CustomDomain, "CUSTOM_DOMAIN").pipe(Config.option);
   }
 
   const supplied = yield* Config.String("CUSTOM_DOMAIN").pipe(Config.option);
@@ -22,7 +31,7 @@ export const customDomain = Effect.fn("customDomain")(function* customDomain(sta
     return yield* Effect.fail(
       new Config.ConfigError(
         new ConfigProvider.SourceError({
-          message: `CUSTOM_DOMAIN is set for stage ${stage}, but only prod honours it. Unset it.`,
+          message: `CUSTOM_DOMAIN is set for stage ${stage}, but only prod and test stages honour it. Unset it.`,
         }),
       ),
     );
