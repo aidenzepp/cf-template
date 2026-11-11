@@ -87,7 +87,9 @@ export default {
     const mode = headers.get("x-test-sec-fetch-mode");
     headers.delete("x-test-sec-fetch-mode");
     if (mode !== null) headers.set("sec-fetch-mode", mode);
-    return env.WEB.fetch(new Request(request, { headers, redirect: "manual" }));
+    const target = headers.get("x-test-web") === "bad-auth-methods" ? env.WEB_BAD : env.WEB;
+    headers.delete("x-test-web");
+    return target.fetch(new Request(request, { headers, redirect: "manual" }));
   },
 };
 `;
@@ -146,7 +148,7 @@ const WebProdLive = Layer.effect(WebProd)(
                 modules: true,
                 name: "driver",
                 script: driverScript,
-                serviceBindings: { WEB: "web" },
+                serviceBindings: { WEB: "web", WEB_BAD: "web-bad-auth-methods" },
               },
               {
                 assets: {
@@ -165,6 +167,25 @@ const WebProdLive = Layer.effect(WebProd)(
                 modules: files.map((file) => ({ path: path.join(server, file), type: "ESModule" })),
                 modulesRoot: server,
                 name: "web",
+                serviceBindings: { API: "api", AUTH: "auth" },
+              },
+              {
+                assets: {
+                  directory: client,
+                  routerConfig: {
+                    has_user_worker: true,
+                    static_routing: { user_worker: [...FORWARD_PREFIXES] },
+                  },
+                },
+                bindings: {
+                  AUTH_METHODS: "{nope",
+                  PUBLIC_ORIGIN: "http://x",
+                },
+                compatibilityDate: COMPAT_DATE,
+
+                modules: files.map((file) => ({ path: path.join(server, file), type: "ESModule" })),
+                modulesRoot: server,
+                name: "web-bad-auth-methods",
                 serviceBindings: { API: "api", AUTH: "auth" },
               },
               {
@@ -476,6 +497,21 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
     Effect.gen(function* faults() {
       expect((yield* sessionState("stub=throw")).html).toContain('data-session="unknown"');
       expect((yield* sessionState("stub=bad")).html).toContain('data-session="unknown"');
+    }),
+  );
+
+  it.effect("fails the request, rendering no page, when AUTH_METHODS does not decode", () =>
+    Effect.gen(function* invalid() {
+      const web = yield* WebProd;
+
+      const response = yield* web.request("/", {
+        headers: { accept: "text/html", "x-test-web": "bad-auth-methods" },
+      });
+
+      const html = yield* text(response);
+
+      expect(response.status).toBe(500);
+      expect(html).not.toContain("data-session");
     }),
   );
 });
