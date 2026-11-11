@@ -897,7 +897,7 @@ observed orphan); the deletion signal `auth` to `api`; Turnstile (outside users)
 
 ## Conventions
 
-Every convention this plan builds on, with its ruling, is in its family file under `docs/decisions/`, one file per family.
+Every convention this plan builds on is in its family file under `docs/decisions/`, one file per family. The file for C2 (task runner) still carries only its topic line and no ruling.
 
 ## Build plan
 
