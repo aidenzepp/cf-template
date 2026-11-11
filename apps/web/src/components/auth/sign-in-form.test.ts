@@ -8,7 +8,7 @@ const run = (available: boolean | undefined, controller = new AbortController())
 
     yield* passkeyAutofill(
       ({ autoFill, fetchOptions }) => {
-        expect(autoFill).toBe(true);
+        expect(autoFill).toBeTruthy();
         calls.push(fetchOptions.signal);
 
         return Promise.resolve(calls.length);
@@ -39,12 +39,12 @@ describe("sign-in passkey autofill", () => {
       const controller = new AbortController();
       const calls = yield* run(true, controller);
 
-      expect(calls).toEqual([controller.signal]);
-      expect(controller.signal.aborted).toBe(false);
+      expect(calls).toStrictEqual([controller.signal]);
+      expect(controller.signal.aborted).toBeFalsy();
 
       controller.abort();
 
-      expect(calls[0]?.aborted).toBe(true);
+      expect(calls[0]?.aborted).toBeTruthy();
     }),
   );
 

@@ -188,8 +188,9 @@ layer(WebProdLive, { timeout: 120_000 })("protected routes", (it) => {
       const { last } = yield* readsOf;
 
       expect(last?.cookie).toBe("stub=in");
-      expect(last?.names).not.toContain("authorization");
-      expect(last?.names).not.toContain("x-forwarded-for");
+      expect(
+        last?.names.filter((name) => name === "authorization" || name === "x-forwarded-for"),
+      ).toStrictEqual([]);
     }),
   );
 

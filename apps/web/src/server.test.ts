@@ -386,7 +386,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       expect(response.status).toBe(502);
       expect(response.headers.get("content-type")).toBe("application/problem+json");
       expect(response.headers.get("vary")).toBe("Sec-Fetch-Mode, Accept");
-      expect(yield* decodeBody(Problem, response)).toEqual({
+      expect(yield* decodeBody(Problem, response)).toStrictEqual({
         status: 502,
         title: "Bad Gateway",
         type: "about:blank",
@@ -471,7 +471,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
 
         expect(response.status).toBe(200);
 
-        expect(response.headers.getSetCookie()).toEqual([
+        expect(response.headers.getSetCookie()).toStrictEqual([
           "a=1; Path=/; HttpOnly; Secure; SameSite=Lax",
           "a=; Path=/old; Max-Age=0",
           "__Secure-b=2; Path=/; Secure; Partitioned; Priority=High",
@@ -662,8 +662,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
 
       // The router canonicalizes the URL: the crafted values leave the address bar and the page.
       expect(first.status).toBe(307);
-      expect(location).not.toContain("alert");
-      expect(location).not.toContain("leak-");
+      expect(location).not.toMatch(/alert|leak-/u);
       expect(firstHtml).not.toContain("leak-");
 
       const response = yield* web.request(location, { headers: { accept: "text/html" } });
@@ -723,12 +722,19 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       const { html, status } = yield* sessionState("stub=in");
 
       expect(status).toBe(200);
-      expect(html).toContain('data-session="signedIn"');
-      expect(html).toContain('aria-label="Loading account"');
-      expect(html).toContain('aria-label="Main"');
-      expect(html).toContain(">Home<");
-      expect(html).not.toContain("Account menu");
-      expect(html).not.toContain("Sign in");
+
+      for (const shown of [
+        'data-session="signedIn"',
+        'aria-label="Loading account"',
+        'aria-label="Main"',
+        ">Home<",
+      ]) {
+        expect(html).toContain(shown);
+      }
+
+      for (const hidden of ["Account menu", "Sign in"]) {
+        expect(html).not.toContain(hidden);
+      }
     }),
   );
 
@@ -754,7 +760,10 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       ] as const) {
         const response = yield* web.request(path, { headers: { accept: "text/html", cookie } });
 
-        expect([path, response.headers.get("cache-control")]).toEqual([path, "private, no-store"]);
+        expect([path, response.headers.get("cache-control")]).toStrictEqual([
+          path,
+          "private, no-store",
+        ]);
       }
     }),
   );
