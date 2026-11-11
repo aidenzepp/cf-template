@@ -2,6 +2,7 @@ import { Config, Effect, Option, Schema, SchemaTransformation } from "effect";
 import type { LogLevel } from "effect";
 import { Digest } from "effect/crypto";
 import { LogLevelKnob } from "@workspace/config/log-level";
+import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "../apps/auth/src/config.ts";
 
 /**
  * The longest Worker name Cloudflare accepts.
@@ -209,18 +210,32 @@ const validated = <A>(
  * The knob values of one stage kind.
  */
 export interface StageValues {
+  readonly AUTH_COOKIE_CACHE_MAX_AGE_S: typeof CookieCacheMaxAgeKnob.default;
+  readonly AUTH_COOKIE_CACHE_STRATEGY: typeof CookieCacheStrategyKnob.default;
   readonly LOG_LEVEL: LogLevel.LogLevel;
 }
+
+/**
+ * The knob values of one stage kind: the given log level and every other knob at its default.
+ *
+ * @param logLevel - The raw `LOG_LEVEL` value of the kind.
+ * @returns The validated values of the kind.
+ */
+const stageRow = (logLevel: string): StageValues => ({
+  AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob.default,
+  AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
+  LOG_LEVEL: validated(LogLevelKnob, logLevel),
+});
 
 /**
  * The tier (b) knob values per stage kind, each validated by its knob codec when the module
  * loads. Each knob-adding block adds its key and a value per kind.
  */
 export const Stages: Record<StageKind, StageValues> = {
-  local: { LOG_LEVEL: validated(LogLevelKnob, "Debug") },
-  prod: { LOG_LEVEL: validated(LogLevelKnob, "Info") },
-  staging: { LOG_LEVEL: validated(LogLevelKnob, "Debug") },
-  test: { LOG_LEVEL: validated(LogLevelKnob, "Debug") },
+  local: stageRow("Debug"),
+  prod: stageRow("Info"),
+  staging: stageRow("Debug"),
+  test: stageRow("Debug"),
 };
 
 /**
@@ -246,6 +261,7 @@ export const stageValues = Effect.fn("stageValues")(function* stageValues(
   const logLevel = yield* Config.String(`STAGES_TEST_${LogLevelKnob.key}`).pipe(Config.option);
 
   return {
+    ...base,
     LOG_LEVEL: Option.isSome(logLevel)
       ? yield* LogLevelKnob.decode(logLevel.value)
       : base.LOG_LEVEL,
