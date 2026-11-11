@@ -466,7 +466,14 @@ export default defineConfig({
           name: "tools",
         },
       },
-      { test: { ...noOnly, include: ["test/**/*.test.ts"], name: "root" } },
+      {
+        test: {
+          ...noOnly,
+          exclude: ["test/local/**"],
+          include: ["test/**/*.test.ts"],
+          name: "root",
+        },
+      },
       { test: { ...noOnly, include: ["apps/web/src/**/*.test.ts"], name: "web" } },
       { test: { ...noOnly, include: ["apps/api/src/**/*.test.ts"], name: "api" } },
       { test: { ...noOnly, include: ["apps/auth/src/**/*.test.ts"], name: "auth" } },
