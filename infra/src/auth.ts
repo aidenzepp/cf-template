@@ -10,7 +10,7 @@ import AuthWorker, { AuthDeployment } from "../../apps/auth/src/worker.ts";
 import { workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
 import { compat } from "./compat.ts";
-import { publicOrigin } from "./origin.ts";
+import type { publicOrigin } from "./origin.ts";
 
 /**
  * Read the credential pair of one OAuth provider: `<PREFIX>_CLIENT_ID` with
@@ -117,19 +117,21 @@ export const encodedOrphanGrace = AUTH_ORPHAN_GRACE_SECONDS.encode(
  * @param identity.stage - The decoded stage.
  * @param hint - The `D1_PROD_LOCATION_HINT` knob value.
  * @param values - The knob values of the stage.
+ * @param origin - The stage's public origin, computed once by the stack program and handed to
+ *   `web` as well.
  * @returns The `auth` Worker resource.
  */
 export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
   identity: { readonly stack: string; readonly stage: StageName },
   hint: Parameters<typeof declareDatabase>[2],
   values: StageValues,
+  origin: Effect.Success<ReturnType<typeof publicOrigin>>,
 ) {
   const { stack, stage } = identity;
   const path = yield* Path.Path;
   yield* declareDatabase(stack, stage, hint);
 
   const secret = yield* Alchemy.Random("BetterAuthSecret");
-  const origin = yield* publicOrigin({ stack, stage });
   const { methods, secrets } = yield* resolveMethods();
   const encodedMethods = yield* Schema.encodeEffect(Schema.fromJsonString(AuthMethods))(methods);
   const scrypt = yield* AUTH_PASSWORD_SCRYPT.encode(values.AUTH_PASSWORD_SCRYPT);

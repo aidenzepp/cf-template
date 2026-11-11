@@ -45,15 +45,34 @@ describe("publicOrigin", () => {
 
   it.effect("fails decode on prod without CUSTOM_DOMAIN", () =>
     Effect.gen(function* missing() {
-      assert.isTrue(Exit.isFailure(yield* Effect.exit(originOf("prod", {}))));
+      const error = yield* Effect.flip(originOf("prod", {}));
+
+      assert.include(String(error), "CUSTOM_DOMAIN");
     }),
   );
 
-  it.effect("fails decode on prod with an invalid CUSTOM_DOMAIN", () =>
-    Effect.gen(function* invalid() {
-      const exit = yield* Effect.exit(originOf("prod", { CUSTOM_DOMAIN: "https://example.com" }));
+  it.effect.each(["Example.com", "example.com:8443"])(
+    "fails the hostname check on prod with CUSTOM_DOMAIN %s",
+    (value) =>
+      Effect.gen(function* invalid() {
+        // Both values would pass `PublicOrigin` once interpolated, so only `Hostname` refuses them.
+        const error = yield* Effect.flip(originOf("prod", { CUSTOM_DOMAIN: value }));
 
-      assert.isTrue(Exit.isFailure(exit));
+        assert.include(String(error), "CUSTOM_DOMAIN");
+        assert.include(String(error), "Expected a string matching the RegExp ^[a-z0-9]");
+      }),
+  );
+
+  it.effect("fails on a cloud stage without CLOUDFLARE_WORKERS_SUBDOMAIN, naming it", () =>
+    Effect.gen(function* missing() {
+      const error = yield* Effect.flip(
+        publicOrigin({ stack: "stack", stage: "staging-3" }).pipe(
+          Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
+        ),
+      );
+
+      assert.include(String(error), "CLOUDFLARE_WORKERS_SUBDOMAIN");
+      assert.include(String(error), "workers.dev subdomain");
     }),
   );
 
