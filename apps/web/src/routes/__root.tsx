@@ -5,15 +5,21 @@ import {
   ScriptOnce,
   Scripts,
   createRootRoute,
+  redirect,
   useRouteContext,
 } from "@tanstack/react-router";
+import type { AnyRouter } from "@tanstack/react-router";
 import { Toaster } from "@workspace/ui/components/ui/sonner";
+import { Effect } from "effect";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { Nav } from "../components/shell/nav.tsx";
 import { UserMenu } from "../components/shell/user-menu.tsx";
+import { validateRedirectSearch } from "../lib/redirect-target.ts";
+import { isAuthScreen, isSessionLess } from "../lib/session-less-paths.ts";
 import { run } from "../runtime.ts";
-import { readRootContext } from "../session.ts";
+import { readSession } from "../session.ts";
+import { AuthMethods } from "../web-layer.ts";
 import appCss from "../styles/app.css?url";
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
@@ -96,8 +102,44 @@ const RootLayout = () => {
   );
 };
 
+/**
+ * The root context of a request. A session-less path reads no session, so the outage page never
+ * waits on `api`.
+ *
+ * @param pathname - The pathname of the request.
+ * @returns The effect that reads the context.
+ */
+const readContext = (pathname: string) =>
+  Effect.gen(function* readPathContext() {
+    const authMethods = yield* AuthMethods;
+
+    const session = isSessionLess(pathname) ? ({ _tag: "unknown" } as const) : yield* readSession;
+
+    return { authMethods, session } as const;
+  });
+
 export const Route = createRootRoute({
-  beforeLoad: ({ abortController }) => run(readRootContext, { signal: abortController.signal }),
+  // Only `signedOut` redirects. The `redirect` value is kept only when it is root-relative; the
+  // hash is empty on the server, which never receives it.
+  beforeLoad: async ({ abortController, location }) => {
+    const context = await run(readContext(location.pathname), { signal: abortController.signal });
+
+    if (context.session._tag === "signedOut" && !isAuthScreen(location.pathname)) {
+      const { redirect: target } = validateRedirectSearch({
+        redirect: `${location.pathname}${location.searchStr}${location.hash}`,
+      });
+
+      // `throw: true` makes the library throw the redirect, which keeps it out of the context type
+      // that a returned `Redirect` would break for every child route.
+      redirect<AnyRouter>({
+        search: target === undefined ? {} : { redirect: target },
+        throw: true,
+        to: "/sign-in",
+      });
+    }
+
+    return context;
+  },
   component: RootLayout,
   head: () => ({
     links: [{ href: appCss, rel: "stylesheet" }],

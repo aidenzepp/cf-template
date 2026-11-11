@@ -388,7 +388,9 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
         headers: { accept: "text/html", cookie: "stub=in" },
       });
 
-      const missing = yield* web.request("/missing", { headers: { accept: "text/html" } });
+      const missing = yield* web.request("/missing", {
+        headers: { accept: "text/html", cookie: "stub=in" },
+      });
 
       expect(home.status).toBe(200);
       expect(yield* text(home)).toContain("<main>web</main>");
@@ -466,7 +468,10 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
   it.effect("does not forward bare /api, which matches no prefix and is TanStack's 404", () =>
     Effect.gen(function* bare() {
       const web = yield* WebProd;
-      const response = yield* web.request("/api", { headers: { accept: "text/html" } });
+
+      const response = yield* web.request("/api", {
+        headers: { accept: "text/html", cookie: "stub=in" },
+      });
 
       expect(response.status).toBe(404);
       expect(response.headers.get("content-type")).toContain("text/html");
@@ -476,7 +481,10 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
   it.effect("OBSERVED: an encoded /%61pi/health is not forwarded, it is TanStack's 404", () =>
     Effect.gen(function* encoded() {
       const web = yield* WebProd;
-      const response = yield* web.request("/%61pi/health", { headers: { accept: "text/html" } });
+
+      const response = yield* web.request("/%61pi/health", {
+        headers: { accept: "text/html", cookie: "stub=in" },
+      });
 
       expect(response.status).toBe(404);
       expect(response.headers.get("content-type")).toContain("text/html");
@@ -718,7 +726,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
         ["/", "stub=in"],
         ["/sign-in", "stub=401"],
         ["/sign-up", "stub=401"],
-        ["/missing", "stub=401"],
+        ["/missing", "stub=in"],
       ] as const) {
         const response = yield* web.request(path, { headers: { accept: "text/html", cookie } });
 

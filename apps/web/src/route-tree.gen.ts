@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as OauthErrorRouteImport } from './routes/oauth-error'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
+import { Route as UnavailableRouteImport } from './routes/unavailable'
 import { Route as NotesIndexRouteImport } from './routes/notes/index'
 import { Route as NotesNoteIdRouteImport } from './routes/notes/$note-id'
 
@@ -36,6 +37,11 @@ const SignUpRoute = SignUpRouteImport.update({
   path: '/sign-up',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UnavailableRoute = UnavailableRouteImport.update({
+  id: '/unavailable',
+  path: '/unavailable',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NotesIndexRoute = NotesIndexRouteImport.update({
   id: '/notes/',
   path: '/notes/',
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/oauth-error': typeof OauthErrorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/unavailable': typeof UnavailableRoute
   '/notes/$note-id': typeof NotesNoteIdRoute
   '/notes/': typeof NotesIndexRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/oauth-error': typeof OauthErrorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/unavailable': typeof UnavailableRoute
   '/notes/$note-id': typeof NotesNoteIdRoute
   '/notes': typeof NotesIndexRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/oauth-error': typeof OauthErrorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
+  '/unavailable': typeof UnavailableRoute
   '/notes/$note-id': typeof NotesNoteIdRoute
   '/notes/': typeof NotesIndexRoute
 }
@@ -79,6 +88,7 @@ export interface FileRouteTypes {
     | '/oauth-error'
     | '/sign-in'
     | '/sign-up'
+    | '/unavailable'
     | '/notes/$note-id'
     | '/notes/'
   fileRoutesByTo: FileRoutesByTo
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/oauth-error'
     | '/sign-in'
     | '/sign-up'
+    | '/unavailable'
     | '/notes/$note-id'
     | '/notes'
   id:
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/oauth-error'
     | '/sign-in'
     | '/sign-up'
+    | '/unavailable'
     | '/notes/$note-id'
     | '/notes/'
   fileRoutesById: FileRoutesById
@@ -104,6 +116,7 @@ export interface RootRouteChildren {
   OauthErrorRoute: typeof OauthErrorRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
+  UnavailableRoute: typeof UnavailableRoute
   NotesNoteIdRoute: typeof NotesNoteIdRoute
   NotesIndexRoute: typeof NotesIndexRoute
 }
@@ -138,6 +151,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SignUpRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/unavailable': {
+      id: '/unavailable'
+      path: '/unavailable'
+      fullPath: '/unavailable'
+      preLoaderRoute: typeof UnavailableRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notes/': {
       id: '/notes/'
       path: '/notes'
@@ -160,6 +180,7 @@ const rootRouteChildren: RootRouteChildren = {
   OauthErrorRoute: OauthErrorRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
+  UnavailableRoute: UnavailableRoute,
   NotesNoteIdRoute: NotesNoteIdRoute,
   NotesIndexRoute: NotesIndexRoute,
 }
