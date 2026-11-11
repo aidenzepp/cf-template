@@ -117,7 +117,9 @@ const readMaxAge = (value: string) =>
   Effect.exit(
     CookieCacheMaxAgeKnob.config.pipe(
       Effect.provide(
-        ConfigProvider.layer(ConfigProvider.fromUnknown({ AUTH_COOKIE_CACHE_MAX_AGE_S: value })),
+        ConfigProvider.layer(
+          ConfigProvider.fromUnknown({ AUTH_COOKIE_CACHE_MAX_AGE_S: value, UNRELATED: "present" }),
+        ),
       ),
     ),
   );

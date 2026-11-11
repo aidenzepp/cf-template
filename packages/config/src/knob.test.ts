@@ -31,7 +31,9 @@ const ModeKnob = Knob.make("MODE", Mode);
  * Provide a tier (b) environment made of `values`, never touching the host environment.
  */
 const withEnv = (values: Readonly<Record<string, string>>) =>
-  Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(values)));
+  Effect.provide(
+    ConfigProvider.layer(ConfigProvider.fromUnknown({ UNRELATED: "present", ...values })),
+  );
 
 /**
  * Run `effect` and return its result together with every log line it emitted.
