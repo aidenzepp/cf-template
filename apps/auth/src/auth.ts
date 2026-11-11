@@ -16,6 +16,8 @@ import { PublicOrigin, WEB_DEV_PORT } from "@workspace/config/public-origin";
 import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "./config.ts";
 import { AUTH_BASE_PATH, OAUTH_ERROR_PATH } from "./contract.ts";
 import * as schema from "./db/schema.ts";
+import { createAuthMiddleware } from "better-auth/api";
+import { requireFreshSession } from "./fresh-session.ts";
 import { passkeyPlugin } from "./passkeys.ts";
 import { passwordFor, rehashAfterSignIn } from "./password.ts";
 import type { RunEffect } from "./password.ts";
@@ -309,16 +311,22 @@ const makeInstance = Effect.gen(function* makeInstance() {
     onSome: (runtime) => reclaimDb.pipe(Effect.provideService(RuntimeContext, runtime)),
   });
 
+  const reclaim = reclaimOrphanBeforeSignUp({
+    db,
+    emailLive: settings.methods.email,
+    graceSeconds: settings.graceSeconds,
+    run: Effect.runPromiseWith(services),
+  });
+
   return yield* BetterAuth({
     ...authOptions,
     ...passwordOptions(settings.scrypt, Effect.runPromiseWith(services), settings.baseURL),
     baseURL: settings.baseURL,
     hooks: {
-      before: reclaimOrphanBeforeSignUp({
-        db,
-        emailLive: settings.methods.email,
-        graceSeconds: settings.graceSeconds,
-        run: Effect.runPromiseWith(services),
+      before: createAuthMiddleware(async (ctx) => {
+        await requireFreshSession(ctx);
+
+        await reclaim(ctx);
       }),
     },
     migrate: false,
