@@ -3,5 +3,13 @@
   "private": true,
   "description": "Owns Knob.make, the LiveKnobs port, LogLevelKnob, the Stages schema's knob validators. Must not own any knob value, the registry of live knobs, any KV import, or any runtime Alchemy import.",
   "type": "module",
-  "exports": {}
+  "exports": {
+    "./knob": "./src/knob.ts",
+    "./log-level": "./src/log-level.ts",
+    "./worker-requirements": "./src/worker-requirements.ts",
+    "./plan": "./src/plan.ts"
+  },
+  "dependencies": {
+    "effect": "4.1.2"
+  }
 }
