@@ -646,9 +646,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       const html = (yield* text(response)).replaceAll("&#x27;", "'");
 
       expect(response.status).toBe(200);
-      expect(html).toContain(
-        "Sign-in with that account didn't work. Try again, or use another way to sign in.",
-      );
+      expect(html).toContain("Sign-in didn't finish. Try again.");
 
       for (const leaked of ["alert(1)", "onerror", "leak-", "script>alert"]) {
         expect(html).not.toContain(leaked);

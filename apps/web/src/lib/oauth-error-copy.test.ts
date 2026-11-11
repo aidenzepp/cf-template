@@ -1,7 +1,7 @@
 import { expect, it } from "@effect/vitest";
 import { oauthErrorCode, oauthErrorCopy } from "./oauth-error-copy.ts";
 
-const GENERIC = "Sign-in with that account didn't work. Try again, or use another way to sign in.";
+const GENERIC = "Sign-in didn't finish. Try again.";
 
 it("maps an allowlisted code to its fixed copy", () => {
   expect(oauthErrorCopy(oauthErrorCode("access_denied"))).toBe(

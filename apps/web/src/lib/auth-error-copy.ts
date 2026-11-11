@@ -27,6 +27,7 @@ const CODE_COPY = {
   PASSWORD_TOO_LONG: "Use a shorter password.",
   PASSWORD_TOO_SHORT: "Use a longer password.",
   SESSION_EXPIRED: "Your session ended. Sign in again.",
+  SOCIAL_ACCOUNT_ALREADY_LINKED: "That account is already linked. Unlink it first, then try again.",
   USER_ALREADY_EXISTS: "An account with this email already exists. Sign in instead.",
 } as const satisfies Record<string, string>;
 

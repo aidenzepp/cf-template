@@ -2,27 +2,43 @@ import { Option, Schema } from "effect";
 import { flow } from "effect/Function";
 
 /**
- * The OAuth callback error codes Better Auth 1.7.19 redirects with that this page has copy for.
- * Every other value is unknown.
+ * The OAuth callback error codes Better Auth 1.7.19 redirects with, and the two this page adds
+ * (`access_denied`, `account_not_linked`). Every other value is unknown.
  */
 const OAuthErrorCode = Schema.Literals([
   "access_denied",
   "account_already_linked_to_different_user",
+  "account_not_linked",
   "email_does_not_match",
   "email_not_found",
   "email_not_verified",
   "invalid_callback_request",
+  "invalid_code",
+  "issuer_mismatch",
+  "issuer_missing",
+  "no_callback_url",
+  "no_code",
+  "nonce_binding_missing",
+  "oauth_provider_not_found",
   "state_mismatch",
   "state_not_found",
+  "unable_to_get_user_info",
+  "unable_to_link_account",
 ]);
 
 type OAuthErrorCodeValue = typeof OAuthErrorCode.Type;
 
 /**
- * The line shown when there is no allowlisted code.
+ * The line shown when there is no allowlisted code, and for the codes that mean the sign-in did
+ * not finish.
  */
-const GENERIC_COPY =
-  "Sign-in with that account didn't work. Try again, or use another way to sign in.";
+const GENERIC_COPY = "Sign-in didn't finish. Try again.";
+
+/**
+ * The line of the codes that mean the sign-in started in another tab or took too long.
+ */
+const EXPIRED_COPY =
+  "The sign-in took too long or started in another tab. Start again from the sign-in page.";
 
 /**
  * The copy of each allowlisted code. This is the only home of OAuth error copy.
@@ -30,14 +46,34 @@ const GENERIC_COPY =
 const CODE_COPY: Readonly<Record<OAuthErrorCodeValue, string>> = {
   access_denied: "Sign-in was cancelled. Try again when you are ready.",
   account_already_linked_to_different_user:
-    "That account is already linked to a different user. Sign in with it instead.",
-  email_does_not_match: "That account's email does not match yours, so it was not linked.",
-  email_not_found: "That account did not share an email address, so we could not sign you in.",
-  email_not_verified: "That account's email is not verified, so we could not sign you in.",
-  invalid_callback_request: "That sign-in link is not valid. Start again from the sign-in page.",
-  state_mismatch: "That sign-in attempt expired or came from somewhere else. Start again.",
-  state_not_found: "That sign-in attempt expired. Start again.",
+    "That GitHub or Google account is already linked to another user. Sign in to that user first, then unlink it in Settings.",
+  account_not_linked:
+    "An account with this email already exists. Sign in with your password, then link GitHub in Settings.",
+  email_does_not_match:
+    "The email on that account doesn't match this one. Sign in with the account that owns it.",
+  email_not_found:
+    "The provider returned no email address. Allow email access on the provider, then try again.",
+  email_not_verified:
+    "The provider hasn't verified that email. Verify it with the provider, then try again.",
+  invalid_callback_request: GENERIC_COPY,
+  invalid_code: GENERIC_COPY,
+  issuer_mismatch: GENERIC_COPY,
+  issuer_missing: GENERIC_COPY,
+  no_callback_url: GENERIC_COPY,
+  no_code: GENERIC_COPY,
+  nonce_binding_missing: GENERIC_COPY,
+  oauth_provider_not_found: "That sign-in method isn't enabled here. Sign in with your password.",
+  state_mismatch: EXPIRED_COPY,
+  state_not_found: EXPIRED_COPY,
+  unable_to_get_user_info: GENERIC_COPY,
+  unable_to_link_account:
+    "The account couldn't be linked. Sign in with your password, then link it in Settings.",
 };
+
+/**
+ * Every allowlisted code, for the test that compares it with Better Auth's.
+ */
+export const OAUTH_ERROR_CODES: readonly string[] = Object.keys(CODE_COPY);
 
 const decodeCode = Schema.decodeUnknownOption(OAuthErrorCode);
 
