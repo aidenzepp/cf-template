@@ -1,7 +1,7 @@
 import { Console, Effect, Schema } from "effect";
 import { HttpClientResponse } from "effect/http";
 import type { GuardedRepository } from "./repository.ts";
-import { classify, report, restClient, summarize } from "./rest.ts";
+import { report, reportResponse, restClient, summarize } from "./rest.ts";
 import type { Kind } from "./rest.ts";
 import type { Tier } from "./tier.ts";
 
@@ -47,11 +47,49 @@ const RULESET = "code-scanning-ruleset";
 const Rulesets = Schema.Array(Schema.Struct({ id: Schema.Number, name: Schema.String }));
 
 /**
+ * The most pages {@link ownRulesets} reads. GitHub allows 75 rulesets per repository, so one page
+ * of 100 already holds them all; the cap only stops a server that ignores `page` from looping.
+ */
+const MAX_RULESET_PAGES = 10;
+
+/**
+ * List the repository's own rulesets, page by page, until a page comes back empty.
+ *
+ * "Get all repository rulesets" (`GET /repos/{owner}/{repo}/rulesets`) lists rulesets inherited
+ * from the organization too unless `includes_parents=false`; an organization ruleset named
+ * `code-scanning` must neither be mistaken for the repository's own nor hide it.
+ *
+ * @param send - The REST sender from `restClient`.
+ * @param path - The `/repos/{owner}/{repo}/rulesets` path.
+ * @returns The repository's own rulesets.
+ */
+const ownRulesets = Effect.fn("ownRulesets")(function* ownRulesets(
+  send: Effect.Success<typeof restClient>,
+  path: string,
+) {
+  const own: Array<(typeof Rulesets.Type)[number]> = [];
+
+  for (let page = 1; page <= MAX_RULESET_PAGES; page += 1) {
+    const response = yield* send("GET", `${path}?includes_parents=false&per_page=100&page=${page}`);
+    const batch = yield* HttpClientResponse.schemaBodyJson(Rulesets)(response);
+
+    if (batch.length === 0) {
+      break;
+    }
+
+    own.push(...batch);
+  }
+
+  return own;
+});
+
+/**
  * Delete the default labels, and create or update the code-scanning ruleset, printing one outcome
  * line each.
  *
  * Label endpoint: "Delete a label" (`DELETE /repos/{owner}/{repo}/labels/{name}`); a 404 means the
- * label is already gone and counts as applied. Ruleset endpoints: "Get a repository rulesets",
+ * label is already gone and counts as applied. Ruleset lookup lists only the repository's own
+ * rulesets, paged. Ruleset endpoints: "Get a repository rulesets",
  * "Create a repository ruleset" and "Update a repository ruleset"; "List code scanning analyses
  * for a repository" decides whether an analysis exists. The ruleset step runs only when the tier
  * has `rulesets` and `GET .../code-scanning/analyses` finds an analysis on `main`; before the first
@@ -72,10 +110,10 @@ export const applyRestLabels = Effect.fn("applyRestLabels")(function* applyRestL
 
   const deleted = yield* Effect.all(
     DEFAULT_LABELS.map((label) =>
-      send("DELETE", `${repo}/labels/${encodeURIComponent(label)}`).pipe(
-        Effect.map((response) => response.status),
-        Effect.orElseSucceed(() => 0),
-        Effect.flatMap((status) => report(classify(status, true), `delete-label ${label}`, status)),
+      reportResponse(
+        `delete-label ${label}`,
+        send("DELETE", `${repo}/labels/${encodeURIComponent(label)}`),
+        { goneIsApplied: true },
       ),
     ),
   );
@@ -101,17 +139,20 @@ export const applyRestLabels = Effect.fn("applyRestLabels")(function* applyRestL
     }
 
     const path = `${repo}/rulesets`;
-    const existing = yield* send("GET", `${path}?per_page=100`);
 
-    const found = (yield* HttpClientResponse.schemaBodyJson(Rulesets)(existing)).find(
+    const found = (yield* ownRulesets(send, path)).find(
       (ruleset) => ruleset.name === CODE_SCANNING_RULESET.name,
     );
 
-    const written = yield* found === undefined
-      ? send("POST", path, CODE_SCANNING_RULESET)
-      : send("PUT", `${path}/${found.id}`, CODE_SCANNING_RULESET);
-
-    return [yield* report(classify(written.status), RULESET, written.status)];
+    return [
+      yield* reportResponse(
+        RULESET,
+        found === undefined
+          ? send("POST", path, CODE_SCANNING_RULESET)
+          : send("PUT", `${path}/${found.id}`, CODE_SCANNING_RULESET),
+        { gated: true },
+      ),
+    ];
   }).pipe(
     Effect.catch(() =>
       report("failed", RULESET, 0).pipe(Effect.map((kind): Array<Kind> => [kind])),

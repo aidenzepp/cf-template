@@ -65,25 +65,59 @@ describe("applyRest", () => {
     }),
   );
 
-  it.effect("reports a 403 or 422 as unavailable, not failed", () =>
+  it.effect("reports a plan-unavailable 403 or 422 on a tier-gated call as unavailable", () =>
     Effect.gen(function* gated() {
-      const statuses = new Map([
-        [`PUT ${base}/private-vulnerability-reporting`, 422],
-        [`PUT ${base}/vulnerability-alerts`, 403],
+      const replies = new Map([
+        [
+          `PUT ${base}/actions/permissions`,
+          {
+            body: { message: "Secret scanning is not available for this repository." },
+            status: 422,
+          },
+        ],
+        [
+          `PUT ${base}/vulnerability-alerts`,
+          {
+            body: { message: "Upgrade to GitHub Pro or make this repository public." },
+            status: 403,
+          },
+        ],
       ]);
 
-      const { lines, run } = harness(applyRest, PUBLIC, (call) => {
-        const status = statuses.get(call);
-
-        return status === undefined ? undefined : { status };
-      });
-
+      const { lines, run } = harness(applyRest, PUBLIC, (call) => replies.get(call));
       const summary = yield* run;
 
       assert.strictEqual(summary.unavailable, 2);
       assert.include(lines, "unavailable dependabot-alerts 403");
-      assert.include(lines, "unavailable private-vulnerability-reporting 422");
+      assert.include(lines, "unavailable sha-pinning-required 422");
     }),
+  );
+
+  it.effect(
+    "reports a validation 422, or a 422 on an ungated call, as failed with its message",
+    () =>
+      Effect.gen(function* rejected() {
+        const message = "Validation Failed: approval_policy is invalid.";
+        const unavailable = "Private vulnerability reporting is not available for this repository.";
+
+        const { lines, run } = harness(applyRest, PUBLIC, (call) => {
+          if (call === `PUT ${base}/actions/permissions/fork-pr-contributor-approval`) {
+            return { body: { message }, status: 422 };
+          }
+
+          return call === `PUT ${base}/private-vulnerability-reporting`
+            ? { body: { message: unavailable }, status: 422 }
+            : undefined;
+        });
+
+        const error = yield* Effect.flip(run);
+
+        assert.instanceOf(error, RestSettingsError);
+        assert.deepStrictEqual([error.applied, error.unavailable, error.failed], [8, 0, 2]);
+        assert.include(lines, `failed fork-approval 422 ${message}`);
+        assert.include(lines, `failed private-vulnerability-reporting 422 ${unavailable}`);
+        assert.isFalse(lines.some((line) => line.includes("ghp_secret")));
+      }),
   );
 
   it.effect("runs every remaining call after a 500 and fails at the end", () =>
