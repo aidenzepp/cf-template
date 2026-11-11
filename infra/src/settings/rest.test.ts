@@ -3,10 +3,48 @@ import { Effect } from "effect";
 import { PRO, PUBLIC, base, harness } from "./fake-github.ts";
 import { RestSettingsError, applyRest } from "./rest.ts";
 
+/**
+ * The `security_and_analysis` object with both features at one status.
+ *
+ * @param status - `enabled` or `disabled`.
+ * @returns The object GitHub returns for a repository.
+ */
+const pair = (status: "enabled" | "disabled") => ({
+  security_and_analysis: {
+    secret_scanning: { status },
+    secret_scanning_push_protection: { status },
+  },
+});
+
+/**
+ * The repository read-back: secret scanning and push protection both `enabled`.
+ */
+const enabled = pair("enabled");
+
+/**
+ * Answer the read-back `GET` with {@link enabled}; every other call keeps the default.
+ *
+ * @param call - The `METHOD path` of the request.
+ * @returns The canned read-back reply, or `undefined`.
+ */
+const readBack = (call: string) =>
+  call === `GET ${base}` ? { body: enabled, status: 200 } : undefined;
+
+/**
+ * A public-tier run whose read-back reports both features at one status.
+ *
+ * @param status - What the repository read-back says.
+ * @returns The harness for {@link applyRest}.
+ */
+const reply = (status: "enabled" | "disabled") =>
+  harness(applyRest, PUBLIC, (call) =>
+    call === `GET ${base}` ? { body: pair(status), status: 200 } : undefined,
+  );
+
 describe("applyRest", () => {
   it.effect("sends every call with its method, path and body on the public tier", () =>
     Effect.gen(function* publicTier() {
-      const { lines, requests, run } = harness(applyRest, PUBLIC);
+      const { lines, requests, run } = harness(applyRest, PUBLIC, readBack);
       const summary = yield* run;
       const body = (call: string) => requests.find((request) => request.call === call)?.body;
 
@@ -18,7 +56,10 @@ describe("applyRest", () => {
         squash_merge_commit_title: "PR_TITLE",
       });
       assert.deepStrictEqual(
-        requests.slice(1, 3).map((request) => request.body),
+        requests
+          .filter((request) => request.call === `PATCH ${base}`)
+          .slice(1)
+          .map((request) => request.body),
         [
           { security_and_analysis: { secret_scanning: { status: "enabled" } } },
           { security_and_analysis: { secret_scanning_push_protection: { status: "enabled" } } },
@@ -86,7 +127,12 @@ describe("applyRest", () => {
         ],
       ]);
 
-      const { lines, run } = harness(applyRest, PUBLIC, (call) => replies.get(call));
+      const { lines, run } = harness(
+        applyRest,
+        PUBLIC,
+        (call) => replies.get(call) ?? readBack(call),
+      );
+
       const summary = yield* run;
 
       assert.strictEqual(summary.unavailable, 2);
@@ -107,7 +153,7 @@ describe("applyRest", () => {
 
         return call === `PUT ${base}/private-vulnerability-reporting`
           ? { body: { message: forbidden }, status: 403 }
-          : undefined;
+          : readBack(call);
       });
 
       const error = yield* Effect.flip(run);
@@ -117,6 +163,40 @@ describe("applyRest", () => {
       assert.include(lines, `failed fork-approval 422 ${message}`);
       assert.include(lines, `failed private-vulnerability-reporting 403 ${forbidden}`);
       assert.isFalse(lines.some((line) => line.includes("ghp_secret")));
+    }),
+  );
+
+  it.effect(
+    "reports CodeQL's not-enabled 403 as unavailable and any other CodeQL 403 as failed",
+    () =>
+      Effect.gen(function* codeql() {
+        const path = `PATCH ${base}/code-scanning/default-setup`;
+        const wording = "Code scanning is not enabled for this repository. Please enable it.";
+
+        const run403 = (message: string) =>
+          harness(applyRest, PUBLIC, (call) =>
+            call === path ? { body: { message }, status: 403 } : readBack(call),
+          );
+
+        const notEnabled = yield* run403(wording).run;
+        const other = yield* Effect.flip(run403("Resource not accessible.").run);
+
+        assert.deepStrictEqual([notEnabled.unavailable, notEnabled.failed], [1, 0]);
+        assert.instanceOf(other, RestSettingsError);
+        assert.deepStrictEqual([other.unavailable, other.failed], [0, 1]);
+      }),
+  );
+
+  it.effect("counts push protection applied only when the read-back says enabled", () =>
+    Effect.gen(function* readback() {
+      const ignored = reply("disabled");
+      const honored = reply("enabled");
+      const summary = yield* ignored.run;
+
+      yield* honored.run;
+      assert.strictEqual(summary.unavailable, 2);
+      assert.include(ignored.lines, "unavailable push-protection 204 silently ignored by GitHub");
+      assert.include(honored.lines, "applied push-protection 204");
     }),
   );
 
