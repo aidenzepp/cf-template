@@ -28,9 +28,27 @@ const COMPAT_DATE = "2026-10-26";
  * received as JSON for every other path.
  */
 const stubScript = (name: string) => `
+let sessionReads = 0;
+const session = {
+  email: "a@b.test",
+  expiresAt: "2030-01-01T00:00:00.000Z",
+  image: null,
+  name: "A",
+  userId: "u1",
+};
 export default {
   async fetch(request) {
     const url = new URL(request.url);
+    if (url.pathname === "/api/session") {
+      sessionReads += 1;
+      const mode = /(?:^|; )stub=([^;]*)/.exec(request.headers.get("cookie") ?? "")?.[1];
+      if (mode === "throw") throw new Error("stub failure");
+      if (mode === "503") return new Response("down", { headers: { "retry-after": "7" }, status: 503 });
+      if (mode === "401") return new Response("no", { status: 401 });
+      if (mode === "bad") return Response.json({ nope: true });
+      return Response.json(mode === "in" ? session : null);
+    }
+    if (url.pathname === "/api/session-reads") return Response.json({ reads: sessionReads });
     if (url.pathname.endsWith("/throws")) throw new Error("stub failure");
     if (url.pathname.endsWith("/missing")) return new Response("nope", { status: 404 });
     if (url.pathname.endsWith("/redirect")) {
@@ -211,6 +229,18 @@ const text = (response: HarnessResponse) =>
     try: () => response.text(),
   });
 
+/**
+ * Load `/` with a cookie the stub reads and return the page.
+ */
+const sessionState = (cookie: string) =>
+  Effect.gen(function* state() {
+    const web = yield* WebProd;
+    const response = yield* web.request("/", { headers: { accept: "text/html", cookie } });
+    const html = yield* text(response);
+
+    return { html, status: response.status };
+  });
+
 layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
   const traced = {
     b3: "80f198ee56343ba864fe8b2a57d3eff7-e457b5a2e4d86bd1-1",
@@ -311,7 +341,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       const missing = yield* web.request("/missing", { headers: { accept: "text/html" } });
 
       expect(home.status).toBe(200);
-      expect(yield* text(home)).toContain("<main>web</main>");
+      expect(yield* text(home)).toContain('<main data-session="signedOut">web</main>');
       expect(missing.status).toBe(404);
     }),
   );
@@ -400,6 +430,52 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
 
       expect(response.status).toBe(404);
       expect(response.headers.get("content-type")).toContain("text/html");
+    }),
+  );
+
+  it.effect("reads the session once per full load with the inbound Cookie copied", () =>
+    Effect.gen(function* once() {
+      const web = yield* WebProd;
+
+      const reads = () =>
+        web
+          .request("/api/session-reads")
+          .pipe(
+            Effect.flatMap((response) =>
+              decodeBody(Schema.Struct({ reads: Schema.Number }), response),
+            ),
+          );
+
+      const before = yield* reads();
+      const { html } = yield* sessionState("stub=in");
+      const after = yield* reads();
+
+      expect(after.reads - before.reads).toBe(1);
+      expect(html).toContain('data-session="signedIn"');
+    }),
+  );
+
+  it.effect("derives signedOut from a 401 and from a null session", () =>
+    Effect.gen(function* signedOut() {
+      expect((yield* sessionState("stub=401")).html).toContain('data-session="signedOut"');
+      expect((yield* sessionState("stub=none")).html).toContain('data-session="signedOut"');
+    }),
+  );
+
+  it.effect("derives unknown from a 503, keeping Retry-After", () =>
+    Effect.gen(function* unavailable() {
+      const { html, status } = yield* sessionState("stub=503");
+
+      expect(status).toBe(200);
+      expect(html).toContain('data-session="unknown"');
+      expect(html).toContain("retryAfter");
+    }),
+  );
+
+  it.effect("derives unknown, never signedOut, from a transport or decode fault", () =>
+    Effect.gen(function* faults() {
+      expect((yield* sessionState("stub=throw")).html).toContain('data-session="unknown"');
+      expect((yield* sessionState("stub=bad")).html).toContain('data-session="unknown"');
     }),
   );
 });

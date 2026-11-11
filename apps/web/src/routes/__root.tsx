@@ -1,5 +1,8 @@
+import { RegistryProvider } from "@effect/atom-react";
 import { HeadContent, Outlet, Scripts, createRootRoute } from "@tanstack/react-router";
 import type { ReactNode } from "react";
+import { run } from "../runtime.ts";
+import { readRootContext } from "../session.ts";
 import appCss from "../styles/app.css?url";
 
 /**
@@ -22,7 +25,12 @@ const RootDocument = ({ children }: { readonly children: ReactNode }) => (
 );
 
 export const Route = createRootRoute({
-  component: Outlet,
+  beforeLoad: ({ abortController }) => run(readRootContext, { signal: abortController.signal }),
+  component: () => (
+    <RegistryProvider>
+      <Outlet />
+    </RegistryProvider>
+  ),
   head: () => ({
     links: [{ href: appCss, rel: "stylesheet" }],
     meta: [

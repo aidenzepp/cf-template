@@ -1,12 +1,45 @@
 import { env } from "cloudflare:workers";
-import { ManagedRuntime } from "effect";
+import { createIsomorphicFn } from "@tanstack/react-start";
+import { Layer, ManagedRuntime } from "effect";
+import { AtomRegistry } from "effect/reactivity";
 import type { Effect } from "effect";
+import { ApiClient } from "./api-client.ts";
 import { makeWebLayer } from "./web-layer.ts";
 
 /**
- * The one runtime of `web`, built from the Worker's bindings on first use.
+ * The `AUTH_METHODS` text the server handed to the browser through the router's dehydrated state.
  */
-const runtime = ManagedRuntime.make(makeWebLayer(env));
+let hydratedAuthMethods = "";
+
+/**
+ * The `AUTH_METHODS` text of this environment: the Worker's binding on the server, the hydrated
+ * copy in the browser. An empty copy fails the decode; there is no fallback value.
+ */
+export const authMethodsText = createIsomorphicFn()
+  .server(() => env.AUTH_METHODS)
+  .client(() => hydratedAuthMethods);
+
+/**
+ * Remember the `AUTH_METHODS` text the server dehydrated, before the browser's runtime is built.
+ *
+ * @param text - The JSON text `infra` bound.
+ */
+export const hydrateAuthMethods = (text: string): void => {
+  hydratedAuthMethods = text;
+};
+
+/**
+ * The one runtime of `web`, built on first use so the browser reads the hydrated text.
+ */
+const makeRuntime = () =>
+  ManagedRuntime.make(
+    Layer.merge(
+      makeWebLayer({ AUTH_METHODS: authMethodsText() }),
+      AtomRegistry.make().get(ApiClient.runtime.layer),
+    ),
+  );
+
+let runtime: ReturnType<typeof makeRuntime> | undefined;
 
 /**
  * Run an effect on the runtime of `web`. This is the only `Effect.run*` boundary in `apps/web`.
@@ -17,6 +50,14 @@ const runtime = ManagedRuntime.make(makeWebLayer(env));
  * @returns A promise of the effect's success; a failure rejects it.
  */
 export const run = <A, E>(
-  effect: Effect.Effect<A, E, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>,
+  effect: Effect.Effect<
+    A,
+    E,
+    ManagedRuntime.ManagedRuntime.Services<ReturnType<typeof makeRuntime>>
+  >,
   options?: { readonly signal?: AbortSignal },
-): Promise<A> => runtime.runPromise(effect, options);
+): Promise<A> => {
+  runtime ??= makeRuntime();
+
+  return runtime.runPromise(effect, options);
+};
