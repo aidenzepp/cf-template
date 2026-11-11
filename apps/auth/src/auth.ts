@@ -19,6 +19,7 @@ import * as schema from "./db/schema.ts";
 import { authRelations } from "./db/schema.ts";
 import { createAuthMiddleware } from "better-auth/api";
 import { requireFreshSession } from "./fresh-session.ts";
+import { betterAuthLogger } from "./logger.ts";
 import { passkeyPlugin } from "./passkeys.ts";
 import { passwordFor, rehashAfterSignIn } from "./password.ts";
 import type { RunEffect } from "./password.ts";
@@ -332,6 +333,9 @@ const makeInstance = Effect.gen(function* makeInstance() {
         await reclaim(ctx);
       }),
     },
+    logger: betterAuthLogger((effect) => {
+      Effect.runForkWith(services)(effect);
+    }),
     migrate: false,
     secret: Effect.succeed(settings.secret),
     session: {
