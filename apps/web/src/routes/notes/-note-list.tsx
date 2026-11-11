@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
+import { Link } from "@tanstack/react-router";
 import {
   Empty,
   EmptyDescription,
@@ -47,7 +48,11 @@ export const NoteList = () => {
   return (
     <ItemGroup aria-label="Notes">
       {result.value.map((note) => (
-        <Item key={note.id} variant="outline">
+        <Item
+          key={note.id}
+          render={<Link params={{ "note-id": note.id }} to="/notes/$note-id" />}
+          variant="outline"
+        >
           <ItemContent>
             <ItemTitle>{note.title}</ItemTitle>
             <ItemDescription>{note.body}</ItemDescription>

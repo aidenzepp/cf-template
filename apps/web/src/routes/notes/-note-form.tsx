@@ -7,13 +7,14 @@ import { Cause, Option } from "effect";
 import { AsyncResult } from "effect/reactivity";
 import { useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
-import { createNoteAtom, notesListAtom } from "./-atoms.ts";
-import { readNoteCreate } from "./-note-input.ts";
+import type { Note } from "@workspace/contract/domain/note";
+import { createNoteAtom, noteAtom, notesListAtom, updateNoteAtom } from "./-atoms.ts";
+import { readNoteCreate, readNotePatch } from "./-note-input.ts";
 
 /**
- * The line shown for the result of the last create call.
+ * The line shown for the result of the last save call.
  *
- * @param result - The create atom's value.
+ * @param result - The create or update atom's value.
  * @returns The line, or `null` when the call did not fail.
  */
 const failureLine = (
@@ -29,6 +30,40 @@ const failureLine = (
     ? `You have reached the limit of ${error.value.limit} notes.`
     : "The note could not be saved.";
 };
+
+/**
+ * The fields and the submit button shared by both modes.
+ *
+ * @param props - The fields' props.
+ * @param props.message - The line under the fields, or `null`.
+ * @param props.note - The note being edited; absent when creating.
+ * @param props.waiting - Whether a call is in flight.
+ * @returns The fields.
+ */
+const NoteFields = ({
+  message,
+  note,
+  waiting,
+}: {
+  readonly message: string | null;
+  readonly note?: Note;
+  readonly waiting: boolean;
+}) => (
+  <FieldGroup>
+    <Field>
+      <FieldLabel htmlFor="title">Title</FieldLabel>
+      <Input defaultValue={note?.title} id="title" name="title" required type="text" />
+    </Field>
+    <Field>
+      <FieldLabel htmlFor="body">Body</FieldLabel>
+      <Textarea defaultValue={note?.body} id="body" name="body" />
+    </Field>
+    <FieldError>{message}</FieldError>
+    <Button disabled={waiting} type="submit">
+      {note === undefined ? "Create note" : "Save note"}
+    </Button>
+  </FieldGroup>
+);
 
 /**
  * The form that creates a note. After a successful call the list re-reads from the server once and
@@ -65,20 +100,49 @@ export const NoteForm = () => {
 
   return (
     <form onSubmit={onSubmit} ref={form}>
-      <FieldGroup>
-        <Field>
-          <FieldLabel htmlFor="title">Title</FieldLabel>
-          <Input id="title" name="title" required type="text" />
-        </Field>
-        <Field>
-          <FieldLabel htmlFor="body">Body</FieldLabel>
-          <Textarea id="body" name="body" />
-        </Field>
-        <FieldError>{message}</FieldError>
-        <Button disabled={result.waiting} type="submit">
-          Create note
-        </Button>
-      </FieldGroup>
+      <NoteFields message={message} waiting={result.waiting} />
+    </form>
+  );
+};
+
+/**
+ * The form that edits a note. After a successful call the list and the note re-read from the server
+ * once.
+ *
+ * @param props - The form's props.
+ * @param props.note - The note being edited.
+ * @returns The form.
+ */
+export const EditNoteForm = ({ note }: { readonly note: Note }) => {
+  const [result, update] = useAtom(updateNoteAtom);
+  const refreshList = useAtomRefresh(notesListAtom);
+  const refreshNote = useAtomRefresh(noteAtom(note.id));
+  const [invalid, setInvalid] = useState(false);
+
+  useEffect(() => {
+    if (AsyncResult.isSuccess(result) && !result.waiting) {
+      refreshList();
+      refreshNote();
+    }
+  }, [result, refreshList, refreshNote]);
+
+  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const payload = readNotePatch(new FormData(event.currentTarget));
+
+    setInvalid(Option.isNone(payload));
+
+    if (Option.isSome(payload)) {
+      update({ params: { id: note.id }, payload: payload.value });
+    }
+  };
+
+  const message = invalid ? "Enter a title and a body." : failureLine(result);
+
+  return (
+    <form key={note.updatedAt.epochMilliseconds} onSubmit={onSubmit}>
+      <NoteFields message={message} note={note} waiting={result.waiting} />
     </form>
   );
 };
