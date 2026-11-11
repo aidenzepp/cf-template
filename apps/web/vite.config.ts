@@ -1,3 +1,4 @@
+import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import { defineConfig } from "vite";
 import { WEB_DEV_PORT } from "@workspace/config/public-origin";
@@ -25,6 +26,7 @@ export default defineConfig({
       router: { generatedRouteTree: "route-tree.gen.ts" },
       server: { entry: "server.ts" },
     }),
+    tailwindcss(),
   ],
   resolve: { tsconfigPaths: true },
   server: { port: WEB_DEV_PORT, strictPort: true },
