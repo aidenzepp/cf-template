@@ -13,7 +13,7 @@
     "ui:typecheck": "bun run --filter @workspace/ui typecheck",
     "fix": "vp check --fix",
     "alchemy": "ALCHEMY_TELEMETRY_DISABLED=1 alchemy",
-    "test": "bun test tools/lint && vp test",
+    "test": "bun test .test.mjs && vp test",
     "db:regenerate": "git clean -fdq apps/api/migrations && bun run db:generate",
     "db:generate": "cd apps/api && ../../node_modules/.bin/drizzle-kit generate && bun ./scripts/migrations-digest.ts && cd ../auth && ../../node_modules/.bin/drizzle-kit generate",
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config --local core.hooksPath .vite-hooks || true && bun tools/supdoc/install.ts",

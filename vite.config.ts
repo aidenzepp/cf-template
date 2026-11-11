@@ -42,6 +42,7 @@ export default defineConfig({
       "apps/auth/src/db/schema.ts",
       "**/migrations/**",
       "bun.lock",
+      "tools/lint/fixtures/**",
       "work/**",
       ...vendored,
     ],
@@ -56,6 +57,7 @@ export default defineConfig({
       "apps/auth/src/db/schema.ts",
       "**/migrations/**",
       "dist/**",
+      "tools/lint/fixtures/**",
       "work/**",
       ...vendored,
     ],
@@ -112,7 +114,13 @@ export default defineConfig({
   // and run under `bun test`; `bun run test` runs both.
   test: {
     projects: [
-      { test: { exclude: ["tools/lint/**"], include: ["tools/**/*.test.ts"], name: "tools" } },
+      {
+        test: {
+          exclude: ["tools/lint/fixtures/**"],
+          include: ["tools/**/*.test.ts"],
+          name: "tools",
+        },
+      },
       { test: { include: ["test/**/*.test.ts"], name: "root" } },
       { test: { include: ["apps/web/src/**/*.test.ts"], name: "web" } },
       { test: { include: ["apps/api/src/**/*.test.ts"], name: "api" } },

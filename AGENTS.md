@@ -16,7 +16,7 @@ If a rule appears inappropriate, explain the failing rule, why changing the code
 
 ## Workflow
 
-Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test tools/lint` only for the lint-rule suites that cannot load Effect, then `vp test` (Vitest with `@effect/vitest`) for project tests: `*.test.ts` files under a workspace's `src/`, the root `test/` or `tools/` (not `tools/lint/`), using `it.effect` for effectful cases. Keep focused tests beside their implementation and cross-module tests in `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
+Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test .test.mjs` only for the Node-loaded lint-rule suites, then `vp test` (Vitest with `@effect/vitest`) for project tests: every `*.test.ts` file, including those under `tools/lint/` except `tools/lint/fixtures/**`, under a workspace's `src/`, the root `test/` or `tools/`, using `it.effect` for effectful cases. Keep focused tests beside their implementation and cross-module tests in `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
 
 A pre-push hook (`.vite-hooks/pre-push`, installed by `bun install`) runs the same checks and blocks the push if any fail. Fix the problems rather than bypassing it with `--no-verify` or `VP_GIT_HOOKS=0`.
 
