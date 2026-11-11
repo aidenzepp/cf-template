@@ -147,7 +147,7 @@ ignores: ["packages/knobs-kv/dist"],
 ```
 
 NEGATIVE: a unit name that starts like another's only works because the match ends at a character
-outside `a-z0-9-`; `block:knobs-kv` never matches `block:knobs-kv-extra`. Still, do not give two
+outside `a-z0-9-`; `block:<unit>` never matches `block:<unit>-extra`. Still, do not give two
 units names that start the same way.
 
 ## A block with code in several places
