@@ -61,7 +61,7 @@ export class Knob<A> {
    */
   readonly encode: (a: A) => Effect.Effect<string, Schema.SchemaError>;
 
-  private constructor(key: string, defaultValue: A, schema: Schema.Codec<A>) {
+  private constructor(key: string, defaultValue: A, schema: Schema.Codec<A, unknown>) {
     const codec = Schema.toCodecStringTree(schema);
 
     this.key = key;
@@ -90,7 +90,7 @@ export class Knob<A> {
    * @throws {MissingKnobAnnotationError} At module load, raised by `Effect.runSync`, when
    *   `description` or `default` is absent from the schema.
    */
-  static make<A>(key: string, schema: Schema.Codec<A>): Knob<A> {
+  static make<A>(key: string, schema: Schema.Codec<A, unknown>): Knob<A> {
     const annotations = Schema.resolveAnnotations(schema);
 
     // `Effect.runSync` raises the typed failure at module load.
