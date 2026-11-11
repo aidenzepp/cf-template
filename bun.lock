@@ -26,8 +26,14 @@
       "name": "@workspace/api",
       "dependencies": {
         "@alchemy.run/cloudflare": "2.0.0-beta.85",
+        "@workspace/auth": "workspace:*",
+        "@workspace/config": "workspace:*",
+        "@workspace/contract": "workspace:*",
         "alchemy": "2.0.0-beta.85",
         "effect": "4.1.2",
+      },
+      "devDependencies": {
+        "@effect/vitest": "4.1.2",
       },
     },
     "apps/auth": {
