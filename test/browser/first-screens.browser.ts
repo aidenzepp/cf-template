@@ -46,24 +46,18 @@ const scan = Effect.fn("scan")(function* scan(path: string, cookie: string | und
 const SCREENS = [
   {
     cookie: "stub=401",
-    known: [],
     name: "sign-in",
     path: "/sign-in",
     shows: "Use your email and password.",
   },
   {
     cookie: "stub=401",
-    known: [],
     name: "sign-up",
     path: "/sign-up",
     shows: "Choose a name, an email",
   },
   {
     cookie: undefined,
-    // A real defect, found by this tier: `ItemGroup` renders `role="list"` and each note is a
-    // link, not a `listitem`. The screen's own fix removes this entry; until then the check still
-    // fails on any other rule, and on this one when it stops firing.
-    known: ["aria-required-children"],
     name: "notes list",
     path: "/notes",
     shows: "First note",
@@ -71,8 +65,8 @@ const SCREENS = [
 ] as const;
 
 describe("the first screens", () => {
-  for (const { cookie, known, name, path, shows } of SCREENS) {
-    it.effect(`${name} has only the known axe violations once hydrated`, () =>
+  for (const { cookie, name, path, shows } of SCREENS) {
+    it.effect(`${name} has no axe violations once hydrated`, () =>
       Effect.gen(function* scanScreen() {
         const { passes, text, violations } = yield* scan(path, cookie);
 
@@ -80,7 +74,7 @@ describe("the first screens", () => {
         assert.isAbove(passes, 0);
         assert.deepStrictEqual(
           violations.map(({ id }) => id),
-          [...known],
+          [],
         );
       }),
     );

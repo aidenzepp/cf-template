@@ -278,10 +278,11 @@ export default defineConfig({
         rules: { "no-restricted-properties": ["error", ...runMembers] },
       },
       {
-        // The cloud suite's Vitest global setup is a run boundary: Vitest calls a plain async
-        // function, so the Effect that validates the stage and runs `alchemy` runs here. It keeps
+        // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
+        // boundaries: Vitest calls a plain async function, so the Effect that validates the stage
+        // and runs `alchemy`, or that builds the harness and runs axe-core, runs here. They keep
         // the data-access bans.
-        files: ["test/cloud/global-setup.ts"],
+        files: ["test/cloud/global-setup.ts", "test/browser/support/browser-harness.ts"],
         rules: { "no-restricted-properties": ["error", ...dataAccessMembers] },
       },
       {
