@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import * as EffectModule from "effect/Effect";
 import config from "../../vite.config.ts";
 import { basePaths } from "./rules/restrict-imports.ts";
-import { runMembers, runNames } from "./rules/restricted-properties.ts";
+import { dataAccessMembers, runMembers, runNames } from "./rules/restricted-properties.ts";
 
 /**
  * The `run[A-Z]*` exports of `effect/Effect` at the installed pin.
@@ -17,7 +17,7 @@ describe("the Effect.run* family", () => {
   it("the member form bans every installed run export in the root rule", () => {
     const rule = config.lint?.rules?.["no-restricted-properties"];
 
-    assert.deepStrictEqual(rule, ["error", ...runMembers]);
+    assert.deepStrictEqual(rule, ["error", ...runMembers, ...dataAccessMembers]);
     assert.sameMembers(
       runMembers.map(({ property }) => property),
       installed,

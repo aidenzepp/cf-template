@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "no-restricted-globals": [
+      "error",
+      {
+        "name": "fetch",
+        "message": "apps/web may call fetch only on the AUTH binding: env.AUTH.fetch(...)"
+      }
+    ]
+  }
+}
