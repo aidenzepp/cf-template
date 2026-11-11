@@ -1,29 +1,31 @@
-# typescript-template
+# cf-template
 
-An intentionally empty Bun, Effect and TypeScript project with shared lint policy and guidance for agents.
+A Cloudflare project template: three Workers (`web`, `api`, `auth`) over service bindings, Better Auth, Drizzle on D1 and TanStack Start, deployed by Alchemy. `web` is the only public door.
 
-It pins the toolchain (Bun 1.4.3, Effect 4.1.2, TypeScript 7, Vite+ with Ultracite's Oxlint presets), checks every push locally and in CI, and carries the agent skills shared across these projects. It ships no source, build step or release setup. For a Cloudflare app, start from [cloudflare-monorepo-template](https://github.com/aidenzepp/cloudflare-monorepo-template) instead.
+The toolchain is pinned (Bun, Effect, TypeScript 7, Vite+ with Ultracite's Oxlint presets), every push is checked locally and in CI, and the repository carries the agent skills the project builds with.
 
 ## Start a project
 
 ```console
-$ gh repo create my-project --template aidenzepp/typescript-template --private --clone
+$ gh repo create my-project --template aidenzepp/cf-template --private --clone
 $ cd my-project
 $ bun install
 ```
 
-Rename `name` in `package.json`, then add the project's code under `src/`. `bun install` also installs the pre-push hook.
+Follow `docs/spin-up.md`; `bun install` also installs the hooks.
 
 ## What it includes
 
-| Path                       | Does                                                                                            |
-| -------------------------- | ----------------------------------------------------------------------------------------------- |
-| `vite.config.ts`           | Formatting, Oxlint with the Ultracite core and anti-slop presets, type-aware checks, and Vitest |
-| `tools/lint/`              | Repository lint rules: no built-in `try`/`catch`, kebab-case directories                        |
-| `.vite-hooks/pre-push`     | Runs `check` and `test` before every push                                                       |
-| `.github/workflows/ci.yml` | Runs the same checks on pushes to `main` and on pull requests                                   |
-| `AGENTS.md`                | Where agents start: policy, workflow and the skills to load                                     |
-| `.agents/skills/`          | `conventional-commits`, `document-code`, `effect-design`, `error-messages`, `trace-effect`      |
+| Path                   | Does                                                                              |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `docs/architecture.md` | The design: scope, request path, stages, platform operations and the build plan   |
+| `docs/spin-up.md`      | The spin-up runbook, each step tagged `verified`, `unproven` or `note`            |
+| `vite.config.ts`       | Formatting, Oxlint with the Ultracite core and anti-slop presets, and Vitest      |
+| `tools/`               | Repository checks, lint rules and the runbook check                               |
+| `.vite-hooks/pre-push` | Runs `check` and `test` before every push                                         |
+| `.github/workflows/`   | CI on pushes to `main` and on pull requests                                       |
+| `AGENTS.md`            | Where agents start: policy, workflow and the skills to load                       |
+| `.agents/skills/`      | The skills agents load for commits, docs, Effect design, errors, tracing and more |
 
 ## Verify
 
@@ -32,4 +34,8 @@ bun run check
 bun run test
 ```
 
-`check` runs formatting, lint and type checks with warnings treated as errors. `test` runs the lint-rule tests, then the project's Vitest suite, which passes while it is empty. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
+`check` runs formatting, lint, type checks and the runbook check with warnings treated as errors. `test` runs the lint-rule tests, then the project's Vitest suite.
+
+## Editor
+
+No editor settings are committed. For VS Code set `"js/ts.experimental.useTsgo": true` and `"js/ts.tsdk.path": "./node_modules/typescript/bin"` so the editor uses the repository's `typescript` and the Effect language service rather than the bundled compiler.

@@ -1,0 +1,11 @@
+{
+  "assets/entry.js": {
+    "file": "assets/entry.js",
+    "isEntry": true,
+    "imports": ["assets/shared.js", "assets/heavy.js"]
+  },
+  "assets/shared.js": { "file": "assets/shared.js" },
+  "assets/heavy.js": { "file": "assets/heavy.js", "imports": ["assets/shared.js"] },
+  "assets/lazy.js": { "file": "assets/lazy.js" },
+  "assets/app.css": { "file": "assets/app.css" }
+}
