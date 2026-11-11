@@ -156,6 +156,21 @@ layer(LocalAuthD1.layer)("the Better Auth promise view", (it) => {
     }),
   );
 
+  it.effect("trusts only cf-connecting-ip for the client address", () =>
+    Effect.gen(function* trust() {
+      const binding = yield* LocalAuthD1;
+
+      return yield* Effect.gen(function* read() {
+        const instance = yield* (yield* yield* AuthService).auth;
+        const context = yield* Effect.promise(() => instance.$context);
+
+        assert.deepStrictEqual(context.options.advanced?.ipAddress?.ipAddressHeaders, [
+          "cf-connecting-ip",
+        ]);
+      }).pipe(Effect.provide(authOver(binding)), asExecution);
+    }),
+  );
+
   it.effect("loses the request span under a bare runPromise, the control", () =>
     Effect.gen(function* control() {
       const binding = yield* LocalAuthD1;
