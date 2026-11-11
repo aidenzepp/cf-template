@@ -1,6 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Schema } from "effect";
 import config from "../../vite.config.ts";
+import { dataAccessMembers, globalThisFetch, runMembers } from "./rules/restricted-properties.ts";
 import { basePaths, restrictImports } from "./rules/restrict-imports.ts";
 
 /**
@@ -44,6 +45,22 @@ const underAppSource = (files: readonly string[] | undefined) =>
   (files ?? []).some((glob) => /^apps\/[^/]+\/src\//u.test(glob));
 
 const sample = [{ message: "sample base entry", name: "effect" }];
+
+/**
+ * Matches a path against a glob made of literal segments, `*` and `**`, the only forms the
+ * overrides in `vite.config.ts` use. `**` followed by a slash also matches no directory.
+ */
+const matchesGlob = (file: string, glob: string) =>
+  new RegExp(
+    `^${glob
+      .replaceAll(/[.+^${}()|[\]\\]/gu, String.raw`\$&`)
+      .replaceAll("**/", "\u0000")
+      .replaceAll("**", "\u0001")
+      .replaceAll("*", "[^/]*")
+      .replaceAll("\u0000", "(?:.*/)?")
+      .replaceAll("\u0001", ".*")}$`,
+    "u",
+  ).test(file);
 
 /**
  * The runtime boundaries, the only overrides allowed to drop the base paths (`base: false`).
@@ -109,6 +126,56 @@ describe("no-restricted-imports override composition", () => {
         assert.isTrue(groups.every((group) => patterns.includes(group)));
       }
     }
+  });
+
+  it("each listed file ends with the ruled no-restricted-properties list", () => {
+    const root = config.lint?.rules?.["no-restricted-properties"];
+
+    // The effective setting is the last matching override, as in oxlint, else the root rule.
+    const effective = (file: string) => {
+      let current = root;
+
+      for (const override of config.lint?.overrides ?? []) {
+        const setting = override.rules?.["no-restricted-properties"];
+
+        if (
+          setting !== undefined &&
+          (override.files ?? []).some((glob) => matchesGlob(file, glob))
+        ) {
+          current = setting;
+        }
+      }
+
+      return current;
+    };
+
+    assert.deepStrictEqual(effective("apps/api/src/worker.ts"), [
+      "error",
+      ...runMembers,
+      ...dataAccessMembers,
+    ]);
+
+    assert.strictEqual(effective("apps/api/src/notes.test.ts"), "off");
+    assert.deepStrictEqual(effective("apps/web/src/server.test.ts"), ["error", globalThisFetch]);
+    assert.deepStrictEqual(effective("apps/auth/src/reclaim.ts"), ["error", ...runMembers]);
+
+    assert.deepStrictEqual(effective("apps/web/src/lib/settings-calls.ts"), [
+      "error",
+      ...runMembers,
+      ...dataAccessMembers,
+      globalThisFetch,
+    ]);
+
+    for (const file of ["apps/web/src/runtime.ts", "apps/web/src/server.ts"]) {
+      assert.deepStrictEqual(
+        effective(file),
+        ["error", ...dataAccessMembers, globalThisFetch],
+        file,
+      );
+    }
+
+    assert.deepStrictEqual(effective("packages/db/src/batch.ts"), ["error", ...runMembers]);
+    assert.strictEqual(effective("apps/auth/src/auth.ts"), "off");
   });
 
   it("restrictImports output carries the base paths", () => {

@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "no-restricted-properties": [
+      "error",
+      {
+        "object": "globalThis",
+        "property": "fetch",
+        "message": "apps/web may call fetch only on the AUTH binding: env.AUTH.fetch(...)"
+      }
+    ]
+  }
+}

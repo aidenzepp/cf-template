@@ -3,7 +3,12 @@ import core from "ultracite/oxlint/core";
 import antiSlop from "ultracite/oxlint/anti-slop";
 import shadcn from "ultracite/oxlint/shadcn";
 import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
-import { runMembers } from "./tools/lint/rules/restricted-properties.ts";
+import {
+  dataAccessMembers,
+  fetchMessage,
+  globalThisFetch,
+  runMembers,
+} from "./tools/lint/rules/restricted-properties.ts";
 
 /**
  * Matches module declarations and calls without spacing local call groups.
@@ -204,14 +209,52 @@ export default defineConfig({
         patterns: [...appImports, dbModules],
       }),
       {
-        // Runtime boundaries lift the member form of the run-family ban. P5 adds data-access
-        // entries to the root list, so it must switch this from "off" to that remaining list.
-        files: [
-          "apps/web/src/runtime.ts",
-          "apps/auth/src/auth.ts",
-          "apps/web/src/server.ts",
-          "**/*.test.ts",
-        ],
+        // The data modules lift the data-access bans and keep the run-family ban. Overrides replace
+        // options, so each list below is exact.
+        files: ["packages/db/src/**"],
+        rules: { "no-restricted-properties": ["error", ...runMembers] },
+      },
+      {
+        // `web` reaches `auth` only through `env.AUTH.fetch(...)` (C34). Bare `fetch` is banned by
+        // `no-restricted-globals` below; `globalThis.fetch` joins the member lists, which every
+        // override under apps/web/src repeats because overrides replace options.
+        files: ["apps/web/src/**"],
+        rules: {
+          "no-restricted-globals": ["error", { message: fetchMessage, name: "fetch" }],
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            globalThisFetch,
+          ],
+        },
+      },
+      {
+        // The web run boundaries lift the run-family ban and keep the data-access and fetch bans.
+        files: ["apps/web/src/runtime.ts", "apps/web/src/server.ts"],
+        rules: { "no-restricted-properties": ["error", ...dataAccessMembers, globalThisFetch] },
+      },
+      {
+        // The auth reclaim statement is one guarded compare-and-delete: a named data module that
+        // keeps the run-family ban.
+        files: ["apps/auth/src/reclaim.ts"],
+        rules: { "no-restricted-properties": ["error", ...runMembers] },
+      },
+      {
+        // Tests set up and read the database on purpose, so they lift the run-family and
+        // data-access bans.
+        files: ["**/*.test.ts"],
+        rules: { "no-restricted-properties": "off" },
+      },
+      {
+        // Web tests still never reach the network through `globalThis.fetch`.
+        files: ["apps/web/src/**/*.test.ts"],
+        rules: { "no-restricted-properties": ["error", globalThisFetch] },
+      },
+      {
+        // The auth promise view is both a run boundary and a data boundary (it writes through
+        // `batch`).
+        files: ["apps/auth/src/auth.ts"],
         rules: { "no-restricted-properties": "off" },
       },
       {
@@ -247,7 +290,7 @@ export default defineConfig({
       ],
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
-      "no-restricted-properties": ["error", ...runMembers],
+      "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],
       // Effect adapters return existing promises without introducing async wrappers.
       "typescript/promise-function-async": "off",
       "unicorn/filename-case": ["error", { case: "kebabCase" }],
