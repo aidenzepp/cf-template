@@ -63,6 +63,28 @@ export const interimPublicOrigin = Effect.fn("interimPublicOrigin")(
 );
 
 /**
+ * The JSON text bound as `AUTH_METHODS`, on `auth` and on `web`. This file is its one producer.
+ */
+export const encodedAuthMethods = Schema.encodeEffect(Schema.fromJsonString(AuthMethods))(METHODS);
+
+/**
+ * The interim public origin of a stage, with the `workers.dev` subdomain read from
+ * `CLOUDFLARE_WORKERS_SUBDOMAIN`. The one place that reads it, for `auth` and `web`.
+ *
+ * @param identity - The stack name and decoded stage.
+ * @param identity.stack - The stack name.
+ * @param identity.stage - The decoded stage.
+ * @returns The validated origin, or the failure of {@link interimPublicOrigin}.
+ */
+export const resolvePublicOrigin = Effect.fn("resolvePublicOrigin")(
+  function* resolvePublicOrigin(identity: { readonly stack: string; readonly stage: StageName }) {
+    const subdomain = yield* Config.String("CLOUDFLARE_WORKERS_SUBDOMAIN").pipe(Config.option);
+
+    return yield* interimPublicOrigin({ ...identity, subdomain });
+  },
+);
+
+/**
  * Declare the auth D1 database and the `auth` Worker with its bindings.
  *
  * The Worker binds `PUBLIC_ORIGIN`, `AUTH_METHODS`, the two cookie-cache values from the stage's
@@ -86,9 +108,8 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
   yield* declareDatabase(stack, stage, hint);
 
   const secret = yield* Alchemy.Random("BetterAuthSecret");
-  const subdomain = yield* Config.String("CLOUDFLARE_WORKERS_SUBDOMAIN").pipe(Config.option);
-  const origin = yield* interimPublicOrigin({ stack, stage, subdomain });
-  const methods = yield* Schema.encodeEffect(Schema.fromJsonString(AuthMethods))(METHODS);
+  const origin = yield* resolvePublicOrigin({ stack, stage });
+  const methods = yield* encodedAuthMethods;
   const main = yield* path.fromFileUrl(new URL("../../apps/auth/src/worker.ts", import.meta.url));
 
   const props = {

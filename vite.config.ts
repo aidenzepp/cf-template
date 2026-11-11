@@ -38,6 +38,7 @@ export default defineConfig({
     ignorePatterns: [
       ".agents/**",
       ".worktrees/**",
+      "**/*.gen.ts",
       "apps/auth/src/db/schema.ts",
       "bun.lock",
       "work/**",
@@ -50,6 +51,7 @@ export default defineConfig({
     ignorePatterns: [
       ".agents/**",
       ".worktrees/**",
+      "**/*.gen.ts",
       "apps/auth/src/db/schema.ts",
       "dist/**",
       "work/**",
@@ -101,6 +103,8 @@ export default defineConfig({
       "workspace/kebab-case-paths": "error",
       "workspace/no-built-in-try-catch": "error",
     },
+    // The shadcn preset finds the components and the theme through these two entries.
+    settings: { shadcn: { ui: ["@workspace/ui/components", "apps/web/src/styles/app.css"] } },
   },
   // Tests run on Vitest with @effect/vitest. The lint-rule tests in tools/lint import bun:test
   // and run under `bun test`; `bun run test` runs both.
