@@ -120,7 +120,9 @@ const singletons = [
 ];
 
 const lockstepFamilies = {
-  alchemy: (name: string) => name === "alchemy" || name.startsWith("@alchemy.run/"),
+  // @alchemy.run/sigil is versioned off the Alchemy release train (0.1.0-alpha.1).
+  alchemy: (name: string) =>
+    name === "alchemy" || (name.startsWith("@alchemy.run/") && name !== "@alchemy.run/sigil"),
   "better-auth": (name: string) => name === "better-auth" || name.startsWith("@better-auth/"),
   effect: (name: string) =>
     name === "effect" ||
