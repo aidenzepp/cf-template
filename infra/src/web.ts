@@ -6,8 +6,9 @@ import type { WebEnv } from "../../apps/web/src/env.ts";
 import { FORWARD_PREFIXES } from "../../apps/web/src/forward-prefixes.ts";
 import { kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
-import { encodedAuthMethods, encodedOrphanGrace, resolvePublicOrigin } from "./auth.ts";
+import { encodedAuthMethods, encodedOrphanGrace } from "./auth.ts";
 import { compat } from "./compat.ts";
+import { publicOrigin } from "./origin.ts";
 
 /**
  * The bindings of `web`: the two Workers it forwards to and the two values `apps/web` reads. Every
@@ -49,7 +50,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
 ) {
   const { stack, stage } = identity;
   const path = yield* Path.Path;
-  const origin = yield* resolvePublicOrigin(identity);
+  const origin = yield* publicOrigin(identity);
   const methods = yield* encodedAuthMethods;
   const grace = yield* encodedOrphanGrace;
   const compatibility = { date: compat.date, flags: compat.flags.map((flag) => flag.name) };
