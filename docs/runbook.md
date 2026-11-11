@@ -33,7 +33,7 @@ Detach:
 1. Set `CUSTOM_DOMAIN` to `workers-dev`.
 2. Deploy `prod`. The hostname is detached (`domain: null`), `workers.dev` is on again and `PUBLIC_ORIGIN` returns to the `workers.dev` address. Callbacks and passkeys move back the same way.
 
-Only `prod` honours `CUSTOM_DOMAIN`; `staging-<N>` refuses it.
+`prod` reads `CUSTOM_DOMAIN`. A `test-<slug>` stage ignores it and reads `STAGES_TEST_CUSTOM_DOMAIN` only when the deploy environment sets it; unset, it stays on `workers.dev`. `staging-<N>` and `dev` refuse `CUSTOM_DOMAIN`.
 
 Observed consequence (inferred, not run): after an attach, requests to the old `workers.dev` address return Cloudflare's disabled-route response (error 1042), a pre-switch session cookie gets 401 from `/api/session` on the hostname, a passkey registered before the switch fails there, and a fresh sign-in works. A detach restores the `workers.dev` address. This stays inferred until a throwaway hostname on a zone the maintainer controls exists; the first real attach on `prod` is then the proof.
 

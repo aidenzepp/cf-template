@@ -38,16 +38,22 @@ describe("publicOrigin", () => {
     ["test slug", "test-i19", {}, "https://stack-web-test-i19.acme.workers.dev"],
     ["local", "dev", {}, "http://localhost:3000"],
     [
-      "test with a hostname",
+      "test with a STAGES_TEST_CUSTOM_DOMAIN hostname",
       "test-i26",
-      { CUSTOM_DOMAIN: "app.example.com" },
+      { STAGES_TEST_CUSTOM_DOMAIN: "app.example.com" },
       "https://app.example.com",
     ],
     [
-      "test on workers-dev",
+      "test with STAGES_TEST_CUSTOM_DOMAIN on workers-dev",
       "test-i26",
-      { CUSTOM_DOMAIN: "workers-dev" },
+      { STAGES_TEST_CUSTOM_DOMAIN: "workers-dev" },
       "https://stack-web-test-i26.acme.workers.dev",
+    ],
+    [
+      "test with only the prod CUSTOM_DOMAIN set",
+      "test-ci",
+      { CUSTOM_DOMAIN: "app.example.com" },
+      "https://stack-web-test-ci.acme.workers.dev",
     ],
   ])("derives the origin of %s", ([, stage, values, expected]) =>
     Effect.gen(function* derives() {
@@ -100,11 +106,13 @@ describe("publicOrigin", () => {
     }),
   );
 
-  it.effect("fails on a test stage whose CUSTOM_DOMAIN is not a hostname", () =>
+  it.effect("fails on a test stage whose STAGES_TEST_CUSTOM_DOMAIN is not a hostname", () =>
     Effect.gen(function* invalid() {
-      const error = yield* Effect.flip(originOf("test-i26", { CUSTOM_DOMAIN: "Example.com" }));
+      const error = yield* Effect.flip(
+        originOf("test-i26", { STAGES_TEST_CUSTOM_DOMAIN: "Example.com" }),
+      );
 
-      assert.include(String(error), "CUSTOM_DOMAIN");
+      assert.include(String(error), "STAGES_TEST_CUSTOM_DOMAIN");
     }),
   );
 });

@@ -30,6 +30,7 @@ export const Hostname = Schema.String.check(
 );
 
 /**
- * The value of `CUSTOM_DOMAIN`: a hostname, or `workers-dev` to run `prod` on `workers.dev`.
+ * The value of `CUSTOM_DOMAIN` on `prod`, or of `STAGES_TEST_CUSTOM_DOMAIN` on a `test` stage: a
+ * hostname, or `workers-dev` to run on `workers.dev`.
  */
 export const CustomDomain = Schema.Union([Hostname, Schema.Literal("workers-dev")]);

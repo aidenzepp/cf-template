@@ -4,15 +4,17 @@ import { kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 
 /**
- * Read `CUSTOM_DOMAIN` for a stage: required on `prod`, optional on the `test` kind, rejected on
+ * Read the custom domain of a stage: `CUSTOM_DOMAIN` is required on `prod`, the per-key override
+ * `STAGES_TEST_CUSTOM_DOMAIN` is optional on the `test` kind, and `CUSTOM_DOMAIN` is rejected on
  * every other kind.
  *
- * A `test` stage honours the value only when the deploy environment sets it, so the owned-domain
- * proof can run on a throwaway slug; unset, it stays on `workers.dev`. A failure travels the
- * `Config` error channel, so a deploy stops before any resource is touched.
+ * A `test` stage reads only `STAGES_TEST_CUSTOM_DOMAIN`, never the repository-wide
+ * `CUSTOM_DOMAIN` that `prod` reads, so no throwaway slug attaches the production hostname. Unset,
+ * it stays on `workers.dev`. A failure travels the `Config` error channel, so a deploy stops
+ * before any resource is touched.
  *
  * @param stage - The decoded stage.
- * @returns The domain on `prod`, the domain on a `test` stage that sets one, and none elsewhere.
+ * @returns The domain on `prod`, the override on a `test` stage that sets one, and none elsewhere.
  */
 export const customDomain = Effect.fn("customDomain")(function* customDomain(stage: StageName) {
   const kind = kindOf(stage);
@@ -22,7 +24,7 @@ export const customDomain = Effect.fn("customDomain")(function* customDomain(sta
   }
 
   if (kind === "test") {
-    return yield* Config.schema(CustomDomain, "CUSTOM_DOMAIN").pipe(Config.option);
+    return yield* Config.schema(CustomDomain, "STAGES_TEST_CUSTOM_DOMAIN").pipe(Config.option);
   }
 
   const supplied = yield* Config.String("CUSTOM_DOMAIN").pipe(Config.option);
@@ -43,8 +45,9 @@ export const customDomain = Effect.fn("customDomain")(function* customDomain(sta
 /**
  * Compute the public origin of a stage once, for `web` and `auth` to bind as `PUBLIC_ORIGIN`.
  *
- * `prod` with a hostname in `CUSTOM_DOMAIN` is `https://<hostname>`. Every other cloud stage, and
- * `prod` with `workers-dev`, is the `workers.dev` address of its `web` Worker under
+ * `prod` with a hostname in `CUSTOM_DOMAIN`, and a `test` stage with a hostname in
+ * `STAGES_TEST_CUSTOM_DOMAIN`, is `https://<hostname>`. Every other cloud stage, and either with
+ * `workers-dev`, is the `workers.dev` address of its `web` Worker under
  * `CLOUDFLARE_WORKERS_SUBDOMAIN`. The `local` kind is `http://localhost:<WEB_DEV_PORT>`, a
  * constant.
  *

@@ -23,8 +23,8 @@ export type DomainConfig =
 /**
  * Map the stage's decoded `CUSTOM_DOMAIN` to the `domain` and `workersDev` props of `web`.
  *
- * It adds no decoder: the value comes from {@link customDomain}, so only `prod` and a `test` stage
- * that sets `CUSTOM_DOMAIN` honour a hostname.
+ * It adds no decoder: the value comes from {@link customDomain}, so only `prod` (from
+ * `CUSTOM_DOMAIN`) and a `test` stage that sets `STAGES_TEST_CUSTOM_DOMAIN` honour a hostname.
  *
  * @param stage - The decoded stage.
  * @returns The hostname form when the stage honours a hostname, else the `workers.dev` form.

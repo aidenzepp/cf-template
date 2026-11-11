@@ -39,11 +39,13 @@ describe("domainFor", () => {
     }),
   );
 
-  it.effect("attaches the hostname on a test stage that sets CUSTOM_DOMAIN", () =>
+  it.effect("attaches the hostname on a test stage that sets STAGES_TEST_CUSTOM_DOMAIN", () =>
     Effect.gen(function* testHostname() {
       const config = yield* domainFor("test-i26").pipe(
         Effect.provide(
-          ConfigProvider.layer(ConfigProvider.fromUnknown({ CUSTOM_DOMAIN: "example.test" })),
+          ConfigProvider.layer(
+            ConfigProvider.fromUnknown({ STAGES_TEST_CUSTOM_DOMAIN: "example.test" }),
+          ),
         ),
       );
 
@@ -52,7 +54,19 @@ describe("domainFor", () => {
     }),
   );
 
-  it.effect("ignores CUSTOM_DOMAIN's absence on a test stage", () =>
+  it.effect("stays on workers-dev on a test stage with only CUSTOM_DOMAIN set", () =>
+    Effect.gen(function* prodKeyOnly() {
+      const config = yield* domainFor("test-ci").pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromUnknown({ CUSTOM_DOMAIN: "example.test" })),
+        ),
+      );
+
+      assert.strictEqual(config.kind, "workers-dev");
+    }),
+  );
+
+  it.effect("ignores STAGES_TEST_CUSTOM_DOMAIN's absence on a test stage", () =>
     Effect.gen(function* absent() {
       const config = yield* domainFor("test-i26").pipe(
         Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
