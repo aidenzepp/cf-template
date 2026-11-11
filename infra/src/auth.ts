@@ -83,7 +83,8 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
 ) {
   const { stack, stage } = identity;
   const path = yield* Path.Path;
-  const database = yield* declareDatabase(stack, stage, hint);
+  yield* declareDatabase(stack, stage, hint);
+
   const secret = yield* Alchemy.Random("BetterAuthSecret");
   const subdomain = yield* Config.String("CLOUDFLARE_WORKERS_SUBDOMAIN").pipe(Config.option);
   const origin = yield* interimPublicOrigin({ stack, stage, subdomain });
@@ -106,8 +107,6 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
   } satisfies Cloudflare.WorkerProps;
 
   return yield* Auth.pipe(
-    Effect.provide(
-      AuthWorker.pipe(Layer.provide(Layer.succeed(AuthDeployment, { database, props }))),
-    ),
+    Effect.provide(AuthWorker.pipe(Layer.provide(Layer.succeed(AuthDeployment, { props })))),
   );
 });

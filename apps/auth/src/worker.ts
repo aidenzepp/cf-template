@@ -1,32 +1,40 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import type { InputProps } from "alchemy/Input";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Option } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { AuthService, authDatabaseLayer } from "./auth.ts";
 import { Auth, AUTH_BASE_PATH } from "./contract.ts";
 import { CheckSession } from "./session.ts";
 
 /**
- * What `infra` supplies to the `auth` Worker: its deploy properties and the auth D1 resource it
- * binds. The Worker module never declares either, so the stage, the name and the bindings have one
- * owner, `infra/src/auth.ts`.
+ * What `infra` supplies to the `auth` Worker when it plans: its deploy properties. The Worker
+ * module never declares them, so the stage and the name have one owner, `infra/src/auth.ts`.
+ *
+ * The deployed bundle evaluates the same module with no provider, so the properties are optional
+ * there and ignored: the Worker is already deployed. Nothing the running Worker needs comes from
+ * this service; its D1 binding is the one Alchemy delivers to it.
  */
 export class AuthDeployment extends Context.Service<
   AuthDeployment,
-  {
-    readonly database: Cloudflare.D1.Database;
-    readonly props: InputProps<Cloudflare.WorkerProps>;
-  }
+  { readonly props: InputProps<Cloudflare.WorkerProps> }
 >()("@workspace/auth/AuthDeployment") {}
+
+/**
+ * The deploy properties of the `auth` Worker: `infra`'s when it plans, none in the deployed bundle.
+ */
+export const authProps = Effect.serviceOption(AuthDeployment).pipe(
+  Effect.map(Option.match({ onNone: () => ({}), onSome: ({ props }) => props })),
+);
 
 /**
  * The `auth` Worker: Better Auth under `/auth` over the shared Effect D1 client, and
  * `checkSession` on the default entrypoint for `api`. It has no public address.
  */
-export default Auth.make<AuthDeployment, AuthDeployment | Cloudflare.WorkerServices>(
-  AuthDeployment.pipe(Effect.map(({ props }) => props)),
+export default Auth.make(
+  authProps,
   Effect.gen(function* buildAuth() {
-    const { database } = yield* AuthDeployment;
+    // Declared by `infra` under this id; the deployed Worker only needs the id to find its binding.
+    const database = yield* Cloudflare.D1.Database("AuthDb");
 
     const binding = yield* Cloudflare.D1.QueryDatabase(database).pipe(
       Effect.provide(Cloudflare.D1.QueryDatabaseBinding),
