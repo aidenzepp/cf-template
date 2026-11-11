@@ -316,7 +316,7 @@ export default defineConfig({
       {
         // React Doctor's per-file rules, scoped to `apps/web` like `react` above: the recommended set
         // plus the TanStack Start rules the CLI adds for this framework. Project-wide rules (cycles,
-        // unused dependencies) need the CLI and do nothing under oxlint; CI runs the CLI.
+        // unused dependencies) need the CLI and do nothing under oxlint; the CLI is not installed.
         files: ["apps/web/**/*.{ts,tsx}"],
         jsPlugins: ["oxlint-plugin-react-doctor"],
         rules: {
