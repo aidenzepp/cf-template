@@ -4,6 +4,7 @@ import type { Auth } from "../../apps/auth/src/contract.ts";
 import type { ApiWorker } from "../../apps/api/src/worker.ts";
 import type { WebEnv } from "../../apps/web/src/env.ts";
 import { FORWARD_PREFIXES } from "../../apps/web/src/forward-prefixes.ts";
+import { namespaceId } from "../../apps/web/src/ratelimit.ts";
 import { kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 import { encodedAuthMethods, encodedOrphanGrace } from "./auth.ts";
@@ -21,6 +22,8 @@ interface WebBindings extends Record<keyof WebEnv, string | object> {
   readonly AUTH_METHODS: string;
   readonly AUTH_ORPHAN_GRACE_SECONDS: string;
   readonly PUBLIC_ORIGIN: string;
+  readonly RATELIMIT_CREDENTIAL: object;
+  readonly RATELIMIT_PUBLIC: object;
 }
 
 /**
@@ -63,6 +66,14 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     AUTH_METHODS: methods,
     AUTH_ORPHAN_GRACE_SECONDS: grace,
     PUBLIC_ORIGIN: origin,
+    RATELIMIT_CREDENTIAL: Cloudflare.RateLimit("RATELIMIT_CREDENTIAL", {
+      namespaceId: namespaceId(stack, stage, "credential"),
+      simple: { limit: 5, period: 60 },
+    }),
+    RATELIMIT_PUBLIC: Cloudflare.RateLimit("RATELIMIT_PUBLIC", {
+      namespaceId: namespaceId(stack, stage, "public"),
+      simple: { limit: 100, period: 10 },
+    }),
   } satisfies WebBindings;
 
   const web = yield* Cloudflare.Website.Vite("Web", {
