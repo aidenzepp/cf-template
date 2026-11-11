@@ -85,10 +85,22 @@ describe("namespaceId", () => {
 });
 
 describe("classify", () => {
-  it("matches a credential path exactly and everything else is public", () => {
-    assert.strictEqual(classify("/auth/sign-in/email", CREDENTIAL_PATHS), "credential");
-    assert.strictEqual(classify("/auth/sign-in/email/", CREDENTIAL_PATHS), "public");
+  it("classifies a credential path and every spelling of it as credential", () => {
+    for (const path of [
+      "/auth/sign-in/email",
+      "/auth/sign-in/email/",
+      "//auth//sign-in/email",
+      "/AUTH/Sign-In/Email",
+      "/auth/sign-in/%65mail",
+      "/auth/%E0%A4%A",
+    ]) {
+      assert.strictEqual(classify(path, CREDENTIAL_PATHS), "credential", path);
+    }
+  });
+
+  it("keeps the root and other paths public", () => {
     assert.strictEqual(classify("/", CREDENTIAL_PATHS), "public");
+    assert.strictEqual(classify("/notes", CREDENTIAL_PATHS), "public");
   });
 });
 

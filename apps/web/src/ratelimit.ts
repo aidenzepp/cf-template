@@ -1,4 +1,4 @@
-import { Effect, Number as Num } from "effect";
+import { Effect, Number as Num, Result } from "effect";
 
 /**
  * The Workers `ratelimit` binding: one `limit` call per request, answering only whether it passed.
@@ -81,14 +81,33 @@ export const namespaceId = (stack: string, stage: string, cls: RateLimitClass): 
   1 + (fnv1a32(`${stack}:${stage}:${cls}`) % 2_147_483_646);
 
 /**
- * Classify a path by exact match against the credential paths.
+ * Fold the spellings a router may treat as one route: repeated slashes, a trailing slash and case.
+ *
+ * @param path - A percent-decoded path.
+ * @returns The path in lower case with single slashes and no trailing slash, except the root.
+ */
+const normalizePath = (path: string): string => {
+  const collapsed = path.toLowerCase().replaceAll(/\/+/gu, "/");
+
+  return collapsed.length > 1 && collapsed.endsWith("/") ? collapsed.slice(0, -1) : collapsed;
+};
+
+/**
+ * Classify a path against the credential paths after percent-decoding and normalizing both. A path
+ * that does not decode is `credential`: over-classifying is safe, under-classifying is a bypass.
  *
  * @param pathname - The request path.
  * @param credentialPaths - Every path that hashes or verifies a password.
- * @returns `credential` for a listed path, else `public`.
+ * @returns `credential` for a listed path or an undecodable one, else `public`.
  */
-export const classify = (pathname: string, credentialPaths: readonly string[]): RateLimitClass =>
-  credentialPaths.includes(pathname) ? "credential" : "public";
+export const classify = (pathname: string, credentialPaths: readonly string[]): RateLimitClass => {
+  const decoded = Result.try(() => decodeURIComponent(pathname));
+
+  return Result.isFailure(decoded) ||
+    credentialPaths.some((path) => normalizePath(path) === normalizePath(decoded.success))
+    ? "credential"
+    : "public";
+};
 
 /**
  * Ask one binding whether the caller may proceed. A rejected `limit` fails open: it emits one
