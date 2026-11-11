@@ -1,0 +1,4 @@
+interface:
+  display_name: "Write Migration"
+  short_description: "Change a schema and generate its D1 migration safely"
+  default_prompt: "Use $write-migration to plan every schema edit first, generate the migration once with bun run db:generate, run bun run db:check, read the SQL, never recreate the auth user table, redesign a blocked recreate additively, and keep backfills in application code."
