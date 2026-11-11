@@ -7,7 +7,7 @@ line-endings = "normalize"
 [[link]]
 source = ".agents/skills/add-block/SKILL.md"
 target = ".agents/skills/add-block/references/examples.md"
-hash = "ed1f3d44a94a495de2a6f23c90430e7c5e9828a0acf6e74b10d5e2c21a98d19a"
+hash = "118003c434e29b4441d30abfe90cb6e0f59b32bc65988dbb536c31ae12b0f388"
 
 [[link]]
 source = ".agents/skills/conventional-commits/SKILL.md"

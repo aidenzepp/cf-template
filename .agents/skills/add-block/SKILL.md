@@ -37,25 +37,35 @@ with a real attach file.
 ## Attach
 
 An attach file is listed in `blocks.json` under `attachFiles`. In one, write one entry per line,
-and end each unit entry with `// block:<unit>`. The four forms are:
+and wrap each unit entry in the region form: `// block:<unit> start` and `// block:<unit> end` on
+their own lines around it. Never end an entry with a trailing `// block:<unit>` comment; the lint
+rule against inline comments rejects it. The four forms are:
 
 1. An entry of a multi-line `Layer.mergeAll(`.
-2. A bare `yield* X;` statement in `infra/alchemy.run.ts`.
+2. A bare `yield* X;` statement, or a call such as `yield* knobsNamespace(stack, stage);`, in
+   `infra/alchemy.run.ts`.
 3. An `.add(X)` link in a core list.
 4. An entry of a multi-line `as const` array named in `attachFiles`.
 
 Collapsed lines. The formatter may collapse a short `Layer.mergeAll(A, B)` onto one line. A
 collapsed list of core names only is read as is. A collapsed list that holds a unit fails with
-`put <unit> on its own line with // block:<unit>`: split it, one entry per line. A line in an attach
+`put <unit> on its own line`: split it, one entry per line, inside a region. A line in an attach
 file that fits none of the forms fails with `unknown attach shape <file>:<line>`; rewrite it into a
 form.
 
+## Block Layers
+
+A block's Layer goes in a separate providers list in the Worker's `blocks.ts`, never in the handler
+or middleware list. `worker.ts` provides that list underneath the handler and middleware layers
+with `Layer.provideMerge`. A plain `Layer.mergeAll` sibling cannot provide a service to its
+siblings, so a handler that needs the block's service would not see it. A resource binding the
+block's Layer reads is bound in `worker.ts` initialization, the way `AppDb` is.
+
 ## Shared configuration lines
 
-A line a block needs that is not an attach line (a Vitest project, an ignore entry) ends in
-`// block:<unit>` and the pull-out deletes it. For several lines, wrap them: a line holding
-`block:<unit> start`, the lines, then a line holding `block:<unit> end`. Never put a marker in a
-JSON file; the pull-out edits `package.json` `exports`, dependencies and `blocks.json` itself.
+A line a block needs that is not an attach line (a Vitest project, an ignore entry) sits inside the
+same region form, and the pull-out deletes the region. Never put a marker in a JSON file; the
+pull-out edits `package.json` `exports`, dependencies and `blocks.json` itself.
 
 ## Check the work
 

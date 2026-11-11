@@ -45,28 +45,36 @@ NEGATIVE: a barrel. Importers reach every module, and the pull-out cannot see wh
 
 ## Form 1: a `Layer.mergeAll(` entry
 
-POSITIVE: one entry per line, the unit entry marked.
+POSITIVE: one entry per line, the unit entry in a region.
 
 ```ts
-export const ApiWorkerMiddlewareLayers = Layer.mergeAll(
-  SessionMiddlewareLive,
-  KnobsKvLive, // block:knobs-kv
+export const ApiWorkerBlockLayers = Layer.mergeAll(
+  // block:knobs-kv start
+  KnobsKvLive,
+  // block:knobs-kv end
 );
 ```
 
-NEGATIVE: a collapsed list that holds the unit. It fails with
-`put KnobsKvLive on its own line with // block:knobs-kv`.
+NEGATIVE: a trailing marker. The lint rule against inline comments rejects it.
 
 ```ts
-export const ApiWorkerMiddlewareLayers = Layer.mergeAll(SessionMiddlewareLive, KnobsKvLive);
+  KnobsKvLive, // block:knobs-kv
+```
+
+NEGATIVE: a collapsed list that holds the unit. It fails with `put KnobsKvLive on its own line`.
+
+```ts
+export const ApiWorkerBlockLayers = Layer.mergeAll(SystemLive, KnobsKvLive);
 ```
 
 ## Form 2: a `yield*` statement
 
-POSITIVE: a bare statement in `infra/alchemy.run.ts`.
+POSITIVE: a bare statement, or a call, in `infra/alchemy.run.ts`.
 
 ```ts
-yield* KnobsKv; // block:knobs-kv
+// block:knobs-kv start
+yield* knobsNamespace(stack, stage);
+// block:knobs-kv end
 ```
 
 NEGATIVE: the tail of an assignment. It is not an attach line, so it fails as an unknown shape.
@@ -83,7 +91,9 @@ POSITIVE: one link per line in the core list.
 ```ts
 export const Api = HttpApi.make("api")
   .add(SystemApiGroup)
-  .add(KnobsApiGroup); // block:knobs-kv
+  // block:knobs-kv start
+  .add(KnobsApiGroup);
+// block:knobs-kv end
 ```
 
 ## Form 4: an `as const` array entry
@@ -93,27 +103,52 @@ POSITIVE: one entry per line in `tools/knob/registry.ts`.
 ```ts
 export const liveKnobs = [
   logLevelKnob,
-  kvKnob, // block:knobs-kv
+  // block:knobs-kv start
+  kvKnob,
+  // block:knobs-kv end
 ] as const;
+```
+
+## Block Layers
+
+POSITIVE: the block's Layer sits in the providers list of `apps/api/src/blocks.ts`. `worker.ts`
+provides that list under the handler and middleware layers.
+
+```ts
+export const ApiWorkerProviderLayers = Layer.mergeAll(
+  // block:knobs-kv start
+  KnobsKvLive,
+  // block:knobs-kv end
+);
+
+// worker.ts
+const Served = Layer.mergeAll(ApiWorkerHandlerGroupLayers, ApiWorkerMiddlewareLayers).pipe(
+  Layer.provideMerge(ApiWorkerProviderLayers),
+);
+```
+
+NEGATIVE: the Layer in the middleware `Layer.mergeAll`. A sibling in one `mergeAll` cannot provide a
+service to its siblings.
+
+POSITIVE: a resource the Layer reads is bound in `worker.ts` initialization, like `AppDb`.
+
+```ts
+const kv = yield* Cloudflare.KV.Namespace("KnobsKv");
 ```
 
 ## A shared configuration line
 
-POSITIVE: a one-line entry ends in the marker; several lines use the region form.
-
-```ts
-ignores: ["packages/knobs-kv/dist"], // block:knobs-kv
-```
+POSITIVE: wrap it in the region form, on its own lines.
 
 ```ts
 // block:knobs-kv start
-{ extends: ["vitest"], name: "knobs-kv", root: "packages/knobs-kv" },
+ignores: ["packages/knobs-kv/dist"],
 // block:knobs-kv end
 ```
 
-NEGATIVE: a marker that is a prefix of another unit's name only works because the match ends at a
-character outside `a-z0-9-`; `block:knobs-kv` never matches `block:knobs-kv-extra`. Still, do not
-give two units names that start the same way.
+NEGATIVE: a unit name that starts like another's only works because the match ends at a character
+outside `a-z0-9-`; `block:knobs-kv` never matches `block:knobs-kv-extra`. Still, do not give two
+units names that start the same way.
 
 ## A block with code in several places
 

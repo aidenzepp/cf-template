@@ -1,4 +1,4 @@
 interface:
   display_name: "Add Block"
   short_description: "Add a removable block and attach it to core"
-  default_prompt: "Use $add-block to decide block or slice, give the package one exports subpath per module and no barrel, put the Meter line first in its README, attach it in the four forms one entry per line ending in // block:<unit>, mark shared configuration lines, run bun install in the worktree first, and check with bun run footprint and bun run pullout <unit>."
+  default_prompt: "Use $add-block to decide block or slice, give the package one exports subpath per module and no barrel, put the Meter line first in its README, attach it in the four forms one entry per line inside a // block:<unit> start and end region, put block Layers in the separate providers list that worker.ts provides with Layer.provideMerge, wrap shared configuration lines in the same region, run bun install in the worktree first, and check with bun run footprint and bun run pullout <unit>."
