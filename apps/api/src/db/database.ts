@@ -1,7 +1,6 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { RemovalPolicy } from "alchemy";
-import type { Effect } from "effect";
-import { Option } from "effect";
+import { Effect, Option, Path } from "effect";
 import { APP_MIGRATIONS_DIGEST } from "./migrations-digest.ts";
 
 /**
@@ -10,11 +9,17 @@ import { APP_MIGRATIONS_DIGEST } from "./migrations-digest.ts";
 export const APP_DB_ID = "AppDb";
 
 /**
- * The directory of the committed `drizzle-kit` migrations, which the D1 resource applies on every
- * deploy. It is absolute because Alchemy resolves a relative path against the process directory,
- * not against this module.
+ * The file URL of the committed `drizzle-kit` migrations directory.
  */
-export const MIGRATIONS_DIR = new URL("../../migrations", import.meta.url).pathname;
+export const MIGRATIONS_URL = new URL("../../migrations", import.meta.url);
+
+/**
+ * The absolute path of the migrations directory, which the D1 resource applies on every deploy.
+ * It is absolute because Alchemy resolves a relative path against the process directory, not
+ * against this module. The `Path` service decodes the file URL, so a checkout path with a space
+ * or another percent-encoded character stays correct.
+ */
+export const migrationsDir = Path.Path.use((path) => path.fromFileUrl(MIGRATIONS_URL));
 
 /**
  * Report whether the stage keeps its D1 database when the resource is deleted.
@@ -35,25 +40,27 @@ export const retainsD1 = (stage: string): boolean => stage === "prod";
  * `jurisdiction`, and sets `primaryLocationHint` only from the knob.
  *
  * Changing `name`, `jurisdiction` or `primaryLocationHint` on `prod` replaces the database, which
- * is why the `prod` props are pinned by the tests. Every stage applies {@link MIGRATIONS_DIR}.
+ * is why the `prod` props are pinned by the tests. Every stage applies the `migrations` directory.
  * Removal is not a prop: {@link retainsD1} feeds `RemovalPolicy.retain` at the declaration.
  *
  * @param stack - The stack name from `resolveStackName`.
  * @param stage - The decoded stage name.
  * @param locationHint - The `D1_PROD_LOCATION_HINT` knob value.
+ * @param migrations - The absolute migrations directory from {@link migrationsDir}.
  * @returns The D1 properties.
  */
 export const d1Props = (
   stack: string,
   stage: string,
   locationHint: Option.Option<Cloudflare.D1.PrimaryLocationHint>,
+  migrations: string,
 ): Cloudflare.D1.DatabaseProps =>
   stage === "prod"
     ? Option.match(locationHint, {
-        onNone: () => ({ migrations: MIGRATIONS_DIR }),
-        onSome: (primaryLocationHint) => ({ migrations: MIGRATIONS_DIR, primaryLocationHint }),
+        onNone: () => ({ migrations }),
+        onSome: (primaryLocationHint) => ({ migrations, primaryLocationHint }),
       })
-    : { migrations: MIGRATIONS_DIR, name: `${stack}-app-${stage}-${APP_MIGRATIONS_DIGEST}` };
+    : { migrations, name: `${stack}-app-${stage}-${APP_MIGRATIONS_DIGEST}` };
 
 /**
  * Declare the api D1 database with the given resource constructor, retained on `prod` only.
@@ -71,8 +78,12 @@ export const declareWith = <A, R>(
   stage: string,
   locationHint: Option.Option<Cloudflare.D1.PrimaryLocationHint>,
 ) =>
-  database(APP_DB_ID, d1Props(stack, stage, locationHint)).pipe(
-    RemovalPolicy.retain(retainsD1(stage)),
+  migrationsDir.pipe(
+    Effect.flatMap((migrations) =>
+      database(APP_DB_ID, d1Props(stack, stage, locationHint, migrations)).pipe(
+        RemovalPolicy.retain(retainsD1(stage)),
+      ),
+    ),
   );
 
 /**
