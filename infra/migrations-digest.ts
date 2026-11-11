@@ -1,6 +1,6 @@
 import { Array as Arr, Effect, FileSystem, Order, Path } from "effect";
 import { Digest } from "effect/crypto";
-import { base32Sha256 } from "../../../infra/stages.ts";
+import { base32Sha256 } from "./stages.ts";
 
 /**
  * How many base32 characters of the digest the database name carries.
@@ -11,10 +11,10 @@ export const DIGEST_LENGTH = 12;
  * Compute the migrations digest: the first {@link DIGEST_LENGTH} base32 characters of the `sha256`
  * over the sorted relative paths and contents of every file under `directory`.
  *
- * A rewritten migrations directory changes the digest, which renames the non-prod auth database,
- * so the replacement is create-first. The digest script writes it and a test recomputes it.
+ * A rewritten migrations directory changes the digest, which renames the non-prod app database,
+ * so the replacement is create-first. Each app's digest script writes it and a test recomputes it.
  *
- * @param directory - The absolute path of `apps/auth/migrations`.
+ * @param directory - The absolute path of an app's `migrations` directory.
  * @returns The digest.
  */
 export const migrationsDigest = Effect.fn("migrationsDigest")(function* migrationsDigest(

@@ -15,7 +15,7 @@
     "alchemy": "ALCHEMY_TELEMETRY_DISABLED=1 alchemy",
     "test": "bun test tools/lint && vp test",
     "db:regenerate": "git clean -fdq apps/api/migrations && bun run db:generate",
-    "db:generate": "cd apps/api && ../../node_modules/.bin/drizzle-kit generate && cd ../auth && ../../node_modules/.bin/drizzle-kit generate",
+    "db:generate": "cd apps/api && ../../node_modules/.bin/drizzle-kit generate && bun ./scripts/migrations-digest.ts && cd ../auth && ../../node_modules/.bin/drizzle-kit generate",
     "prepare": "vp config --no-agent && bun tools/supdoc/install.ts",
     "build": "vp run -r build"
   },

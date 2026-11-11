@@ -9,11 +9,12 @@ import { HttpRouter } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 import { Auth } from "@workspace/auth/contract";
 import { Api } from "@workspace/contract/api/api";
+import { makeDatabase } from "@workspace/db/database";
 import { ProblemDetailsIncludeKnob } from "./config.ts";
 import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
 import { ExampleFeatureGateLive } from "./notes/gate.ts";
 import { NotesApiHandlersNoDeps } from "./notes/http.ts";
-import { Notes } from "./notes/notes.ts";
+import { Notes, NotesDatabase } from "./notes/notes.ts";
 import type { NotesService } from "./notes/notes.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
 import { SystemApiHandlers } from "./system.ts";
@@ -115,20 +116,41 @@ export const makeHandler = (checkSession: typeof AuthCheckSession.Service, notes
   });
 
 /**
- * The `api` Worker: the contract's `HttpApi` over the in-memory notes, the session middleware that
- * asks `auth` through its service binding, the example-feature gate, and Problem Details on every
- * error it produces. It has no public address; `web` forwards `/api/*` to it.
+ * The `api` Worker: the contract's `HttpApi` over the notes in the app D1 database, the session
+ * middleware that asks `auth` through its service binding, the example-feature gate, and Problem
+ * Details on every error it produces. It has no public address; `web` forwards `/api/*` to it.
  *
- * Initialization binds `auth`, reads no setting and builds the in-memory notes store once for the
- * isolate; the handler, which reads the knobs, is built on first use in each execution and shared
- * by the rest of it.
+ * Initialization binds `auth` and the `AppDb` database, reads no setting and builds the notes
+ * service once for the isolate; the database client is built on first use in each execution, and
+ * so is the handler, which reads the knobs.
  */
 export default ApiWorker.make(
   apiProps,
   Effect.gen(function* buildApi() {
     const authBinding = yield* Cloudflare.bindWorker(Auth);
     const context = yield* Effect.context<Cloudflare.WorkerEnvironment>();
-    const notes = yield* Notes.pipe(Effect.provide(Notes.layerMemory));
+    // Declared by `infra` under this id; the deployed Worker only needs the id to find its binding.
+    const appDb = yield* Cloudflare.D1.Database("AppDb");
+
+    const appBinding = yield* Cloudflare.D1.QueryDatabase(appDb).pipe(
+      Effect.provide(Cloudflare.D1.QueryDatabaseBinding),
+    );
+
+    const database = yield* makeExecutionMemo(
+      Effect.gen(function* openAppDb() {
+        const access = yield* makeDatabase(yield* appBinding.raw);
+
+        return yield* access;
+      }),
+    );
+
+    const notes = yield* Notes.pipe(
+      Effect.provide(
+        Notes.layer().pipe(
+          Layer.provide(Layer.succeed(NotesDatabase, withHostContext(database).pipe(Effect.orDie))),
+        ),
+      ),
+    );
 
     const handler = yield* makeExecutionMemo(
       makeHandler((input) => withHostContext(authBinding.checkSession(input)), notes).pipe(

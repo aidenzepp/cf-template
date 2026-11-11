@@ -4,8 +4,9 @@ import { Knob } from "@workspace/config/knob";
 /**
  * The primary location hint of the `prod` D1 databases, read as `D1_PROD_LOCATION_HINT`.
  *
- * The empty string is the unset value: it lets Cloudflare place the databases. Changing the hint
- * after the first `prod` deploy replaces the databases.
+ * The empty string is the unset value: it lets Cloudflare place the databases. The hint applies
+ * only when a database is created, so a `prod` deploy that changes it for an existing database is
+ * refused by `guardLocationHints`.
  *
  * The knob stays a leaf schema because `Schema.Option` decodes nothing from a `Config` string and
  * would silently ignore a supplied hint; {@link d1LocationHint} turns the unset value into `none`.

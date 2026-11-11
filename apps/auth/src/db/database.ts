@@ -5,6 +5,11 @@ import { Option } from "effect";
 import { AUTH_MIGRATIONS_DIGEST } from "./migrations-digest.ts";
 
 /**
+ * The logical name of the auth D1 resource, the key of its Alchemy state.
+ */
+export const AUTH_DB_ID = "AuthDb";
+
+/**
  * The directory of the committed `drizzle-kit` migrations, which the D1 resource applies on every
  * deploy. It is absolute because Alchemy resolves a relative path against the process directory,
  * not against this module.
@@ -67,7 +72,7 @@ export const declareWith = <A, R>(
   stage: string,
   locationHint: Option.Option<Cloudflare.D1.PrimaryLocationHint>,
 ) =>
-  database("AuthDb", d1Props(stack, stage, locationHint)).pipe(
+  database(AUTH_DB_ID, d1Props(stack, stage, locationHint)).pipe(
     RemovalPolicy.retain(retainsD1(stage)),
   );
 
