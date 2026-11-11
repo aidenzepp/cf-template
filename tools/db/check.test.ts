@@ -3,7 +3,7 @@ import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { findings } from "./check.ts";
+import { findings, run } from "./check.ts";
 
 /**
  * Runs `git` in `cwd` with the environment inherited exactly as a hook would see it, and returns
@@ -112,6 +112,90 @@ const scratchTree = Effect.fn("db.test.scratchTree")(function* scratchTree() {
   return root;
 });
 
+/**
+ * Adds a migration named `added` holding the fixture's SQL to `database` in `root`, and returns
+ * what `dangerous-sql` prints for it.
+ */
+const fixtureFindings = Effect.fn("db.test.fixtureFindings")(function* fixtureFindings(
+  fixture: string,
+  database: string,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const root = yield* scratchTree();
+  const added = path.join(root, database, "migrations/99999999999999_added");
+
+  yield* fs.makeDirectory(added);
+  yield* fs.copyFile(
+    yield* path.fromFileUrl(new URL(`fixtures/${fixture}/migration.sql`, import.meta.url)),
+    path.join(added, "migration.sql"),
+  );
+
+  return (yield* findings(root, { only: ["dangerous-sql"] })).join("\n");
+});
+
+/**
+ * Builds a throwaway git repository under this worktree's `work/` whose base commit holds the
+ * notes table module, its schema barrel, a test importer and a creating migration, and, when
+ * `importer` is set, a non-test module importing the table module. Its working tree then adds a
+ * migration dropping `notes` and `note_quota`. Returns the root and the base commit.
+ */
+const dropRepository = Effect.fn("db.test.dropRepository")(function* dropRepository(
+  importer: boolean,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const repo = yield* path.fromFileUrl(new URL("../..", import.meta.url));
+
+  yield* fs.makeDirectory(path.join(repo, "work"), { recursive: true });
+
+  const root = yield* fs.makeTempDirectoryScoped({
+    directory: path.join(repo, "work"),
+    prefix: "db-check-git-",
+  });
+
+  const write = (file: string, text: string) =>
+    fs
+      .makeDirectory(path.dirname(path.join(root, file)), { recursive: true })
+      .pipe(Effect.andThen(fs.writeFileString(path.join(root, file), text)));
+
+  const git = (...args: ReadonlyArray<string>) =>
+    run(root, "git", [
+      "-C",
+      root,
+      "-c",
+      "user.name=test",
+      "-c",
+      "user.email=test@example.com",
+      "-c",
+      "commit.gpgsign=false",
+      ...args,
+    ]);
+
+  const tests = 'import { notes } from "./table.ts";\nexport const read = notes;\n';
+
+  yield* git("init", "-q");
+  yield* write("apps/api/src/db/schema.ts", 'export * from "../notes/table.ts";\n');
+  yield* write(
+    "apps/api/src/notes/table.ts",
+    'export const notes = sqliteTable("notes", {});\nexport const noteQuota = sqliteTable("note_quota", {});\n',
+  );
+  yield* write("apps/api/src/notes/notes.test.ts", tests);
+  yield* write("apps/api/src/notes/notes.ts", importer ? tests : "export const read = 1;\n");
+  yield* write(
+    "apps/api/migrations/20260101000000_init/migration.sql",
+    "CREATE TABLE `notes` (`id` text PRIMARY KEY);--> statement-breakpoint\nCREATE TABLE `note_quota` (`owner_id` text PRIMARY KEY);\n",
+  );
+  yield* git("add", "-A");
+  yield* git("commit", "-q", "-m", "base");
+  yield* write(
+    "apps/api/migrations/20260102000000_drop/migration.sql",
+    "DROP TABLE `notes`;--> statement-breakpoint\nDROP TABLE `note_quota`;\n",
+  );
+
+  return { base: (yield* git("rev-parse", "HEAD")).trim(), root };
+});
+
 const timeout = { timeout: 120_000 };
 
 it.layer(realRepositoryUnchanged)("db:check", () => {
@@ -146,6 +230,58 @@ it.layer(realRepositoryUnchanged)("db:check", () => {
 
         assert.isTrue(lines.some((line) => line.startsWith("db:check ungenerated: apps/api: ")));
         assert.isFalse(lines.some((line) => line.includes("apps/auth")));
+      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+    timeout,
+  );
+
+  it.effect(
+    "dangerous-sql fails the recorded recreate of a referenced table",
+    () =>
+      Effect.gen(function* recreate() {
+        assert.match(
+          yield* fixtureFindings("recreate", "apps/auth"),
+          /^db:check dangerous-sql: apps\/auth\/migrations\/[^/]+\/migration\.sql: recreates user,/u,
+        );
+      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+    timeout,
+  );
+
+  it.effect(
+    "dangerous-sql fails ADD COLUMN NOT NULL without DEFAULT",
+    () =>
+      Effect.gen(function* notNull() {
+        assert.match(
+          yield* fixtureFindings("not-null-no-default", "apps/auth"),
+          /^db:check dangerous-sql: apps\/auth\/migrations\/[^/]+\/migration\.sql: ADD COLUMN NOT NULL without DEFAULT/u,
+        );
+      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+    timeout,
+  );
+
+  it.effect(
+    "dangerous-sql fails a drop while a non-test module still imports the table, then passes",
+    () =>
+      Effect.gen(function* twoPhase() {
+        const red = yield* dropRepository(true);
+
+        const phase1 = (yield* findings(red.root, {
+          base: red.base,
+          only: ["dangerous-sql"],
+        })).join("\n");
+
+        assert.match(
+          phase1,
+          /dangerous-sql: .*: drops notes, still read by apps\/api\/src\/notes\/notes\.ts at /u,
+        );
+        assert.match(phase1, /drops note_quota, still read by apps\/api\/src\/notes\/notes\.ts/u);
+        assert.notInclude(phase1, "notes.test.ts");
+
+        const green = yield* dropRepository(false);
+
+        assert.deepStrictEqual(
+          yield* findings(green.root, { base: green.base, only: ["dangerous-sql"] }),
+          [],
+        );
       }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
     timeout,
   );
