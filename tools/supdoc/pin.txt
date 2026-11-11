@@ -1,5 +1,0 @@
-tag v0.4.0
-aarch64-apple-darwin 908bf6c230941b5bf647190ebeafe8c1a77f05c9fdf0650b18841e2fd5be4304 supdoc-0.4.0-aarch64-apple-darwin.tar.gz
-x86_64-apple-darwin 52074e751a82f72ebe0bed882a4c9980b35c4b7f69a85afef29b38bbe1fb83ec supdoc-0.4.0-x86_64-apple-darwin.tar.gz
-x86_64-unknown-linux-musl cb5c8f9a04fecc82f62c675e77719ea71690adc72985e3d6f97df26995e04cb7 supdoc-0.4.0-x86_64-unknown-linux-musl.tar.gz
-aarch64-unknown-linux-musl e4d2ac3ace3c9e092df7da4c3336aee8449d06865f404dd867a4a6887a6a4491 supdoc-0.4.0-aarch64-unknown-linux-musl.tar.gz

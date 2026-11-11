@@ -23,10 +23,11 @@ export type DomainConfig =
 /**
  * Map the stage's decoded `CUSTOM_DOMAIN` to the `domain` and `workersDev` props of `web`.
  *
- * It adds no decoder: the value comes from {@link customDomain}, so only `prod` honours a hostname.
+ * It adds no decoder: the value comes from {@link customDomain}, so only `prod` (from
+ * `CUSTOM_DOMAIN`) and a `test` stage that sets `STAGES_TEST_CUSTOM_DOMAIN` honour a hostname.
  *
  * @param stage - The decoded stage.
- * @returns The hostname form on `prod` with a hostname, else the `workers.dev` form.
+ * @returns The hostname form when the stage honours a hostname, else the `workers.dev` form.
  */
 export const domainFor = Effect.fn("domainFor")(function* domainFor(
   stage: StageName,
@@ -48,10 +49,11 @@ export const domainFor = Effect.fn("domainFor")(function* domainFor(
  * The props of the one WAF rate-limit `Cloudflare.Ruleset` of an owned domain, without its `zone`.
  *
  * It blocks an IP for `mitigationSeconds` once it sends more than `requests` requests in
- * `periodSeconds` outside `/assets/`, before a Worker runs. A Free zone keys a rule on the IP
- * alone.
+ * `periodSeconds` to `hostname` outside `/assets/`, before a Worker runs. The expression names the
+ * hostname exactly, so other hostnames on the zone are out of its scope. A Free zone keys a rule
+ * on the IP alone.
  *
- * @param hostname - The attached hostname, named in the rule's description.
+ * @param hostname - The attached hostname, matched by the rule's expression.
  * @param values - The WAF knob values, as `wafKnobs` reads them.
  * @param values.requests - The value of `WAF_RATE_LIMIT_REQUESTS`.
  * @param values.periodSeconds - The value of `WAF_RATE_LIMIT_PERIOD_SECONDS`.
@@ -73,7 +75,7 @@ export const wafRateLimitRule = (
       action: "block",
       description: `Block an IP above ${values.requests} requests per ${values.periodSeconds} s outside /assets/`,
       enabled: true,
-      expression: 'not starts_with(http.request.uri.path, "/assets/")',
+      expression: `http.host eq "${hostname}" and not starts_with(http.request.uri.path, "/assets/")`,
       ratelimit: {
         characteristics: ["ip.src"],
         mitigationTimeout: values.mitigationSeconds,

@@ -30,6 +30,19 @@ export const Manifest = Schema.Struct({
 });
 
 /**
+ * The manifest without the `slices` or `blocks` entry named `name`: the pull-out's own entry
+ * removal.
+ */
+export const withoutUnit = (
+  manifest: typeof Manifest.Type,
+  name: string,
+): typeof Manifest.Type => ({
+  attachFiles: manifest.attachFiles,
+  blocks: manifest.blocks.filter((block) => block.name !== name),
+  slices: manifest.slices.filter((slice) => slice.name !== name),
+});
+
+/**
  * Decodes `text`, the contents of a `blocks.json`, failing in the error channel when the JSON or
  * its shape is wrong.
  */

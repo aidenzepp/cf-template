@@ -5,6 +5,11 @@ version = 1
 line-endings = "normalize"
 
 [[link]]
+source = ".agents/skills/add-feature/SKILL.md"
+target = ".agents/skills/add-feature/references/examples.md"
+hash = "5553c58823a6c5e49835aa657607480cc8ff1cbec8b58224b44d4fdefa9b8594"
+
+[[link]]
 source = ".agents/skills/conventional-commits/SKILL.md"
 target = ".agents/skills/conventional-commits/references/examples.md"
 hash = "0f73e9184754db4a70255f998f965ac063d421251ed16ae9da05bacd90aafeda"
@@ -23,3 +28,48 @@ hash = "abb8725cb1c585dccb23d0501a55f957e7b63b41c166947fd58cc76d5ba25476"
 source = ".agents/skills/write-migration/SKILL.md"
 target = ".agents/skills/write-migration/references/examples.md"
 hash = "bdda1772c118ac9bbdeaac9d74d3eff9ab717ce2085dfbec3964acaa8d64966e"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/add-feature/SKILL.md"
+hash = "f637c8d7527778e18a6b0c69086bf0e7bfda6c03184a438796c512e8ddc0f53b"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/conventional-commits/SKILL.md"
+hash = "89bd96a9c73582e7dcb63e394bc9de533e959201aec6e954b6bba8477925bddc"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/document-code/SKILL.md"
+hash = "f1556f4bc01ac626c843e4af76216e1d2187b16e630b80e1a7fde0cb8ca68e34"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/effect-design/SKILL.md"
+hash = "41f6b8d5c77d289c48b41751747e1da6c0e4f10cf923db7d2827ab91c1c04e6c"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/error-messages/SKILL.md"
+hash = "cc9ac835bc5e19430e5f1709f46e626bd8b6580894f54e856abc0f756dc02678"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/supdoc/SKILL.md"
+hash = "c72a8913797b10a08ba00dc72f233ebe301ebe96a658da68af2cad7ac09771e9"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/trace-effect/SKILL.md"
+hash = "0c94b038261ada96b07f12e0e7a16f618a6f7f6bc229a8fea454a87f1b9754ab"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/work-with-stacks/SKILL.md"
+hash = "851afb5a7b76cf227e7e9e209a19463861a15b27e65f6cfa3927699d10938a1e"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/write-migration/SKILL.md"
+hash = "492e7a95f6851bc252f41a233e3b1426e37808c5e365bf28f182154ada931c13"

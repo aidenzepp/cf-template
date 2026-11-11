@@ -1,0 +1,3 @@
+before
+// block:fixture-unit start
+inside, and no end

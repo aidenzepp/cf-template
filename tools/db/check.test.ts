@@ -30,8 +30,11 @@ const inherited = Effect.fn("db.test.inherited")(function* inherited(
 });
 
 /**
- * Reads the real repository's local configuration: every key name, plus the values of the keys a
- * stray `git init` or `git config` would change. Other values, such as remote URLs, are never read.
+ * Reads the real repository's local configuration: the names of its `core.*` and `vp.*` keys, plus
+ * the values of the keys a stray `git init` or `git config` would change. Other keys are never
+ * read: the clone's worktrees share this file, and another worktree's `git push -u` adds
+ * `branch.*` and `remote.*` keys at any moment, so comparing every name fails this suite
+ * intermittently. Other values, such as remote URLs, are never read.
  */
 const realConfiguration = Effect.fn("db.test.realConfiguration")(function* realConfiguration() {
   const path = yield* Path.Path;
@@ -44,7 +47,9 @@ const realConfiguration = Effect.fn("db.test.realConfiguration")(function* realC
   return {
     bare: yield* config(["--get", "core.bare"]),
     hooksPath: yield* config(["--get", "core.hookspath"]),
-    names: yield* config(["--list", "--name-only"]),
+    names: (yield* config(["--list", "--name-only"]))
+      .split("\n")
+      .filter((name) => /^(?:core|vp)\./u.test(name)),
     worktree: yield* config(["--get", "core.worktree"]),
   };
 });

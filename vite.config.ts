@@ -12,6 +12,12 @@ import shadcn from "ultracite/oxlint/shadcn";
 
 import vitest from "ultracite/oxlint/vitest";
 
+import {
+  REACT_COMPILER_RULES,
+  RECOMMENDED_RULES,
+  TANSTACK_START_RULES,
+} from "oxlint-plugin-react-doctor";
+
 import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
 
 import {
@@ -312,6 +318,28 @@ export default defineConfig({
         rules: react.rules,
       },
       {
+        // React Doctor's per-file rules, scoped to `apps/web` like `react` above: the recommended set
+        // plus the TanStack Start rules the CLI adds for this framework. Project-wide rules (cycles,
+        // unused dependencies) need the CLI and do nothing under oxlint; the CLI is not installed.
+        files: ["apps/web/**/*.{ts,tsx}"],
+        // `react-hooks-js` is the React Compiler's own diagnostics (`eslint-plugin-react-hooks` 7):
+        // each rule flags code the compiler bails out of, which React Doctor's rule keys name.
+        jsPlugins: [
+          "oxlint-plugin-react-doctor",
+          { name: "react-hooks-js", specifier: "eslint-plugin-react-hooks" },
+        ],
+        rules: {
+          ...REACT_COMPILER_RULES,
+          ...RECOMMENDED_RULES,
+          ...TANSTACK_START_RULES,
+          // Findings in existing `apps/web` code at adoption (58 diagnostics). `vp check` denies
+          // warnings, so they are off until a follow-up fixes the code; then delete these lines.
+          "react-doctor/jsx-no-jsx-as-prop": "off",
+          "react-doctor/jsx-no-new-function-as-prop": "off",
+          "react-doctor/only-export-components": "off",
+        },
+      },
+      {
         // Copied from the `tanstack` preset: file routes are mutually recursive (`Route` references the
         // component, which calls `Route.useParams()`), so no declaration order satisfies the rule and
         // `tsc` still catches real temporal-dead-zone crashes.
@@ -487,6 +515,15 @@ export default defineConfig({
       { test: { ...noOnly, include: ["packages/knobs-kv/src/**/*.test.ts"], name: "knobs-kv" } },
       // block:knobs-kv end
       { test: { ...noOnly, include: ["infra/**/*.test.ts"], name: "infra" } },
+      // block:budget-guard start
+      {
+        test: {
+          ...noOnly,
+          include: ["packages/budget-guard/src/**/*.test.ts"],
+          name: "budget-guard",
+        },
+      },
+      // block:budget-guard end
       {
         test: {
           ...noOnly,

@@ -97,6 +97,33 @@ describe("applySettings", () => {
       }),
     );
   }
+
+  for (const value of ["https://api.github.com", "https://api.github.com/"]) {
+    it.effect(`accepts GITHUB_API_URL=${value}, the default Actions runners set`, () =>
+      Effect.gen(function* accepted() {
+        const { calls, run } = harness({ GITHUB_API_URL: value }, true);
+
+        // The test checks only that the ambient-credential refusal lets the run start. This fake
+        // answers every read with one body, so the run ends later at a read it cannot decode;
+        // check.test.ts covers the reads with real-shaped state.
+        yield* Effect.ignore(run);
+
+        assert.strictEqual(calls[0], "GET /repos/acme/widget");
+      }),
+    );
+  }
+
+  it.effect("refuses GITHUB_API_URL set to another host without printing it", () =>
+    Effect.gen(function* refused() {
+      const { calls, run } = harness({ GITHUB_API_URL: "https://ghe.example.com/api/v3" }, true);
+      const failure = yield* Effect.flip(run);
+
+      assert.instanceOf(failure, AmbientCredentialsError);
+      assert.include(failure.message, "GITHUB_API_URL");
+      assert.notInclude(failure.message, "ghe.example.com");
+      assert.deepStrictEqual(calls, []);
+    }),
+  );
 });
 
 describe("withToken", () => {

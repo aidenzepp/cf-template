@@ -90,6 +90,8 @@ describe("detectTier", () => {
         "secretScanning",
         "pushProtection",
         "codeql",
+        "forkApproval",
+        "privateVulnerabilityReporting",
       ] as const) {
         assert.isFalse(tier.capabilities.has(capability));
       }
