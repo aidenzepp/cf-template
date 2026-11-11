@@ -1,4 +1,4 @@
-import { Console, Effect, Schema } from "effect";
+import { Array as Arr, Console, Effect, Order, Schema } from "effect";
 import { resolveStackName } from "../stack-name.ts";
 import { declarationPlan, reviewerAppId } from "./declare.ts";
 import type { DeclarationPlan } from "./declare.ts";
@@ -35,6 +35,37 @@ const MAX_PAGES = 10;
  * Anything GitHub lists by name.
  */
 const Named = Schema.Struct({ name: Schema.String });
+
+/**
+ * The merge fields of `GET /repos/{owner}/{repo}` the declaration governs.
+ */
+const RepositoryFields = Schema.Struct({
+  allow_auto_merge: Schema.optional(Schema.Boolean),
+  allow_merge_commit: Schema.optional(Schema.Boolean),
+  allow_rebase_merge: Schema.optional(Schema.Boolean),
+  allow_squash_merge: Schema.optional(Schema.Boolean),
+  delete_branch_on_merge: Schema.optional(Schema.Boolean),
+});
+
+/**
+ * The rules of `GET /repos/{owner}/{repo}/rulesets/{id}` the declaration governs: the allowed
+ * merge methods and the required status check contexts.
+ */
+const RulesetDetail = Schema.Struct({
+  rules: Schema.Array(
+    Schema.Struct({
+      parameters: Schema.optional(
+        Schema.Struct({
+          allowed_merge_methods: Schema.optional(Schema.Array(Schema.String)),
+          required_status_checks: Schema.optional(
+            Schema.Array(Schema.Struct({ context: Schema.String })),
+          ),
+        }),
+      ),
+      type: Schema.String,
+    }),
+  ),
+});
 
 /**
  * Read every page of a GitHub list, `PER_PAGE` at a time, until a page comes back short.
@@ -79,22 +110,31 @@ const compareNames = (
 ];
 
 /**
- * One `MISMATCH` line when a live value differs from the detected one.
+ * Join names in a stable order, so two lists compare equal regardless of GitHub's ordering.
  *
- * @param name - The variable.
- * @param live - The live value.
- * @param detected - The value the program detected.
- * @returns The line, or none when the values are equal.
+ * @param values - The names.
+ * @returns The sorted, comma-joined names.
  */
-const mismatch = (name: string, live: string, detected: string) =>
-  live === detected ? [] : [`MISMATCH ${name}: live ${live}, detected ${detected}`];
+const sorted = (values: ReadonlyArray<string>) => Arr.sort(values, Order.String).join(",");
 
 /**
- * Compare the live ruleset names with the declared ones.
+ * One `MISMATCH` line when two values differ.
+ *
+ * @param name - The setting or variable.
+ * @param live - The live value.
+ * @param expected - The detected or declared value.
+ * @param word - `detected` for tier values, `declared` for declared ones.
+ * @returns The line, or none when the values are equal.
+ */
+const mismatch = (name: string, live: string, expected: string, word = "detected") =>
+  live === expected ? [] : [`MISMATCH ${name}: live ${live}, ${word} ${expected}`];
+
+/**
+ * Compare the live `main` ruleset with the declared one: merge methods and required contexts.
  *
  * @param path - The `/repos/{owner}/{repo}` path.
  * @param plan - The declaration plan.
- * @returns One line per undeclared or missing ruleset; the code-scanning ruleset is expected.
+ * @returns One line per difference, including a missing or undeclared ruleset.
  */
 const rulesetLines = Effect.fn("rulesetLines")(function* rulesetLines(
   path: string,
@@ -103,18 +143,54 @@ const rulesetLines = Effect.fn("rulesetLines")(function* rulesetLines(
   const live = yield* listAll((page) =>
     getJson(
       `${path}/rulesets?includes_parents=false&per_page=${PER_PAGE}&page=${page}`,
-      Schema.Array(Named),
+      Schema.Array(Schema.Struct({ id: Schema.Number, name: Schema.String })),
     ),
   );
 
   const names = plan.ruleset.map((ruleset) => ruleset.name);
 
-  return compareNames(
+  const lines = compareNames(
     "ruleset",
     live.map((ruleset) => ruleset.name),
     [...names, CODE_SCANNING_RULESET.name],
     names,
   );
+
+  const detailed = yield* Effect.all(
+    plan.ruleset.map((declared) =>
+      Effect.gen(function* compareRuleset() {
+        const found = live.find((ruleset) => ruleset.name === declared.name);
+
+        if (found === undefined) {
+          return [];
+        }
+
+        const { rules } = yield* getJson(`${path}/rulesets/${found.id}`, RulesetDetail);
+        const parameters = rules.map((rule) => rule.parameters);
+
+        return [
+          ...mismatch(
+            `${declared.name} ruleset merge methods`,
+            sorted(parameters.flatMap((entry) => entry?.allowed_merge_methods ?? [])),
+            sorted(declared.pullRequest?.allowedMergeMethods ?? []),
+            "declared",
+          ),
+          ...mismatch(
+            `${declared.name} ruleset required checks`,
+            sorted(
+              parameters.flatMap((entry) =>
+                (entry?.required_status_checks ?? []).map((check) => check.context),
+              ),
+            ),
+            sorted((declared.requiredStatusChecks?.checks ?? []).map((check) => check.context)),
+            "declared",
+          ),
+        ];
+      }),
+    ),
+  );
+
+  return [...lines, ...detailed.flat()];
 });
 
 /**
@@ -163,8 +239,8 @@ const variableLines = Effect.fn("variableLines")(function* variableLines(
 
 /**
  * Read live state with GETs only and list every difference from the declaration and the detected
- * tier: `UNDECLARED` rulesets, environments and labels, missing declared resources, the tier
- * variables, `CLOUDFLARE_DEPLOYS` and `STACK_NAME`.
+ * tier: merge settings, the `main` ruleset, `UNDECLARED` rulesets, environments and labels,
+ * missing declared resources, the tier variables, `CLOUDFLARE_DEPLOYS` and `STACK_NAME`.
  *
  * @param repository - The guarded repository.
  * @returns One line per difference; empty when live state matches.
@@ -179,6 +255,21 @@ export const readDrift = Effect.fn("readDrift")(function* readDrift(repository: 
 
   const tier = yield* detectTier(repository, secrets);
   const plan = declarationPlan(repository, tier, yield* reviewerAppId);
+  const fields = yield* getJson(path, RepositoryFields);
+  const props = plan.repository;
+
+  const settings = [
+    ["allow_squash_merge", fields.allow_squash_merge, props.allowSquashMerge],
+    ["allow_merge_commit", fields.allow_merge_commit, props.allowMergeCommit],
+    ["allow_rebase_merge", fields.allow_rebase_merge, props.allowRebaseMerge],
+    ["delete_branch_on_merge", fields.delete_branch_on_merge, props.deleteBranchOnMerge],
+    ["allow_auto_merge", fields.allow_auto_merge, props.allowAutoMerge],
+  ].flatMap(([name, value, declared]) =>
+    declared === undefined
+      ? []
+      : mismatch(String(name), String(value), String(declared), "declared"),
+  );
+
   const rulesets = tier.capabilities.has("rulesets") ? yield* rulesetLines(path, plan) : [];
 
   const environments = tier.environments
@@ -217,7 +308,7 @@ export const readDrift = Effect.fn("readDrift")(function* readDrift(repository: 
     secrets,
   );
 
-  return [...rulesets, ...environments, ...labels, ...variable];
+  return [...settings, ...rulesets, ...environments, ...labels, ...variable];
 });
 
 /**
