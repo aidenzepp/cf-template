@@ -3,6 +3,7 @@ import core from "ultracite/oxlint/core";
 import antiSlop from "ultracite/oxlint/anti-slop";
 import shadcn from "ultracite/oxlint/shadcn";
 import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
+import { runMembers } from "./tools/lint/rules/restricted-properties.ts";
 
 /**
  * Matches module declarations and calls without spacing local call groups.
@@ -136,6 +137,10 @@ export default defineConfig({
     // https://viteplus.dev/guide/check
     options: { typeAware: true, typeCheck: true },
     overrides: [
+      // The run-family import ban covers every source file; the scoped overrides below repeat it.
+      restrictImports(["**/*.ts", "**/*.tsx"], {}),
+      // Runtime boundary: tests bridge stubs to Promise APIs.
+      restrictImports(["**/*.test.ts"], { base: false }),
       restrictImports(["apps/*/src/**"], { patterns: appImports }),
       restrictImports(["packages/contract/src/domain/**"], {
         patterns: [
@@ -152,17 +157,26 @@ export default defineConfig({
       }),
       // The server entry reads the bindings and imports `@workspace/auth/contract` (the credential
       // paths); it keeps the createServerFn ban.
+      // It is also a run boundary: the rate-limit check runs before the forward.
       restrictImports(["apps/web/src/server.ts"], {
+        base: false,
         paths: [noServerFunctions],
         patterns: appImports,
       }),
-      // Runtime boundaries that read the bindings: they lift only the `cloudflare:workers` group.
-      restrictImports(["apps/web/src/runtime.ts", "apps/web/src/api-client.ts"], {
+      // `runtime.ts` and `api-client.ts` read the bindings: they lift only the `cloudflare:workers`
+      // group. `runtime.ts` is also the run boundary of `web`.
+      restrictImports(["apps/web/src/runtime.ts"], {
+        base: false,
         paths: [noServerFunctions],
         patterns: [...appImports, webContracts],
       }),
-      // Tests lift only the `cloudflare:workers` group.
+      restrictImports(["apps/web/src/api-client.ts"], {
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts],
+      }),
+      // Tests lift the `cloudflare:workers` group and the run-family ban.
       restrictImports(["apps/web/src/**/*.test.ts"], {
+        base: false,
         paths: [noServerFunctions],
         patterns: [...appImports, webContracts],
       }),
@@ -170,18 +184,36 @@ export default defineConfig({
         paths: [noHttpBuilder],
         patterns: [...appImports, httpModules],
       }),
+      // `auth.ts` is the run boundary of `auth` (the one Effect-to-Promise seam); it keeps R1 and R7.
+      restrictImports(["apps/auth/src/auth.ts"], {
+        base: false,
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+      }),
       // `worker.ts` composes `HttpApiBuilder` layers from the http modules; it keeps R1.
       restrictImports(["apps/api/src/worker.ts", "apps/auth/src/worker.ts"], {
         patterns: appImports,
       }),
-      // Tests compose handlers; they keep R1 but not R7.
+      // Tests compose handlers; they keep R1 but not R7, and lift the run-family ban.
       restrictImports(["apps/api/src/**/*.test.ts", "apps/auth/src/**/*.test.ts"], {
+        base: false,
         patterns: appImports,
       }),
       // Handlers may use `HttpApiBuilder`; they keep R1 and import no database module.
       restrictImports(["apps/api/src/**/http.ts", "apps/auth/src/**/http.ts"], {
         patterns: [...appImports, dbModules],
       }),
+      {
+        // Runtime boundaries lift the member form of the run-family ban. P5 adds data-access
+        // entries to the root list, so it must switch this from "off" to that remaining list.
+        files: [
+          "apps/web/src/runtime.ts",
+          "apps/auth/src/auth.ts",
+          "apps/web/src/server.ts",
+          "**/*.test.ts",
+        ],
+        rules: { "no-restricted-properties": "off" },
+      },
       {
         // The lint-rule tests import bun:test from plain JavaScript. The type-aware checker does
         // not load those types for an .mjs file; the tests still run under bun test.
@@ -215,6 +247,7 @@ export default defineConfig({
       ],
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
+      "no-restricted-properties": ["error", ...runMembers],
       // Effect adapters return existing promises without introducing async wrappers.
       "typescript/promise-function-async": "off",
       "unicorn/filename-case": ["error", { case: "kebabCase" }],

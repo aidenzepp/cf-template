@@ -1,0 +1,9 @@
+{
+  "rules": {
+    "no-restricted-properties": [
+      "error",
+      { "property": "runPromise", "message": "Effect.run* only at a runtime boundary" },
+      { "property": "runFork", "message": "Effect.run* only at a runtime boundary" }
+    ]
+  }
+}
