@@ -3,5 +3,9 @@
   "private": true,
   "description": "Owns the Stack, the stage schema and Stages record, Worker composition, secret wiring, the state store, web's Website declaration. Must not own request code, schemas or product logic.",
   "type": "module",
-  "exports": {}
+  "exports": {},
+  "dependencies": {
+    "@workspace/config": "workspace:*",
+    "effect": "4.1.2"
+  }
 }

@@ -1,0 +1,104 @@
+import { assert, describe, it } from "@effect/vitest";
+import { ConfigProvider, Effect, Exit, Schema } from "effect";
+import { LogLevelKnob } from "@workspace/config/log-level";
+import {
+  LONGEST_STAGE,
+  STACK_NAME_MAX,
+  Stage,
+  Stages,
+  WorkerNameTooLongError,
+  Workers,
+  kindOf,
+  stageValues,
+  workerName,
+} from "../stages.ts";
+
+/**
+ * Decode a stage string with the stage Schema.
+ *
+ * @param raw - The candidate stage name.
+ * @returns The decoding effect.
+ */
+const decodeStage = (raw: string) => Schema.decodeUnknownEffect(Stage)(raw);
+
+describe("Stage", () => {
+  it.effect.each(["prod", "staging-1", "staging-123456", "test-ci", "test-abc", "dev"])(
+    "decodes %s",
+    (raw) =>
+      Effect.gen(function* decodes() {
+        assert.strictEqual(yield* decodeStage(raw), raw);
+      }),
+  );
+
+  it.effect.each(["staging-1234567", "Test-abc", "test_abc", "dev-alice", "release"])(
+    "rejects %s",
+    (raw) =>
+      Effect.gen(function* rejects() {
+        assert.isTrue(Exit.isFailure(yield* Effect.exit(decodeStage(raw))));
+      }),
+  );
+
+  it.effect("normalizes a 20-character slug to 14 with a hash tail", () =>
+    Effect.gen(function* normalizes() {
+      const slug = "abcdefghijklmnopqrst";
+      const stage = yield* decodeStage(`test-${slug}`);
+
+      assert.strictEqual(stage.length, "test-".length + 14);
+      assert.isTrue(stage.startsWith("test-abcdefgh"));
+      assert.match(stage.slice("test-abcdefgh".length), /^[a-z2-7]{6}$/u);
+      assert.strictEqual(yield* decodeStage(`test-${slug}`), stage);
+    }),
+  );
+
+  it("classifies stages by kind", () => {
+    assert.strictEqual(kindOf("prod"), "prod");
+    assert.strictEqual(kindOf("staging-7"), "staging");
+    assert.strictEqual(kindOf("test-ci"), "test");
+    assert.strictEqual(kindOf("test-abc"), "test");
+    assert.strictEqual(kindOf("dev"), "local");
+  });
+});
+
+describe("derived bounds", () => {
+  it("derives the Workers, the longest stage and the stack-name bound", () => {
+    assert.deepStrictEqual(Workers, ["web", "api", "auth"]);
+    assert.strictEqual(LONGEST_STAGE, 19);
+    assert.strictEqual(STACK_NAME_MAX, 29);
+  });
+
+  it("builds a Worker name and dies above 54 characters", () => {
+    assert.strictEqual(
+      workerName({ stack: "cf-template", stage: "staging-12", worker: "web" }),
+      "cf-template-web-staging-12",
+    );
+    assert.throws(() => {
+      workerName({ stack: "s".repeat(40), stage: "test-abcdefghijklmn", worker: "auth" });
+    }, WorkerNameTooLongError);
+  });
+});
+
+describe("Stages", () => {
+  it.effect("holds only values the LogLevelKnob codec decodes", () =>
+    Effect.gen(function* decodes() {
+      for (const values of Object.values(Stages)) {
+        const raw = yield* LogLevelKnob.encode(values.LOG_LEVEL);
+
+        assert.strictEqual(yield* LogLevelKnob.decode(raw), values.LOG_LEVEL);
+      }
+    }),
+  );
+
+  it.effect("overrides a test value from STAGES_TEST_LOG_LEVEL only for the test kind", () =>
+    Effect.gen(function* overrides() {
+      const provider = ConfigProvider.layer(
+        ConfigProvider.fromUnknown({ STAGES_TEST_LOG_LEVEL: "Error" }),
+      );
+
+      const test = yield* stageValues("test-abc").pipe(Effect.provide(provider));
+      const prod = yield* stageValues("prod").pipe(Effect.provide(provider));
+
+      assert.strictEqual(test.LOG_LEVEL, "Error");
+      assert.strictEqual(prod.LOG_LEVEL, Stages.prod.LOG_LEVEL);
+    }),
+  );
+});
