@@ -65,6 +65,7 @@ Do not introduce nullable fields, legacy repair paths, transitional models, or c
 
 ## Skills
 
+- `.agents/skills/add-block`: adding a removable block, attaching it to core, and checking it with `bun run footprint` and `bun run pullout`.
 - `.agents/skills/conventional-commits`: commit boundaries, staging, and messages.
 - `.agents/skills/document-code`: JSDoc for every program unit and the constraints it must preserve.
 - `.agents/skills/effect-design`: the native-capability review and local Effect rulings.

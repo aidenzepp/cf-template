@@ -5,6 +5,11 @@ version = 1
 line-endings = "normalize"
 
 [[link]]
+source = ".agents/skills/add-block/SKILL.md"
+target = ".agents/skills/add-block/references/examples.md"
+hash = "ed1f3d44a94a495de2a6f23c90430e7c5e9828a0acf6e74b10d5e2c21a98d19a"
+
+[[link]]
 source = ".agents/skills/conventional-commits/SKILL.md"
 target = ".agents/skills/conventional-commits/references/examples.md"
 hash = "0f73e9184754db4a70255f998f965ac063d421251ed16ae9da05bacd90aafeda"
