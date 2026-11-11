@@ -345,28 +345,72 @@ const detachAttach = Effect.fn("pullout.detachAttach")(function* detachAttach(
 });
 
 /**
- * The leftover scan: every line outside `keep` and the migrations that names the unit as a word or
- * still holds a `block:<unit>` marker.
+ * The files the leftover scan reads: code and its configuration. Prose is not a reference.
+ */
+const codeFiles = ["*.ts", "*.tsx", "*.mts", "*.cts", "*.js", "*.mjs", "*.cjs", "*.json"];
+
+/**
+ * What the leftover scan never reads: the migrations (they stay in every phase), documentation
+ * (`docs/**` and every `*.md`), test fixtures that name the unit on purpose (`fixtures/**`) and the
+ * repository's own tooling (`tools/**`), which names a unit as test data, never as a dependency.
+ */
+const unscanned = [
+  ":(exclude,glob)apps/*/migrations/**",
+  ":(exclude,glob)docs/**",
+  ":(exclude,glob)**/fixtures/**",
+  ":(exclude,glob)tools/**",
+];
+
+/**
+ * The text of a string literal that names `name` as a path segment: `"./notes/x"`, `"/api/notes"`,
+ * `"@workspace/contract/api/notes"` or `"notes"`, and not `"notes.example.com"` or a plain word.
+ */
+const pathLike = (name: string): string => String.raw`["'\`]([^"'\`]*/)?${name}(/[^"'\`]*)?["'\`]`;
+
+/**
+ * The leftover scan: the code references to the unit that remain. A reference is the unit name as a
+ * path segment of a string literal (an import or export specifier, a URL or a file path) in a code
+ * file, or a `block:<unit>` marker anywhere. Prose, plain words and the `keep` modules are not
+ * references, nor is anything in {@link unscanned}. This reads the issue's "leftover scan names
+ * nothing but the kept table module" as references, not as every line that spells the word.
  */
 const leftovers = Effect.fn("pullout.leftovers")(function* leftovers(unit: Unit) {
-  const skip = [
-    ":(exclude,glob)apps/*/migrations/**",
-    ...unit.keep.map((file) => `:(exclude,glob)${file}`),
-  ];
+  const skip = [...unscanned, ...unit.keep.map((file) => `:(exclude,glob)${file}`)];
 
   const named = yield* exec(unit.tree, "git", [
     "grep",
-    "-nIwF",
+    "-nIE",
     "-e",
-    unit.name,
+    pathLike(unit.name),
     "--",
-    ".",
+    ...codeFiles,
     ...skip,
   ]);
 
   const marked = yield* exec(unit.tree, "git", ["grep", "-nIF", "-e", `block:${unit.name}`]);
 
   return lines(named.output + marked.output);
+});
+
+/**
+ * The generated route tree of `apps/web` and the directory of the routes it lists.
+ */
+const routeTree = "apps/web/src/route-tree.gen.ts";
+const routesDir = "apps/web/src/routes/";
+
+/**
+ * Regenerates the web route tree in `unit.tree` when the unit owned routes, by running the web
+ * build the TanStack Start plugin generates it in.
+ */
+const regenerateRoutes = Effect.fn("pullout.regenerateRoutes")(function* regenerateRoutes(
+  unit: Unit,
+  tracked: ReadonlyArray<string>,
+) {
+  const owned = tracked.some((file) => file.startsWith(routesDir) && unit.doomed(file));
+
+  if (owned && tracked.includes(routeTree)) {
+    yield* run(unit.tree, "bun", ["run", "--filter", "@workspace/web", "build"]);
+  }
 });
 
 /**
@@ -464,6 +508,7 @@ export const pullout = Effect.fn("pullout")(function* pullout(root: string, name
 
       yield* run(tree, "bunx", ["vp", "fmt", "blocks.json", ...attached, ...trimmed, ...marked]);
       yield* run(tree, "bun", ["install"]);
+      yield* regenerateRoutes(unit, tracked);
 
       const patch = path.join(tree, `${name}.pullout.patch`);
       yield* fs.writeFileString(patch, yield* run(tree, "git", ["diff", "--binary", "HEAD"]));
