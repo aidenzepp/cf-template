@@ -3,23 +3,23 @@ import { isAuthScreen, isSessionLess } from "./session-less-paths.ts";
 
 describe("isSessionLess", () => {
   it("matches /unavailable", () => {
-    expect(isSessionLess("/unavailable")).toBe(true);
+    expect(isSessionLess("/unavailable")).toBeTruthy();
   });
 
   it.each(["/unavailable/", "/unavailable2", "/", "/notes", "/Unavailable", ""])(
     "does not match %j",
     (pathname) => {
-      expect(isSessionLess(pathname)).toBe(false);
+      expect(isSessionLess(pathname)).toBeFalsy();
     },
   );
 });
 
 describe("isAuthScreen", () => {
   it.each(["/sign-in", "/sign-up", "/oauth-error"])("matches %s", (pathname) => {
-    expect(isAuthScreen(pathname)).toBe(true);
+    expect(isAuthScreen(pathname)).toBeTruthy();
   });
 
   it.each(["/sign-in/", "/sign-in2", "/", "/notes"])("does not match %j", (pathname) => {
-    expect(isAuthScreen(pathname)).toBe(false);
+    expect(isAuthScreen(pathname)).toBeFalsy();
   });
 });

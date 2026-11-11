@@ -10,6 +10,8 @@ import react from "ultracite/oxlint/react";
 
 import shadcn from "ultracite/oxlint/shadcn";
 
+import vitest from "ultracite/oxlint/vitest";
+
 import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
 
 import {
@@ -118,6 +120,28 @@ const dbModules = {
   message: "handlers import no database module",
 };
 
+/**
+ * The repository's Vitest suites; the lint-rule fixtures are inputs, not suites.
+ */
+const testFiles = [
+  "apps/*/src/**/*.test.ts",
+  "packages/*/src/**/*.test.ts",
+  "infra/**/*.test.ts",
+  "tools/**/*.test.ts",
+  "test/**/*.test.ts",
+];
+
+/**
+ * The rules of the Ultracite `vitest` preset, read from its single override.
+ */
+const presetRules = vitest.overrides?.[0]?.rules ?? {};
+
+/**
+ * A committed `.only` would silently skip every other test in its file; Vitest defaults `allowOnly`
+ * to on outside CI, so each project turns it off and a focused test fails the run everywhere.
+ */
+const noOnly = { allowOnly: false };
+
 export default defineConfig({
   fmt: {
     ignorePatterns: [
@@ -135,7 +159,7 @@ export default defineConfig({
   },
   lint: {
     // `drizzle` is adopted although it has no oxlint rules today, so a later Drizzle rule arrives
-    // with the preset. `react` is scoped in `overrides` below; `vitest` waits for its own part. `tanstack` is not
+    // with the preset. `react` and `vitest` are scoped in `overrides` below. `tanstack` is not
     // adopted: it turns `sort-keys` off for the whole repository and the kebab-case filename rule
     // off under `routes/`; two of its decisions are copied as scoped overrides instead.
     extends: [core, antiSlop, shadcn, drizzle],
@@ -311,6 +335,38 @@ export default defineConfig({
         files: ["apps/web/src/runtime.ts"],
         rules: { "workspace/no-mutable-module-state": "off" },
       },
+      {
+        // The Ultracite `vitest` preset, scoped to the repository's own test files. The preset's own
+        // globs also match `.mjs` suites, which run under `bun:test`, so its rules are re-scoped here
+        // instead of adopted through `extends`.
+        files: testFiles,
+        plugins: ["vitest"],
+        rules: {
+          ...presetRules,
+          // `it` is the repository's one test form (@effect/vitest exports no `test`), and the
+          // autofix to `test` renamed calls without importing it.
+          "vitest/consistent-test-it": ["error", { fn: "it", withinDescribe: "it" }],
+          // `expect` runs inside the callback of an @effect/vitest test form, which the rule does not
+          // know as a test block.
+          "vitest/no-standalone-expect": [
+            "error",
+            {
+              additionalTestBlockFunctions: [
+                "it.effect",
+                "it.scoped",
+                "it.live",
+                "it.layer",
+                "it.effect.each",
+                "layer",
+              ],
+            },
+          ],
+          // `layer(...)` suites from @effect/vitest are not describe blocks, and the describe titles
+          // here name the unit under test, which is often an imported function.
+          "vitest/prefer-describe-function-title": "off",
+          "vitest/require-top-level-describe": "off",
+        },
+      },
     ],
     rules: {
       "@stylistic/padding-line-between-statements": [
@@ -390,19 +446,20 @@ export default defineConfig({
     projects: [
       {
         test: {
+          ...noOnly,
           exclude: ["tools/lint/fixtures/**"],
           include: ["tools/**/*.test.ts"],
           name: "tools",
         },
       },
-      { test: { include: ["test/**/*.test.ts"], name: "root" } },
-      { test: { include: ["apps/web/src/**/*.test.ts"], name: "web" } },
-      { test: { include: ["apps/api/src/**/*.test.ts"], name: "api" } },
-      { test: { include: ["apps/auth/src/**/*.test.ts"], name: "auth" } },
-      { test: { include: ["packages/contract/src/**/*.test.ts"], name: "contract" } },
-      { test: { include: ["packages/db/src/**/*.test.ts"], name: "db" } },
-      { test: { include: ["packages/config/src/**/*.test.ts"], name: "config" } },
-      { test: { include: ["infra/**/*.test.ts"], name: "infra" } },
+      { test: { ...noOnly, include: ["test/**/*.test.ts"], name: "root" } },
+      { test: { ...noOnly, include: ["apps/web/src/**/*.test.ts"], name: "web" } },
+      { test: { ...noOnly, include: ["apps/api/src/**/*.test.ts"], name: "api" } },
+      { test: { ...noOnly, include: ["apps/auth/src/**/*.test.ts"], name: "auth" } },
+      { test: { ...noOnly, include: ["packages/contract/src/**/*.test.ts"], name: "contract" } },
+      { test: { ...noOnly, include: ["packages/db/src/**/*.test.ts"], name: "db" } },
+      { test: { ...noOnly, include: ["packages/config/src/**/*.test.ts"], name: "config" } },
+      { test: { ...noOnly, include: ["infra/**/*.test.ts"], name: "infra" } },
     ],
   },
 });

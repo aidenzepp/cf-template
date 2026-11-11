@@ -109,7 +109,7 @@ describe("settings calls", () => {
       yield* settle(() => calls.linkProvider("github"));
       yield* settle(() => calls.unlinkAccount("a1"));
 
-      expect(paths).toEqual([
+      expect(paths).toStrictEqual([
         "/auth/update-user",
         "/auth/change-password",
         "/auth/passkey/update-passkey",
@@ -128,7 +128,7 @@ describe("settings calls", () => {
 
       yield* withWebAuthn(settle(() => calls.addPasskey("laptop")));
 
-      expect(paths).toEqual([
+      expect(paths).toStrictEqual([
         "/auth/passkey/generate-register-options",
         "/auth/passkey/verify-registration",
       ]);
@@ -146,8 +146,8 @@ describe("settings calls", () => {
 
       const { error } = yield* settle(() => calls.changePassword("old", "new", true));
 
-      expect(needsFreshSession(error)).toBe(true);
-      expect(needsFreshSession({ code: "INVALID_PASSWORD", status: 400 })).toBe(false);
+      expect(needsFreshSession(error)).toBeTruthy();
+      expect(needsFreshSession({ code: "INVALID_PASSWORD", status: 400 })).toBeFalsy();
     }),
   );
 
@@ -155,12 +155,11 @@ describe("settings calls", () => {
     const github = { id: "a1", providerId: "github" };
     const password = { id: "a2", providerId: "credential" };
 
-    expect(reauthProviders(decodeAccounts([github, { id: "a3", providerId: "google" }]))).toEqual([
-      "github",
-      "google",
-    ]);
-    expect(reauthProviders(decodeAccounts([github, password]))).toEqual([]);
-    expect(reauthProviders(decodeAccounts("unreadable"))).toEqual([]);
+    expect(
+      reauthProviders(decodeAccounts([github, { id: "a3", providerId: "google" }])),
+    ).toStrictEqual(["github", "google"]);
+    expect(reauthProviders(decodeAccounts([github, password]))).toStrictEqual([]);
+    expect(reauthProviders(decodeAccounts("unreadable"))).toStrictEqual([]);
   });
 });
 
@@ -171,7 +170,7 @@ describe("passkeys card", () => {
       { id: "p2", name: "phone" },
     ]);
 
-    expect(Option.getOrElse(listed, () => []).map(({ id }) => id)).toEqual(["p1", "p2"]);
+    expect(Option.getOrElse(listed, () => []).map(({ id }) => id)).toStrictEqual(["p1", "p2"]);
     expect(PASSKEY_FALLBACK_NAME).toBe("Unnamed passkey");
   });
 

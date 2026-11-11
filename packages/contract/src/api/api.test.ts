@@ -21,7 +21,7 @@ const notesOperations = operations.filter(({ operation }) =>
 describe("Api OpenAPI document", () => {
   it("declares operations", () => {
     expect(operations.length).toBeGreaterThan(0);
-    expect(notesOperations.length).toBe(5);
+    expect(notesOperations).toHaveLength(5);
   });
 
   it("lists a 400 problem+json response on every operation", () => {
@@ -47,7 +47,7 @@ describe("Api OpenAPI document", () => {
   });
 
   it("serves no path under /auth", () => {
-    expect(Object.keys(spec.paths).filter((path) => path.startsWith("/auth"))).toEqual([]);
+    expect(Object.keys(spec.paths).filter((path) => path.startsWith("/auth"))).toStrictEqual([]);
   });
 
   it("gives every operation an operationId of the shape group.endpoint", () => {
@@ -58,6 +58,6 @@ describe("Api OpenAPI document", () => {
     expect(
       offenders,
       "operationId must be group.endpoint (C45a); a docs site's reference slugs and the contract-derived CLI and MCP key on it",
-    ).toEqual([]);
+    ).toStrictEqual([]);
   });
 });

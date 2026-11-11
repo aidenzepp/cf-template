@@ -309,9 +309,10 @@ layer(WebProdLive, { timeout: 180_000 })("front-door rate limit", (it) => {
       const response = yield* web.send("POST", signIn, {});
 
       expect(response.status).not.toBe(429);
-      expect([yield* web.limiterCalls("public"), yield* web.limiterCalls("credential")]).toEqual(
-        before,
-      );
+      expect([
+        yield* web.limiterCalls("public"),
+        yield* web.limiterCalls("credential"),
+      ]).toStrictEqual(before);
     }),
   );
 });

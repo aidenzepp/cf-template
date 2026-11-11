@@ -254,7 +254,11 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
 
       expect(response.status).toBe(502);
       expect(response.headers.get("content-type")).toBe("application/problem+json");
-      expect(JSON.parse(html)).toEqual({ status: 502, title: "Bad Gateway", type: "about:blank" });
+      expect(JSON.parse(html)).toStrictEqual({
+        status: 502,
+        title: "Bad Gateway",
+        type: "about:blank",
+      });
     }),
   );
 

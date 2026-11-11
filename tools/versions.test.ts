@@ -225,7 +225,7 @@ describe("package.json versions", () => {
         manifestSpecs(manifests)
           .filter(([, spec]) => !isExact(spec))
           .map(([path]) => path),
-      ).toEqual([]);
+      ).toStrictEqual([]);
     }),
   );
 });
@@ -242,7 +242,7 @@ describe("bun.lock sources", () => {
         return isWorkspace || isViteAlias || exactVersion.test(version) ? [] : [key];
       });
 
-      expect(offenders).toEqual([]);
+      expect(offenders).toStrictEqual([]);
     }),
   );
 });
