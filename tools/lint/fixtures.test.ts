@@ -1,4 +1,3 @@
-import { createRequire } from "node:module";
 import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Path, Schema } from "effect";
@@ -23,19 +22,15 @@ const toolchain = Effect.gen(function* resolve() {
   const path = yield* Path.Path;
   const root = yield* path.fromFileUrl(new URL("../..", import.meta.url));
 
-  // Resolution starts at the real package directory: the `node_modules/vite-plus` link does not
-  // sit beside its dependencies in an isolated install.
-  const vitePlus = yield* fs.realPath(path.join(root, "node_modules", "vite-plus", "package.json"));
-
-  const fromVitePlus = createRequire(vitePlus);
-
-  const tsgolint = fromVitePlus.resolve("oxlint-tsgolint/bin/tsgolint");
-
-  const oxlint = path.join(
-    path.dirname(path.dirname(fromVitePlus.resolve("oxlint"))),
-    "bin",
-    "oxlint",
+  // In an isolated install the dependencies of Vite+ sit beside its real package directory, not
+  // beside the `node_modules/vite-plus` link.
+  const dependencies = path.dirname(
+    yield* fs.realPath(path.join(root, "node_modules", "vite-plus")),
   );
+
+  const tsgolint = path.join(dependencies, "oxlint-tsgolint", "bin", "tsgolint.js");
+
+  const oxlint = path.join(dependencies, "oxlint", "bin", "oxlint");
 
   return { oxlint, root, tsgolint };
 });
