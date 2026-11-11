@@ -21,5 +21,16 @@
       "keep": ["apps/api/src/notes/table.ts"]
     }
   ],
-  "blocks": [{ "name": "knobs-kv", "paths": ["packages/knobs-kv/", "tools/knob/"] }]
+  "blocks": [
+    {
+      "name": "knobs-kv",
+      "paths": [
+        "packages/knobs-kv/",
+        "tools/knob/alchemy.fixture.ts",
+        "tools/knob/alchemy.ts",
+        "tools/knob/knob.test.ts",
+        "tools/knob/knob.ts"
+      ]
+    }
+  ]
 }
