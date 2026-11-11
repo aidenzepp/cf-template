@@ -1,15 +1,13 @@
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { Effect } from "effect";
-import { rawDatabase } from "../test/miniflare.ts";
+import { LocalD1 } from "../test/miniflare.ts";
 import { makeDatabase } from "./database.ts";
 
-describe("makeDatabase", () => {
+layer(LocalD1.layer)("makeDatabase", (it) => {
   it.effect("shares one { db, client } inside an execution and builds one per execution", () =>
     Effect.gen(function* oneClientPerExecution() {
-      const database = yield* Effect.flatMap(
-        Effect.promise(() => rawDatabase()),
-        makeDatabase,
-      );
+      const raw = yield* LocalD1;
+      const database = yield* makeDatabase(raw);
 
       const [first, second] = yield* Effect.scoped(
         Effect.all([database, database], { concurrency: 1 }),

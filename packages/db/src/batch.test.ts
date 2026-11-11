@@ -1,20 +1,20 @@
-import { describe, expect, it } from "@effect/vitest";
+import { expect, layer } from "@effect/vitest";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { Effect } from "effect";
-import { rawDatabase } from "../test/miniflare.ts";
+import { LocalD1 } from "../test/miniflare.ts";
 import { batch } from "./batch.ts";
 import { makeDatabase } from "./database.ts";
 
 const items = sqliteTable("items", { id: text().primaryKey(), n: integer().notNull() });
 
 const execution = Effect.gen(function* openExecution() {
-  const raw = yield* Effect.promise(() => rawDatabase());
+  const raw = yield* LocalD1;
   const database = yield* makeDatabase(raw);
 
   return { database, raw };
 });
 
-describe("batch", () => {
+layer(LocalD1.layer)("batch", (it) => {
   it.effect("commits every statement of a batch", () =>
     Effect.scoped(
       Effect.gen(function* commits() {

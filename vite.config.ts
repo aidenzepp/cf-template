@@ -83,13 +83,7 @@ export default defineConfig({
       { test: { include: ["apps/api/src/**/*.test.ts"], name: "api" } },
       { test: { include: ["apps/auth/src/**/*.test.ts"], name: "auth" } },
       { test: { include: ["packages/contract/src/**/*.test.ts"], name: "contract" } },
-      {
-        test: {
-          include: ["packages/db/src/**/*.test.ts"],
-          name: "db",
-          setupFiles: ["./packages/db/test/miniflare.ts"],
-        },
-      },
+      { test: { include: ["packages/db/src/**/*.test.ts"], name: "db" } },
       { test: { include: ["packages/config/src/**/*.test.ts"], name: "config" } },
       { test: { include: ["infra/**/*.test.ts"], name: "infra" } },
     ],

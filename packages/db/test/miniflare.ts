@@ -1,30 +1,28 @@
-import { afterAll, beforeAll } from "vitest";
+import { Context, Effect, Layer } from "effect";
 import { Miniflare } from "miniflare";
+import type { RawDatabase } from "../src/database.ts";
 import fixture from "./fixture.sql?raw";
 
-const started = Promise.withResolvers<Miniflare>();
-
 /**
- * The local D1 binding of the running test file. The instance starts in this setup file's
- * `beforeAll` and is disposed in its `afterAll`, so call this only inside a test.
+ * The local D1 binding the db tests run against.
  */
-export const rawDatabase = async () => {
-  const miniflare = await started.promise;
+export class LocalD1 extends Context.Service<LocalD1, RawDatabase>()("@workspace/db/LocalD1") {
+  /**
+   * Starts a Miniflare D1 with the fixture applied and disposes it when the layer's scope closes.
+   */
+  static readonly layer = Layer.effect(
+    LocalD1,
+    Effect.gen(function* startLocalD1() {
+      const miniflare = yield* Effect.acquireRelease(
+        Effect.sync(() => new Miniflare({ d1Databases: ["DB"], modules: true, script: "" })),
+        (instance) => Effect.promise(() => instance.dispose()),
+      );
 
-  return await miniflare.getD1Database("DB");
-};
+      const binding = yield* Effect.promise(() => miniflare.getD1Database("DB"));
 
-beforeAll(async () => {
-  const miniflare = new Miniflare({ d1Databases: ["DB"], modules: true, script: "" });
+      yield* Effect.promise(() => binding.exec(fixture.trim()));
 
-  const database = await miniflare.getD1Database("DB");
-
-  await database.exec(fixture.trim());
-  started.resolve(miniflare);
-});
-
-afterAll(async () => {
-  const miniflare = await started.promise;
-
-  await miniflare.dispose();
-});
+      return binding;
+    }),
+  );
+}
