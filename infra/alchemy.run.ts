@@ -1,14 +1,14 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
-import { Config, Effect, Layer, Path, Schema } from "effect";
+import { Config, Effect, Layer, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
-import { Stage, stageValues, workerName } from "./stages.ts";
+import { Stage, stageValues } from "./stages.ts";
 import { declareApi } from "./src/api.ts";
 import { declareAuth } from "./src/auth.ts";
-import { compat } from "./src/compat.ts";
 import { d1LocationHint } from "./src/d1-location.ts";
 import { usesProjectState } from "./src/state-selection.ts";
+import { declareWeb } from "./src/web.ts";
 import { StackNameError, requiresStackNamePin, resolveStackName } from "./src/stack-name.ts";
 
 /**
@@ -79,30 +79,12 @@ const program = Effect.gen(function* declareStack() {
   const { stack, stage } = yield* resolveIdentity(yield* Alchemy.Stage);
   const hint = yield* d1LocationHint;
   const values = yield* stageValues(stage);
-  const path = yield* Path.Path;
 
   yield* declareAppDb(stack, stage, hint);
 
-  const declareWorker = Effect.fn("declareWorker")(function* declareWorker(
-    id: "Web",
-    app: "web",
-    workersDev: boolean,
-  ) {
-    const main = yield* path.fromFileUrl(new URL(`../apps/${app}/src/worker.ts`, import.meta.url));
-
-    return yield* Cloudflare.Worker(id, {
-      compatibility: { date: compat.date, flags: compat.flags.map((flag) => flag.name) },
-      env: { LOG_LEVEL: values.LOG_LEVEL },
-      main,
-      name: yield* workerName({ stack, stage, worker: app }),
-      workersDev,
-    });
-  });
-
-  yield* declareWorker("Web", "web", true);
-
-  yield* declareAuth({ stack, stage }, hint, values);
-  yield* declareApi({ stack, stage }, values);
+  const auth = yield* declareAuth({ stack, stage }, hint, values);
+  const api = yield* declareApi({ stack, stage }, values);
+  yield* declareWeb({ stack, stage }, { api, auth });
 
   return {};
 }).pipe(Effect.orDie);
