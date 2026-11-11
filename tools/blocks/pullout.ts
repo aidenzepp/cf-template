@@ -1,5 +1,15 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { Array as Arr, Console, Duration, Effect, FileSystem, Path, Schema, Stream } from "effect";
+import {
+  Array as Arr,
+  Console,
+  Duration,
+  Effect,
+  FileSystem,
+  Option,
+  Path,
+  Schema,
+  Stream,
+} from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { parseAttach } from "./grammar.ts";
@@ -16,6 +26,11 @@ export class PulloutError extends Schema.TaggedError<PulloutError>()("PulloutErr
 }) {}
 
 /**
+ * The decoded fields of a `package.json`, in file order.
+ */
+const PackageJson = Schema.Record(Schema.String, Schema.Json);
+
+/**
  * What the pull-out knows about the unit it removes. `doomed` tells whether a repository-relative
  * file goes with the unit; `tree` is the throwaway worktree the edits happen in.
  */
@@ -23,7 +38,16 @@ interface Unit {
   readonly doomed: (file: string) => boolean;
   readonly keep: ReadonlyArray<string>;
   readonly name: string;
+  readonly packageName: string | undefined;
   readonly tree: string;
+}
+
+/**
+ * A tracked `package.json`: its directory and its decoded fields.
+ */
+interface Pkg {
+  readonly dir: string;
+  readonly json: typeof PackageJson.Type;
 }
 
 /**
@@ -36,10 +60,41 @@ const forms = new Map<string, AttachForm>([
 ]);
 
 /**
+ * `package.json` fields holding dependency names.
+ */
+const dependencySections = new Set([
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+  "peerDependencies",
+]);
+
+/**
  * A named import: optional `type`, the braced names and the specifier.
  */
 const namedImport =
   /^import\s+(?<type>type\s+)?\{(?<names>[^}]*)\}\s*from\s*"(?<spec>[^"]+)";?[ \t]*\n/gmu;
+
+/**
+ * Decodes the contents of a `package.json`.
+ */
+const decodePackage = Schema.decodeUnknownEffect(Schema.fromJsonString(PackageJson));
+
+/**
+ * Decodes an object of strings, as `exports` and the dependency sections are.
+ */
+const decodeStrings = Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.String));
+
+/**
+ * The value as an object of strings, or nothing when it is another JSON value.
+ */
+const stringsOf = (value: typeof Schema.Json.Type): Readonly<Record<string, string>> | undefined =>
+  Option.getOrUndefined(decodeStrings(value));
+
+/**
+ * Whether a value is a string.
+ */
+const isString = Schema.is(Schema.String);
 
 /**
  * Migrations stay in every phase: they count as applied once on `main`.
@@ -205,14 +260,65 @@ const rewrite = Effect.fn("pullout.rewrite")(function* rewrite<E, R>(
 });
 
 /**
+ * Drops the unit's `package.json` footprint: `exports` entries whose target lies under a deleted
+ * path and the unit's own dependency line. Returns the files it rewrote.
+ */
+const trimPackages = Effect.fn("pullout.trimPackages")(function* trimPackages(
+  unit: Unit,
+  packages: ReadonlyArray<Pkg>,
+) {
+  const path = yield* Path.Path;
+
+  const byFile = new Map(packages.map((pkg) => [path.join(pkg.dir, "package.json"), pkg] as const));
+
+  const files = [...byFile.keys()].filter((file) => !unit.doomed(file));
+
+  return yield* rewrite(unit.tree, files, (file, text) =>
+    decodePackage(text).pipe(
+      Effect.map((json) => {
+        const dir = path.dirname(file);
+
+        const next = Object.fromEntries(
+          Object.entries(json).map(([key, value]) => {
+            const exported = key === "exports" ? stringsOf(value) : undefined;
+            const depended = dependencySections.has(key) ? stringsOf(value) : undefined;
+
+            if (exported !== undefined) {
+              const live = Object.entries(exported).filter(
+                ([, target]) => !unit.doomed(path.join(dir, target)),
+              );
+
+              return [key, Object.fromEntries(live)];
+            }
+
+            if (depended !== undefined) {
+              const live = Object.entries(depended).filter(([name]) => name !== unit.packageName);
+
+              return [key, Object.fromEntries(live)];
+            }
+
+            return [key, value];
+          }),
+        );
+
+        return JSON.stringify(next) === JSON.stringify(json)
+          ? text
+          : `${JSON.stringify(next, null, 2)}\n`;
+      }),
+    ),
+  );
+});
+
+/**
  * Removes the unit's attach lines and their imports from the attach files of `manifest`. A name is
- * the unit's when it is imported from a relative specifier that resolves to a file that goes with
- * the unit. A file that imports nothing of the unit has no attach line of it, so it is not parsed
- * and its other lines are never judged.
+ * the unit's when it is imported from a specifier that resolves to a file that goes with the unit;
+ * `targets` maps a workspace specifier to its file. A file that imports nothing of the unit has no
+ * attach line of it, so it is not parsed and its other lines are never judged.
  */
 const detachAttach = Effect.fn("pullout.detachAttach")(function* detachAttach(
   unit: Unit,
   manifest: typeof Manifest.Type,
+  targets: ReadonlyMap<string, string>,
 ) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -224,8 +330,11 @@ const detachAttach = Effect.fn("pullout.detachAttach")(function* detachAttach(
   );
 
   return yield* rewrite(unit.tree, present, (file, text) => {
-    const owns = (spec: string) =>
-      spec.startsWith(".") && unit.doomed(path.join(path.dirname(file), spec));
+    const owns = (spec: string) => {
+      const target = spec.startsWith(".") ? path.join(path.dirname(file), spec) : targets.get(spec);
+
+      return target !== undefined && unit.doomed(target);
+    };
 
     return readImports(text).some(({ spec }) => owns(spec))
       ? parseAttach(forms.get(file) ?? "mergeAll", file, text, names).pipe(
@@ -262,9 +371,9 @@ const leftovers = Effect.fn("pullout.leftovers")(function* leftovers(unit: Unit)
 
 /**
  * Removes `name` from a copy of `HEAD` in `.worktrees/pullout-<name>` under `root`: its paths,
- * attach lines and imports, marked lines and `blocks.json` entry. It writes `<name>.pullout.patch`
- * there, prints its path and fails when the leftover scan finds a reference. It does not run the
- * gates.
+ * attach lines and imports, dependency line, `exports` entries, marked lines and `blocks.json`
+ * entry. It writes `<name>.pullout.patch` there, prints its path and fails when the leftover scan
+ * finds a reference. It does not run the gates.
  */
 export const pullout = Effect.fn("pullout")(function* pullout(root: string, name: string) {
   const fs = yield* FileSystem.FileSystem;
@@ -292,14 +401,46 @@ export const pullout = Effect.fn("pullout")(function* pullout(root: string, name
     `unknown unit ${name}: no tracked file belongs to it`,
   );
 
+  const packages = yield* Effect.all(
+    tracked
+      .filter((file) => path.basename(file) === "package.json")
+      .map((file) =>
+        fs.readFileString(path.join(root, file)).pipe(
+          Effect.flatMap(decodePackage),
+          Effect.map((json) => ({ dir: path.dirname(file), json })),
+        ),
+      ),
+  );
+
+  const targets = new Map(
+    packages.flatMap(({ dir, json }) => {
+      const label = json.name;
+      const exported = json.exports;
+
+      if (!isString(label)) {
+        return [];
+      }
+
+      const entries = Object.entries(stringsOf(exported) ?? {});
+
+      return [
+        [label, dir] as const,
+        ...entries.map(
+          ([key, target]) => [`${label}${key.slice(1)}`, path.join(dir, target)] as const,
+        ),
+      ];
+    }),
+  );
+
+  const owner = packages.find((pkg) => pkg.dir === `packages/${name}`)?.json.name;
   const tree = path.join(root, ".worktrees", `pullout-${name}`);
-  const unit: Unit = { doomed, keep, name, tree };
+  const unit: Unit = { doomed, keep, name, packageName: isString(owner) ? owner : undefined, tree };
 
   const [elapsed, left] = yield* Effect.timed(
     Effect.gen(function* removal() {
       yield* run(root, "git", ["worktree", "add", "--detach", tree, "HEAD"]);
 
-      const attached = yield* detachAttach(unit, manifest);
+      const attached = yield* detachAttach(unit, manifest, targets);
 
       for (const chunk of Arr.chunksOf(
         tracked.filter((file) => doomed(file)),
@@ -307,6 +448,8 @@ export const pullout = Effect.fn("pullout")(function* pullout(root: string, name
       )) {
         yield* run(tree, "git", ["rm", "--quiet", "--", ...chunk]);
       }
+
+      const trimmed = yield* trimPackages(unit, packages);
 
       const marks = lines(
         (yield* exec(tree, "git", ["grep", "-lIF", "-e", `block:${name}`])).output,
@@ -319,7 +462,8 @@ export const pullout = Effect.fn("pullout")(function* pullout(root: string, name
         `${JSON.stringify(withoutUnit(manifest, name), null, 2)}\n`,
       );
 
-      yield* run(tree, "bunx", ["vp", "fmt", "blocks.json", ...attached, ...marked]);
+      yield* run(tree, "bunx", ["vp", "fmt", "blocks.json", ...attached, ...trimmed, ...marked]);
+      yield* run(tree, "bun", ["install"]);
 
       const patch = path.join(tree, `${name}.pullout.patch`);
       yield* fs.writeFileString(patch, yield* run(tree, "git", ["diff", "--binary", "HEAD"]));
