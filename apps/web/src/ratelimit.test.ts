@@ -2,7 +2,7 @@ import { assert, describe, it, vi } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 import { constVoid } from "effect/Function";
 import { RateLimited } from "@workspace/contract/domain/rate-limited";
-import { checkRateLimit, classify, fnv1a32, namespaceId } from "./ratelimit.ts";
+import { checkRateLimit, classify, fnv1a32, namespaceId, rateLimitKey } from "./ratelimit.ts";
 import type { RateLimitBinding } from "./ratelimit.ts";
 
 const CREDENTIAL_PATHS = ["/auth/sign-in/email"];
@@ -71,6 +71,35 @@ describe("fnv1a32", () => {
     assert.strictEqual(fnv1a32(""), 0x81_1c_9d_c5);
     assert.strictEqual(fnv1a32("a"), 0xe4_0c_29_2c);
     assert.strictEqual(fnv1a32("stack:test-i24:public"), 0x8d_59_ab_c2);
+  });
+});
+
+describe("rateLimitKey", () => {
+  it("keeps an IPv4 address and an unparseable value as they are", () => {
+    assert.strictEqual(rateLimitKey("203.0.113.7"), "203.0.113.7");
+    assert.strictEqual(rateLimitKey("not:an:ip"), "not:an:ip");
+    assert.strictEqual(rateLimitKey("1:2:3:4:5:6:7:8:9"), "1:2:3:4:5:6:7:8:9");
+  });
+
+  it("keys an IPv4-mapped IPv6 address as its IPv4", () => {
+    assert.strictEqual(rateLimitKey("::ffff:192.0.2.1"), "192.0.2.1");
+    assert.strictEqual(rateLimitKey("::FFFF:c000:201"), "192.0.2.1");
+  });
+
+  it("shares a key inside a /64, however the address is spelled", () => {
+    assert.strictEqual(
+      rateLimitKey("2001:db8::1"),
+      rateLimitKey("2001:0db8:0000:0000:0000:0000:0000:0002"),
+    );
+    assert.strictEqual(
+      rateLimitKey("2001:db8:1:2:aaaa::1"),
+      rateLimitKey("2001:DB8:1:2:bbbb:cccc:dddd:eeee"),
+    );
+  });
+
+  it("separates different /64 prefixes", () => {
+    assert.notStrictEqual(rateLimitKey("2001:db8:0:1::1"), rateLimitKey("2001:db8:0:2::1"));
+    assert.strictEqual(rateLimitKey("2001:db8::1"), "2001:db8:0:0::/64");
   });
 });
 
