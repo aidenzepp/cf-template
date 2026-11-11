@@ -251,12 +251,12 @@ const text = (response: HarnessResponse) =>
   });
 
 /**
- * Load `/` with a cookie the stub reads and return the page.
+ * Load a page with a cookie the stub reads and return it.
  */
-const sessionState = (cookie: string) =>
+const sessionState = (cookie: string, path = "/") =>
   Effect.gen(function* state() {
     const web = yield* WebProd;
-    const response = yield* web.request("/", { headers: { accept: "text/html", cookie } });
+    const response = yield* web.request(path, { headers: { accept: "text/html", cookie } });
     const html = yield* text(response);
 
     return { html, status: response.status };
@@ -358,11 +358,15 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
   it.effect("answers GET / from TanStack and GET /missing with TanStack's 404", () =>
     Effect.gen(function* pages() {
       const web = yield* WebProd;
-      const home = yield* web.request("/", { headers: { accept: "text/html" } });
+
+      const home = yield* web.request("/", {
+        headers: { accept: "text/html", cookie: "stub=in" },
+      });
+
       const missing = yield* web.request("/missing", { headers: { accept: "text/html" } });
 
       expect(home.status).toBe(200);
-      expect(yield* text(home)).toContain('<main data-session="signedOut">web</main>');
+      expect(yield* text(home)).toContain("<main>web</main>");
       expect(missing.status).toBe(404);
     }),
   );
@@ -478,8 +482,11 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
 
   it.effect("derives signedOut from a 401 and from a null session", () =>
     Effect.gen(function* signedOut() {
-      expect((yield* sessionState("stub=401")).html).toContain('data-session="signedOut"');
-      expect((yield* sessionState("stub=none")).html).toContain('data-session="signedOut"');
+      for (const cookie of ["stub=401", "stub=none"]) {
+        expect((yield* sessionState(cookie, "/sign-in")).html).toContain(
+          'data-session="signedOut"',
+        );
+      }
     }),
   );
 
@@ -542,6 +549,71 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
 
         expect(response.status).toBe(307);
         expect(response.headers.get("location")).toBe("/");
+      }
+    }),
+  );
+
+  it.effect("redirects a signedOut / root-relative to /sign-in?redirect=%2F", () =>
+    Effect.gen(function* signedOutHome() {
+      const web = yield* WebProd;
+
+      for (const cookie of ["stub=401", "stub=none"]) {
+        const response = yield* web.request("/", { headers: { accept: "text/html", cookie } });
+
+        expect(response.status).toBe(307);
+        expect(response.headers.get("location")).toBe("/sign-in?redirect=%2F");
+      }
+    }),
+  );
+
+  it.effect("renders / with the shell for unknown, never redirecting or showing Sign in", () =>
+    Effect.gen(function* unknownHome() {
+      const { html, status } = yield* sessionState("stub=503");
+
+      expect(status).toBe(200);
+      expect(html).toContain('data-session="unknown"');
+      expect(html).toContain('aria-label="Loading account"');
+      expect(html).not.toContain("Sign in");
+    }),
+  );
+
+  it.effect("paints the skeleton, not the menu or Sign in, on a signedIn full load", () =>
+    Effect.gen(function* signedInHome() {
+      const { html, status } = yield* sessionState("stub=in");
+
+      expect(status).toBe(200);
+      expect(html).toContain('data-session="signedIn"');
+      expect(html).toContain('aria-label="Loading account"');
+      expect(html).toContain('aria-label="Main"');
+      expect(html).toContain(">Home<");
+      expect(html).not.toContain("Account menu");
+      expect(html).not.toContain("Sign in");
+    }),
+  );
+
+  it.effect("shows Sign in in the signedOut shell and sets the theme script", () =>
+    Effect.gen(function* signedOutShell() {
+      const { html } = yield* sessionState("stub=401", "/sign-in");
+
+      expect(html).toContain('href="/sign-in"');
+      expect(html).toContain("prefers-color-scheme: dark");
+      expect(html).not.toContain('aria-label="Main"');
+    }),
+  );
+
+  it.effect("sets Cache-Control: private, no-store on every HTML response", () =>
+    Effect.gen(function* noStore() {
+      const web = yield* WebProd;
+
+      for (const [path, cookie] of [
+        ["/", "stub=in"],
+        ["/sign-in", "stub=401"],
+        ["/sign-up", "stub=401"],
+        ["/missing", "stub=401"],
+      ] as const) {
+        const response = yield* web.request(path, { headers: { accept: "text/html", cookie } });
+
+        expect([path, response.headers.get("cache-control")]).toEqual([path, "private, no-store"]);
       }
     }),
   );
