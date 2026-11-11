@@ -25,7 +25,28 @@ export default {
 };
 `;
 
-const authScript = `export default { fetch() { return new Response("auth", { status: 500 }); } };`;
+const authScript = `export default { fetch() { throw new Error("auth is down"); } };`;
+
+/**
+ * The entry: it forwards each request to `web` and turns `x-test-sec-fetch-mode` into
+ * `Sec-Fetch-Mode`, which a browser sets and the Node fetch of the test overwrites.
+ */
+const driverScript = `
+export default {
+  fetch(request, env) {
+    const headers = new Headers(request.headers);
+    const mode = headers.get("x-test-sec-fetch-mode");
+    headers.delete("x-test-sec-fetch-mode");
+    if (mode !== null) headers.set("sec-fetch-mode", mode);
+    return env.WEB.fetch(new Request(request, { headers, redirect: "manual" }));
+  },
+};
+`;
+
+// The router stamps each match with the time it rendered; nothing else differs between renders.
+const withoutClock = (html: string) => html.replaceAll(/u:\d+/gu, "u:0");
+
+const HTML_ACCEPT = { accept: "text/html" } satisfies Record<string, string>;
 
 /**
  * The response type of a Miniflare dispatch, which is not the global `Response`.
@@ -41,6 +62,7 @@ class WebProd extends Context.Service<
   {
     readonly get: (
       path: string,
+      headers?: Record<string, string>,
     ) => Effect.Effect<{ readonly html: string; readonly response: HarnessResponse }, HarnessError>;
   }
 >()("@workspace/web/ErrorRoutesWebProd") {}
@@ -84,6 +106,13 @@ const WebProdLive = Layer.effect(WebProd)(
           const instance = new Miniflare({
             workers: [
               {
+                compatibilityDate: "2026-10-26",
+                modules: true,
+                name: "driver",
+                script: driverScript,
+                serviceBindings: { WEB: "web" },
+              },
+              {
                 assets: {
                   directory: client,
                   routerConfig: {
@@ -118,12 +147,12 @@ const WebProdLive = Layer.effect(WebProd)(
     );
 
     return WebProd.of({
-      get: (target) =>
+      get: (target, headers = HTML_ACCEPT) =>
         Effect.tryPromise({
           catch: (cause) => new HarnessError({ message: String(cause) }),
           try: async () => {
             const response = await mf.dispatchFetch(`http://web.test${target}`, {
-              headers: { accept: "text/html" },
+              headers,
               redirect: "manual",
             });
 
@@ -175,6 +204,57 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
       expect(html).toContain("Go to the home page");
       // The whole document, the router's dehydrated state in `<script>` included.
       expect(html).not.toContain(HARNESS_DEFECT);
+    }),
+  );
+
+  const callback = "/auth/callback/github";
+
+  const OUTAGE_HEADING = "Sign-in is unavailable right now.";
+
+  it.effect("answers a failed forward to a navigation with the /unavailable body", () =>
+    Effect.gen(function* navigation() {
+      const web = yield* WebProd;
+      const page = yield* web.get("/unavailable");
+
+      const navigations: readonly Record<string, string>[] = [
+        { "x-test-sec-fetch-mode": "navigate" },
+        { accept: "text/html" },
+      ];
+
+      for (const headers of navigations) {
+        const { html, response } = yield* web.get(callback, headers);
+
+        expect(response.status).toBe(502);
+        expect(response.headers.get("content-type")).toContain("text/html");
+        expect(response.headers.get("vary")).toBe("Sec-Fetch-Mode, Accept");
+        expect(html).toContain(OUTAGE_HEADING);
+        expect(withoutClock(html)).toBe(withoutClock(page.html));
+      }
+    }),
+  );
+
+  it.effect("answers a failed forward to a JSON caller with problem+json", () =>
+    Effect.gen(function* json() {
+      const { html, response } = yield* (yield* WebProd).get(callback, {
+        accept: "application/json",
+      });
+
+      expect(response.status).toBe(502);
+      expect(response.headers.get("content-type")).toBe("application/problem+json");
+      expect(JSON.parse(html)).toEqual({ status: 502, title: "Bad Gateway", type: "about:blank" });
+    }),
+  );
+
+  it.effect("renders the failed forward with the markup /unavailable renders for the cookie", () =>
+    Effect.gen(function* themed() {
+      const web = yield* WebProd;
+      const headers = { accept: "text/html", cookie: "theme=dark" };
+      const page = yield* web.get("/unavailable", headers);
+      const failed = yield* web.get(callback, headers);
+
+      expect(failed.response.status).toBe(502);
+      expect(withoutClock(failed.html)).toBe(withoutClock(page.html));
+      expect(failed.html).toContain(OUTAGE_HEADING);
     }),
   );
 });
