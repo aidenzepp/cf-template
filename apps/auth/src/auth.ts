@@ -30,12 +30,23 @@ const DEV_ORIGIN = `http://localhost:${WEB_DEV_PORT}`;
  * Send one message through the `Mailer` of the services `run` carries. With no add-in that is
  * `Mailer.None`, which logs one warning and sends nothing.
  *
+ * Better Auth hands the returned Promise to `runInBackgroundOrAwait`, and Alchemy's `BetterAuth`
+ * installs a `backgroundTasks.handler` that settles it after the response is sent (the request
+ * scope's finalizer, run through `waitUntil`). So the reset response does not wait on the mailer,
+ * and an existing and a missing account answer alike. A failure is caught here and logged as the
+ * fixed event `auth.mail.failed`, with neither the cause, the address nor the body; the Promise
+ * never rejects.
+ *
  * @param run - Runs an effect with the services the instance was built under.
  * @param mail - The message.
- * @returns A Promise that settles when the mailer has.
+ * @returns A Promise that always fulfills once the mailer has settled.
  */
 const sendMail = (run: RunEffect, mail: typeof Mail.Type) =>
-  run(Mailer.use(({ send }) => send(mail)));
+  run(
+    Mailer.use(({ send }) => send(mail)).pipe(
+      Effect.catchCause(() => Effect.logWarning("auth.mail.failed")),
+    ),
+  );
 
 /**
  * The email and password options, the mail callbacks and the plugins for one scrypt cost and one

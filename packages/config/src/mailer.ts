@@ -10,16 +10,13 @@ export const Mail = Schema.Struct({
 });
 
 /**
- * The failure of one send: the provider refused the message or could not be reached.
+ * The failure of one send: the provider refused the message or could not be reached. The `message`
+ * must not carry the recipient address or the mail body; the add-in that raises it keeps both out.
  */
 export class MailerError extends Schema.TaggedError<MailerError>()("MailerError", {
   cause: Schema.Unknown,
-  to: Schema.String,
-}) {
-  override get message(): string {
-    return `The mail provider could not send the message to ${this.to}.`;
-  }
-}
+  message: Schema.String,
+}) {}
 
 /**
  * The capability to send one message.
@@ -29,14 +26,12 @@ interface MailerService {
 }
 
 /**
- * The sender used when no mail add-in provides one: it logs one warning naming the recipient and
- * the subject, never the body, and sends nothing.
+ * The sender used when no mail add-in provides one: it logs one warning with the fixed event name
+ * and the subject, never the recipient address or the body, and sends nothing.
  */
 const None: MailerService = {
   send: Effect.fn("Mailer.None.send")(function* send(mail) {
-    yield* Effect.logWarning("mailer.none").pipe(
-      Effect.annotateLogs({ subject: mail.subject, to: mail.to }),
-    );
+    yield* Effect.logWarning("mailer.none").pipe(Effect.annotateLogs({ subject: mail.subject }));
   }),
 };
 

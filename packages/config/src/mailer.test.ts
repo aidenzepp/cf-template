@@ -3,13 +3,12 @@ import { Effect, Logger, References } from "effect";
 import { Mailer } from "./mailer.ts";
 
 /**
- * A log line as the test logger captures it: level, message and the two annotations.
+ * A log line as the test logger captures it: level, message and every annotation.
  */
 interface Captured {
+  readonly annotations: typeof References.CurrentLogAnnotations.Service;
   readonly level: string;
   readonly message: unknown;
-  readonly subject: unknown;
-  readonly to: unknown;
 }
 
 /**
@@ -26,10 +25,9 @@ const capture = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
       const annotations = fiber.getRef(References.CurrentLogAnnotations);
 
       lines.push({
+        annotations,
         level: logLevel,
         message: Array.isArray(message) ? message[0] : message,
-        subject: annotations.subject,
-        to: annotations.to,
       });
     });
 
@@ -47,15 +45,17 @@ describe("Mailer", () => {
     }),
   );
 
-  it.effect("sends nothing and writes one mailer.none warning with the recipient and subject", () =>
+  it.effect("sends nothing and writes one mailer.none warning with the subject only", () =>
     Effect.gen(function* sends() {
       const { lines } = yield* capture(
         Mailer.use(({ send }) => send({ subject: "Reset", text: "secret body", to: "a@b.test" })),
       );
 
       assert.deepStrictEqual(lines, [
-        { level: "Warn", message: "mailer.none", subject: "Reset", to: "a@b.test" },
+        { annotations: { subject: "Reset" }, level: "Warn", message: "mailer.none" },
       ]);
+      assert.isFalse(JSON.stringify(lines).includes("a@b.test"));
+      assert.isFalse(JSON.stringify(lines).includes("secret body"));
     }),
   );
 });
