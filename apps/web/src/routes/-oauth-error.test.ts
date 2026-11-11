@@ -1,8 +1,7 @@
-import { NodeFileSystem } from "@effect/platform-node";
+import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { describe, expect, it } from "@effect/vitest";
 import { OAUTH_ERROR_PATH } from "@workspace/contract/domain/auth-paths";
-import { Effect, FileSystem } from "effect";
-import { fileURLToPath } from "node:url";
+import { Effect, FileSystem, Layer, Path } from "effect";
 import { OAUTH_ERROR_CODES, oauthErrorCode, oauthErrorCopy } from "../lib/oauth-error-copy.ts";
 
 /**
@@ -46,11 +45,13 @@ describe("/oauth-error copy", () => {
     Effect.gen(function* tree() {
       const fs = yield* FileSystem.FileSystem;
 
+      const path = yield* Path.Path;
+
       const source = yield* fs.readFileString(
-        fileURLToPath(new URL("../route-tree.gen.ts", import.meta.url)),
+        yield* path.fromFileUrl(new URL("../route-tree.gen.ts", import.meta.url)),
       );
 
       expect(source).toContain(`path: '${OAUTH_ERROR_PATH}'`);
-    }).pipe(Effect.provide(NodeFileSystem.layer)),
+    }).pipe(Effect.provide(Layer.merge(BunFileSystem.layer, BunPath.layer))),
   );
 });

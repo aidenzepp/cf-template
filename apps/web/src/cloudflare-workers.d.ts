@@ -17,6 +17,7 @@ declare module "cloudflare:workers" {
       ) => Promise<Response>;
     };
     readonly AUTH_METHODS: string;
+    readonly AUTH_ORPHAN_GRACE_SECONDS: string;
     readonly PUBLIC_ORIGIN: string;
   };
 }

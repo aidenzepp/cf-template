@@ -1,5 +1,10 @@
 import { createRouter } from "@tanstack/react-router";
-import { authMethodsText, hydrateAuthMethods } from "./runtime.ts";
+import {
+  authMethodsText,
+  hydrateAuthMethods,
+  hydrateOrphanGrace,
+  orphanGraceText,
+} from "./runtime.ts";
 import { routeTree } from "./route-tree.gen.ts";
 
 /**
@@ -11,9 +16,10 @@ import { routeTree } from "./route-tree.gen.ts";
  */
 export const getRouter = () =>
   createRouter({
-    dehydrate: () => ({ authMethods: authMethodsText() }),
-    hydrate: ({ authMethods }) => {
+    dehydrate: () => ({ authMethods: authMethodsText(), orphanGrace: orphanGraceText() }),
+    hydrate: ({ authMethods, orphanGrace }) => {
       hydrateAuthMethods(authMethods);
+      hydrateOrphanGrace(orphanGrace);
     },
     routeTree,
   });

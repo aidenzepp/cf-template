@@ -12,5 +12,6 @@ export interface WebEnv {
   readonly API: ServiceBinding;
   readonly AUTH: ServiceBinding;
   readonly AUTH_METHODS: string;
+  readonly AUTH_ORPHAN_GRACE_SECONDS: string;
   readonly PUBLIC_ORIGIN: string;
 }

@@ -10,6 +10,7 @@
     "./plan": "./src/plan.ts",
     "./auth-methods": "./src/auth-methods.ts",
     "./public-origin": "./src/public-origin.ts",
+    "./auth-orphan-grace": "./src/auth-orphan-grace.ts",
     "./auth-password": "./src/auth-password.ts",
     "./mailer": "./src/mailer.ts"
   },

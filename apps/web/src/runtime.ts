@@ -4,12 +4,17 @@ import { Layer, ManagedRuntime } from "effect";
 import { AtomRegistry } from "effect/reactivity";
 import type { Effect } from "effect";
 import { ApiClient } from "./api-client.ts";
-import { makeWebLayer } from "./web-layer.ts";
+import { makeOrphanGraceLayer, makeWebLayer } from "./web-layer.ts";
 
 /**
  * The `AUTH_METHODS` text the server handed to the browser through the router's dehydrated state.
  */
 let hydratedAuthMethods = "";
+
+/**
+ * The `AUTH_ORPHAN_GRACE_SECONDS` text the server handed to the browser the same way.
+ */
+let hydratedOrphanGrace = "";
 
 /**
  * The `AUTH_METHODS` text of this environment: the Worker's binding on the server, the hydrated
@@ -18,6 +23,24 @@ let hydratedAuthMethods = "";
 export const authMethodsText = createIsomorphicFn()
   .server(() => env.AUTH_METHODS)
   .client(() => hydratedAuthMethods);
+
+/**
+ * The `AUTH_ORPHAN_GRACE_SECONDS` text of this environment: the Worker's binding on the server, the
+ * hydrated copy in the browser.
+ */
+export const orphanGraceText = createIsomorphicFn()
+  .server(() => env.AUTH_ORPHAN_GRACE_SECONDS)
+  .client(() => hydratedOrphanGrace);
+
+/**
+ * Remember the `AUTH_ORPHAN_GRACE_SECONDS` text the server dehydrated, before the browser's runtime
+ * is built.
+ *
+ * @param text - The text `infra` bound.
+ */
+export const hydrateOrphanGrace = (text: string): void => {
+  hydratedOrphanGrace = text;
+};
 
 /**
  * Remember the `AUTH_METHODS` text the server dehydrated, before the browser's runtime is built.
@@ -33,8 +56,9 @@ export const hydrateAuthMethods = (text: string): void => {
  */
 const makeRuntime = () =>
   ManagedRuntime.make(
-    Layer.merge(
+    Layer.mergeAll(
       makeWebLayer({ AUTH_METHODS: authMethodsText() }),
+      makeOrphanGraceLayer({ AUTH_ORPHAN_GRACE_SECONDS: orphanGraceText() }),
       AtomRegistry.make().get(ApiClient.runtime.layer),
     ),
   );
