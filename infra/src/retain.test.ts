@@ -1,3 +1,4 @@
+import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
 import { RemovalPolicy } from "alchemy";
 import { Effect, Option } from "effect";
@@ -23,7 +24,7 @@ describe("D1 removal policy", () => {
         const policy = yield* declare(reportPolicy, "stack", "prod", Option.none());
 
         assert.strictEqual(policy, "retain");
-      }),
+      }).pipe(Effect.provide(BunServices.layer)),
     );
 
     it.effect(`declares the ${name} database as destroyed on a test stage`, () =>
@@ -31,7 +32,7 @@ describe("D1 removal policy", () => {
         const policy = yield* declare(reportPolicy, "stack", "test-i05", Option.none());
 
         assert.strictEqual(policy, "destroy");
-      }),
+      }).pipe(Effect.provide(BunServices.layer)),
     );
   }
 });
