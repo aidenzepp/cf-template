@@ -147,7 +147,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("@workspace/ap
       Effect.gen(function* buildD1Notes() {
         const database = (yield* NotesDatabase).pipe(Effect.orDie);
 
-        const list: NotesService["list"] = Effect.fn("Notes.list")(function* list(owner) {
+        const list: NotesService["list"] = Effect.fn("notes.list")(function* list(owner) {
           const { db } = yield* database;
 
           const rows = yield* db
@@ -160,7 +160,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("@workspace/ap
           return rows.map(toNote);
         });
 
-        const get: NotesService["get"] = Effect.fn("Notes.get")(function* get(owner, id) {
+        const get: NotesService["get"] = Effect.fn("notes.get")(function* get(owner, id) {
           const { db } = yield* database;
 
           const rows = yield* db
@@ -178,7 +178,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("@workspace/ap
           return toNote(row);
         });
 
-        const create: NotesService["create"] = Effect.fn("Notes.create")(
+        const create: NotesService["create"] = Effect.fn("notes.create")(
           function* create(owner, input) {
             yield* requireWithinBounds(input);
 
@@ -220,7 +220,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("@workspace/ap
           },
         );
 
-        const update: NotesService["update"] = Effect.fn("Notes.update")(
+        const update: NotesService["update"] = Effect.fn("notes.update")(
           function* update(owner, id, patch) {
             yield* requireWithinBounds(patch);
 
@@ -247,7 +247,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("@workspace/ap
           },
         );
 
-        const remove: NotesService["remove"] = Effect.fn("Notes.remove")(
+        const remove: NotesService["remove"] = Effect.fn("notes.remove")(
           function* remove(owner, id) {
             const { client, db } = yield* database;
 
@@ -299,7 +299,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("@workspace/ap
 
       const list: NotesService["list"] = (owner) => heldBy(owner);
 
-      const create: NotesService["create"] = Effect.fn("Notes.create")(
+      const create: NotesService["create"] = Effect.fn("notes.create")(
         function* create(owner, input) {
           const held = yield* heldBy(owner);
 
@@ -323,9 +323,9 @@ export class Notes extends Context.Service<Notes, NotesService>()("@workspace/ap
         },
       );
 
-      const get: NotesService["get"] = Effect.fn("Notes.get")(find);
+      const get: NotesService["get"] = Effect.fn("notes.get")(find);
 
-      const update: NotesService["update"] = Effect.fn("Notes.update")(
+      const update: NotesService["update"] = Effect.fn("notes.update")(
         function* update(owner, id, patch) {
           const existing = yield* find(owner, id);
           const held = yield* heldBy(owner);
@@ -347,7 +347,7 @@ export class Notes extends Context.Service<Notes, NotesService>()("@workspace/ap
         },
       );
 
-      const remove: NotesService["remove"] = Effect.fn("Notes.remove")(function* remove(owner, id) {
+      const remove: NotesService["remove"] = Effect.fn("notes.remove")(function* remove(owner, id) {
         yield* find(owner, id);
 
         const held = yield* heldBy(owner);
