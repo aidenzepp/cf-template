@@ -1,7 +1,9 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Logger, Predicate, Ref } from "effect";
+import { Effect, Layer, Logger, Predicate, Ref } from "effect";
 import { TestClock } from "effect/testing";
-import { makeCheck, periodEnd } from "./live.ts";
+import { RequestGuard, WorkerBindings, isKvReader } from "@workspace/config/web-guard";
+import { BudgetGuardLive, makeCheck } from "./live.ts";
+import { periodEnd } from "./latch.ts";
 
 const BODY =
   '{"type":"/problems/budget-latched","title":"Service paused","status":503,"detail":"Request volume crossed the project\'s budget line; serving resumes when the latch clears."}';
@@ -84,6 +86,91 @@ describe("makeCheck", () => {
       const { logs, responses } = yield* ask(Effect.fail("kv down"), ["/", "/", "/"], 31);
 
       assert.deepStrictEqual(responses, [undefined, undefined, undefined]);
+      assert.deepStrictEqual(logs, ["Error:web.guard.read_error"]);
+    }),
+  );
+});
+
+/**
+ * Ask `BudgetGuardLive` about `/` with `bindings` as the env of the Worker, collecting its logs.
+ */
+const askWithBindings = (bindings: { readonly GUARD_KV?: unknown }) =>
+  Effect.gen(function* asking() {
+    const logs: Array<string> = [];
+
+    const logger = Logger.make(({ message, logLevel }) => {
+      logs.push(`${logLevel}:${String(message)}`);
+    });
+
+    const response = yield* Effect.gen(function* running() {
+      const guard = yield* RequestGuard;
+
+      return yield* guard.check(new Request("https://app.test/"));
+    }).pipe(
+      Effect.provide(
+        BudgetGuardLive.pipe(
+          Layer.provide(
+            Layer.succeed(WorkerBindings, {
+              kv: (name) =>
+                name === "GUARD_KV" && isKvReader(bindings.GUARD_KV)
+                  ? bindings.GUARD_KV
+                  : undefined,
+            }),
+          ),
+        ),
+      ),
+      Effect.provide(Logger.layer([logger])),
+    );
+
+    return { logs, response };
+  });
+
+describe("BudgetGuardLive", () => {
+  it.effect("refuses when the GUARD_KV binding holds the latch", () =>
+    Effect.gen(function* latched() {
+      const keys: Array<string> = [];
+
+      const { response } = yield* askWithBindings({
+        GUARD_KV: {
+          get: (key: string) => {
+            keys.push(key);
+
+            return Promise.resolve('{"latched":true}');
+          },
+        },
+      });
+
+      assert.strictEqual(response?.status, 503);
+      assert.deepStrictEqual(keys, ["state"]);
+    }),
+  );
+
+  it.effect("serves when the GUARD_KV binding holds no latch", () =>
+    Effect.gen(function* clear() {
+      const { response } = yield* askWithBindings({
+        GUARD_KV: { get: () => Promise.resolve(null) },
+      });
+
+      assert.strictEqual(response, undefined);
+    }),
+  );
+
+  it.effect("serves and logs web.guard.read_error when the binding is missing", () =>
+    Effect.gen(function* missing() {
+      const { logs, response } = yield* askWithBindings({});
+
+      assert.strictEqual(response, undefined);
+      assert.deepStrictEqual(logs, ["Error:web.guard.read_error"]);
+    }),
+  );
+
+  it.effect("serves and logs web.guard.read_error when the read rejects", () =>
+    Effect.gen(function* rejected() {
+      const { logs, response } = yield* askWithBindings({
+        GUARD_KV: { get: () => Promise.reject(new Error("kv down")) },
+      });
+
+      assert.strictEqual(response, undefined);
       assert.deepStrictEqual(logs, ["Error:web.guard.read_error"]);
     }),
   );

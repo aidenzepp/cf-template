@@ -16,7 +16,8 @@
     "./limits": "./src/limits.ts",
     "./mailer": "./src/mailer.ts",
     "./observability": "./src/observability.ts",
-    "./waf": "./src/waf.ts"
+    "./waf": "./src/waf.ts",
+    "./web-guard": "./src/web-guard.ts"
   },
   "dependencies": {
     "effect": "4.1.2"
