@@ -146,6 +146,7 @@ export default defineConfig({
   fmt: {
     ignorePatterns: [
       ".agents/**",
+      ".mirrors/**",
       ".worktrees/**",
       "**/*.gen.ts",
       "apps/auth/src/db/schema.ts",
@@ -165,6 +166,7 @@ export default defineConfig({
     extends: [core, antiSlop, shadcn, drizzle],
     ignorePatterns: [
       ".agents/**",
+      ".mirrors/**",
       ".worktrees/**",
       "**/*.gen.ts",
       "apps/auth/src/db/schema.ts",

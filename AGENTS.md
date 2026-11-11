@@ -53,6 +53,10 @@ Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and 
 
 Use Effect `Config` for environment-backed settings. Define decoding, constraints, optional values, and missing-value defaults in Config and Schema; invalid supplied values fail through the Effect error channel. Parse at the owning runtime boundary and test with `ConfigProvider.fromUnknown` rather than mutating the host environment.
 
+## Upstream source
+
+Installed packages carry their source: read `node_modules/<package>/src` and `node_modules/effect/AGENTS.md` first. For upstream docs, examples and source that npm does not ship (Alchemy, Better Auth, Drizzle, TanStack), run `bun run mirrors` once (47 MB on disk), then read `.mirrors/INDEX.md`.
+
 ## Schema intent
 
 Data models shape the rest of the project. Before changing a schema, establish the expected domain meaning, data preservation requirements, and compatibility preferences from the user's instructions and current project context. If those expectations are unclear, check with the user before making consequential assumptions. Do not ask again when the relevant expectation is already settled.
