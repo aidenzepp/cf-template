@@ -1,12 +1,18 @@
 {
   "name": "typescript-template",
   "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "infra"
+  ],
   "type": "module",
   "scripts": {
     "check": "vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings",
     "fix": "vp check --fix",
     "test": "bun test tools/lint && vp test",
-    "prepare": "vp config --no-agent && bun tools/supdoc/install.ts"
+    "prepare": "vp config --no-agent && bun tools/supdoc/install.ts",
+    "build": "vp run -r build"
   },
   "dependencies": {
     "effect": "4.1.2"

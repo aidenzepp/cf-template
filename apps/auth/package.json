@@ -1,0 +1,7 @@
+{
+  "name": "@workspace/auth",
+  "private": true,
+  "description": "Owns the Better Auth instance, the auth D1, checkSession, its Tag and Shape in contract.ts. Must not own app data, product routes, UI, or any public address except through web.",
+  "type": "module",
+  "exports": {}
+}

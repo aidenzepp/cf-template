@@ -1,0 +1,7 @@
+{
+  "name": "@workspace/contract",
+  "private": true,
+  "description": "Owns HttpApi definitions, domain schemas, Problem classes, Session. Must not own Tags, implementations, runtime services, Config reads, UI, or any workspace or @alchemy.run/* import.",
+  "type": "module",
+  "exports": {}
+}

@@ -1,0 +1,7 @@
+{
+  "name": "@workspace/api",
+  "private": true,
+  "description": "Owns product logic, the app D1 (declaration, schema, migrations), the HttpApi handlers, the session middleware, GET /api/session. Must not own credentials, session issuing, public routing, UI, imports of web, or imports of auth beyond /contract.",
+  "type": "module",
+  "exports": {}
+}
