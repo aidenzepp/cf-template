@@ -21,7 +21,7 @@ export const DEFAULT_LABELS = [
  * The ruleset the program owns once an analysis exists: CodeQL results gate the default branch.
  * Body from "Create a repository ruleset", rule type `code_scanning`.
  */
-const CODE_SCANNING_RULESET = {
+export const CODE_SCANNING_RULESET = {
   conditions: { ref_name: { exclude: [], include: ["~DEFAULT_BRANCH"] } },
   enforcement: "active",
   name: "code-scanning",

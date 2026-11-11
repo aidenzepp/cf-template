@@ -59,6 +59,7 @@ export interface Reply {
  * @param capabilities - The tier's capabilities.
  * @param answer - The reply per `METHOD path` and query string; return `undefined` for the default,
  *   204.
+ * @param environment - Extra configuration entries, such as `GITHUB_REPOSITORY`.
  * @returns The run, the recorded `METHOD path` list with bodies, and the printed lines.
  */
 export const harness = <A, E>(
@@ -68,6 +69,7 @@ export const harness = <A, E>(
   ) => Effect.Effect<A, E, HttpClient.HttpClient>,
   capabilities: ReadonlyArray<Capability>,
   answer?: (call: string, search: string) => Reply | undefined,
+  environment: Record<string, string> = {},
 ) => {
   const requests: Array<{ readonly call: string; readonly body: unknown }> = [];
   const lines: Array<string> = [];
@@ -97,7 +99,9 @@ export const harness = <A, E>(
     ),
   );
 
-  const config = ConfigProvider.layer(ConfigProvider.fromUnknown({ GITHUB_TOKEN: "ghp_secret" }));
+  const config = ConfigProvider.layer(
+    ConfigProvider.fromUnknown({ GITHUB_TOKEN: "ghp_secret", ...environment }),
+  );
 
   const run = runWith(repository, { capabilities: new Set(capabilities) }).pipe(
     Effect.provide([client, config]),
