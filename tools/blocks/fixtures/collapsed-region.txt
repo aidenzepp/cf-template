@@ -1,0 +1,5 @@
+import { NotesLive } from "./notes/notes.ts";
+
+// block:NotesLive start
+export const BlocksLive = Layer.mergeAll(NotesLive);
+// block:NotesLive end

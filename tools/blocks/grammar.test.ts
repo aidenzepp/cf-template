@@ -84,9 +84,45 @@ it.effect(
 
       assert.strictEqual(
         error.message,
-        "collapsed attach line collapsed-unit:4: put NotesLive on its own line with // block:NotesLive",
+        "collapsed attach line collapsed-unit:4: put NotesLive on its own line between // block:NotesLive start and // block:NotesLive end",
       );
     }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("a yield* call normalizes to its head identifier", () =>
+  Effect.gen(function* call() {
+    assert.deepStrictEqual(yield* attached("yield", "yield-call"), [
+      "knobsNamespace",
+      "BudgetGuard",
+    ]);
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("a collapsed line of only its own unit inside its marker region passes", () =>
+  Effect.gen(function* region() {
+    const text = yield* fixture("collapsed-region");
+    const lines = yield* parseAttach("mergeAll", "collapsed-region", text, ["NotesLive"]);
+
+    assert.deepStrictEqual(
+      lines.map((line) => line.name),
+      ["NotesLive"],
+    );
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("a collapsed list mixing a region-marked unit with core entries still fails", () =>
+  Effect.gen(function* mixed() {
+    const text = yield* fixture("collapsed-mixed-region");
+
+    const error = yield* Effect.flip(
+      parseAttach("mergeAll", "collapsed-mixed-region", text, ["NotesLive"]),
+    );
+
+    assert.strictEqual(
+      error.message,
+      "collapsed attach line collapsed-mixed-region:5: put NotesLive on its own line between // block:NotesLive start and // block:NotesLive end",
+    );
+  }).pipe(Effect.provide(BunServices.layer)),
 );
 
 it.effect("comment text never parses as an attach form", () =>

@@ -69,7 +69,7 @@ const statements = {
     suspect: /\.add\(/u,
   },
   yield: {
-    entry: new RegExp(String.raw`^\s*yield\*\s+${identifier};\s*$`, "u"),
+    entry: new RegExp(String.raw`^\s*yield\*\s+${identifier}(?:\.[\w$]+)*(?:\([^;]*\))?;\s*$`, "u"),
     suspect: /^\s*yield\*/u,
   },
 } as const;
@@ -128,9 +128,42 @@ type Collapsed =
   | { readonly kind: "unknown" };
 
 /**
- * Classifies the collapsed `Layer.mergeAll(...)` on `text` against the unit names `units`.
+ * The marker lines that open and close a unit's region: `// block:<unit> start` and
+ * `// block:<unit> end`, each on its own line.
  */
-const classifyCollapsed = (text: string, units: ReadonlySet<string>): Collapsed => {
+const marker = /^\s*\/\/\s*block:(?<unit>[\w$-]+) (?<edge>start|end)\s*$/u;
+
+/**
+ * The unit whose marker region holds each line of `text`, by line index, or `undefined` outside a
+ * region.
+ */
+const regionOwners = (text: string): ReadonlyArray<string | undefined> => {
+  const owners: Array<string | undefined> = [];
+  let owner: string | undefined;
+
+  for (const line of text.split("\n")) {
+    const found = marker.exec(line)?.groups;
+
+    if (found !== undefined) {
+      owner = found.edge === "start" ? found.unit : undefined;
+    }
+
+    owners.push(found === undefined ? owner : undefined);
+  }
+
+  return owners;
+};
+
+/**
+ * Classifies the collapsed `Layer.mergeAll(...)` on `text` against the unit names `units`. A list
+ * made only of the name of `owner`, the unit whose marker region holds the line, is that unit's own
+ * line.
+ */
+const classifyCollapsed = (
+  text: string,
+  units: ReadonlySet<string>,
+  owner: string | undefined,
+): Collapsed => {
   const list = collapsedMergeAll.exec(text)?.groups?.list;
 
   const names = (list ?? "")
@@ -144,7 +177,9 @@ const classifyCollapsed = (text: string, units: ReadonlySet<string>): Collapsed 
 
   const unit = names.find((name) => units.has(name));
 
-  return unit === undefined ? { kind: "core", names } : { kind: "unit", unit };
+  const own = owner !== undefined && names.every((name) => name === owner);
+
+  return unit === undefined || own ? { kind: "core", names } : { kind: "unit", unit };
 };
 
 /**
@@ -156,6 +191,7 @@ const scanRegion = (
   file: string,
   lines: ReadonlyArray<string>,
   units: ReadonlySet<string>,
+  owners: ReadonlyArray<string | undefined>,
 ): Scan => {
   const region = regions[form];
   const attach: Array<AttachLine> = [];
@@ -166,7 +202,8 @@ const scanRegion = (
     const name = entry.exec(text)?.groups?.name;
 
     if (!inside && region.collapsed.test(text)) {
-      const collapsed = form === "mergeAll" ? classifyCollapsed(text, units) : undefined;
+      const collapsed =
+        form === "mergeAll" ? classifyCollapsed(text, units, owners[index]) : undefined;
 
       if (collapsed?.kind === "core") {
         attach.push(...collapsed.names.map((entryName) => ({ file, form, line, name: entryName })));
@@ -228,7 +265,8 @@ const scanStatements = (
  * attach lines and are ignored, and so is every comment. The first line of an unknown shape fails
  * with `unknown attach shape <file>:<line>`; a collapsed `Layer.mergeAll(...)` holding a name of
  * `units` (the slice and block names of blocks.json) fails with `collapsed attach line
- * <file>:<line>: put <unit> on its own line with // block:<unit>`.
+ * <file>:<line>: put <unit> on its own line between // block:<unit> start and // block:<unit> end`,
+ * unless the line is made only of that unit and sits inside its own marker region.
  */
 export const parseAttach = (
   form: AttachForm,
@@ -241,7 +279,7 @@ export const parseAttach = (
 
     const { attach, bad, unit } =
       form === "array" || form === "mergeAll"
-        ? scanRegion(form, file, lines, new Set(units))
+        ? scanRegion(form, file, lines, new Set(units), regionOwners(text))
         : scanStatements(form, file, lines);
 
     return bad === undefined
@@ -253,7 +291,7 @@ export const parseAttach = (
             message:
               unit === undefined
                 ? `unknown attach shape ${file}:${bad}`
-                : `collapsed attach line ${file}:${bad}: put ${unit} on its own line with // block:${unit}`,
+                : `collapsed attach line ${file}:${bad}: put ${unit} on its own line between // block:${unit} start and // block:${unit} end`,
           }),
         );
   });
