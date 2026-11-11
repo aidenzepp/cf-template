@@ -51,9 +51,18 @@ export const settle = (call: () => PromiseLike<Settled>): Effect.Effect<Settled>
  * @returns One function per action.
  */
 export const settingsCalls = (client: SettingsClient) => ({
+  addPasskey: (name: string) => client.passkey.addPasskey({ name }),
   changePassword: (currentPassword: string, newPassword: string, revokeOtherSessions: boolean) =>
     client.changePassword({ currentPassword, newPassword, revokeOtherSessions }),
+  deletePasskey: (id: string) =>
+    client.$fetch("/passkey/delete-passkey", { body: { id }, method: "POST" }),
+  linkProvider: (provider: string) =>
+    client.linkSocial({ callbackURL: "/settings", errorCallbackURL: "/settings", provider }),
   listAccounts: () => client.listAccounts(),
+  listPasskeys: () => client.$fetch("/passkey/list-user-passkeys", { method: "GET" }),
+  renamePasskey: (id: string, name: string) =>
+    client.$fetch("/passkey/update-passkey", { body: { id, name }, method: "POST" }),
+  unlinkAccount: (accountId: string) => client.unlinkAccount({ accountId }),
   updateProfile: (name: string, image: string) =>
     client.updateUser({ image: image === "" ? null : image, name }),
 });
@@ -63,12 +72,36 @@ export const settingsCalls = (client: SettingsClient) => ({
  */
 const CREDENTIAL_PROVIDER = "credential";
 
-const Accounts = Schema.Array(Schema.Struct({ providerId: Schema.String }));
+const Accounts = Schema.Array(Schema.Struct({ id: Schema.String, providerId: Schema.String }));
 
 /**
  * Decodes the `data` of the account list call.
  */
 export const decodeAccounts = Schema.decodeUnknownOption(Accounts);
+
+/**
+ * Decodes the `data` of the passkey list call. A passkey added with no name has a null name.
+ */
+export const decodePasskeys = Schema.decodeUnknownOption(
+  Schema.Array(
+    Schema.Struct({ id: Schema.String, name: Schema.optional(Schema.NullOr(Schema.String)) }),
+  ),
+);
+
+/**
+ * The label of a passkey added with no name.
+ */
+export const PASSKEY_FALLBACK_NAME = "Unnamed passkey";
+
+/**
+ * The line under the Passkeys heading, shown only when email is off, because then a passkey is the
+ * way back in.
+ *
+ * @param emailLive - Whether email is on.
+ * @returns The line, or `null` when email is on.
+ */
+export const passkeyHint = (emailLive: boolean): string | null =>
+  emailLive ? null : "Without email, a passkey is the way back in if the password is forgotten.";
 
 /**
  * The providers to offer for signing in again. An account with a password, or a list that cannot
