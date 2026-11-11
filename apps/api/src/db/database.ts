@@ -5,6 +5,11 @@ import { Option } from "effect";
 import { APP_MIGRATIONS_DIGEST } from "./migrations-digest.ts";
 
 /**
+ * The logical name of the app D1 resource, the key of its Alchemy state.
+ */
+export const APP_DB_ID = "AppDb";
+
+/**
  * The directory of the committed `drizzle-kit` migrations, which the D1 resource applies on every
  * deploy. It is absolute because Alchemy resolves a relative path against the process directory,
  * not against this module.
@@ -66,7 +71,7 @@ export const declareWith = <A, R>(
   stage: string,
   locationHint: Option.Option<Cloudflare.D1.PrimaryLocationHint>,
 ) =>
-  database("AppDb", d1Props(stack, stage, locationHint)).pipe(
+  database(APP_DB_ID, d1Props(stack, stage, locationHint)).pipe(
     RemovalPolicy.retain(retainsD1(stage)),
   );
 

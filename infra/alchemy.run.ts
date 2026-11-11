@@ -2,10 +2,12 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
 import { Config, Effect, Layer, Schema } from "effect";
 import { Digest } from "effect/crypto";
-import { declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
+import { APP_DB_ID, declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
 import { Stage, stageValues } from "./stages.ts";
 import { declareApi } from "./src/api.ts";
+import { AUTH_DB_ID } from "../apps/auth/src/db/database.ts";
 import { declareAuth } from "./src/auth.ts";
+import { guardLocationHints } from "./src/d1-hint-guard.ts";
 import { d1LocationHint } from "./src/d1-location.ts";
 import { usesProjectState } from "./src/state-selection.ts";
 import { declareWeb } from "./src/web.ts";
@@ -80,6 +82,7 @@ const program = Effect.gen(function* declareStack() {
   const hint = yield* d1LocationHint;
   const values = yield* stageValues(stage);
 
+  yield* guardLocationHints([APP_DB_ID, AUTH_DB_ID], hint);
   yield* declareAppDb(stack, stage, hint);
 
   const auth = yield* declareAuth({ stack, stage }, hint, values);
