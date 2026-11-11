@@ -14,8 +14,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { SyntaxKind } from "typescript/unstable/ast";
 import { createScanner } from "typescript/unstable/ast/scanner";
 
-import { parseAttach } from "./grammar.ts";
-import type { AttachForm } from "./grammar.ts";
+import { attachFormOf, parseAttach, unreadableMessage } from "./grammar.ts";
 import { decodeManifest } from "./manifest.ts";
 import { markedLines } from "./markers.ts";
 import { parseMeter } from "./meters.ts";
@@ -318,33 +317,30 @@ const workspacePackages = Effect.fn("footprint.workspacePackages")(function* wor
 });
 
 /**
- * Reads each attach file of `files` as every form. A collapsed line naming a unit fails the file;
- * any other shape error fails it only when no form reads it.
+ * Reads each attach file of `files` as the one form the pull-out reads it as. A line the form
+ * cannot read fails the file: a collapsed line naming a unit with the grammar's own message, any
+ * other with the file, the line and the shape the form expects.
  */
 const attachFailures = Effect.fn("footprint.attachFailures")(function* attachFailures(
   files: Readonly<Record<string, string>>,
   attachFiles: ReadonlyArray<string>,
   units: ReadonlyArray<string>,
 ) {
-  const forms: ReadonlyArray<AttachForm> = ["add", "array", "mergeAll", "yield"];
   const failures: Array<string> = [];
 
   for (const file of attachFiles.filter((name) => files[name] !== undefined)) {
-    const results = yield* Effect.all(
-      forms.map((form) => Effect.result(parseAttach(form, file, files[file] ?? "", units))),
-    );
+    const form = attachFormOf(file);
+    const result = yield* Effect.result(parseAttach(form, file, files[file] ?? "", units));
 
-    const errors = results.flatMap((result) =>
-      Result.isFailure(result) ? [result.failure.message] : [],
-    );
+    if (Result.isFailure(result)) {
+      const { message } = result.failure;
 
-    const collapsed = errors.filter((message) => message.startsWith("collapsed attach line"));
-
-    failures.push(
-      ...(collapsed.length > 0
-        ? collapsed
-        : errors.slice(0, errors.length === forms.length ? 1 : 0)),
-    );
+      failures.push(
+        message.startsWith("collapsed attach line")
+          ? message
+          : unreadableMessage(result.failure, form),
+      );
+    }
   }
 
   return failures;

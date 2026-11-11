@@ -128,6 +128,32 @@ describe("footprint", () => {
       }),
   );
 
+  it.effect("an attach file with a dotted list entry fails naming the file, line and form", () =>
+    Effect.gen(function* dotted() {
+      const result = yield* footprint({
+        "apps/api/src/blocks.ts":
+          'import { Layer } from "effect";\n\nexport const Attached = Layer.mergeAll(\n  Core,\n  Layer.empty,\n);\n',
+        "blocks.json": manifest,
+      });
+
+      assert.deepStrictEqual(result.failures, [
+        "unknown attach shape apps/api/src/blocks.ts:5: expected one plain identifier per line between `Layer.mergeAll(` and `)`, such as `Name,`",
+      ]);
+    }),
+  );
+
+  it.effect("an attach file whose list holds only plain identifiers passes", () =>
+    Effect.gen(function* plain() {
+      const result = yield* footprint({
+        "apps/api/src/blocks.ts":
+          'import { Layer } from "effect";\n\nexport const Attached = Layer.mergeAll(\n  Core,\n  Extra,\n);\n',
+        "blocks.json": manifest,
+      });
+
+      assert.deepStrictEqual(result.failures, []);
+    }),
+  );
+
   it.effect("a collapsed attach line naming the unit fails with the grammar message", () =>
     Effect.gen(function* collapsed() {
       assert.deepStrictEqual((yield* measured("collapsed")).failures, [

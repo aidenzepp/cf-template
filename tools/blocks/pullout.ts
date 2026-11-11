@@ -12,8 +12,8 @@ import {
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { parseAttach } from "./grammar.ts";
-import type { AttachForm, AttachLine } from "./grammar.ts";
+import { attachFormOf, parseAttach } from "./grammar.ts";
+import type { AttachLine } from "./grammar.ts";
 import { readManifest, withoutUnit } from "./manifest.ts";
 import type { Manifest } from "./manifest.ts";
 import { removeMarked } from "./markers.ts";
@@ -49,15 +49,6 @@ interface Pkg {
   readonly dir: string;
   readonly json: typeof PackageJson.Type;
 }
-
-/**
- * The form each attach file uses; `blocks.ts` files and any unlisted file use `Layer.mergeAll(`.
- */
-const forms = new Map<string, AttachForm>([
-  ["infra/alchemy.run.ts", "yield"],
-  ["packages/contract/src/api/api.ts", "add"],
-  ["tools/knob/registry.ts", "array"],
-]);
 
 /**
  * `package.json` fields holding dependency names.
@@ -337,7 +328,7 @@ const detachAttach = Effect.fn("pullout.detachAttach")(function* detachAttach(
     };
 
     return readImports(text).some(({ spec }) => owns(spec))
-      ? parseAttach(forms.get(file) ?? "mergeAll", file, text, names).pipe(
+      ? parseAttach(attachFormOf(file), file, text, names).pipe(
           Effect.map((attach) => detach(text, attach, owns)),
         )
       : Effect.succeed(text);
