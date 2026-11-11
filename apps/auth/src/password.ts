@@ -159,9 +159,9 @@ const decode = (text: string): Option.Option<Uint8Array> => {
 /**
  * Parse a stored hash, `$scrypt$ln=<ln>,r=<r>,p=<p>$<salt>$<key>`.
  *
- * The parameters decode with the bounds and the memory ceiling of `ScryptParams`, never the
- * floors, so a hash stored under a lower cost still verifies. A `salt:key` string, a wrong salt or
- * key length and any other shape yield none.
+ * The parameters decode with the bounds and the memory and work ceilings of `ScryptParams`, never
+ * the floors, so a hash stored under a lower cost still verifies. A `salt:key` string, a wrong salt
+ * or key length and any other shape yield none.
  *
  * @param stored - The stored hash.
  * @returns The parts, or none when the string is not a hash this module wrote.
