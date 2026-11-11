@@ -42,6 +42,10 @@ describe("authErrorCopy", () => {
       "FAILED_TO_UNLINK_LAST_ACCOUNT",
       "That is your only way to sign in. Add another one before you remove it.",
     ],
+    [
+      "SOCIAL_ACCOUNT_ALREADY_LINKED",
+      "That account is already linked. Unlink it first, then try again.",
+    ],
     ["ACCOUNT_NOT_FOUND", "That account isn't linked anymore. Reload the page."],
     ["PASSKEY_NOT_FOUND", "That passkey is gone. Reload the page."],
     ["FAILED_TO_VERIFY_REGISTRATION", "The passkey couldn't be added. Try again."],
