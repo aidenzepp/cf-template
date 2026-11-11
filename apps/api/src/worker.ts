@@ -7,7 +7,7 @@ import * as Http from "alchemy/Http";
 import { ConfigProvider, Context, Effect, Layer, Option } from "effect";
 import { HttpRouter } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
-import type { Auth } from "@workspace/auth/contract";
+import { Auth } from "@workspace/auth/contract";
 import { Api } from "@workspace/contract/api/api";
 import { ProblemDetailsIncludeKnob } from "./config.ts";
 import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
@@ -37,17 +37,24 @@ const withHostContext = <A, E>(call: Effect.Effect<A, E, RuntimeContext>): Effec
   );
 
 /**
- * What `infra` supplies to the `api` Worker: its deploy properties and the `auth` Worker it binds.
- * The Worker module never declares either, so the stage, the name and the bindings have one owner,
- * `infra/src/api.ts`.
+ * What `infra` supplies to the `api` Worker when it plans: its deploy properties. The Worker module
+ * never declares them, so the stage, the name and the knobs have one owner, `infra/src/api.ts`.
+ *
+ * The deployed bundle evaluates the same module with no provider, so the properties are optional
+ * there and ignored: the Worker is already deployed. Nothing the running Worker needs comes from
+ * this service; it reaches `auth` through the binding Alchemy delivers to it.
  */
 export class ApiDeployment extends Context.Service<
   ApiDeployment,
-  {
-    readonly auth: Effect.Success<typeof Auth>;
-    readonly props: InputProps<Cloudflare.WorkerProps>;
-  }
+  { readonly props: InputProps<Cloudflare.WorkerProps> }
 >()("@workspace/api/ApiDeployment") {}
+
+/**
+ * The deploy properties of the `api` Worker: `infra`'s when it plans, none in the deployed bundle.
+ */
+export const apiProps = Effect.serviceOption(ApiDeployment).pipe(
+  Effect.map(Option.match({ onNone: () => ({}), onSome: ({ props }) => props })),
+);
 
 /**
  * The entrypoint of the `api` Worker: it exposes no RPC method, and its `fetch` is the program's
@@ -111,10 +118,9 @@ const makeHandler = (checkSession: typeof AuthCheckSession.Service) =>
  * execution and shared by the rest of it.
  */
 export default ApiWorker.make(
-  ApiDeployment.pipe(Effect.map(({ props }) => props)),
+  apiProps,
   Effect.gen(function* buildApi() {
-    const { auth } = yield* ApiDeployment;
-    const authBinding = yield* Cloudflare.bindWorker(auth);
+    const authBinding = yield* Cloudflare.bindWorker(Auth);
     const context = yield* Effect.context<Cloudflare.WorkerEnvironment>();
 
     const handler = yield* makeExecutionMemo(

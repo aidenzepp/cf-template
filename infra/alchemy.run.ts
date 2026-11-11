@@ -101,8 +101,8 @@ const program = Effect.gen(function* declareStack() {
 
   yield* declareWorker("Web", "web", true);
 
-  const auth = yield* declareAuth({ stack, stage }, hint, values);
-  yield* declareApi({ stack, stage }, values, auth);
+  yield* declareAuth({ stack, stage }, hint, values);
+  yield* declareApi({ stack, stage }, values);
 
   return {};
 }).pipe(Effect.orDie);
