@@ -14,6 +14,11 @@ import { Skeleton } from "@workspace/ui/components/ui/skeleton";
 import { authClient } from "../../lib/auth-client.ts";
 
 /**
+ * The sign-in link's search: no `redirect`, so signing in lands on `/`. Shared across renders.
+ */
+const signInSearch = { redirect: undefined };
+
+/**
  * The avatar button and its menu, with Sign out.
  *
  * @param props - The menu's props.
@@ -81,11 +86,7 @@ export const UserMenu = () => {
 
   if (session._tag === "signedOut") {
     return (
-      <Link
-        className={buttonVariants({ variant: "outline" })}
-        search={{ redirect: undefined }}
-        to="/sign-in"
-      >
+      <Link className={buttonVariants({ variant: "outline" })} search={signInSearch} to="/sign-in">
         Sign in
       </Link>
     );

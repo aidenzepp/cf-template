@@ -326,7 +326,6 @@ export default defineConfig({
           // warnings, so they are off until a follow-up fixes the code; then delete these lines.
           "react-doctor/jsx-no-jsx-as-prop": "off",
           "react-doctor/jsx-no-new-function-as-prop": "off",
-          "react-doctor/jsx-no-new-object-as-prop": "off",
           "react-doctor/only-export-components": "off",
         },
       },
