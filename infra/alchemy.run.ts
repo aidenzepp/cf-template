@@ -1,9 +1,10 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
-import { Config, Effect, Layer, Schema } from "effect";
+import { Config, Effect, Layer, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { APP_DB_ID, declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
 import { Stage, stageValues } from "./stages.ts";
+import { issueNotificationAddress, prodIssueNotification, volumeAlert } from "./src/alerts.ts";
 import { declareApi } from "./src/api.ts";
 import { AUTH_DB_ID } from "../apps/auth/src/db/database.ts";
 import { declareAuth } from "./src/auth.ts";
@@ -89,7 +90,14 @@ const program = Effect.gen(function* declareStack() {
   const origin = yield* publicOrigin({ stack, stage });
   const auth = yield* declareAuth({ stack, stage }, hint, values, origin);
   const api = yield* declareApi({ stack, stage }, values);
-  yield* declareWeb({ stack, stage }, { api, auth }, origin);
+  const web = yield* declareWeb({ stack, stage }, { api, auth }, origin);
+
+  const address = yield* issueNotificationAddress(stage);
+
+  if (Option.isSome(address)) {
+    yield* volumeAlert(stage, stack, address.value);
+    yield* prodIssueNotification(stage, stack, address.value, { api, auth, web });
+  }
 
   return {};
 }).pipe(Effect.orDie);
