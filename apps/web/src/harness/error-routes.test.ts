@@ -86,7 +86,14 @@ const WebProdLive = Layer.effect(WebProd)(
           extendEnv: true,
         }),
       )
-      .pipe(Effect.mapError((cause) => new HarnessError({ message: cause.message })));
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new HarnessError({
+              message: `the production harness build could not be spawned: ${cause.message}`,
+            }),
+        ),
+      );
 
     if (build !== 0) {
       return yield* new HarnessError({ message: `build:prod-harness exited ${build}` });
@@ -101,7 +108,10 @@ const WebProdLive = Layer.effect(WebProd)(
 
     const mf = yield* Effect.acquireRelease(
       Effect.tryPromise({
-        catch: (cause) => new HarnessError({ message: String(cause) }),
+        catch: (cause) =>
+          new HarnessError({
+            message: `Miniflare could not start the web Worker: ${String(cause)}`,
+          }),
         try: async () => {
           const instance = new Miniflare({
             workers: [
@@ -149,7 +159,10 @@ const WebProdLive = Layer.effect(WebProd)(
     return WebProd.of({
       get: (target, headers = HTML_ACCEPT) =>
         Effect.tryPromise({
-          catch: (cause) => new HarnessError({ message: String(cause) }),
+          catch: (cause) =>
+            new HarnessError({
+              message: `the harness request to ${target} did not complete: ${String(cause)}`,
+            }),
           try: async () => {
             const response = await mf.dispatchFetch(`http://web.test${target}`, {
               headers,
@@ -216,7 +229,7 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
       const web = yield* WebProd;
       const page = yield* web.get("/unavailable");
 
-      const navigations: readonly Record<string, string>[] = [
+      const navigations: ReadonlyArray<Record<string, string>> = [
         { "x-test-sec-fetch-mode": "navigate" },
         { accept: "text/html" },
       ];
@@ -241,7 +254,11 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
 
       expect(response.status).toBe(502);
       expect(response.headers.get("content-type")).toBe("application/problem+json");
-      expect(JSON.parse(html)).toEqual({ status: 502, title: "Bad Gateway", type: "about:blank" });
+      expect(JSON.parse(html)).toStrictEqual({
+        status: 502,
+        title: "Bad Gateway",
+        type: "about:blank",
+      });
     }),
   );
 

@@ -112,7 +112,7 @@ export const passkeyHint = (emailLive: boolean): string | null =>
  */
 export const reauthProviders = (
   decoded: Option.Option<typeof Accounts.Type>,
-): readonly string[] => {
+): ReadonlyArray<string> => {
   const accounts = Option.getOrElse(decoded, () => []);
 
   return accounts.some(({ providerId }) => providerId === CREDENTIAL_PROVIDER)

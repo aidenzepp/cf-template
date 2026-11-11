@@ -6,13 +6,7 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@workspace/ui/components/ui/empty";
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemTitle,
-} from "@workspace/ui/components/ui/item";
+import { Item, ItemContent, ItemDescription, ItemTitle } from "@workspace/ui/components/ui/item";
 import { Skeleton } from "@workspace/ui/components/ui/skeleton";
 import { AsyncResult } from "effect/reactivity";
 import { notesListAtom } from "./-atoms.ts";
@@ -46,19 +40,20 @@ export const NoteList = () => {
   }
 
   return (
-    <ItemGroup aria-label="Notes">
+    <ul aria-label="Notes" className="flex w-full flex-col gap-4">
       {result.value.map((note) => (
-        <Item
-          key={note.id}
-          render={<Link params={{ "note-id": note.id }} to="/notes/$note-id" />}
-          variant="outline"
-        >
-          <ItemContent>
-            <ItemTitle>{note.title}</ItemTitle>
-            <ItemDescription>{note.body}</ItemDescription>
-          </ItemContent>
-        </Item>
+        <li key={note.id}>
+          <Item
+            render={<Link params={{ "note-id": note.id }} to="/notes/$note-id" />}
+            variant="outline"
+          >
+            <ItemContent>
+              <ItemTitle>{note.title}</ItemTitle>
+              <ItemDescription>{note.body}</ItemDescription>
+            </ItemContent>
+          </Item>
+        </li>
       ))}
-    </ItemGroup>
+    </ul>
   );
 };

@@ -23,7 +23,7 @@ export const migrationsDigest = Effect.fn("migrationsDigest")(function* migratio
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const names = Arr.sort(yield* fs.readDirectory(directory, { recursive: true }), Order.String);
-  const entries: string[] = [];
+  const entries: Array<string> = [];
 
   for (const name of names) {
     const target = path.join(directory, name);

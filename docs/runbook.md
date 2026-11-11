@@ -6,13 +6,36 @@ Stuck sign-up address with the mail add-in on (the reclaim hook is off, so the r
 
 ## Limits
 
-I-25 and I-44 fill this section.
+CPU: once a `test-<slug>` stage measures p99 CPU per invocation for a Worker, its CPU knob (`WEB_CPU_LIMIT_MS`, `API_CPU_LIMIT_MS`) becomes `max(200, ceil(p99 x 10))`.
+
+Subrequests: once a `test-<slug>` stage measures p99 subrequests per invocation, `WORKER_SUBREQUEST_LIMIT` becomes `max(50, ceil(p99 x 10))`.
+
+`AUTH_CPU_LIMIT_MS` follows the hash cost through `CPU_LIMIT_HEADROOM`; the hash cost is never lowered to fit a limit.
+
+I-44 fills the rest of this section.
 
 ## Domain
 
 `workers.dev` is a public suffix, so browsers isolate cookies between accounts but not between Workers of one account; the risk is accepted until an owned domain (I-26).
 
-I-26 fills the rest of this section.
+**Changes the origin.** Every passkey registered on `workers.dev` stops working (the RP ID is the hostname) and every session ends; OAuth callbacks must be re-registered. Do it before the first outside user, not after.
+
+Prerequisites: the hostname's zone is active in the deploying Cloudflare account, the hostname has no existing CNAME, and the zone has no wildcard record. The deploy touches the zone only to attach the hostname. The WAF rate-limit rule (50 requests per 10 s per IP outside `/assets/`, blocked for 10 s) is defined in `infra/src/domain.ts` but not yet declared on the zone: the pinned `Cloudflare.Ruleset` takes a `Zone` resource, which would create or patch the zone, so it waits on a ruling.
+
+Attach:
+
+1. Set the `CUSTOM_DOMAIN` repository variable to the hostname, for example `app.example.com`.
+2. Deploy `prod`. `web` is served on the hostname, `workers.dev` is turned off, and `PUBLIC_ORIGIN` becomes `https://<hostname>`.
+3. Re-register every OAuth callback in the provider's console at `${PUBLIC_ORIGIN}/auth/callback/<provider>`.
+
+Detach:
+
+1. Set `CUSTOM_DOMAIN` to `workers-dev`.
+2. Deploy `prod`. The hostname is detached (`domain: null`), `workers.dev` is on again and `PUBLIC_ORIGIN` returns to the `workers.dev` address. Callbacks and passkeys move back the same way.
+
+Only `prod` honours `CUSTOM_DOMAIN`; `staging-<N>` refuses it.
+
+Observed consequence (inferred, not run): after an attach, requests to the old `workers.dev` address return Cloudflare's disabled-route response (error 1042), a pre-switch session cookie gets 401 from `/api/session` on the hostname, a passkey registered before the switch fails there, and a fresh sign-in works. A detach restores the `workers.dev` address. This stays inferred until a throwaway hostname on a zone the maintainer controls exists; the first real attach on `prod` is then the proof.
 
 ## Build and gates
 

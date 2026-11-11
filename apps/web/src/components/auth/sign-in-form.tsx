@@ -5,6 +5,7 @@ import { Effect } from "effect";
 import { useEffect } from "react";
 import type { SyntheticEvent } from "react";
 import { authClient } from "../../lib/auth-client.ts";
+import type { fork as Fork } from "../../runtime.ts";
 import { PasswordResetNotice } from "./email-off-notices.tsx";
 import { ProviderButtons } from "./provider-buttons.tsx";
 import { readField, useAuthSubmit } from "./use-auth-submit.ts";
@@ -64,17 +65,20 @@ export const passkeyAutofill = <Result,>(
  *
  * @param props - The form's props.
  * @param props.email - `AuthMethods.email`: whether reset mail exists.
+ * @param props.fork - The web runtime's `fork`, injected so this module never loads the runtime.
  * @param props.providers -The provider ids of `AuthMethods`.
  * @param props.redirect - The validated root-relative path to open after sign-in.
  * @returns The form.
  */
 export const SignInForm = ({
   email: emailLive,
+  fork,
   providers,
   redirect,
 }: {
   readonly email: boolean;
-  readonly providers: readonly string[];
+  readonly fork: typeof Fork;
+  readonly providers: ReadonlyArray<string>;
   readonly redirect: string;
 }) => {
   const { message, pending, submit } = useAuthSubmit(redirect);
@@ -83,12 +87,14 @@ export const SignInForm = ({
     const controller = new AbortController();
     const credential = typeof PublicKeyCredential === "undefined" ? undefined : PublicKeyCredential;
 
-    Effect.runFork(passkeyAutofill(authClient.signIn.passkey, credential, controller.signal));
+    fork(passkeyAutofill(authClient.signIn.passkey, credential, controller.signal), {
+      signal: controller.signal,
+    });
 
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [fork]);
 
   const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();

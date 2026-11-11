@@ -43,7 +43,7 @@ export const Reauthenticate = ({
   readonly onDone: () => void;
 }) => {
   const [message, setMessage] = useState<string | null>(null);
-  const [providers, setProviders] = useState<readonly string[]>([]);
+  const [providers, setProviders] = useState<ReadonlyArray<string>>([]);
 
   useEffect(() => {
     if (open) {
@@ -95,7 +95,7 @@ export const Reauthenticate = ({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Confirm it's you</DialogTitle>
+          <DialogTitle>Confirm it&apos;s you</DialogTitle>
           <DialogDescription>
             {providers.length === 0
               ? "Enter your password to continue."

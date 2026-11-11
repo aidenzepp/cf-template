@@ -1,5 +1,7 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Path } from "effect";
+import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
+import { limitKnobs, limitsFor } from "@workspace/config/limits";
 import type { Auth } from "../../apps/auth/src/contract.ts";
 import type { ApiWorker } from "../../apps/api/src/worker.ts";
 import type { WebEnv } from "../../apps/web/src/env.ts";
@@ -9,6 +11,7 @@ import { kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 import { encodedAuthMethods, encodedOrphanGrace } from "./auth.ts";
 import { compat } from "./compat.ts";
+import { domainFor } from "./domain.ts";
 import type { publicOrigin } from "./origin.ts";
 import { webObservability } from "./telemetry.ts";
 
@@ -58,6 +61,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
   const path = yield* Path.Path;
   const methods = yield* encodedAuthMethods;
   const grace = yield* encodedOrphanGrace;
+  const knobs = yield* limitKnobs;
   const compatibility = { date: compat.date, flags: compat.flags.map((flag) => flag.name) };
 
   const env = {
@@ -76,14 +80,18 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     }),
   } satisfies WebBindings;
 
+  const domain = yield* domainFor(stage);
+
   const web = yield* Cloudflare.Website.Vite("Web", {
     assets: { runWorkerFirst: [...FORWARD_PREFIXES] },
     compatibility,
+    domain: domain.domain,
     env,
+    limits: limitsFor("web", { ...knobs, scrypt: AUTH_PASSWORD_SCRYPT.default }),
     name: yield* workerName({ stack, stage, worker: "web" }),
     observability: webObservability(stage),
     rootDir: "apps/web",
-    workersDev: true,
+    workersDev: domain.workersDev,
   });
 
   if (kindOf(stage) === "local") {

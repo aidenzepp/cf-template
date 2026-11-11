@@ -40,7 +40,7 @@ const withEnv = (values: Readonly<Record<string, string>>) =>
  */
 const captureLogs = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* capture() {
-    const lines: Captured[] = [];
+    const lines: Array<Captured> = [];
 
     const logger = Logger.make(({ fiber, logLevel }) => {
       const reason = fiber.getRef(References.CurrentLogAnnotations)["knob.MODE.reason"];

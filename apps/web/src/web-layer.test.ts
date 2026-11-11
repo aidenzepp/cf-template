@@ -9,7 +9,7 @@ describe("makeWebLayer", () => {
         Effect.provide(makeWebLayer({ AUTH_METHODS: '{"email":true,"providers":["github"]}' })),
       );
 
-      expect(methods).toEqual({ email: true, providers: ["github"] });
+      expect(methods).toStrictEqual({ email: true, providers: ["github"] });
     }),
   );
 

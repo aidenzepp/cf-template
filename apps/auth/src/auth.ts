@@ -134,7 +134,7 @@ type Settled =
   | symbol
   | null
   | undefined
-  | readonly Settled[]
+  | ReadonlyArray<Settled>
   | { readonly [column: string]: Settled };
 
 /**
@@ -158,7 +158,7 @@ const isRunnable = <T extends object>(member: T): member is T & Effect.Effect<Se
  * @param member - A member read by name.
  * @returns `true` for a function.
  */
-const isMethod = (member: unknown): member is (...args: Settled[]) => Settled =>
+const isMethod = (member: unknown): member is (...args: Array<Settled>) => Settled =>
   Predicate.isFunction(member);
 
 /**
@@ -195,7 +195,7 @@ const promiseView = <T extends object>(target: T, runPromise: RunPromise): T =>
       const member: unknown = Predicate.hasProperty(source, key) ? source[key] : undefined;
 
       if (isMethod(member)) {
-        return (...args: Settled[]) => {
+        return (...args: Array<Settled>) => {
           const result = member.apply(source, args);
 
           return isNested(result) ? promiseView(result, runPromise) : result;

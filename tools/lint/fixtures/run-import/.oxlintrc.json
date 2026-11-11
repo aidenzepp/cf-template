@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "effect/Effect",
+            "importNames": ["runPromise", "runFork"],
+            "message": "Effect.run* only at a runtime boundary"
+          }
+        ]
+      }
+    ]
+  }
+}

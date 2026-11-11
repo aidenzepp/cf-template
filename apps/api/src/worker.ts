@@ -17,7 +17,7 @@ import { NotesApiHandlersNoDeps } from "./notes/http.ts";
 import { Notes, NotesDatabase } from "./notes/notes.ts";
 import type { NotesService } from "./notes/notes.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
-import { SystemApiHandlers } from "./system.ts";
+import { SystemApiHandlers } from "./system/http.ts";
 
 /**
  * Run a call on the `auth` binding with the host context of the request in progress.

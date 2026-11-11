@@ -1,0 +1,39 @@
+[
+  {
+    "name": "alchemy",
+    "anchor": "alchemy",
+    "repository": "https://github.com/alchemy-run/alchemy.git",
+    "tag": "v{version}",
+    "verify": "packages/alchemy/package.json",
+    "sparse": ["/AGENTS.md", "/website/src/content/docs/", "/examples/cloudflare-*/"]
+  },
+  {
+    "name": "better-auth",
+    "anchor": "better-auth",
+    "repository": "https://github.com/better-auth/better-auth.git",
+    "tag": "v{version}",
+    "verify": "packages/better-auth/package.json",
+    "sparse": [
+      "/docs/content/",
+      "/packages/better-auth/src/",
+      "/packages/drizzle-adapter/src/",
+      "/packages/passkey/src/"
+    ]
+  },
+  {
+    "name": "drizzle-orm",
+    "anchor": "drizzle-orm",
+    "repository": "https://github.com/drizzle-team/drizzle-orm.git",
+    "tag": "v{version}",
+    "verify": "drizzle-orm/package.json",
+    "sparse": ["/drizzle-orm/src/", "/drizzle-kit/src/"]
+  },
+  {
+    "name": "tanstack-router",
+    "anchor": "@tanstack/react-start",
+    "repository": "https://github.com/TanStack/router.git",
+    "tag": "@tanstack/react-start@{version}",
+    "verify": "packages/react-start/package.json",
+    "sparse": ["/docs/", "/examples/react/start-basic/", "/examples/react/start-basic-cloudflare/"]
+  }
+]

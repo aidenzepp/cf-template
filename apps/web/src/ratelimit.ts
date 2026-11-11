@@ -90,7 +90,7 @@ const DOTTED_QUAD = /^\d{1,3}(?:\.\d{1,3}){3}$/u;
  * @param text - The candidate, such as `192.0.2.1`.
  * @returns The two groups, or `undefined` when the text is not an IPv4 address.
  */
-const quadGroups = (text: string): readonly string[] | undefined => {
+const quadGroups = (text: string): ReadonlyArray<string> | undefined => {
   const octets = text.split(".").map(Number);
 
   if (!DOTTED_QUAD.test(text) || octets.some((octet) => octet > 255)) {
@@ -109,7 +109,7 @@ const quadGroups = (text: string): readonly string[] | undefined => {
  * @param endsAddress - Whether the side ends the address, so a dotted IPv4 tail is allowed.
  * @returns The groups, or `undefined` when one is malformed.
  */
-const sideGroups = (side: string, endsAddress: boolean): readonly string[] | undefined => {
+const sideGroups = (side: string, endsAddress: boolean): ReadonlyArray<string> | undefined => {
   if (side === "") {
     return [];
   }
@@ -128,7 +128,7 @@ const sideGroups = (side: string, endsAddress: boolean): readonly string[] | und
  * @param ip - A lower-case IPv6 address, `::` compressed or not, with an optional IPv4 tail.
  * @returns The eight groups, or `undefined` when the text is not an IPv6 address.
  */
-const expandIpv6 = (ip: string): readonly number[] | undefined => {
+const expandIpv6 = (ip: string): ReadonlyArray<number> | undefined => {
   const [head = "", tail, ...extra] = ip.split("::");
 
   if (extra.length > 0) {
@@ -205,7 +205,10 @@ const normalizePath = (path: string): string => {
  * @param credentialPaths - Every path that hashes or verifies a password.
  * @returns `credential` for a listed path or an undecodable one, else `public`.
  */
-export const classify = (pathname: string, credentialPaths: readonly string[]): RateLimitClass => {
+export const classify = (
+  pathname: string,
+  credentialPaths: ReadonlyArray<string>,
+): RateLimitClass => {
   const decoded = Result.try(() => decodeURIComponent(pathname));
 
   return Result.isFailure(decoded) ||
@@ -270,7 +273,7 @@ const tooManyRequests = (retryAfterSeconds: number) =>
 export const checkRateLimit = (
   request: Request,
   env: RateLimitEnv,
-  credentialPaths: readonly string[],
+  credentialPaths: ReadonlyArray<string>,
 ): Effect.Effect<Response | null> => {
   const ip = request.headers.get("cf-connecting-ip");
 
@@ -280,7 +283,7 @@ export const checkRateLimit = (
 
   const key = rateLimitKey(ip);
 
-  const classes: readonly RateLimitClass[] =
+  const classes: ReadonlyArray<RateLimitClass> =
     classify(new URL(request.url).pathname, credentialPaths) === "credential"
       ? ["public", "credential"]
       : ["public"];

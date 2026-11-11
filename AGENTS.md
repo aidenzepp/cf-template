@@ -16,7 +16,7 @@ If a rule appears inappropriate, explain the failing rule, why changing the code
 
 ## Workflow
 
-Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test tools/lint` only for the lint-rule suites that cannot load Effect, then `vp test` (Vitest with `@effect/vitest`) for project tests: `*.test.ts` files under a workspace's `src/`, the root `test/` or `tools/` (not `tools/lint/`), using `it.effect` for effectful cases. Keep focused tests beside their implementation and cross-module tests in `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
+Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test .test.mjs` only for the Node-loaded lint-rule suites, then `vp test` (Vitest with `@effect/vitest`) for project tests: every `*.test.ts` file, including those under `tools/lint/` except `tools/lint/fixtures/**`, under a workspace's `src/`, the root `test/` or `tools/`, using `it.effect` for effectful cases. Keep focused tests beside their implementation and cross-module tests in `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
 
 A pre-push hook (`.vite-hooks/pre-push`, installed by `bun install`) runs the same checks and blocks the push if any fail. Fix the problems rather than bypassing it with `--no-verify` or `VP_GIT_HOOKS=0`.
 
@@ -53,6 +53,10 @@ Before writing Effect code, read `node_modules/effect/AGENTS.md` completely and 
 
 Use Effect `Config` for environment-backed settings. Define decoding, constraints, optional values, and missing-value defaults in Config and Schema; invalid supplied values fail through the Effect error channel. Parse at the owning runtime boundary and test with `ConfigProvider.fromUnknown` rather than mutating the host environment.
 
+## Upstream source
+
+Installed packages carry their source: read `node_modules/<package>/src` and `node_modules/effect/AGENTS.md` first. For upstream docs, examples and source that npm does not ship (Alchemy, Better Auth, Drizzle, TanStack), run `bun run mirrors` once (47 MB on disk), then read `.mirrors/INDEX.md`.
+
 ## Schema intent
 
 Data models shape the rest of the project. Before changing a schema, establish the expected domain meaning, data preservation requirements, and compatibility preferences from the user's instructions and current project context. If those expectations are unclear, check with the user before making consequential assumptions. Do not ask again when the relevant expectation is already settled.
@@ -67,5 +71,6 @@ Do not introduce nullable fields, legacy repair paths, transitional models, or c
 - `.agents/skills/error-messages`: caller-facing and developer-facing errors.
 - `.agents/skills/trace-effect`: spans and logs for effectful operations.
 - `.agents/skills/work-with-stacks`: deploying and destroying stages on local state, the orphan count, and what never runs from a laptop.
+- `.agents/skills/write-migration`: changing a schema and generating its D1 migration safely, and what `bun run db:check` refuses.
 
 Keep only broadly reusable foundation skills here. Project-specific skills belong in the project that needs them.
