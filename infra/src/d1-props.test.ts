@@ -1,12 +1,21 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Option } from "effect";
-import { d1Props as appProps } from "../../apps/api/src/db/database.ts";
+import {
+  MIGRATIONS_DIR as APP_MIGRATIONS_DIR,
+  d1Props as appProps,
+} from "../../apps/api/src/db/database.ts";
+import { APP_MIGRATIONS_DIGEST } from "../../apps/api/src/db/migrations-digest.ts";
 import { MIGRATIONS_DIR, d1Props as authProps } from "../../apps/auth/src/db/database.ts";
 import { AUTH_MIGRATIONS_DIGEST } from "../../apps/auth/src/db/migrations-digest.ts";
 
-// The auth database applies its migrations and carries the migrations digest in a non-prod name.
+// Both databases apply their migrations and carry the migrations digest in a non-prod name.
 const databases = [
-  { extra: {}, name: "app", nonProdName: (stage: string) => `stack-app-${stage}`, props: appProps },
+  {
+    extra: { migrations: APP_MIGRATIONS_DIR },
+    name: "app",
+    nonProdName: (stage: string) => `stack-app-${stage}-${APP_MIGRATIONS_DIGEST}`,
+    props: appProps,
+  },
   {
     extra: { migrations: MIGRATIONS_DIR },
     name: "auth",

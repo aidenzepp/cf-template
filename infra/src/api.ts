@@ -8,10 +8,12 @@ import { compat } from "./compat.ts";
 /**
  * Declare the `api` Worker with its bindings.
  *
- * The Worker binds `auth` as `AUTH` through its service binding, and the three values
+ * The Worker binds `auth` as `AUTH` through its service binding, the app D1 database that
+ * `alchemy.run.ts` declares as `AppDb` with its migrations (the Worker's own program finds it by
+ * that id), and the three values
  * `AUTH_CHECK_SESSION_TIMEOUT_MS`, `PROBLEM_DETAILS_INCLUDE` and `EXAMPLE_FEATURE_ENABLED` from the
  * stage's row. It keeps no `workers.dev` address, domain or route: `web` forwards `/api/*` to it.
- * The service binding is made by the Worker's own program.
+ * Both bindings are made by the Worker's own program.
  *
  * @param identity - The stack name and decoded stage.
  * @param identity.stack - The stack name from `resolveStackName`.
