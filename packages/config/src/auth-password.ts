@@ -19,6 +19,22 @@ export const SCRYPT_MEMORY_CEILING_BYTES = 67_108_864;
 export const SCRYPT_WORK_FLOOR = 262_144;
 
 /**
+ * The most work one scrypt call may do, `2^ln x r x p` of `2^22`: four times the heaviest OWASP set
+ * (`2^20`) and over five times the default. Memory alone does not bound CPU, since `p` multiplies
+ * the time without adding memory: `ln=19, r=1, p=16` fits 64 MiB yet does `2^23` work.
+ */
+export const SCRYPT_WORK_CEILING = 4_194_304;
+
+/**
+ * The scrypt work `2^ln x r x p` of `params`.
+ *
+ * @param params - The cost parameters.
+ * @returns The work, in `N x r x p` units.
+ */
+const workOf = (params: { readonly ln: number; readonly r: number; readonly p: number }): number =>
+  2 ** params.ln * params.r * params.p;
+
+/**
  * The memory one scrypt call needs, `128 x 2^ln x r`, in bytes.
  *
  * @param params - The cost parameters.
@@ -30,9 +46,9 @@ const memoryOf = (params: { readonly ln: number; readonly r: number }): number =
 /**
  * The scrypt cost parameters: `ln` is log2 of `N`, `r` the block size, `p` the parallelism.
  *
- * The bounds keep the arithmetic exact and the ceiling caps memory. The floors are not part of this
- * schema because a stored hash may predate a raised floor, so `verify` decodes {@link ScryptParams}
- * alone: it is bounded by the ceiling and never by the floors.
+ * The bounds keep the arithmetic exact and the two ceilings cap memory and total work. The floors
+ * are not part of this schema because a stored hash may predate a raised floor, so `verify` decodes
+ * {@link ScryptParams} alone: it is bounded by the ceilings and never by the floors.
  */
 export const ScryptParams = Schema.Struct({
   ln: Schema.Int.check(Schema.isBetween({ maximum: 20, minimum: 10 })),
@@ -43,6 +59,11 @@ export const ScryptParams = Schema.Struct({
     (params) =>
       memoryOf(params) <= SCRYPT_MEMORY_CEILING_BYTES ||
       `scrypt memory 128 x 2^ln x r is ${memoryOf(params)} bytes, over the ${SCRYPT_MEMORY_CEILING_BYTES} byte (64 MiB) ceiling`,
+  ),
+  Schema.makeFilter(
+    (params) =>
+      workOf(params) <= SCRYPT_WORK_CEILING ||
+      `scrypt work 2^ln x r x p is ${workOf(params)}, over the ceiling of ${SCRYPT_WORK_CEILING}`,
   ),
 );
 
@@ -63,8 +84,8 @@ export const ScryptKnobParams = ScryptParams.check(
   ),
   Schema.makeFilter(
     (params) =>
-      2 ** params.ln * params.r * params.p >= SCRYPT_WORK_FLOOR ||
-      `scrypt work 2^ln x r x p is ${2 ** params.ln * params.r * params.p}, under the floor of ${SCRYPT_WORK_FLOOR}`,
+      workOf(params) >= SCRYPT_WORK_FLOOR ||
+      `scrypt work 2^ln x r x p is ${workOf(params)}, under the floor of ${SCRYPT_WORK_FLOOR}`,
   ),
 );
 
@@ -77,7 +98,7 @@ export const AUTH_PASSWORD_SCRYPT = Knob.make(
   Schema.fromJsonString(ScryptKnobParams).annotate({
     default: { ln: 15, p: 3, r: 8 },
     description:
-      'scrypt cost of new password hashes as JSON, {"ln":15,"r":8,"p":3}: memory 128 x 2^ln x r from 32 MiB to 64 MiB, work 2^ln x r x p at least 2^18.',
+      'scrypt cost of new password hashes as JSON, {"ln":15,"r":8,"p":3}: memory 128 x 2^ln x r from 32 MiB to 64 MiB, work 2^ln x r x p from 2^18 to 2^22.',
   }),
 );
 

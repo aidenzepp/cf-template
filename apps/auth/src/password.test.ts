@@ -95,6 +95,44 @@ layer(Layer.empty)("password hasher", (it) => {
     }),
   );
 
+  it.effect("refuses a hash over the work ceiling before scrypt runs", () =>
+    Effect.gen(function* workCeiling() {
+      const stored = yield* hashEffect(OLDER, "pw");
+      const parts = stored.split("$");
+      const salt = parts[3] ?? "";
+      const key = parts[4] ?? "";
+      // 19/1/16 fits the 64 MiB memory ceiling but does 2^23 work.
+      const over = `$scrypt$ln=19,r=1,p=16$${salt}$${key}`;
+
+      assert.isTrue(Option.isNone(parse(over)));
+
+      const { derive } = Scrypt.defaultValue();
+      const calls = yield* Ref.make(0);
+
+      const counting = {
+        derive: (...args: Parameters<typeof derive>) =>
+          Ref.update(calls, (count) => count + 1).pipe(Effect.andThen(derive(...args))),
+      };
+
+      const { lines, value } = yield* logged(
+        verifyEffect({ hash: over, password: "pw" }).pipe(Effect.provideService(Scrypt, counting)),
+      );
+
+      assert.isFalse(value);
+      assert.strictEqual(yield* Ref.get(calls), 0);
+      assert.isTrue(lines.some((line) => line.includes("auth.password.malformed")));
+    }),
+  );
+
+  it.effect("parses the default cost and the current floors", () =>
+    Effect.gen(function* inside() {
+      const stored = yield* hashEffect(CURRENT, "pw");
+
+      assert.isTrue(Option.isSome(parse(stored)));
+      assert.isTrue(yield* verifyEffect({ hash: stored, password: "pw" }));
+    }),
+  );
+
   it.effect("answers false and logs a fixed event when scrypt fails", () =>
     Effect.gen(function* failing() {
       const stored = yield* hashEffect(OLDER, "pw");

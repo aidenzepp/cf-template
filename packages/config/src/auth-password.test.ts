@@ -108,6 +108,23 @@ describe("AUTH_PASSWORD_SCRYPT", () => {
     }),
   );
 
+  it.effect("rejects 19/1/16 over the work ceiling although it fits the memory ceiling", () =>
+    Effect.gen(function* workCeiling() {
+      // 128 x 2^19 x 1 = 64 MiB; 2^19 x 1 x 16 = 2^23, twice the 2^22 ceiling.
+      const exit = yield* read('{"ln":19,"r":1,"p":16}');
+
+      assert.isTrue(Exit.isFailure(exit));
+      assert.include(String(exit), "4194304");
+    }),
+  );
+
+  it.effect("accepts 16/8/8 exactly at both ceilings", () =>
+    Effect.gen(function* atCeiling() {
+      // 128 x 2^16 x 8 = 64 MiB; 2^16 x 8 x 8 = 2^22.
+      assert.isTrue(Exit.isSuccess(yield* read('{"ln":16,"r":8,"p":8}')));
+    }),
+  );
+
   it.effect.each([
     { ln: 15, p: 3, r: 8 },
     { ln: 15, p: 1, r: 16 },
