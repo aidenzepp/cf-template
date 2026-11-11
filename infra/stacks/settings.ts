@@ -1,15 +1,12 @@
 import { BunHttpClient, BunRuntime } from "@effect/platform-bun";
 import { Console, Effect, Schema } from "effect";
 import type { HttpClient } from "effect/http";
-import {
-  GitHubProviderMissing,
-  MISSING_GITHUB_RESOURCES,
-  declarationPlan,
-  planWarnings,
-  reviewerAppId,
-} from "../src/settings/declare.ts";
+import { declarationPlan, planWarnings, reviewerAppId } from "../src/settings/declare.ts";
 import { getJson, guardAdmin, resolveRepository } from "../src/settings/repository.ts";
-import { detectTier } from "../src/settings/tier.ts";
+import { applyRest } from "../src/settings/rest.ts";
+import { applyRestLabels } from "../src/settings/rest-labels.ts";
+import { applyDeclaration } from "../src/settings/stack.ts";
+import { detectTier, reportLine } from "../src/settings/tier.ts";
 
 /**
  * The secret names of `GET /repos/{owner}/{name}/actions/secrets`.
@@ -24,11 +21,8 @@ const SecretsResponse = Schema.Struct({
 const check = Console.log("check: not implemented until part 4");
 
 /**
- * Resolve the repository, guard on admin access, detect the tier and build the declaration.
- *
- * TODO: apply the plan with `GitHub.*` resources under `Alchemy.inMemoryState()` and
- * `GitHub.fromToken(token)`, then print `reportLine`. The pinned Alchemy has no GitHub provider,
- * so the run stops after planning and writes nothing.
+ * Resolve the repository, guard on admin access, detect the tier, converge the provider resources,
+ * run the REST calls the provider does not cover, and print the one report line.
  */
 const apply = Effect.gen(function* applySettings() {
   const { owner, repo } = yield* resolveRepository();
@@ -41,13 +35,21 @@ const apply = Effect.gen(function* applySettings() {
   );
 
   const reviewer = yield* reviewerAppId;
-  const plan = declarationPlan(repository, tier, reviewer);
+  const warnings = planWarnings(repository, tier, reviewer);
 
-  yield* Effect.forEach(planWarnings(repository, tier, reviewer), (line) => Console.warn(line));
+  yield* Effect.all(warnings.map((line) => Console.warn(line)));
 
-  return yield* new GitHubProviderMissing({
-    message: `Planned ${plan.length} declarations for ${owner}/${repo} but applied none: the pinned Alchemy has no ${MISSING_GITHUB_RESOURCES.join(", ")}.`,
-  });
+  const declared = yield* applyDeclaration(declarationPlan(repository, tier, reviewer));
+  const rest = yield* applyRest(repository, tier);
+  const labels = yield* applyRestLabels(repository, tier);
+
+  yield* Console.log(
+    reportLine(
+      tier,
+      declared + rest.applied + labels.applied,
+      warnings.length + rest.unavailable + labels.unavailable,
+    ),
+  );
 });
 
 const selected: Effect.Effect<void, { readonly message: string }, HttpClient.HttpClient> =

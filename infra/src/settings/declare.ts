@@ -1,31 +1,13 @@
-import { Config, Option, Schema } from "effect";
+import type {
+  EnvironmentProps,
+  LabelProps,
+  RepositoryProps,
+  RulesetProps,
+  VariableProps,
+} from "@alchemy.run/github";
+import { Config, Option } from "effect";
 import type { GuardedRepository } from "./repository.ts";
 import type { Tier } from "./tier.ts";
-
-/**
- * The pinned Alchemy (`2.0.0-beta.85`) ships no GitHub provider. Every resource the declaration
- * needs is missing: there is no `GitHub.Repository`, `GitHub.Ruleset`, `GitHub.Environment`,
- * `GitHub.Label`, `GitHub.Variable` or `GitHub.fromToken`. Only `inMemoryState()` exists.
- */
-export const MISSING_GITHUB_RESOURCES = [
-  "GitHub.Repository",
-  "GitHub.Ruleset",
-  "GitHub.Environment",
-  "GitHub.Label",
-  "GitHub.Variable",
-  "GitHub.fromToken",
-] as const;
-
-/**
- * The declaration cannot be applied: the pinned Alchemy has no GitHub provider.
- *
- * TODO: replace with the `GitHub.*` resource calls once a pinned Alchemy ships the provider. The
- * plan from {@link declarationPlan} is the input to that mapping.
- */
-export class GitHubProviderMissing extends Schema.TaggedError<GitHubProviderMissing>()(
-  "GitHubProviderMissing",
-  { message: Schema.String },
-) {}
 
 /**
  * The GitHub Actions app id that stamps the required status checks.
@@ -57,61 +39,24 @@ export const LABELS = [
 ] as const;
 
 /**
- * A required status check and the app that must stamp it.
+ * The props of every `@alchemy.run/github` resource the tier allows. Each prop object is exactly
+ * what the provider resource takes; the stack names each resource after its `name`.
  */
-export interface StatusCheck {
-  readonly context: string;
-  readonly integrationId: number;
+export interface DeclarationPlan {
+  readonly repository: RepositoryProps;
+  readonly ruleset: ReadonlyArray<RulesetProps>;
+  readonly environments: ReadonlyArray<EnvironmentProps>;
+  readonly labels: ReadonlyArray<LabelProps>;
+  readonly variables: ReadonlyArray<VariableProps>;
 }
 
 /**
- * One resource of the declaration: the Alchemy resource kind, its logical id and its props.
+ * One required status check: the context and the app that must stamp it.
  */
-export type Declaration =
-  | {
-      readonly kind: "Repository";
-      readonly id: string;
-      readonly props: {
-        readonly owner: string;
-        readonly name: string;
-        readonly allowMergeCommit: boolean;
-        readonly allowRebaseMerge: boolean;
-        readonly allowSquashMerge: boolean;
-        readonly deleteBranchOnMerge: boolean;
-      };
-    }
-  | {
-      readonly kind: "Ruleset";
-      readonly id: string;
-      readonly props: {
-        readonly name: string;
-        readonly adopt: boolean;
-        readonly bypassActors: ReadonlyArray<string>;
-        readonly checks: ReadonlyArray<StatusCheck>;
-        readonly strictChecks: boolean;
-        readonly mergeMethods: ReadonlyArray<string>;
-        readonly requiredApprovals: number;
-        readonly requireThreadResolution: boolean;
-        readonly linearHistory: boolean;
-        readonly blockDeletion: boolean;
-        readonly blockForcePush: boolean;
-      };
-    }
-  | {
-      readonly kind: "Environment";
-      readonly id: string;
-      readonly props: {
-        readonly name: string;
-        readonly branches: ReadonlyArray<string>;
-        readonly reviewers: ReadonlyArray<string>;
-      };
-    }
-  | { readonly kind: "Label"; readonly id: string; readonly props: { readonly name: string } }
-  | {
-      readonly kind: "Variable";
-      readonly id: string;
-      readonly props: { readonly name: string; readonly value: string };
-    };
+interface RequiredCheck {
+  readonly context: string;
+  readonly integrationId: number;
+}
 
 /**
  * Read the optional `GITHUB_REVIEWER_APP_ID`: the app id that stamps the `reviewer-agent` check.
@@ -121,32 +66,37 @@ export type Declaration =
 export const reviewerAppId = Config.Int("GITHUB_REVIEWER_APP_ID").pipe(Config.option);
 
 /**
- * Build the `main` ruleset declaration.
+ * Build the `main` ruleset props.
  *
+ * @param repository - The guarded repository.
  * @param reviewer - The `reviewer-agent` app id, when set.
  * @returns The ruleset: PR required, strict checks, squash only, linear history, no bypass.
  */
-const mainRuleset = (reviewer: Option.Option<number>): Declaration => ({
-  id: "main",
-  kind: "Ruleset",
-  props: {
-    adopt: true,
-    blockDeletion: true,
-    blockForcePush: true,
-    bypassActors: [],
-    checks: REQUIRED_CHECKS.flatMap((context): ReadonlyArray<StatusCheck> => {
+const mainRuleset = (
+  repository: GuardedRepository,
+  reviewer: Option.Option<number>,
+): RulesetProps => ({
+  conditions: { include: ["~DEFAULT_BRANCH"] },
+  deletion: true,
+  name: "main",
+  nonFastForward: true,
+  owner: repository.owner,
+  pullRequest: {
+    allowedMergeMethods: ["squash"],
+    requiredApprovingReviewCount: 0,
+    requiredReviewThreadResolution: true,
+  },
+  repository: repository.name,
+  requiredLinearHistory: true,
+  requiredStatusChecks: {
+    checks: REQUIRED_CHECKS.flatMap((context): ReadonlyArray<RequiredCheck> => {
       if (context !== "reviewer-agent") {
         return [{ context, integrationId: ACTIONS_INTEGRATION_ID }];
       }
 
       return Option.isSome(reviewer) ? [{ context, integrationId: reviewer.value }] : [];
     }),
-    linearHistory: true,
-    mergeMethods: ["squash"],
-    name: "main",
-    requireThreadResolution: true,
-    requiredApprovals: 0,
-    strictChecks: true,
+    strictRequiredStatusChecksPolicy: true,
   },
 });
 
@@ -161,28 +111,51 @@ const ownerReviews = (repository: GuardedRepository): boolean =>
   repository.visibility === "public" && repository.ownerType === "User";
 
 /**
- * Build the environment declarations.
+ * Build the environment props.
  *
  * @param repository - The guarded repository.
  * @returns `prod` and `prod-destructive`, both limited to `main`, the latter with a reviewer only
  *   under {@link ownerReviews}.
  */
-const environments = (repository: GuardedRepository): ReadonlyArray<Declaration> => [
-  {
-    id: "prod",
-    kind: "Environment",
-    props: { branches: ["main"], name: "prod", reviewers: [] },
-  },
-  {
-    id: "prod-destructive",
-    kind: "Environment",
-    props: {
-      branches: ["main"],
-      name: "prod-destructive",
-      reviewers: ownerReviews(repository) ? [repository.owner] : [],
-    },
-  },
-];
+const environments = (repository: GuardedRepository): ReadonlyArray<EnvironmentProps> => {
+  const scope = {
+    deploymentBranchPolicy: { customBranchPolicies: ["main"] },
+    owner: repository.owner,
+    repository: repository.name,
+  };
+
+  const destructive = { ...scope, name: "prod-destructive" };
+
+  return [
+    { ...scope, name: "prod" },
+    ownerReviews(repository)
+      ? { ...destructive, reviewers: { users: [repository.owner] } }
+      : destructive,
+  ];
+};
+
+/**
+ * Build the repository props: the governed fields the tier allows, nothing else.
+ *
+ * @param repository - The guarded repository.
+ * @param tier - The detected tier.
+ * @returns Merge methods and delete-on-merge under `mergeSettings`, auto-merge under `autoMerge`.
+ */
+const repositoryProps = (repository: GuardedRepository, tier: Tier): RepositoryProps => {
+  const base = { name: repository.name, owner: repository.owner };
+
+  const merge = tier.capabilities.has("mergeSettings")
+    ? {
+        ...base,
+        allowMergeCommit: false,
+        allowRebaseMerge: false,
+        allowSquashMerge: true,
+        deleteBranchOnMerge: true,
+      }
+    : base;
+
+  return tier.capabilities.has("autoMerge") ? { ...merge, allowAutoMerge: true } : merge;
+};
 
 /**
  * The `UNAVAILABLE` lines for declarations the plan leaves out for lack of an input.
@@ -211,43 +184,37 @@ export const planWarnings = (
 ];
 
 /**
- * Map a tier to the declaration the stack applies.
+ * Map a tier to the provider declaration the stack applies.
  *
  * The repository declares governed fields only, never `isTemplate`, visibility or description.
- * The ruleset exists only when `BRANCH_PROTECTION` is `ruleset`, the environments only where
+ * Merge methods and delete-on-merge need the `mergeSettings` capability, auto-merge the `autoMerge`
+ * one. The ruleset exists only when `BRANCH_PROTECTION` is `ruleset`, the environments only where
  * `ENVIRONMENTS` is true. The four tier variables and six labels always exist.
  *
  * @param repository - The guarded repository.
  * @param tier - The detected tier.
  * @param reviewer - The optional `GITHUB_REVIEWER_APP_ID`.
- * @returns The declarations in dependency order.
+ * @returns The props of every resource, in dependency order.
  */
 export const declarationPlan = (
   repository: GuardedRepository,
   tier: Tier,
   reviewer: Option.Option<number>,
-): ReadonlyArray<Declaration> => [
-  {
-    id: "repository",
-    kind: "Repository",
-    props: {
-      allowMergeCommit: false,
-      allowRebaseMerge: false,
-      allowSquashMerge: true,
-      deleteBranchOnMerge: true,
-      name: repository.name,
-      owner: repository.owner,
-    },
-  },
-  ...(tier.branchProtection === "ruleset" ? [mainRuleset(reviewer)] : []),
-  ...(tier.environments ? environments(repository) : []),
-  ...LABELS.map((name): Declaration => ({ id: name, kind: "Label", props: { name } })),
-  ...(
-    [
-      ["BRANCH_PROTECTION", tier.branchProtection],
-      ["ENVIRONMENTS", String(tier.environments)],
-      ["PREVIEW_ON", tier.previewOn],
-      ["RELEASE_ON", String(tier.releaseOn)],
-    ] as const
-  ).map(([name, value]): Declaration => ({ id: name, kind: "Variable", props: { name, value } })),
-];
+): DeclarationPlan => {
+  const scope = { owner: repository.owner, repository: repository.name };
+
+  return {
+    environments: tier.environments ? environments(repository) : [],
+    labels: LABELS.map((name) => ({ ...scope, name })),
+    repository: repositoryProps(repository, tier),
+    ruleset: tier.branchProtection === "ruleset" ? [mainRuleset(repository, reviewer)] : [],
+    variables: (
+      [
+        ["BRANCH_PROTECTION", tier.branchProtection],
+        ["ENVIRONMENTS", String(tier.environments)],
+        ["PREVIEW_ON", tier.previewOn],
+        ["RELEASE_ON", String(tier.releaseOn)],
+      ] as const
+    ).map(([name, value]) => ({ ...scope, name, value })),
+  };
+};
