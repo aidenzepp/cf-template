@@ -35,6 +35,17 @@ describe("authErrorCopy", () => {
     ["INVALID_EMAIL_OR_PASSWORD", "Wrong email or password."],
     ["USER_ALREADY_EXISTS", "An account with this email already exists. Sign in instead."],
     ["PASSWORD_TOO_SHORT", "Use a longer password."],
+    ["INVALID_PASSWORD", "That password is wrong."],
+    ["PASSWORD_TOO_LONG", "Use a shorter password."],
+    ["SESSION_EXPIRED", "Your session ended. Sign in again."],
+    [
+      "FAILED_TO_UNLINK_LAST_ACCOUNT",
+      "That is your only way to sign in. Add another one before you remove it.",
+    ],
+    ["ACCOUNT_NOT_FOUND", "That account isn't linked anymore. Reload the page."],
+    ["PASSKEY_NOT_FOUND", "That passkey is gone. Reload the page."],
+    ["FAILED_TO_VERIFY_REGISTRATION", "The passkey couldn't be added. Try again."],
+    ["FAILED_TO_UPDATE_PASSKEY", "The passkey couldn't be renamed. Try again."],
   ])("keys %s to its line", (code, line) => {
     expect(failed({ code, message: "raw", status: 400 })).toBe(line);
   });
