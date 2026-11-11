@@ -1,7 +1,9 @@
 import { BetterAuth, Database } from "@alchemy.run/better-auth";
+import { WorkerEnvironment } from "@alchemy.run/cloudflare";
+import { makeExecutionMemo } from "alchemy/Runtime/ExecutionMemo";
 import type { RuntimeContext } from "alchemy";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
-import { Config, Context, Effect, Layer, Predicate } from "effect";
+import { Config, ConfigProvider, Context, Effect, Layer, Predicate } from "effect";
 import { makeDatabase } from "@workspace/db/database";
 import type { RawDatabase } from "@workspace/db/database";
 import { PublicOrigin } from "@workspace/config/public-origin";
@@ -118,6 +120,17 @@ const promiseView = <T extends object>(target: T, runPromise: RunPromise): T =>
   });
 
 /**
+ * The options the Drizzle adapter runs with. `transaction: false` is the adapter default, written
+ * out because D1 has no interactive transactions: the adapter then issues its writes one at a time
+ * and never calls `db.transaction`.
+ */
+export const adapterOptions = {
+  provider: "sqlite",
+  schema,
+  transaction: false,
+} as const;
+
+/**
  * The Better Auth `database` input for one execution: the Drizzle adapter over the promise view of
  * `makeDatabase`'s `{ db }` for the raw `AuthDb` binding.
  *
@@ -133,11 +146,7 @@ const adapterFor = Effect.fnUntraced(function* adapterFor(binding: RawDatabase) 
   const { db } = yield* access;
   const services = yield* Effect.context();
 
-  return drizzleAdapter(promiseView(db, Effect.runPromiseWith(services)), {
-    provider: "sqlite",
-    schema,
-    transaction: false,
-  });
+  return drizzleAdapter(promiseView(db, Effect.runPromiseWith(services)), adapterOptions);
 });
 
 /**
@@ -163,7 +172,12 @@ export const authDatabaseLayer = (
   );
 
 /**
- * The deployment values that shape the Better Auth instance, read from the Worker's bindings.
+ * The deployment values that shape the Better Auth instance.
+ *
+ * They are read from the Worker's own bindings when an execution starts, never through the
+ * deployer's `Config` while the stack plans: Alchemy resolves a `Config` read in Worker init
+ * against the deployer's environment and binds that value over the one `infra` binds per stage. An
+ * unset value therefore fails that execution's requests and nothing else.
  */
 export const AuthSettings = Config.all({
   baseURL: Config.schema(PublicOrigin, "PUBLIC_ORIGIN"),
@@ -173,13 +187,17 @@ export const AuthSettings = Config.all({
 });
 
 /**
- * Construct the Better Auth instance from the deployment settings.
+ * Construct the Better Auth instance of one execution from the Worker's bindings.
  *
  * Both consumers read it: `fetch` for `/auth/*` and `checkSession`. `migrate: false` leaves the
  * schema to the D1 resource's `migrations`.
  */
 const makeInstance = Effect.gen(function* makeInstance() {
-  const settings = yield* AuthSettings;
+  const env = yield* WorkerEnvironment;
+
+  const settings = yield* AuthSettings.pipe(
+    Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(env))),
+  );
 
   return yield* BetterAuth({
     ...authOptions,
@@ -198,14 +216,25 @@ const makeInstance = Effect.gen(function* makeInstance() {
 export type AuthInstance = Effect.Success<typeof makeInstance>;
 
 /**
- * The service holding the Better Auth instance for the Worker's `fetch` and `checkSession`.
+ * The service that yields the Better Auth instance of the current execution, for the Worker's
+ * `fetch` and `checkSession`.
  */
-export class AuthService extends Context.Service<AuthService, AuthInstance>()(
+export class AuthService extends Context.Service<AuthService, Effect.Effect<AuthInstance>>()(
   "@workspace/auth/AuthService",
 ) {
   /**
-   * Build the instance once at Worker initialization; an invalid setting fails here, so a Worker
-   * with a bad deploy-time value never takes traffic.
+   * Build the accessor at Worker initialization without reading any setting. The instance is built
+   * on first use in an execution and shared by the rest of it; a missing or invalid binding is a
+   * defect of that execution.
    */
-  static readonly layer = Layer.effect(AuthService, makeInstance);
+  static readonly layer = Layer.effect(
+    AuthService,
+    Effect.gen(function* buildAccessor() {
+      const context = yield* Effect.context<Database | WorkerEnvironment>();
+
+      return yield* makeExecutionMemo(
+        makeInstance.pipe(Effect.provideContext(context), Effect.orDie),
+      );
+    }),
+  );
 }

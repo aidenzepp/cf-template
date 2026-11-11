@@ -4,13 +4,14 @@ import { sql } from "drizzle-orm";
 import { EffectSQLiteD1Database } from "drizzle-orm/effect-d1";
 import { Effect, FileSystem, Option, Path, Schema, Tracer } from "effect";
 import { makeDatabase } from "@workspace/db/database";
-import { AuthService } from "./auth.ts";
+import { AuthService, adapterOptions } from "./auth.ts";
 import {
   LocalAuthD1,
   asExecution,
   authOver,
   cookieOf,
   handle,
+  tokenOnly,
   signIn,
   signUp,
 } from "./test-harness.ts";
@@ -102,18 +103,26 @@ layer(LocalAuthD1.layer)("the Better Auth promise view", (it) => {
         });
 
         assert.isNull(yield* json(after));
+
+        // The old session token alone cannot be answered from the cookie cache, so a null here
+        // means the server revoked the session row.
+        const revoked = yield* handle("/auth/get-session", {
+          headers: { cookie: tokenOnly(cookie) },
+          method: "GET",
+        });
+
+        assert.isNull(yield* json(revoked));
       }).pipe(Effect.provide(authOver(binding)), asExecution);
     }),
   );
 
-  it.effect("passes the E7 relational path with every SQL span under the request span", () =>
+  it.effect("reads one row through the adapter with every SQL span under the request span", () =>
     Effect.gen(function* e7() {
       const binding = yield* LocalAuthD1;
 
       const { spans } = yield* traced(
         Effect.gen(function* request() {
-          const auth = yield* AuthService;
-          const instance = yield* auth.auth;
+          const instance = yield* (yield* yield* AuthService).auth;
           const context = yield* Effect.promise(() => instance.$context);
 
           return yield* Effect.promise(() =>
@@ -197,16 +206,16 @@ layer(LocalAuthD1.layer)("the Better Auth promise view", (it) => {
     }),
   );
 
-  it.effect("sets transaction: false explicitly and names the pinned packages", () =>
+  it.effect("passes transaction: false to the adapter and names the pinned packages", () =>
     Effect.gen(function* contract() {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const root = yield* path.fromFileUrl(new URL("..", import.meta.url));
-      const source = yield* fs.readFileString(path.join(root, "src/auth.ts"));
       const manifest = yield* fs.readFileString(path.join(root, "package.json"));
       const rootManifest = yield* fs.readFileString(path.join(root, "../../package.json"));
 
-      assert.include(source, "transaction: false");
+      assert.strictEqual(adapterOptions.transaction, false);
+      assert.strictEqual(adapterOptions.provider, "sqlite");
 
       for (const [name, version] of Object.entries(PINNED)) {
         assert.include(manifest, `"${name}": "${version}"`);

@@ -49,7 +49,7 @@ export default Auth.make<AuthDeployment, AuthDeployment | Cloudflare.WorkerServi
         const request = yield* HttpServerRequest.HttpServerRequest;
 
         return request.url.startsWith(AUTH_BASE_PATH)
-          ? yield* auth.fetch
+          ? yield* (yield* auth).fetch
           : HttpServerResponse.empty({ status: 404 });
       }),
     };

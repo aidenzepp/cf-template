@@ -12,6 +12,7 @@ import {
   disposedD1,
   signIn,
   signUp,
+  tokenOnly,
 } from "./test-harness.ts";
 
 layer(LocalAuthD1.layer)("checkSession", (it) => {
@@ -61,17 +62,14 @@ layer(LocalAuthD1.layer)("checkSession", (it) => {
       }).pipe(Effect.provide(authOver(binding)), asExecution);
 
       // Without `session_data` the check cannot answer from the cookie cache and must read D1.
-      const tokenOnly = cookie
-        .split("; ")
-        .filter((pair) => !pair.includes("session_data"))
-        .join("; ");
+      const withoutCache = tokenOnly(cookie);
 
       const broken = yield* disposedD1;
 
       const exit = yield* Effect.gen(function* check() {
         const checkSession = yield* CheckSession;
 
-        return yield* Effect.exit(checkSession({ cookie: tokenOnly }));
+        return yield* Effect.exit(checkSession({ cookie: withoutCache }));
       }).pipe(Effect.provide(authOver(broken)), asExecution);
 
       assert.isTrue(Exit.isFailure(exit));
@@ -87,9 +85,8 @@ layer(LocalAuthD1.layer)("checkSession", (it) => {
         yield* signUp("hedy@example.test");
 
         const cookie = cookieOf(yield* signIn("hedy@example.test"));
-        const auth = yield* AuthService;
 
-        const instance = yield* auth.auth;
+        const instance = yield* (yield* yield* AuthService).auth;
 
         const { headers, response } = yield* Effect.promise(() =>
           instance.api.getSession({

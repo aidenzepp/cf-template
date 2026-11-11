@@ -1,4 +1,4 @@
-import { Cause, Context, DateTime, Effect, Layer } from "effect";
+import { Context, DateTime, Effect, Layer, Predicate } from "effect";
 import { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { AuthService } from "./auth.ts";
@@ -11,11 +11,31 @@ import type { AuthEntrypoint } from "./contract.ts";
 const AUTH_UNAVAILABLE_RETRY_AFTER_S = 5;
 
 /**
- * The failure of a session check whose store faulted, so a fault is never read as signed out.
+ * Log that the session store faulted and fail with {@link AuthUnavailable}, so a fault is never
+ * read as signed out.
+ *
+ * The log carries a fixed message and the fault's name only. A driver error can carry the query
+ * parameters, which for a session check include the session token, so neither its message nor its
+ * cause is logged.
+ *
+ * @param fault - The `_tag` of Better Auth's error or the name of the defect.
+ * @returns A failing effect.
  */
-const unavailable = Effect.fail(
-  new AuthUnavailable({ retryAfterSeconds: AUTH_UNAVAILABLE_RETRY_AFTER_S }),
-);
+const unavailable = (fault: string) =>
+  Effect.logError("The session store faulted during a session check.", { fault }).pipe(
+    Effect.andThen(
+      Effect.fail(new AuthUnavailable({ retryAfterSeconds: AUTH_UNAVAILABLE_RETRY_AFTER_S })),
+    ),
+  );
+
+/**
+ * Name a defect for the log without reading its message or cause.
+ *
+ * @param defect - What the D1 binding, the adapter or the instance build threw.
+ * @returns The error's class name, or a fixed word for a value that is not an error.
+ */
+const faultName = (defect: Parameters<typeof Predicate.isError>[0]): string =>
+  Predicate.isError(defect) ? defect.name : "NonError";
 
 /**
  * Construct `checkSession` over a Better Auth instance.
@@ -29,21 +49,22 @@ const unavailable = Effect.fail(
  * `APIError` Better Auth raised or a defect from the D1 binding or the adapter, fails with
  * {@link AuthUnavailable}, never `null`. Interruption is not a fault and passes through.
  *
- * @param auth - The Better Auth instance.
+ * @param instance - Yields the Better Auth instance of the current execution.
  * @returns The `checkSession` method of {@link AuthEntrypoint}.
  */
-export const makeCheckSession = (auth: Pick<AuthInstance, "api">): AuthEntrypoint["checkSession"] =>
+export const makeCheckSession = (
+  instance: Effect.Effect<Pick<AuthInstance, "api">>,
+): AuthEntrypoint["checkSession"] =>
   Effect.fn("auth.checkSession")(function* checkSession({ cookie }) {
+    const auth = yield* instance.pipe(
+      Effect.catchDefect((defect) => unavailable(faultName(defect))),
+    );
+
     const found = yield* auth.api
       .getSession({ headers: new Headers({ cookie }), query: { disableRefresh: true } })
       .pipe(
-        Effect.tapCause((cause) =>
-          Cause.hasInterruptsOnly(cause)
-            ? Effect.void
-            : Effect.logError("The session store faulted during a session check.", cause),
-        ),
-        Effect.catch(() => unavailable),
-        Effect.catchDefect(() => unavailable),
+        Effect.catch((error) => unavailable(error._tag)),
+        Effect.catchDefect((defect) => unavailable(faultName(defect))),
       );
 
     return found === null

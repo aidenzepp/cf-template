@@ -1,16 +1,8 @@
 import { RuntimeContext } from "alchemy";
 import type { BaseRuntimeContext } from "alchemy";
+import { WorkerEnvironment } from "@alchemy.run/cloudflare";
 import { BunServices } from "@effect/platform-bun";
-import {
-  Array as Arr,
-  ConfigProvider,
-  Context,
-  Effect,
-  FileSystem,
-  Layer,
-  Order,
-  Path,
-} from "effect";
+import { Array as Arr, Context, Effect, FileSystem, Layer, Order, Path } from "effect";
 import { Miniflare } from "miniflare";
 import type { RawDatabase } from "@workspace/db/database";
 import { AuthService, authDatabaseLayer } from "./auth.ts";
@@ -27,20 +19,18 @@ export const ORIGIN = "http://localhost:3000";
 const STATEMENT_BREAKPOINT = "--> statement-breakpoint";
 
 /**
- * The deployment settings the Worker reads from its bindings, supplied as a `ConfigProvider` so the
- * tests never touch the host environment.
+ * The Worker's bindings as `infra` binds them for a stage, supplied as the `WorkerEnvironment` so
+ * the tests never touch the host environment.
  *
- * @param overrides - Settings that replace the defaults.
- * @returns A layer that provides the settings.
+ * @param overrides - Bindings that replace the defaults.
+ * @returns A layer that provides the bindings.
  */
 export const settings = (overrides: Readonly<Record<string, string>> = {}) =>
-  ConfigProvider.layer(
-    ConfigProvider.fromUnknown({
-      BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-0123",
-      PUBLIC_ORIGIN: ORIGIN,
-      ...overrides,
-    }),
-  );
+  Layer.succeed(WorkerEnvironment, {
+    BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-0123",
+    PUBLIC_ORIGIN: ORIGIN,
+    ...overrides,
+  });
 
 /**
  * A stand-in for the host's per-call context, which Alchemy's bridge provides on a deployed Worker.
@@ -137,8 +127,7 @@ export const authOver = (binding: RawDatabase, overrides?: Readonly<Record<strin
  * @returns The handler's response.
  */
 export const handle = Effect.fn("handle")(function* handle(path: string, init: RequestInit) {
-  const auth = yield* AuthService;
-  const instance = yield* auth.auth;
+  const instance = yield* (yield* yield* AuthService).auth;
 
   const headers = new Headers(init.headers);
 
@@ -160,6 +149,19 @@ export const cookieOf = (response: Response): string =>
   response.headers
     .getSetCookie()
     .map((cookie) => cookie.split(";")[0] ?? "")
+    .join("; ");
+
+/**
+ * Drop the signed `session_data` cookie so a check cannot answer from the cookie cache and must
+ * read the session row.
+ *
+ * @param cookie - A `Cookie` header from a sign-in.
+ * @returns The header with only the other cookies.
+ */
+export const tokenOnly = (cookie: string): string =>
+  cookie
+    .split("; ")
+    .filter((pair) => !pair.includes("session_data"))
     .join("; ");
 
 /**
