@@ -1,7 +1,6 @@
 import { Config, Effect, Option, Schema, SchemaTransformation } from "effect";
 import type { LogLevel } from "effect";
 import { Digest } from "effect/crypto";
-import { TaggedError as taggedError } from "effect/Schema";
 import { LogLevelKnob } from "@workspace/config/log-level";
 
 /**
@@ -161,7 +160,7 @@ export const STACK_NAME_MAX = WORKER_NAME_MAX - LONGEST_WORKER - 2 - LONGEST_STA
 /**
  * The failure raised when a derived Worker name exceeds the Worker name limit.
  */
-export class WorkerNameTooLongError extends taggedError<WorkerNameTooLongError>()(
+export class WorkerNameTooLongError extends Schema.TaggedError<WorkerNameTooLongError>()(
   "WorkerNameTooLongError",
   { message: Schema.String, workerName: Schema.String },
 ) {}

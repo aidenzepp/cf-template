@@ -2,7 +2,6 @@ import { BunServices } from "@effect/platform-bun";
 import { Config, Effect, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { TaggedError as taggedError } from "effect/Schema";
 import { STACK_NAME_MAX, base32Sha256, kindOf } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 
@@ -10,7 +9,7 @@ import type { StageName } from "../stages.ts";
  * The failure of stack-name derivation: every source is absent, or the derived name is not a
  * valid stack name.
  */
-export class StackNameError extends taggedError<StackNameError>()("StackNameError", {
+export class StackNameError extends Schema.TaggedError<StackNameError>()("StackNameError", {
   message: Schema.String,
 }) {}
 
