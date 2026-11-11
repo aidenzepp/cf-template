@@ -119,6 +119,17 @@
         "effect": "4.1.2",
       },
     },
+    "packages/budget-guard": {
+      "name": "@workspace/budget-guard",
+      "dependencies": {
+        "@alchemy.run/cloudflare": "2.0.0-beta.85",
+        "alchemy": "2.0.0-beta.85",
+        "effect": "4.1.2",
+      },
+      "devDependencies": {
+        "@effect/vitest": "4.1.2",
+      },
+    },
     "packages/config": {
       "name": "@workspace/config",
       "dependencies": {
@@ -986,6 +997,8 @@
     "@workspace/api": ["@workspace/api@workspace:apps/api"],
 
     "@workspace/auth": ["@workspace/auth@workspace:apps/auth"],
+
+    "@workspace/budget-guard": ["@workspace/budget-guard@workspace:packages/budget-guard"],
 
     "@workspace/config": ["@workspace/config@workspace:packages/config"],
 

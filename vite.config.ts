@@ -515,6 +515,15 @@ export default defineConfig({
       { test: { ...noOnly, include: ["packages/knobs-kv/src/**/*.test.ts"], name: "knobs-kv" } },
       // block:knobs-kv end
       { test: { ...noOnly, include: ["infra/**/*.test.ts"], name: "infra" } },
+      // block:budget-guard start
+      {
+        test: {
+          ...noOnly,
+          include: ["packages/budget-guard/src/**/*.test.ts"],
+          name: "budget-guard",
+        },
+      },
+      // block:budget-guard end
       {
         test: {
           ...noOnly,
