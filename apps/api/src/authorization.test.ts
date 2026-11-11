@@ -23,7 +23,7 @@ import { ExampleFeatureGateLive } from "./notes/gate.ts";
 import { NotesApiHandlersNoDeps } from "./notes/http.ts";
 import { Notes } from "./notes/notes.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
-import { SystemApiHandlers } from "./system.ts";
+import { SystemApiHandlers } from "./system/http.ts";
 
 const ada = new Session({
   email: "ada@example.test",

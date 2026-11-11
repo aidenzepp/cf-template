@@ -29,12 +29,54 @@ const carriesBase = (
   return Schema.is(Restriction)(rule) && base.every((entry) => rule[1].paths.includes(entry));
 };
 
+/**
+ * The shape of `restrictImports` options that lists `patterns`.
+ */
+const Patterned = Schema.Tuple([
+  Schema.String,
+  Schema.Struct({ patterns: Schema.Array(Schema.Unknown) }),
+]);
+
+/**
+ * The files globs that name a path under an app's `src`, such as `apps/api/src/worker.ts`.
+ */
+const underAppSource = (files: readonly string[] | undefined) =>
+  (files ?? []).some((glob) => /^apps\/[^/]+\/src\//u.test(glob));
+
 const sample = [{ message: "sample base entry", name: "effect" }];
 
 describe("no-restricted-imports override composition", () => {
   it("every override in the lint config carries the base paths", () => {
     for (const override of config.lint?.overrides ?? []) {
       assert.isTrue(carriesBase(override, basePaths));
+    }
+  });
+
+  it("every override under apps/*/src carries every R1 group", () => {
+    const r1 = (config.lint?.overrides ?? []).find((override) =>
+      override.files?.includes("apps/*/src/**"),
+    );
+
+    const decoded = Schema.decodeUnknownOption(Patterned)(r1?.rules?.["no-restricted-imports"]);
+
+    assert.isTrue(decoded._tag === "Some");
+
+    const groups = decoded._tag === "Some" ? decoded.value[1].patterns : [];
+
+    assert.isAbove(groups.length, 0);
+
+    for (const override of config.lint?.overrides ?? []) {
+      const rule = override.rules?.["no-restricted-imports"];
+
+      if (underAppSource(override.files) && rule !== undefined) {
+        const carried = Schema.decodeUnknownOption(Patterned)(rule);
+
+        assert.isTrue(carried._tag === "Some");
+
+        const patterns = carried._tag === "Some" ? carried.value[1].patterns : [];
+
+        assert.isTrue(groups.every((group) => patterns.includes(group)));
+      }
     }
   });
 
