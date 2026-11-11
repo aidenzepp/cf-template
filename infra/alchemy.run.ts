@@ -92,14 +92,15 @@ const program = Effect.gen(function* declareStack() {
 
   yield* guardLocationHints([APP_DB_ID, AUTH_DB_ID], hint);
   yield* declareAppDb(stack, stage, hint);
+
   // block:knobs-kv start
-  yield* knobsNamespace(stack, stage);
+  const knobs = yield* knobsNamespace(stack, stage);
   // block:knobs-kv end
 
   const origin = yield* publicOrigin({ stack, stage });
   const auth = yield* declareAuth({ stack, stage }, hint, values, origin);
   const api = yield* declareApi({ stack, stage }, values);
-  const web = yield* declareWeb({ stack, stage }, { api, auth }, origin);
+  const web = yield* declareWeb({ stack, stage }, { api, auth, knobs }, origin);
 
   const address = yield* issueNotificationAddress(stage);
 

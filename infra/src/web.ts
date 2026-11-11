@@ -1,5 +1,6 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Path } from "effect";
+import type { knobsNamespace } from "@workspace/knobs-kv/live";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { limitKnobs, limitsFor } from "@workspace/config/limits";
 import type { Auth } from "../../apps/auth/src/contract.ts";
@@ -24,6 +25,7 @@ interface WebBindings extends Record<keyof WebEnv, string | object> {
   readonly AUTH: Effect.Success<typeof Auth>;
   readonly AUTH_METHODS: string;
   readonly AUTH_ORPHAN_GRACE_SECONDS: string;
+  readonly KNOBS: Effect.Success<ReturnType<typeof knobsNamespace>>;
   readonly PUBLIC_ORIGIN: string;
   readonly RATELIMIT_CREDENTIAL: object;
   readonly RATELIMIT_PUBLIC: object;
@@ -35,10 +37,11 @@ interface WebBindings extends Record<keyof WebEnv, string | object> {
  *
  * `web` is the only Worker with an address. It binds `api` as `API` and `auth` as `AUTH`, both as
  * plain service bindings that `apps/web` only ever calls `fetch` on, plus `AUTH_METHODS` and
- * `PUBLIC_ORIGIN` from the values `auth` already receives. `runWorkerFirst` is the same
- * {@link FORWARD_PREFIXES} constant the server entry forwards by, so a static asset never shadows
- * `/api/*` or `/auth/*`. `WebProd` serves the production bundle that `build:prod-harness` writes to
- * `apps/web/dist` and is never declared on any other stage kind.
+ * `PUBLIC_ORIGIN` from the values `auth` already receives, and the stage's knobs namespace as
+ * `KNOBS`, which `web` only reads, as it has no Worker program to bind it from. `runWorkerFirst` is
+ * the same {@link FORWARD_PREFIXES} constant the server entry forwards by, so a static asset never
+ * shadows `/api/*` or `/auth/*`. `WebProd` serves the production bundle that `build:prod-harness`
+ * writes to `apps/web/dist` and is never declared on any other stage kind.
  *
  * @param identity - The stack name and decoded stage.
  * @param identity.stack - The stack name from `resolveStackName`.
@@ -54,6 +57,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
   workers: {
     readonly api: Effect.Success<typeof ApiWorker>;
     readonly auth: Effect.Success<typeof Auth>;
+    readonly knobs: Effect.Success<ReturnType<typeof knobsNamespace>>;
   },
   origin: Effect.Success<ReturnType<typeof publicOrigin>>,
 ) {
@@ -69,6 +73,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     AUTH: workers.auth,
     AUTH_METHODS: methods,
     AUTH_ORPHAN_GRACE_SECONDS: grace,
+    KNOBS: workers.knobs,
     PUBLIC_ORIGIN: origin,
     RATELIMIT_CREDENTIAL: Cloudflare.RateLimit("RATELIMIT_CREDENTIAL", {
       namespaceId: namespaceId(stack, stage, "credential"),

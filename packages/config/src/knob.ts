@@ -238,8 +238,8 @@ export const fromSource = (source: LiveSource): LiveKnobsPort => {
               rejected.add(seen);
 
               return withReason(
-                Effect.logError(
-                  `Live source ${source.name} holds a value for ${knob.key} that its schema rejects; using the deploy-time value.`,
+                Effect.logError("knob.live.rejected").pipe(
+                  Effect.annotateLogs({ "knob.key": knob.key, "knob.source": source.name }),
                 ),
                 knob.key,
                 "schema_rejected",

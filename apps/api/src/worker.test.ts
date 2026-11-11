@@ -1,7 +1,9 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { assert, describe, it } from "@effect/vitest";
-import { DateTime, Effect, Layer, Schema } from "effect";
+import { DateTime, Effect, Layer, Option, Schema } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
+import { LiveKnobs, fromSource } from "@workspace/config/knob";
+import { LogLevelKnob } from "@workspace/config/log-level";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { Notes } from "./notes/notes.ts";
 import type { NotesService } from "./notes/notes.ts";
@@ -108,5 +110,43 @@ describe("the notes store of the api Worker", () => {
       assert.strictEqual(listed.status, 200);
       assert.strictEqual(Array.isArray(listed.json) ? listed.json.length : -1, 1);
     }),
+  );
+
+  it.effect("reads LOG_LEVEL through the LiveKnobs port once per request", () =>
+    Effect.gen(function* readsLevel() {
+      const reads: Array<string> = [];
+
+      const port = fromSource({
+        name: "test",
+        read: (key) =>
+          Effect.sync(() => {
+            reads.push(key);
+
+            return Option.none<string>();
+          }),
+      });
+
+      const notes = yield* Notes.pipe(Effect.provide(Notes.layerMemory));
+
+      const handler = yield* makeHandler(
+        () => Effect.succeed(ada),
+        notes,
+        Layer.succeed(LiveKnobs, port),
+      );
+
+      const levelReads = () => reads.filter((key) => key === LogLevelKnob.key).length;
+      const before = levelReads();
+
+      const request = HttpServerRequest.fromWeb(new Request("http://api.internal/api/notes"));
+
+      yield* handler.pipe(Effect.provideService(HttpServerRequest.HttpServerRequest, request));
+      yield* handler.pipe(Effect.provideService(HttpServerRequest.HttpServerRequest, request));
+
+      assert.strictEqual(levelReads() - before, 2);
+    }).pipe(
+      Effect.scoped,
+      Effect.provideService(Cloudflare.WorkerEnvironment, { EXAMPLE_FEATURE_ENABLED: "true" }),
+      Effect.orDie,
+    ),
   );
 });

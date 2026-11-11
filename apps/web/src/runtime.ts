@@ -1,8 +1,10 @@
 import { env } from "cloudflare:workers";
 import { createIsomorphicFn } from "@tanstack/react-start";
-import { Effect, Layer, Logger, ManagedRuntime } from "effect";
+import { ConfigProvider, Effect, Layer, Logger, ManagedRuntime } from "effect";
 import { AtomRegistry } from "effect/reactivity";
 import { ApiClient } from "./api-client.ts";
+import { atLevelLayer, atLiveLevel, unleveledLayer } from "./at-level.ts";
+import { webKnobs } from "./live-knobs.ts";
 import { makeOrphanGraceLayer, makeWebLayer } from "./web-layer.ts";
 
 /**
@@ -60,12 +62,21 @@ export const hydrateAuthMethods = (text: string): void => {
 export const structuredLogs = Logger.layer([Logger.withLeveledConsole(Logger.formatStructured)]);
 
 /**
+ * The layer that provides `AtLevel`: on the server, the live `LOG_LEVEL` over the `KNOBS` binding;
+ * in the browser, which has no namespace, none.
+ */
+const levelLayer = createIsomorphicFn()
+  .server(() => atLevelLayer(webKnobs(env.KNOBS), ConfigProvider.fromUnknown(env)))
+  .client(() => unleveledLayer);
+
+/**
  * The one runtime of `web`, built on first use so the browser reads the hydrated text.
  */
 const makeRuntime = () =>
   ManagedRuntime.make(
     Layer.mergeAll(
       structuredLogs,
+      levelLayer(),
       makeWebLayer({ AUTH_METHODS: authMethodsText() }),
       makeOrphanGraceLayer({ AUTH_ORPHAN_GRACE_SECONDS: orphanGraceText() }),
       AtomRegistry.make().get(ApiClient.runtime.layer),
@@ -91,7 +102,7 @@ export const fork = (
   options?: { readonly signal?: AbortSignal },
 ): void => {
   runtime ??= makeRuntime();
-  runtime.runFork(effect, options);
+  runtime.runFork(atLiveLevel(effect), options);
 };
 
 /**
@@ -116,9 +127,11 @@ export const run = <A, E>(
   // A defect that is not an `Error` (a string passed to `die`) would reject with that bare value,
   // which the router dehydrates as it is. An `Error` goes through the router's hidden-error adapter.
   return runtime.runPromise(
-    effect.pipe(
-      Effect.catchDefect((defect) =>
-        Effect.die(defect instanceof Error ? defect : new Error("Unexpected defect")),
+    atLiveLevel(
+      effect.pipe(
+        Effect.catchDefect((defect) =>
+          Effect.die(defect instanceof Error ? defect : new Error("Unexpected defect")),
+        ),
       ),
     ),
     options,
