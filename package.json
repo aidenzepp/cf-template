@@ -8,7 +8,8 @@
   ],
   "type": "module",
   "scripts": {
-    "check": "bun tools/hooks/present.ts && vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings && bun run ui:typecheck",
+    "check": "bun tools/hooks/present.ts && vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings && bun run ui:typecheck && bun run db:check",
+    "db:check": "bun tools/db/check.ts",
     "ui": "cd packages/ui && bunx shadcn@4.23.0",
     "ui:typecheck": "bun run --filter @workspace/ui typecheck",
     "fix": "vp check --fix",
