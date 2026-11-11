@@ -7,6 +7,7 @@ import { declareDatabase as declareAuthDb } from "../apps/auth/src/db/database.t
 import { Stage, stageValues, workerName } from "./stages.ts";
 import { compat } from "./src/compat.ts";
 import { d1LocationHint } from "./src/d1-location.ts";
+import { usesProjectState } from "./src/state-selection.ts";
 import { StackNameError, requiresStackNamePin, resolveStackName } from "./src/stack-name.ts";
 
 /**
@@ -62,17 +63,6 @@ export const resolveIdentity = Effect.fn("resolveIdentity")(function* resolveIde
 
   return { stack, stage };
 });
-
-/**
- * Report whether the stage keeps its state in the project's Cloudflare state store.
- *
- * `prod`, `staging-<N>` and `test-ci` do; `test-<slug>` and `dev` use Alchemy local state.
- *
- * @param stage - The decoded stage.
- * @returns `true` for a stage that uses the project store.
- */
-export const usesProjectState = (stage: string): boolean =>
-  stage === "prod" || stage === "test-ci" || stage.startsWith("staging-");
 
 const state = Layer.unwrap(
   Effect.gen(function* declareState() {
