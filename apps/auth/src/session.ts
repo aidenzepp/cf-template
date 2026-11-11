@@ -1,4 +1,4 @@
-import { Context, DateTime, Effect, Layer, Predicate } from "effect";
+import { Context, DateTime, Effect, Layer, Predicate, Schema } from "effect";
 import { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { AuthService } from "./auth.ts";
@@ -45,6 +45,10 @@ const faultName = (defect: Parameters<typeof Predicate.isError>[0]): string =>
  * `fresh` parameter and no switch that skips the cache: a re-authentication prompt follows the
  * server's own fresh-session refusal.
  *
+ * The result is the encoded `Session` (plain JSON values, `expiresAt` as a string) or `null`, the
+ * form that survives the service binding; the caller decodes it with the contract schema. A class
+ * instance would not cross the binding as one.
+ *
  * Better Auth's `null` means signed out and nothing else. Every failure of the store, whether an
  * `APIError` Better Auth raised or a defect from the D1 binding or the adapter, fails with
  * {@link AuthUnavailable}, never `null`. Interruption is not a fault and passes through.
@@ -69,13 +73,15 @@ export const makeCheckSession = (
 
     return found === null
       ? null
-      : new Session({
-          email: found.user.email,
-          expiresAt: DateTime.fromDateUnsafe(found.session.expiresAt),
-          image: found.user.image ?? null,
-          name: found.user.name,
-          userId: UserId.make(found.user.id),
-        });
+      : yield* Schema.encodeEffect(Session)(
+          new Session({
+            email: found.user.email,
+            expiresAt: DateTime.fromDateUnsafe(found.session.expiresAt),
+            image: found.user.image ?? null,
+            name: found.user.name,
+            userId: UserId.make(found.user.id),
+          }),
+        ).pipe(Effect.catch((error) => unavailable(error._tag)));
   });
 
 /**

@@ -1,5 +1,5 @@
 import { assert, layer } from "@effect/vitest";
-import { ConfigProvider, DateTime, Effect, Exit, Layer } from "effect";
+import { ConfigProvider, DateTime, Effect, Exit, Layer, Schema } from "effect";
 import { Session } from "@workspace/contract/domain/session";
 import { AuthService } from "./auth.ts";
 import { CookieCacheMaxAgeKnob } from "./config.ts";
@@ -27,13 +27,16 @@ layer(LocalAuthD1.layer)("checkSession", (it) => {
         const checkSession = yield* CheckSession;
         const session = yield* checkSession({ cookie });
 
-        assert.instanceOf(session, Session);
+        // The wire form: plain JSON values that survive a service binding, never a class instance.
+        assert.notInstanceOf(session, Session);
         assert.strictEqual(session?.email, "ada@example.test");
         assert.strictEqual(session?.name, "Ada Lovelace");
         assert.strictEqual(session?.image, null);
-        assert.isTrue(
-          DateTime.isGreaterThan(session?.expiresAt ?? DateTime.nowUnsafe(), DateTime.nowUnsafe()),
-        );
+        assert.typeOf(session?.expiresAt, "string");
+
+        const decoded = yield* Schema.decodeUnknownEffect(Session)(session);
+
+        assert.isTrue(DateTime.isGreaterThan(decoded.expiresAt, DateTime.nowUnsafe()));
       }).pipe(Effect.provide(authOver(binding)), asExecution);
     }),
   );

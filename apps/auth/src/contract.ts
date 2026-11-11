@@ -5,6 +5,11 @@ import type { Effect } from "effect";
 import type { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
 import type { Session } from "@workspace/contract/domain/session";
 
+/**
+ * The wire form of a session: the contract `Session` encoded, plain JSON values only.
+ */
+export type EncodedSession = typeof Session.Encoded;
+
 export { AUTH_BASE_PATH, OAUTH_ERROR_PATH } from "@workspace/contract/domain/auth-paths";
 
 /**
@@ -15,14 +20,15 @@ export interface AuthEntrypoint extends MainRpc<RuntimeContext> {
   /**
    * Resolve the session a request's own `Cookie` header carries.
    *
-   * The result is `null` when the request is signed out and nothing else. A store fault fails with
-   * `AuthUnavailable`, never `null`. The method reads the signed cookie cache and never refreshes
-   * the session, so the caller sends no `Set-Cookie` back. `RuntimeContext` is the host's per-call
-   * context, which Alchemy provides to every handler; no caller supplies it.
+   * The result is the encoded session, or `null` when the request is signed out and nothing else. A
+   * store fault fails with `AuthUnavailable`, never `null`. The method reads the signed cookie
+   * cache and never refreshes the session, so the caller sends no `Set-Cookie` back.
+   * `RuntimeContext` is the host's per-call context, which Alchemy provides to every handler; no
+   * caller supplies it.
    */
   readonly checkSession: (input: {
     readonly cookie: string;
-  }) => Effect.Effect<Session | null, AuthUnavailable, RuntimeContext>;
+  }) => Effect.Effect<EncodedSession | null, AuthUnavailable, RuntimeContext>;
 }
 
 /**
