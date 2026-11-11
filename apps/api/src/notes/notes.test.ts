@@ -1,6 +1,6 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { BunServices } from "@effect/platform-bun";
 import { assert, layer } from "@effect/vitest";
-import { Context, Effect, Exit, Layer } from "effect";
+import { Array as Arr, Context, Effect, Exit, FileSystem, Layer, Order, Path } from "effect";
 import { Miniflare } from "miniflare";
 import { makeDatabase } from "@workspace/db/database";
 import type { RawDatabase } from "@workspace/db/database";
@@ -23,18 +23,29 @@ const owners = (test: string) => ({
   grace: UserId.make(`${test}-grace`),
 });
 
-const migrations = new URL("../../migrations/", import.meta.url);
-
 /**
  * The generated migrations, in order, as single statements.
  */
-const statements = readdirSync(migrations)
-  .toSorted()
-  .flatMap((directory) =>
-    readFileSync(new URL(`${directory}/migration.sql`, migrations), "utf-8")
-      .split("--> statement-breakpoint")
-      .map((statement) => statement.replaceAll(/\s+/gu, " ").trim()),
-  );
+const migrationStatements = Effect.gen(function* readMigrations() {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const directory = yield* path.fromFileUrl(new URL("../../migrations/", import.meta.url));
+  const files = Arr.sort(yield* fs.readDirectory(directory, { recursive: true }), Order.String);
+
+  return yield* Effect.forEach(
+    files.filter((file) => file.endsWith(".sql")),
+    (file) =>
+      fs
+        .readFileString(path.join(directory, file))
+        .pipe(
+          Effect.map((sql) =>
+            sql
+              .split("--> statement-breakpoint")
+              .map((statement) => statement.replaceAll(/\s+/gu, " ").trim()),
+          ),
+        ),
+  ).pipe(Effect.map((perFile) => perFile.flat()));
+}).pipe(Effect.provide(BunServices.layer));
 
 /**
  * A Miniflare D1 with the app migrations applied, closed with the layer's scope.
@@ -49,6 +60,8 @@ class LocalAppDb extends Context.Service<LocalAppDb, RawDatabase>()("@workspace/
       );
 
       const binding = yield* Effect.promise(() => miniflare.getD1Database("DB"));
+
+      const statements = yield* migrationStatements;
 
       yield* Effect.promise(() =>
         binding.batch(statements.map((statement) => binding.prepare(statement))),
