@@ -1,6 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { commands } from "vitest/browser";
+import { commands } from "vite-plus/test/browser";
+import type { BrowserCommands } from "vite-plus/test/internal/browser";
 
 /**
  * The result of one axe run on a hydrated page, as the `scan` command in `vite.browser.config.ts`
@@ -16,15 +17,27 @@ interface Scan {
   }>;
 }
 
-declare module "vitest/browser" {
-  interface BrowserCommands {
-    /**
-     * Open a page in a second tab of the browser, wait for React to hydrate it, and run axe-core.
-     * A path is served by the production build of `web`; a full URL is opened as it is.
-     */
-    readonly scan: (target: string, cookie?: string) => Promise<Scan>;
-  }
+/**
+ * The `scan` command of `vite.browser.config.ts`: open a page in a second tab, wait for React to
+ * hydrate it, and run axe-core. A path is served by the production build of `web`. The command is
+ * custom, so the typed `commands` object does not name it.
+ */
+interface ScanCommand {
+  readonly scan: (target: string, cookie?: string) => Promise<Scan>;
 }
+
+const hasScan = (candidate: BrowserCommands): candidate is BrowserCommands & ScanCommand =>
+  "scan" in candidate;
+
+const scan = Effect.fn("scan")(function* scan(path: string, cookie: string | undefined) {
+  if (!hasScan(commands)) {
+    return yield* Effect.die("The scan command is missing. Check vite.browser.config.ts.");
+  }
+
+  const scanner: ScanCommand = commands;
+
+  return yield* Effect.promise(() => scanner.scan(path, cookie));
+});
 
 /**
  * The first screens. The stub `API` of the harness answers a signed-out caller on the `stub=401`
@@ -61,9 +74,7 @@ describe("the first screens", () => {
   for (const { cookie, known, name, path, shows } of SCREENS) {
     it.effect(`${name} has only the known axe violations once hydrated`, () =>
       Effect.gen(function* scanScreen() {
-        const { passes, text, violations } = yield* Effect.promise(() =>
-          commands.scan(path, cookie),
-        );
+        const { passes, text, violations } = yield* scan(path, cookie);
 
         assert.include(text, shows);
         assert.isAbove(passes, 0);
