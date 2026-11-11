@@ -10,7 +10,9 @@ I-25 and I-44 fill this section.
 
 ## Domain
 
-I-19 and I-26 fill this section.
+`workers.dev` is a public suffix, so browsers isolate cookies between accounts but not between Workers of one account; the risk is accepted until an owned domain (I-26).
+
+I-26 fills the rest of this section.
 
 ## Build and gates
 

@@ -60,7 +60,17 @@ export const publicOrigin = Effect.fn("publicOrigin")(function* publicOrigin(ide
     return yield* decode(`https://${domain.value}`);
   }
 
-  const subdomain = yield* Config.String("CLOUDFLARE_WORKERS_SUBDOMAIN");
+  const subdomain = yield* Config.String("CLOUDFLARE_WORKERS_SUBDOMAIN").pipe(
+    Effect.mapError(
+      () =>
+        new Config.ConfigError(
+          new ConfigProvider.SourceError({
+            message: `CLOUDFLARE_WORKERS_SUBDOMAIN is unset for stage ${identity.stage}, so its public origin is unknown. Set it to the account's workers.dev subdomain, for example CLOUDFLARE_WORKERS_SUBDOMAIN=acme.`,
+          }),
+        ),
+    ),
+  );
+
   const web = yield* workerName({ ...identity, worker: "web" });
 
   return yield* decode(`https://${web}.${subdomain}.workers.dev`);

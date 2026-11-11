@@ -3,27 +3,14 @@ import * as Alchemy from "alchemy";
 import { Config, ConfigProvider, Effect, Layer, Option, Path, Schema } from "effect";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { AuthMethods } from "@workspace/config/auth-methods";
-import { PublicOrigin, WEB_DEV_PORT } from "@workspace/config/public-origin";
 import { Auth } from "../../apps/auth/src/contract.ts";
 import { declareDatabase } from "../../apps/auth/src/db/database.ts";
 import { AUTH_ORPHAN_GRACE_SECONDS } from "../../apps/auth/src/reclaim.ts";
 import AuthWorker, { AuthDeployment } from "../../apps/auth/src/worker.ts";
-import { kindOf, workerName } from "../stages.ts";
+import { workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
 import { compat } from "./compat.ts";
-import { publicOrigin } from "./origin.ts";
-
-/**
- * The refusal of a cloud stage whose `workers.dev` subdomain is unknown.
- */
-export class WorkersSubdomainMissing extends Schema.TaggedError<WorkersSubdomainMissing>()(
-  "WorkersSubdomainMissing",
-  { stage: Schema.String },
-) {
-  override get message(): string {
-    return `CLOUDFLARE_WORKERS_SUBDOMAIN is unset for stage ${this.stage}, so its public origin is unknown. Set it to the account's workers.dev subdomain.`;
-  }
-}
+import type { publicOrigin } from "./origin.ts";
 
 /**
  * Read the credential pair of one OAuth provider: `<PREFIX>_CLIENT_ID` with
@@ -103,40 +90,6 @@ export const resolveMethods = Effect.fn("resolveMethods")(function* resolveMetho
 });
 
 /**
- * Compute the interim public origin of a stage: the `workers.dev` address of its `web` Worker on a
- * cloud stage, and the local dev server under the `local` kind.
- *
- * The custom-domain rule replaces this value later; this file stays its one producer.
- *
- * @param parts - The parts of the origin.
- * @param parts.stack - The stack name.
- * @param parts.stage - The decoded stage.
- * @param parts.subdomain - The account's `workers.dev` subdomain, `CLOUDFLARE_WORKERS_SUBDOMAIN`.
- * @returns The validated origin, or the failure of an unknown subdomain or a name that is too long.
- */
-export const interimPublicOrigin = Effect.fn("interimPublicOrigin")(
-  function* interimPublicOrigin(parts: {
-    readonly stack: string;
-    readonly stage: StageName;
-    readonly subdomain: Option.Option<string>;
-  }) {
-    const decode = Schema.decodeUnknownEffect(PublicOrigin);
-
-    if (kindOf(parts.stage) === "local") {
-      return yield* decode(`http://localhost:${WEB_DEV_PORT}`);
-    }
-
-    if (Option.isNone(parts.subdomain)) {
-      return yield* new WorkersSubdomainMissing({ stage: parts.stage });
-    }
-
-    const web = yield* workerName({ stack: parts.stack, stage: parts.stage, worker: "web" });
-
-    return yield* decode(`https://${web}.${parts.subdomain.value}.workers.dev`);
-  },
-);
-
-/**
  * The JSON text bound as `AUTH_METHODS`, on `auth` and on `web`. This file is its one producer.
  */
 export const encodedAuthMethods = resolveMethods().pipe(
@@ -152,23 +105,6 @@ export const encodedOrphanGrace = AUTH_ORPHAN_GRACE_SECONDS.encode(
 );
 
 /**
- * The interim public origin of a stage, with the `workers.dev` subdomain read from
- * `CLOUDFLARE_WORKERS_SUBDOMAIN`. The one place that reads it, for `auth` and `web`.
- *
- * @param identity - The stack name and decoded stage.
- * @param identity.stack - The stack name.
- * @param identity.stage - The decoded stage.
- * @returns The validated origin, or the failure of {@link interimPublicOrigin}.
- */
-export const resolvePublicOrigin = Effect.fn("resolvePublicOrigin")(
-  function* resolvePublicOrigin(identity: { readonly stack: string; readonly stage: StageName }) {
-    const subdomain = yield* Config.String("CLOUDFLARE_WORKERS_SUBDOMAIN").pipe(Config.option);
-
-    return yield* interimPublicOrigin({ ...identity, subdomain });
-  },
-);
-
-/**
  * Declare the auth D1 database and the `auth` Worker with its bindings.
  *
  * The Worker binds `PUBLIC_ORIGIN`, `AUTH_METHODS`, the two cookie-cache values and the scrypt cost
@@ -181,19 +117,21 @@ export const resolvePublicOrigin = Effect.fn("resolvePublicOrigin")(
  * @param identity.stage - The decoded stage.
  * @param hint - The `D1_PROD_LOCATION_HINT` knob value.
  * @param values - The knob values of the stage.
+ * @param origin - The stage's public origin, computed once by the stack program and handed to
+ *   `web` as well.
  * @returns The `auth` Worker resource.
  */
 export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
   identity: { readonly stack: string; readonly stage: StageName },
   hint: Parameters<typeof declareDatabase>[2],
   values: StageValues,
+  origin: Effect.Success<ReturnType<typeof publicOrigin>>,
 ) {
   const { stack, stage } = identity;
   const path = yield* Path.Path;
   yield* declareDatabase(stack, stage, hint);
 
   const secret = yield* Alchemy.Random("BetterAuthSecret");
-  const origin = yield* publicOrigin({ stack, stage });
   const { methods, secrets } = yield* resolveMethods();
   const encodedMethods = yield* Schema.encodeEffect(Schema.fromJsonString(AuthMethods))(methods);
   const scrypt = yield* AUTH_PASSWORD_SCRYPT.encode(values.AUTH_PASSWORD_SCRYPT);

@@ -10,6 +10,7 @@ import { declareAuth } from "./src/auth.ts";
 import { guardLocationHints } from "./src/d1-hint-guard.ts";
 import { d1LocationHint } from "./src/d1-location.ts";
 import { usesProjectState } from "./src/state-selection.ts";
+import { publicOrigin } from "./src/origin.ts";
 import { declareWeb } from "./src/web.ts";
 import { StackNameError, requiresStackNamePin, resolveStackName } from "./src/stack-name.ts";
 
@@ -85,9 +86,10 @@ const program = Effect.gen(function* declareStack() {
   yield* guardLocationHints([APP_DB_ID, AUTH_DB_ID], hint);
   yield* declareAppDb(stack, stage, hint);
 
-  const auth = yield* declareAuth({ stack, stage }, hint, values);
+  const origin = yield* publicOrigin({ stack, stage });
+  const auth = yield* declareAuth({ stack, stage }, hint, values, origin);
   const api = yield* declareApi({ stack, stage }, values);
-  yield* declareWeb({ stack, stage }, { api, auth });
+  yield* declareWeb({ stack, stage }, { api, auth }, origin);
 
   return {};
 }).pipe(Effect.orDie);

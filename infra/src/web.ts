@@ -8,7 +8,7 @@ import { kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 import { encodedAuthMethods, encodedOrphanGrace } from "./auth.ts";
 import { compat } from "./compat.ts";
-import { publicOrigin } from "./origin.ts";
+import type { publicOrigin } from "./origin.ts";
 
 /**
  * The bindings of `web`: the two Workers it forwards to and the two values `apps/web` reads. Every
@@ -39,6 +39,7 @@ interface WebBindings extends Record<keyof WebEnv, string | object> {
  * @param workers - The declared `api` and `auth` Workers that `web` binds.
  * @param workers.api - The `api` Worker resource.
  * @param workers.auth - The `auth` Worker resource.
+ * @param origin - The stage's public origin, the same value `auth` receives.
  * @returns The `web` Worker resource.
  */
 export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
@@ -47,10 +48,10 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     readonly api: Effect.Success<typeof ApiWorker>;
     readonly auth: Effect.Success<typeof Auth>;
   },
+  origin: Effect.Success<ReturnType<typeof publicOrigin>>,
 ) {
   const { stack, stage } = identity;
   const path = yield* Path.Path;
-  const origin = yield* publicOrigin(identity);
   const methods = yield* encodedAuthMethods;
   const grace = yield* encodedOrphanGrace;
   const compatibility = { date: compat.date, flags: compat.flags.map((flag) => flag.name) };
