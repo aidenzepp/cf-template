@@ -23,9 +23,9 @@ declare module "@tanstack/react-router" {
  * that no page shows the defect's text.
  */
 export const Route = createFileRoute("/-harness-throws")({
-  loader: ({ deps }) =>
-    run(deps.kind === "not-found" ? Effect.fail(notFound()) : Effect.die("harness-defect-secret")),
   loaderDeps: ({ search }: { readonly search: { readonly kind?: string } }) => ({
     kind: search.kind ?? "defect",
   }),
+  loader: ({ deps }) =>
+    run(deps.kind === "not-found" ? Effect.fail(notFound()) : Effect.die("harness-defect-secret")),
 });

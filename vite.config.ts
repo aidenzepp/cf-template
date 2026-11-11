@@ -328,7 +328,6 @@ export default defineConfig({
           "react-doctor/jsx-no-new-function-as-prop": "off",
           "react-doctor/jsx-no-new-object-as-prop": "off",
           "react-doctor/only-export-components": "off",
-          "react-doctor/tanstack-start-route-property-order": "off",
         },
       },
       {
