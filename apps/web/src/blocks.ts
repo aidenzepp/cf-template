@@ -6,6 +6,7 @@ import { KnobsKvLive } from "@workspace/knobs-kv/live";
  * one does.
  */
 export const WebLayers = Layer.mergeAll(
-  // block:knobs-kv
+  // block:knobs-kv start
   KnobsKvLive,
+  // block:knobs-kv end
 );

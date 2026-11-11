@@ -168,9 +168,10 @@ it.effect("the three real blocks.ts files parse without an unknown attach shape"
         "NotesApiHandlersNoDeps",
         "SessionMiddlewareLive",
         "ExampleFeatureGateLive",
+        "KnobsKvLive",
       ],
-      [],
-      [],
+      ["KnobsKvLive"],
+      ["KnobsKvLive"],
     ]);
   }).pipe(Effect.provide(BunServices.layer)),
 );
