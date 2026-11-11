@@ -1,4 +1,5 @@
-import { Effect, Predicate, Record, Schema } from "effect";
+import { Effect, Option, Predicate } from "effect";
+import type { Schema } from "effect";
 
 /**
  * The levels Better Auth passes to `logger.log`; its `success` is delivered as `info`.
@@ -6,9 +7,30 @@ import { Effect, Predicate, Record, Schema } from "effect";
 type BetterAuthLevel = "debug" | "info" | "warn" | "error";
 
 /**
- * What Better Auth passes after a message: text, plain data or an `Error`.
+ * An object argument; any class instance can stand in for it at run time.
  */
-export type LogArgument = Schema.Json | Error;
+export interface LogObject {
+  readonly [key: string]: LogArgument;
+}
+
+/**
+ * What Better Auth can pass after a message: its type is `any`, so this names every kind of value
+ * an argument can be. `redactArgument` turns it into plain data.
+ */
+export type LogArgument =
+  | string
+  | number
+  | boolean
+  | bigint
+  | symbol
+  | null
+  | undefined
+  | Date
+  | Error
+  | ((...args: ReadonlyArray<never>) => void)
+  | ReadonlyMap<string, LogArgument>
+  | ReadonlyArray<LogArgument>
+  | LogObject;
 
 /**
  * Starts an effect on the fiber runtime of the execution that built the instance and returns at
@@ -17,9 +39,26 @@ export type LogArgument = Schema.Json | Error;
 export type Fork = (effect: Effect.Effect<void>) => void;
 
 /**
- * An address whose quoted local part may hold spaces, through the end of its domain.
+ * An address whose quoted local part may hold spaces and escaped quotes, through the end of its
+ * domain. The two alternatives of the group cannot match the same character, so it cannot
+ * backtrack catastrophically.
  */
-const QUOTED_LOCAL_PART = /"[^"]*"@\S*/gu;
+const QUOTED_LOCAL_PART = /"(?:[^"\\]|\\.)*"[@＠﹫]\S*/gu;
+
+/**
+ * The percent escape for `@`.
+ */
+const PERCENT_AT = /%40/giu;
+
+/**
+ * The HTML entities for `@`: decimal, hexadecimal and named.
+ */
+const AT_ENTITY = /&#0*64;|&#x0*40;|&commat;/giu;
+
+/**
+ * What stands in for a value the log cannot carry without risk.
+ */
+const NOT_LOGGABLE = "[not loggable]";
 
 /**
  * Whitespace runs, kept by `split` so the text rejoins unchanged.
@@ -42,37 +81,70 @@ const EFFECT_LOGGER = {
 } as const;
 
 /**
- * Whether a value is plain data.
+ * Decodes the percent escapes of a text, or gives no result when one is malformed.
  */
-const isJson = Schema.is(Schema.Json);
+const decodeEscapes = Option.liftThrowable(decodeURIComponent);
 
 /**
- * Whether plain data is an array.
+ * Decode the percent escapes of a text. A `%40` is always read as `@`, so a malformed escape
+ * elsewhere in the token cannot hide it; any other malformed escape leaves the text as it was.
+ *
+ * @param text - A token.
+ * @returns The decoded text.
  */
-const isJsonArray = Schema.is(Schema.Array(Schema.Json));
+const percentDecoded = (text: string): string => {
+  const withAt = text.replaceAll(PERCENT_AT, "@");
+
+  return Option.getOrElse(decodeEscapes(withAt), () => withAt);
+};
 
 /**
- * Whether plain data is an object.
+ * Decode the HTML entities that spell an `@`.
+ *
+ * @param text - A token.
+ * @returns The text with `&#64;`, `&#x40;` and `&commat;` replaced by `@`.
  */
-const isJsonRecord = Schema.is(Schema.Record(Schema.String, Schema.Json));
+const entityDecoded = (text: string): string => text.replaceAll(AT_ENTITY, "@");
 
 /**
- * Replace every whitespace-free run that contains an `@`, whole, so a list, a JSON document or a
- * URL around an address leaves no fragment of it. A run that ends in `@` or starts with `@` also
- * takes the run beside it, which covers an address cut at a space, and a quoted local part is
- * replaced through its closing quote.
+ * One round of percent and entity decoding.
+ *
+ * @param text - A token.
+ * @returns The decoded token.
+ */
+const decodedOnce = (text: string): string => entityDecoded(percentDecoded(text));
+
+/**
+ * A token as a reader would see it after the usual encodings are undone: compatibility forms
+ * folded (a full-width `＠` becomes `@`), then percent escapes and HTML entities decoded twice, so
+ * a doubly encoded `@` is found too.
+ *
+ * @param token - A whitespace-free run of text.
+ * @returns The token with its encodings undone.
+ */
+const decodedToken = (token: string): string =>
+  decodedOnce(decodedOnce(token.normalize("NFKC"))).normalize("NFKC");
+
+/**
+ * Replace every whitespace-free run that contains an `@`, whole, in any common encoding, so a
+ * list, a JSON document or a URL around an address leaves no fragment of it. A run that ends in
+ * `@` or starts with `@` also takes the run beside it, which covers an address cut at a space, and
+ * a quoted local part is replaced through its closing quote.
  *
  * @param text - A Better Auth message or argument.
  * @returns The text with each such run replaced by `[email]`.
  */
 export const redactEmails = (text: string): string => {
   const tokens = text.replaceAll(QUOTED_LOCAL_PART, "[email]").split(WHITESPACE_RUNS);
-  const word = (index: number) => (index % 2 === 0 ? (tokens[index] ?? "") : "");
+  const decoded = tokens.map((token, index) => (index % 2 === 0 ? decodedToken(token) : token));
+  const word = (index: number) => decoded[index] ?? "";
 
   return tokens
     .map((token, index) =>
       index % 2 === 0 &&
-      (token.includes("@") || word(index - 2).endsWith("@") || word(index + 2).startsWith("@"))
+      (word(index).includes("@") ||
+        word(index - 2).endsWith("@") ||
+        word(index + 2).startsWith("@"))
         ? "[email]"
         : token,
     )
@@ -80,8 +152,8 @@ export const redactEmails = (text: string): string => {
 };
 
 /**
- * The cause an `Error` carries, as a log argument; a cause that is neither plain data nor an
- * `Error` is replaced by a note, and a missing cause by `null`.
+ * The cause an `Error` carries, as a log argument; a missing cause is `null`, and a cause that
+ * is not text, a number, a boolean or an object is replaced by a note.
  *
  * @param error - The error.
  * @returns The cause.
@@ -93,61 +165,91 @@ const causeOf = (error: Error): LogArgument => {
     return null;
   }
 
-  return Predicate.isError(cause) || isJson(cause) ? cause : "[cause is not loggable]";
+  return Predicate.isError(cause) ||
+    Predicate.isString(cause) ||
+    Predicate.isNumber(cause) ||
+    Predicate.isBoolean(cause) ||
+    Predicate.isNull(cause)
+    ? cause
+    : NOT_LOGGABLE;
 };
 
 /**
- * Copy plain data with every string and key redacted, to `MAX_DEPTH` levels.
+ * Whether an object is a plain one: a literal, or one with no prototype.
  *
- * @param value - Plain data.
- * @param depth - How many more levels may be copied.
- * @returns A copy that holds no address.
+ * @param value - An object argument.
+ * @returns `true` when its prototype is `Object.prototype` or `null`.
  */
-const redactJson = (value: Schema.Json, depth: number): Schema.Json => {
-  if (Predicate.isString(value)) {
-    return redactEmails(value);
-  }
+const isPlainObject = (
+  value: LogObject | ReadonlyMap<string, LogArgument> | ReadonlyArray<LogArgument>,
+): boolean => {
+  const prototype = Reflect.getPrototypeOf(value);
 
-  if (Predicate.isNull(value) || Predicate.isNumber(value) || Predicate.isBoolean(value)) {
-    return value;
-  }
-
-  if (isJsonArray(value)) {
-    return depth <= 0 ? "[truncated]" : value.map((item) => redactJson(item, depth - 1));
-  }
-
-  if (isJsonRecord(value)) {
-    return depth <= 0
-      ? "[truncated]"
-      : Record.mapEntries(value, (item, key) => [redactEmails(key), redactJson(item, depth - 1)]);
-  }
-
-  return value;
+  return prototype === Object.prototype || prototype === null;
 };
 
 /**
- * Copy a log argument into plain data with every string redacted. An `Error` keeps its name,
- * message, stack and cause.
+ * Copy a log argument into plain data that fails closed. Text is redacted; arrays and plain
+ * objects are walked, with their keys redacted, to `MAX_DEPTH` levels; an `Error` keeps its name,
+ * message, stack and cause; a `Date` becomes its ISO text. Anything else, such as a function, a
+ * symbol, a bigint, a `Map` or a class instance, is replaced by `[not loggable]`.
  *
  * @param argument - A Better Auth log argument.
  * @param depth - How many more levels may be copied.
  * @returns A copy that holds no address.
  */
 const redactArgument = (argument: LogArgument, depth: number): Schema.Json => {
-  if (!Predicate.isError(argument)) {
-    return redactJson(argument, depth);
+  if (Predicate.isString(argument)) {
+    return redactEmails(argument);
+  }
+
+  if (Predicate.isNull(argument) || Predicate.isNumber(argument) || Predicate.isBoolean(argument)) {
+    return argument;
+  }
+
+  if (Predicate.isUndefined(argument)) {
+    return null;
+  }
+
+  if (
+    Predicate.isBigInt(argument) ||
+    Predicate.isSymbol(argument) ||
+    Predicate.isFunction(argument)
+  ) {
+    return NOT_LOGGABLE;
+  }
+
+  if (Predicate.isDate(argument)) {
+    return Number.isNaN(argument.getTime()) ? "[invalid date]" : argument.toISOString();
   }
 
   if (depth <= 0) {
     return "[truncated]";
   }
 
-  return {
-    cause: redactArgument(causeOf(argument), depth - 1),
-    message: redactEmails(argument.message),
-    name: argument.name,
-    stack: redactEmails(argument.stack ?? ""),
-  };
+  if (Predicate.isError(argument)) {
+    return {
+      cause: redactArgument(causeOf(argument), depth - 1),
+      message: redactEmails(argument.message),
+      name: redactEmails(argument.name),
+      stack: redactEmails(argument.stack ?? ""),
+    };
+  }
+
+  if (Array.isArray(argument)) {
+    return argument.map((item: LogArgument) => redactArgument(item, depth - 1));
+  }
+
+  if (!isPlainObject(argument)) {
+    return NOT_LOGGABLE;
+  }
+
+  return Object.fromEntries(
+    Object.entries(argument).map(([key, item]: [string, LogArgument]) => [
+      redactEmails(key),
+      redactArgument(item, depth - 1),
+    ]),
+  );
 };
 
 /**

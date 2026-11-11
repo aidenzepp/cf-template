@@ -1,5 +1,6 @@
 import { assert, it, layer } from "@effect/vitest";
 import { Effect, Logger, Ref, References } from "effect";
+import { constVoid } from "effect/Function";
 import { betterAuthLogger, redactEmails } from "./logger.ts";
 import type { LogArgument } from "./logger.ts";
 import { LocalAuthD1, asExecution, authOver, signUp } from "./test-harness.ts";
@@ -146,6 +147,42 @@ layer(LocalAuthD1.layer)("the Better Auth logger", (live) => {
       assert.isFalse(JSON.stringify(lines).includes("ada@"));
     }),
   );
+
+  it.effect("replaces a class instance and a nested Map instead of copying them", () =>
+    Effect.gen(function* opaque() {
+      class Person {
+        [key: string]: LogArgument;
+
+        readonly email = "ada@example.com";
+      }
+
+      const lines = yield* logged(
+        "error",
+        "Unexpected",
+        new Person(),
+        { seen: new Map([["to", "ada@example.com"]]), when: new Date(0) },
+        constVoid,
+        10n,
+      );
+
+      assert.deepStrictEqual(
+        lines.map(({ annotations }) => annotations),
+        [
+          '{"args":["[not loggable]",{"seen":"[not loggable]","when":"1970-01-01T00:00:00.000Z"},"[not loggable]","[not loggable]"]}',
+        ],
+      );
+      assert.isFalse(JSON.stringify(lines).includes("ada@"));
+    }),
+  );
+
+  it("redacts an address in a percent, entity, full-width or escaped-quote encoding", () => {
+    assert.strictEqual(redactEmails("a%40b.co"), "[email]");
+    assert.strictEqual(redactEmails("a%2540b.co"), "[email]");
+    assert.strictEqual(redactEmails("a&#64;b.co"), "[email]");
+    assert.strictEqual(redactEmails("a＠b.co"), "[email]");
+    assert.strictEqual(redactEmails('"a\\"b"@c.co'), "[email]");
+    assert.strictEqual(redactEmails("100%"), "100%");
+  });
 
   it("leaves no fragment of a list, a JSON document or a quoted local part", () => {
     assert.strictEqual(redactEmails("a@b.co,c@d.io"), "[email]");
