@@ -68,6 +68,7 @@
     "apps/web": {
       "name": "@workspace/web",
       "dependencies": {
+        "@better-auth/passkey": "1.7.19",
         "@effect/atom-react": "4.1.2",
         "@tanstack/react-router": "1.170.46",
         "@tanstack/react-start": "1.169.5",
