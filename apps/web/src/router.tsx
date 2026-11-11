@@ -1,4 +1,5 @@
 import { createRouter } from "@tanstack/react-router";
+import { RouteError } from "./components/errors/error.tsx";
 import {
   authMethodsText,
   hydrateAuthMethods,
@@ -16,6 +17,9 @@ import { routeTree } from "./route-tree.gen.ts";
  */
 export const getRouter = () =>
   createRouter({
+    // A route's own error boundary falls back to this, not to the root's `errorComponent`, so a
+    // child route's loader failure gets the same designed page.
+    defaultErrorComponent: RouteError,
     dehydrate: () => ({ authMethods: authMethodsText(), orphanGrace: orphanGraceText() }),
     hydrate: ({ authMethods, orphanGrace }) => {
       hydrateAuthMethods(authMethods);

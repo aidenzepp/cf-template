@@ -1,8 +1,7 @@
 import { env } from "cloudflare:workers";
 import { createIsomorphicFn } from "@tanstack/react-start";
-import { Layer, ManagedRuntime } from "effect";
+import { Effect, Layer, ManagedRuntime } from "effect";
 import { AtomRegistry } from "effect/reactivity";
-import type { Effect } from "effect";
 import { ApiClient } from "./api-client.ts";
 import { makeOrphanGraceLayer, makeWebLayer } from "./web-layer.ts";
 
@@ -83,5 +82,14 @@ export const run = <A, E>(
 ): Promise<A> => {
   runtime ??= makeRuntime();
 
-  return runtime.runPromise(effect, options);
+  // A defect that is not an `Error` (a string passed to `die`) would reject with that bare value,
+  // which the router dehydrates as it is. An `Error` goes through the router's hidden-error adapter.
+  return runtime.runPromise(
+    effect.pipe(
+      Effect.catchDefect((defect) =>
+        Effect.die(defect instanceof Error ? defect : new Error("Unexpected defect")),
+      ),
+    ),
+    options,
+  );
 };
