@@ -1,3 +1,3 @@
-import { HttpApi } from "effect/http-api";
+import { HttpServerResponse } from "effect/http";
 
-export const imported = HttpApi;
+export const imported = HttpServerResponse;

@@ -1,3 +1,3 @@
-import { HttpApiBuilder } from "effect/http-api";
+import { handlers } from "./notes/http";
 
-export const imported = HttpApiBuilder;
+export const imported = handlers;

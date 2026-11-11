@@ -1,7 +1,7 @@
 import { Effect } from "effect";
 import { HttpApiBuilder } from "effect/http-api";
 import { Api } from "@workspace/contract/api/api";
-import { SessionLookup } from "./authorization.ts";
+import { SessionLookup } from "../authorization.ts";
 
 /**
  * The handlers of the system group. `GET /api/session` declares no middleware, so the handler asks

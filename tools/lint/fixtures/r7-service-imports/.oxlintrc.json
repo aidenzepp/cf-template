@@ -12,7 +12,7 @@
         ],
         "patterns": [
           {
-            "group": ["./http", "../http", "**/http"],
+            "group": ["./http", "../http", "./**/http", "../**/http"],
             "message": "services import no handler module; handlers live in **/http.ts"
           }
         ]

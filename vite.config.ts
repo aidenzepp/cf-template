@@ -91,7 +91,7 @@ const noHttpBuilder = {
  * R7: services import no handler module.
  */
 const httpModules = {
-  group: ["./http", "../http", "**/http"],
+  group: ["./http", "../http", "./**/http", "../**/http"],
   message: "services import no handler module; handlers live in **/http.ts",
 };
 
@@ -172,6 +172,10 @@ export default defineConfig({
       }),
       // `worker.ts` composes `HttpApiBuilder` layers from the http modules; it keeps R1.
       restrictImports(["apps/api/src/worker.ts", "apps/auth/src/worker.ts"], {
+        patterns: appImports,
+      }),
+      // Tests compose handlers; they keep R1 but not R7.
+      restrictImports(["apps/api/src/**/*.test.ts", "apps/auth/src/**/*.test.ts"], {
         patterns: appImports,
       }),
       // Handlers may use `HttpApiBuilder`; they keep R1 and import no database module.
