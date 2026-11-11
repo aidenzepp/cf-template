@@ -8,25 +8,78 @@ import { makeDatabase } from "@workspace/db/database";
 import type { RawDatabase } from "@workspace/db/database";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import type { ScryptCost } from "@workspace/config/auth-password";
-import { PublicOrigin } from "@workspace/config/public-origin";
+import { AUTH_METHODS } from "@workspace/config/auth-methods";
+import { Mailer } from "@workspace/config/mailer";
+import type { Mail } from "@workspace/config/mailer";
+import { PublicOrigin, WEB_DEV_PORT } from "@workspace/config/public-origin";
 import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "./config.ts";
-import { AUTH_BASE_PATH } from "./contract.ts";
+import { AUTH_BASE_PATH, OAUTH_ERROR_PATH } from "./contract.ts";
 import * as schema from "./db/schema.ts";
+import { passkeyPlugin } from "./passkeys.ts";
 import { passwordFor, rehashAfterSignIn } from "./password.ts";
 import type { RunEffect } from "./password.ts";
+import { socialProviders } from "./providers.ts";
 
 /**
- * The email and password options and the rehash plugin for one scrypt cost: the PHC-style hasher
- * and, registered through a plugin-level `hooks.after` on `/sign-in/email`, the rehash of a stored
- * hash whose cost differs from `params`.
+ * The origin the schema generator and the shared options assume: the local dev server. The Worker
+ * replaces it with the bound `PUBLIC_ORIGIN`.
+ */
+const DEV_ORIGIN = `http://localhost:${WEB_DEV_PORT}`;
+
+/**
+ * Send one message through the `Mailer` of the services `run` carries. With no add-in that is
+ * `Mailer.None`, which logs one warning and sends nothing.
+ *
+ * @param run - Runs an effect with the services the instance was built under.
+ * @param mail - The message.
+ * @returns A Promise that settles when the mailer has.
+ */
+const sendMail = (run: RunEffect, mail: typeof Mail.Type) =>
+  run(Mailer.use(({ send }) => send(mail)));
+
+/**
+ * The email and password options, the mail callbacks and the plugins for one scrypt cost and one
+ * public origin: the PHC-style hasher, `Mailer.send` behind reset and verification mail, the rehash
+ * of a stored hash whose cost differs from `params` (a plugin-level `hooks.after` on
+ * `/sign-in/email`) and the passkey plugin.
  *
  * @param params - The cost of every new hash.
  * @param run - Runs an effect with the services the hasher logs and traces under.
- * @returns The `emailAndPassword` and `plugins` options.
+ * @param origin - The validated `PUBLIC_ORIGIN` the passkey relying party derives from.
+ * @returns The `emailAndPassword`, `emailVerification` and `plugins` options.
  */
-const passwordOptions = (params: ScryptCost, run: RunEffect) => ({
-  emailAndPassword: { enabled: true, password: passwordFor(params, run) },
-  plugins: [rehashAfterSignIn(params, run)],
+const passwordOptions = (params: ScryptCost, run: RunEffect, origin: string) => ({
+  emailAndPassword: {
+    enabled: true,
+    password: passwordFor(params, run),
+    sendResetPassword: ({
+      url,
+      user,
+    }: {
+      readonly url: string;
+      readonly user: { readonly email: string };
+    }) =>
+      sendMail(run, {
+        subject: "Reset your password",
+        text: `Reset your password: ${url}`,
+        to: user.email,
+      }),
+  },
+  emailVerification: {
+    sendVerificationEmail: ({
+      url,
+      user,
+    }: {
+      readonly url: string;
+      readonly user: { readonly email: string };
+    }) =>
+      sendMail(run, {
+        subject: "Verify your email",
+        text: `Verify your email: ${url}`,
+        to: user.email,
+      }),
+  },
+  plugins: [rehashAfterSignIn(params, run), passkeyPlugin(origin)],
 });
 
 /**
@@ -39,7 +92,8 @@ const passwordOptions = (params: ScryptCost, run: RunEffect) => ({
  */
 export const authOptions = {
   basePath: AUTH_BASE_PATH,
-  ...passwordOptions(AUTH_PASSWORD_SCRYPT.default, Effect.runPromise),
+  onAPIError: { errorURL: OAUTH_ERROR_PATH },
+  ...passwordOptions(AUTH_PASSWORD_SCRYPT.default, Effect.runPromise, DEV_ORIGIN),
   session: {
     cookieCache: {
       enabled: true,
@@ -200,6 +254,7 @@ export const authDatabaseLayer = (
 export const AuthSettings = Config.all({
   baseURL: Config.schema(PublicOrigin, "PUBLIC_ORIGIN"),
   maxAge: CookieCacheMaxAgeKnob.config,
+  methods: AUTH_METHODS,
   scrypt: AUTH_PASSWORD_SCRYPT.config,
   secret: Config.Redacted("BETTER_AUTH_SECRET"),
   strategy: CookieCacheStrategyKnob.config,
@@ -219,16 +274,18 @@ const makeInstance = Effect.gen(function* makeInstance() {
   );
 
   const services = yield* Effect.context();
+  const providers = yield* socialProviders(settings.methods, env);
 
   return yield* BetterAuth({
     ...authOptions,
-    ...passwordOptions(settings.scrypt, Effect.runPromiseWith(services)),
+    ...passwordOptions(settings.scrypt, Effect.runPromiseWith(services), settings.baseURL),
     baseURL: settings.baseURL,
     migrate: false,
     secret: Effect.succeed(settings.secret),
     session: {
       cookieCache: { enabled: true, maxAge: settings.maxAge, strategy: settings.strategy },
     },
+    socialProviders: providers,
   });
 });
 

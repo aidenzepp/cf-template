@@ -27,6 +27,7 @@ const STATEMENT_BREAKPOINT = "--> statement-breakpoint";
  */
 export const settings = (overrides: Readonly<Record<string, string>> = {}) =>
   Layer.succeed(WorkerEnvironment, {
+    AUTH_METHODS: '{"email":false,"providers":[]}',
     BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-0123",
     PUBLIC_ORIGIN: ORIGIN,
     ...overrides,
