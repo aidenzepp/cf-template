@@ -1,0 +1,6 @@
+import { NotesLive } from "./notes/notes.ts";
+
+/**
+ * Attach files list their layers in `Layer.mergeAll(` one entry per line.
+ */
+export const BlocksLive = NotesLive;
