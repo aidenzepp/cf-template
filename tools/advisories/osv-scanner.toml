@@ -1,0 +1,50 @@
+# This repository's own workspace packages are private and carry no license field. They are not
+# dependencies, so the license scan skips them.
+
+[[PackageOverrides]]
+name = "@workspace/api"
+ecosystem = "npm"
+ignore = true
+reason = "private workspace package of this repository"
+
+[[PackageOverrides]]
+name = "@workspace/auth"
+ecosystem = "npm"
+ignore = true
+reason = "private workspace package of this repository"
+
+[[PackageOverrides]]
+name = "@workspace/config"
+ecosystem = "npm"
+ignore = true
+reason = "private workspace package of this repository"
+
+[[PackageOverrides]]
+name = "@workspace/contract"
+ecosystem = "npm"
+ignore = true
+reason = "private workspace package of this repository"
+
+[[PackageOverrides]]
+name = "@workspace/db"
+ecosystem = "npm"
+ignore = true
+reason = "private workspace package of this repository"
+
+[[PackageOverrides]]
+name = "@workspace/infra"
+ecosystem = "npm"
+ignore = true
+reason = "private workspace package of this repository"
+
+[[PackageOverrides]]
+name = "@workspace/ui"
+ecosystem = "npm"
+ignore = true
+reason = "private workspace package of this repository"
+
+[[PackageOverrides]]
+name = "@workspace/web"
+ecosystem = "npm"
+ignore = true
+reason = "private workspace package of this repository"

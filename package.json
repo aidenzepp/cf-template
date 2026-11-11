@@ -9,6 +9,7 @@
   "type": "module",
   "scripts": {
     "audit": "bun tools/advisories/audit.ts",
+    "license": "bun tools/advisories/license.ts",
     "renovate:validate": "bunx --package renovate@44.222.4 renovate-config-validator renovate.json",
     "check": "bun tools/hooks/present.ts && vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings && bun run ui:typecheck && bun run db:check",
     "db:check": "bun tools/db/check.ts",
