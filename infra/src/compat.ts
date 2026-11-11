@@ -18,6 +18,6 @@ export const Compat = Schema.Struct({
  * The compatibility settings of every Worker.
  */
 export const compat: typeof Compat.Type = {
-  date: "2026-11-02",
+  date: "2026-10-26",
   flags: [{ defaultOn: "2026-11-17", name: "enable_request_signal" }],
 };

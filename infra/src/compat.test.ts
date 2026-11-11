@@ -3,9 +3,11 @@ import { assert, describe, it } from "@effect/vitest";
 import { DateTime, Effect, FileSystem, Path, Schema } from "effect";
 import { Compat, compat } from "./compat.ts";
 
+const WorkerdManifest = Schema.Struct({ version: Schema.String });
+
 /**
- * Read the build date of the installed `workerd` from the middle component of its version
- * `1.<YYYYMMDD>.<n>`.
+ * Read the build date of the installed `workerd` from the middle component of the `version` in
+ * its `package.json`, `1.<YYYYMMDD>.<n>`.
  *
  * `workerd` arrives in `node_modules` through `@alchemy.run/cloudflare-runtime`, a dependency of
  * `@alchemy.run/cloudflare`, as a `workerd@<version>` entry of Bun's package store.
@@ -15,11 +17,15 @@ const workerdDate = Effect.gen(function* readWorkerdDate() {
   const path = yield* Path.Path;
   const store = yield* path.fromFileUrl(new URL("../../node_modules/.bun", import.meta.url));
   const entries = yield* fs.readDirectory(store);
-  const entry = entries.find((name) => /^workerd@\d+\.\d{8}\.\d+$/u.test(name));
+  const entry = entries.find((name) => name.startsWith("workerd@"));
 
   assert.isDefined(entry);
 
-  const stamp = (entry ?? "").split(".")[1] ?? "";
+  const manifest = yield* fs
+    .readFileString(path.join(store, entry ?? "", "node_modules", "workerd", "package.json"))
+    .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(WorkerdManifest))));
+
+  const stamp = manifest.version.split(".")[1] ?? "";
 
   return `${stamp.slice(0, 4)}-${stamp.slice(4, 6)}-${stamp.slice(6, 8)}`;
 }).pipe(Effect.provide(BunServices.layer));
@@ -41,11 +47,14 @@ describe("compat module", () => {
     }),
   );
 
-  it.effect("keeps the date at or after the installed workerd build date", () =>
-    Effect.gen(function* notStale() {
+  it.effect("equals the installed workerd build date", () =>
+    Effect.gen(function* matches() {
       const date = yield* workerdDate;
 
+      // At or after the build date (C18), and no later: workerd rejects newer dates, so a workerd
+      // bump forces a date bump.
       assert.isTrue(compat.date >= date);
+      assert.isTrue(compat.date <= date);
     }),
   );
 

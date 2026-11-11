@@ -1,5 +1,6 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { RemovalPolicy } from "alchemy";
+import type { Effect } from "effect";
 import { Option } from "effect";
 
 /**
@@ -41,6 +42,26 @@ export const d1Props = (
     : { name: `${stack}-auth-${stage}` };
 
 /**
+ * Declare the auth D1 database with the given resource constructor, retained on `prod` only.
+ *
+ * @param database - The D1 resource constructor; tests substitute one that reports the removal
+ *   policy it runs under.
+ * @param stack - The stack name from `resolveStackName`.
+ * @param stage - The decoded stage name.
+ * @param locationHint - The `D1_PROD_LOCATION_HINT` knob value.
+ * @returns The database resource effect.
+ */
+export const declareWith = <A, R>(
+  database: (id: string, props: Cloudflare.D1.DatabaseProps) => Effect.Effect<A, never, R>,
+  stack: string,
+  stage: string,
+  locationHint: Option.Option<Cloudflare.D1.PrimaryLocationHint>,
+) =>
+  database("AuthDb", d1Props(stack, stage, locationHint)).pipe(
+    RemovalPolicy.retain(retainsD1(stage)),
+  );
+
+/**
  * Declare the auth D1 database, retained on `prod` only.
  *
  * @param stack - The stack name from `resolveStackName`.
@@ -53,6 +74,9 @@ export const declareDatabase = (
   stage: string,
   locationHint: Option.Option<Cloudflare.D1.PrimaryLocationHint>,
 ) =>
-  Cloudflare.D1.Database("AuthDb", d1Props(stack, stage, locationHint)).pipe(
-    RemovalPolicy.retain(retainsD1(stage)),
+  declareWith<Cloudflare.D1.Database, Cloudflare.Providers>(
+    Cloudflare.D1.Database,
+    stack,
+    stage,
+    locationHint,
   );

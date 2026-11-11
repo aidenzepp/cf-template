@@ -64,11 +64,24 @@ export const resolveIdentity = Effect.fn("resolveIdentity")(function* resolveIde
   return { stack, stage };
 });
 
+/**
+ * Report whether the stage keeps its state in the project's Cloudflare state store.
+ *
+ * `prod`, `staging-<N>` and `test-ci` do; `test-<slug>` and `dev` use Alchemy local state.
+ *
+ * @param stage - The decoded stage.
+ * @returns `true` for a stage that uses the project store.
+ */
+export const usesProjectState = (stage: string): boolean =>
+  stage === "prod" || stage === "test-ci" || stage.startsWith("staging-");
+
 const state = Layer.unwrap(
   Effect.gen(function* declareState() {
-    const { stack } = yield* resolveIdentity(yield* Alchemy.Stage);
+    const { stack, stage } = yield* resolveIdentity(yield* Alchemy.Stage);
 
-    return Cloudflare.state({ workerName: `${stack}-state` });
+    return usesProjectState(stage)
+      ? Cloudflare.state({ workerName: `${stack}-state` })
+      : Alchemy.localState();
   }).pipe(Effect.orDie),
 );
 
