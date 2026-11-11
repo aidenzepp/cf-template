@@ -1,12 +1,56 @@
-import { chmod, mkdir, rm } from "node:fs/promises";
+import { BunCrypto, BunFileSystem, BunHttpClient, BunPath, BunRuntime } from "@effect/platform-bun";
+import { Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { TaggedError as taggedError } from "effect/Schema";
+import { Digest } from "effect/crypto";
+import { HttpClient } from "effect/http";
+
+/**
+ * The pin file is malformed: its message names the line number and the missing field.
+ */
+export class PinError extends taggedError<PinError>()("PinError", {
+  message: Schema.String,
+}) {}
+
+/**
+ * The archive digest differs from the pinned one, so the archive is refused.
+ */
+export class DigestMismatch extends taggedError<DigestMismatch>()("DigestMismatch", {
+  message: Schema.String,
+}) {}
+
+/**
+ * The release archive could not be fetched.
+ */
+export class DownloadError extends taggedError<DownloadError>()("DownloadError", {
+  message: Schema.String,
+}) {}
+
+/**
+ * The host platform and architecture have no published release binary.
+ */
+export class UnsupportedPlatform extends taggedError<UnsupportedPlatform>()("UnsupportedPlatform", {
+  message: Schema.String,
+}) {}
+
+/**
+ * The pinned release archive could not be unpacked or its binary could not be placed.
+ */
+export class InstallError extends taggedError<InstallError>()("InstallError", {
+  message: Schema.String,
+}) {}
 
 /**
  * One pinned release archive: the digest it must hash to and the asset file to download.
  */
-export interface PinEntry {
-  readonly sha256: string;
-  readonly assetFile: string;
-}
+export const pinEntrySchema = Schema.Struct({
+  assetFile: Schema.NonEmptyString,
+  sha256: Schema.String.check(Schema.isPattern(/^[0-9a-f]{64}$/u)),
+});
+
+/**
+ * One pinned release archive: the digest it must hash to and the asset file to download.
+ */
+export type PinEntry = typeof pinEntrySchema.Type;
 
 /**
  * The parsed contents of `tools/supdoc/pin.txt`: the release tag and one entry per target.
@@ -18,9 +62,9 @@ export interface Pin {
 
 const releaseBase = "https://github.com/aidenzepp/supdoc/releases/download";
 
-const targetLine = /^(?<target>\S+) (?<sha256>[0-9a-f]{64}) (?<assetFile>\S+)$/u;
-
 const tagLine = /^tag (?<tag>\S+)$/u;
+
+const decodeEntry = Schema.decodeUnknownEffect(pinEntrySchema);
 
 /**
  * The release targets keyed by `process.platform` and `process.arch`.
@@ -33,11 +77,40 @@ const hostTargets = new Map([
 ]);
 
 /**
+ * Parse one `<target> <sha256> <asset-file>` line, failing with the line number and the
+ * missing or malformed field.
+ */
+const parseTargetLine = Effect.fn("supdoc.parseTargetLine")(function* parseTargetLine(
+  line: string,
+  lineNumber: number,
+) {
+  const [target, sha256, assetFile, ...extra] = line.split(" ");
+  const missing = ["target", "sha256", "asset-file"].filter((_, field) => !line.split(" ")[field]);
+
+  const fail = (detail: string) =>
+    new PinError({
+      message: `pin line ${lineNumber}: ${detail}; expected "<target> <sha256> <asset-file>", got "${line}".`,
+    });
+
+  if (missing.length > 0 || extra.length > 0 || target === undefined) {
+    return yield* fail(
+      missing.length > 0 ? `missing field ${missing.join(", ")}` : "unexpected extra field",
+    );
+  }
+
+  const entry = yield* decodeEntry({ assetFile, sha256 }).pipe(
+    Effect.mapError(() => fail("malformed sha256")),
+  );
+
+  return [target, entry] as const;
+});
+
+/**
  * Parse the pin file text. The first line is `tag <tag>`; every other line is
  * `<target> <sha256> <asset-file>`. A line that breaks the grammar, or a text with no
- * `tag` line, throws naming the line number and the missing field.
+ * `tag` line, fails with a `PinError` naming the line number and the missing field.
  */
-export const parsePin = (text: string): Pin => {
+export const parsePin = Effect.fn("supdoc.parsePin")(function* parsePin(text: string) {
   const lines = text
     .split("\n")
     .filter((line, index, all) => line !== "" || index < all.length - 1);
@@ -46,156 +119,178 @@ export const parsePin = (text: string): Pin => {
   const tag = tagLine.exec(first)?.groups?.tag;
 
   if (tag === undefined) {
-    throw new Error(`pin line 1: missing field "tag"; expected "tag <tag>", got "${first}".`);
+    return yield* new PinError({
+      message: `pin line 1: missing field "tag"; expected "tag <tag>", got "${first}".`,
+    });
   }
 
-  const targets = new Map<string, PinEntry>();
+  const entries = yield* Effect.all(rest.map((line, offset) => parseTargetLine(line, offset + 2)));
+  const pin: Pin = { tag, targets: new Map(entries) };
 
-  for (const [offset, line] of rest.entries()) {
-    const match = targetLine.exec(line);
-
-    if (match === null) {
-      const fields = line.split(" ");
-      const missing = ["target", "sha256", "asset-file"].filter((_, field) => !fields[field]);
-
-      const detail =
-        missing.length > 0 ? `missing field ${missing.join(", ")}` : "malformed sha256";
-
-      throw new Error(
-        `pin line ${offset + 2}: ${detail}; expected "<target> <sha256> <asset-file>", got "${line}".`,
-      );
-    }
-
-    const [, target = "", sha256 = "", assetFile = ""] = match;
-
-    targets.set(target, { assetFile, sha256 });
-  }
-
-  return { tag, targets };
-};
+  return pin;
+});
 
 /**
  * Hash bytes with SHA-256 and return the lowercase hex digest.
  */
-const sha256Hex = (bytes: Uint8Array): string =>
-  new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
+const sha256Hex = (bytes: Uint8Array) =>
+  Digest.Digest.use((digest) => digest.digestHex(Digest.sha256, bytes));
 
 /**
- * Throw unless the SHA-256 digest of the bytes equals the expected hex string.
+ * Fail with `DigestMismatch` unless the SHA-256 digest of the bytes equals the expected hex
+ * string.
  */
-export const verifyDigest = (bytes: Uint8Array, expected: string, assetFile = "archive"): void => {
-  const actual = sha256Hex(bytes);
+export const verifyDigest = Effect.fn("supdoc.verifyDigest")(function* verifyDigest(
+  bytes: Uint8Array,
+  expected: string,
+  assetFile = "archive",
+) {
+  const actual = yield* sha256Hex(bytes);
 
   if (actual !== expected) {
-    throw new Error(
-      `supdoc: digest mismatch for ${assetFile}: expected ${expected}, got ${actual}; the archive is refused.`,
-    );
+    yield* new DigestMismatch({
+      message: `supdoc: digest mismatch for ${assetFile}: expected ${expected}, got ${actual}; the archive is refused.`,
+    });
   }
-};
+});
 
 /**
- * Resolve the release target for the host, or throw when no binary is published for it.
+ * Resolve the release target for a platform and architecture, or fail when no binary is
+ * published for it.
  */
-const hostTarget = (): string => {
-  const key = `${process.platform}-${process.arch}`;
+export const hostTarget = Effect.fn("supdoc.hostTarget")(function* hostTarget(
+  platform: string,
+  arch: string,
+) {
+  const key = `${platform}-${arch}`;
   const target = hostTargets.get(key);
 
   if (target === undefined) {
-    throw new Error(
-      `supdoc has no release binary for ${key}; supported: darwin-arm64, darwin-x64, linux-x64, linux-arm64.`,
-    );
+    return yield* new UnsupportedPlatform({
+      message: `supdoc has no release binary for ${key}; supported: darwin-arm64, darwin-x64, linux-x64, linux-arm64.`,
+    });
   }
 
   return target;
-};
+});
 
 /**
- * Download the archive, throwing the pinned download message on any failure.
+ * Download the archive, failing with the pinned download message on any failure.
  */
-const download = async (url: string): Promise<Uint8Array> => {
-  const failure = (reason: string): Error =>
-    new Error(
-      `supdoc: download of ${url} failed (${reason}); bun install stops until the archive can be fetched and verified.`,
-    );
+const download = Effect.fn("supdoc.download")(function* download(url: string) {
+  const client = yield* HttpClient.HttpClient;
 
-  const [outcome] = await Promise.allSettled([fetch(url)]);
+  const failure = (reason: string) =>
+    new DownloadError({
+      message: `supdoc: download of ${url} failed (${reason}); bun install stops until the archive can be fetched and verified.`,
+    });
 
-  if (outcome?.status !== "fulfilled") {
-    throw failure(String(outcome?.reason));
+  const response = yield* client.get(url).pipe(Effect.mapError((error) => failure(error.message)));
+
+  if (response.status < 200 || response.status > 299) {
+    return yield* failure(`HTTP ${response.status}`);
   }
 
-  const response = outcome.value;
+  const buffer = yield* response.arrayBuffer.pipe(
+    Effect.mapError((error) => failure(error.message)),
+  );
 
-  if (!response.ok) {
-    throw failure(`HTTP ${response.status}`);
-  }
-
-  return new Uint8Array(await response.arrayBuffer());
-};
+  return new Uint8Array(buffer);
+});
 
 /**
  * Return a verified archive: the cached one when its digest matches (a mismatched cache
  * file is deleted), otherwise a fresh download that must match before it is cached.
  */
-const verifiedArchive = async (
+const verifiedArchive = Effect.fn("supdoc.verifiedArchive")(function* verifiedArchive(
   url: string,
   cachePath: string,
   entry: PinEntry,
-): Promise<Uint8Array> => {
-  const cache = Bun.file(cachePath);
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
 
-  if (await cache.exists()) {
-    const cached = await cache.bytes();
+  if (yield* fs.exists(cachePath)) {
+    const cached = yield* fs.readFile(cachePath);
 
-    if (sha256Hex(cached) === entry.sha256) {
+    if ((yield* sha256Hex(cached)) === entry.sha256) {
       return cached;
     }
 
-    await rm(cachePath, { force: true });
+    yield* fs.remove(cachePath, { force: true });
   }
 
-  const bytes = await download(url);
+  const bytes = yield* download(url);
 
-  verifyDigest(bytes, entry.sha256, entry.assetFile);
-  await Bun.write(cachePath, bytes);
+  yield* verifyDigest(bytes, entry.sha256, entry.assetFile);
+  yield* fs.makeDirectory(path.dirname(cachePath), { recursive: true });
+  yield* fs.writeFile(cachePath, bytes);
 
   return bytes;
-};
+});
+
+/**
+ * Extract the `supdoc` binary from the archive bytes.
+ */
+const unpackBinary = (bytes: Uint8Array, assetFile: string) =>
+  // Effect has no tar API; Bun.Archive is the only unpacker available without a new dependency.
+  Effect.tryPromise({
+    catch: (cause) =>
+      new InstallError({ message: `supdoc: could not unpack ${assetFile}: ${String(cause)}` }),
+    try: async () => {
+      const files = await new Bun.Archive(bytes).files("*/supdoc");
+      const [binary] = files.values();
+
+      return binary === undefined ? undefined : await binary.bytes();
+    },
+  }).pipe(
+    Effect.flatMap((binary) =>
+      binary === undefined
+        ? Effect.fail(
+            new InstallError({ message: `supdoc: ${assetFile} contains no supdoc binary.` }),
+          )
+        : Effect.succeed(binary),
+    ),
+  );
 
 /**
  * Install the pinned supdoc binary at `node_modules/.bin/supdoc`, verifying the archive
  * digest on every run, cache hits included.
  */
-export const install = async (): Promise<void> => {
-  const pin = parsePin(await Bun.file(new URL("pin.txt", import.meta.url)).text());
-  const target = hostTarget();
-  const entry = pin.targets.get(target);
+export const install = Effect.fn("supdoc.install")(function* install() {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const pinPath = yield* path.fromFileUrl(new URL("pin.txt", import.meta.url));
+  const pin = yield* parsePin(yield* fs.readFileString(pinPath));
+  const target = yield* hostTarget(process.platform, process.arch);
 
-  if (entry === undefined) {
-    throw new Error(`pin.txt has no entry for target ${target}.`);
-  }
+  const entry = yield* Effect.fromNullishOr(pin.targets.get(target)).pipe(
+    Effect.mapError(() => new PinError({ message: `pin.txt has no entry for target ${target}.` })),
+  );
 
   const version = pin.tag.replace(/^v/u, "");
   const cacheDir = `node_modules/.cache/supdoc/${version}`;
 
-  const bytes = await verifiedArchive(
+  const bytes = yield* verifiedArchive(
     `${releaseBase}/${pin.tag}/${entry.assetFile}`,
     `${cacheDir}/${entry.assetFile}`,
     entry,
   );
 
-  const files = await new Bun.Archive(bytes).files("*/supdoc");
-  const [binary] = files.values();
+  const binary = yield* unpackBinary(bytes, entry.assetFile);
 
-  if (binary === undefined) {
-    throw new Error(`supdoc: ${entry.assetFile} contains no supdoc binary.`);
-  }
+  yield* fs.makeDirectory("node_modules/.bin", { recursive: true });
+  yield* fs.writeFile("node_modules/.bin/supdoc", binary);
+  yield* fs.chmod("node_modules/.bin/supdoc", 0o755);
+});
 
-  await mkdir("node_modules/.bin", { recursive: true });
-  await Bun.write("node_modules/.bin/supdoc", binary);
-  await chmod("node_modules/.bin/supdoc", 0o755);
-};
+const runtimeLayer = Layer.mergeAll(
+  BunFileSystem.layer,
+  BunPath.layer,
+  BunCrypto.layerDigest,
+  BunHttpClient.layer,
+);
 
 if (import.meta.main) {
-  await install();
+  BunRuntime.runMain(install().pipe(Effect.provide(runtimeLayer)));
 }
