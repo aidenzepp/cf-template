@@ -11,7 +11,7 @@ import type { StageName } from "../stages.ts";
  * @param stage - The decoded stage.
  * @returns The domain on `prod`, and none elsewhere.
  */
-const customDomain = Effect.fn("customDomain")(function* customDomain(stage: StageName) {
+export const customDomain = Effect.fn("customDomain")(function* customDomain(stage: StageName) {
   if (kindOf(stage) === "prod") {
     return Option.some(yield* Config.schema(CustomDomain, "CUSTOM_DOMAIN"));
   }
