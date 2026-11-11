@@ -16,6 +16,7 @@
     "@workspace/config": "workspace:*",
     "@workspace/contract": "workspace:*",
     "@workspace/ui": "workspace:*",
+    "better-auth": "1.7.19",
     "effect": "4.1.2",
     "react": "19.3.1",
     "react-dom": "19.3.1",
