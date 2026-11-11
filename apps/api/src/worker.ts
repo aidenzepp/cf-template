@@ -12,7 +12,11 @@ import { Api } from "@workspace/contract/api/api";
 import { makeDatabase } from "@workspace/db/database";
 import { ProblemDetailsIncludeKnob } from "./config.ts";
 import { AuthCheckSession, SessionLookup } from "./authorization.ts";
-import { ApiWorkerHandlerGroupLayers, ApiWorkerMiddlewareLayers } from "./blocks.ts";
+import {
+  ApiBlockProviders,
+  ApiWorkerHandlerGroupLayers,
+  ApiWorkerMiddlewareLayers,
+} from "./blocks.ts";
 import { Notes, NotesDatabase } from "./notes/notes.ts";
 import type { NotesService } from "./notes/notes.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
@@ -109,9 +113,15 @@ export class ApiWorker extends Cloudflare.Worker<ApiWorker, ApiEntrypoint>()("Ap
  *
  * @param checkSession - The `checkSession` method of the bound `auth` Worker.
  * @param notes - The notes service of the isolate.
+ * @param providers - The services of {@link ApiBlockProviders}, built once in Worker init; they are
+ *   provided beneath the session lookup, the middleware and the handlers.
  * @returns The router's HTTP effect, built on the execution scope.
  */
-export const makeHandler = (checkSession: typeof AuthCheckSession.Service, notes: NotesService) =>
+export const makeHandler = (
+  checkSession: typeof AuthCheckSession.Service,
+  notes: NotesService,
+  providers: Layer.Layer<Layer.Success<typeof ApiBlockProviders>>,
+) =>
   Effect.gen(function* buildHandler() {
     const env = yield* Cloudflare.WorkerEnvironment;
     const provider = ConfigProvider.layer(ConfigProvider.fromUnknown(env));
@@ -128,6 +138,7 @@ export const makeHandler = (checkSession: typeof AuthCheckSession.Service, notes
       Layer.provide(handlers),
       Layer.provide(ApiWorkerMiddlewareLayers),
       Layer.provide(sessions),
+      Layer.provide(providers),
       Layer.provide(layerProblemDetails({ includeDetails })),
       Layer.provide(Http.Platform),
       Layer.merge(ProblemAdapter),
@@ -142,9 +153,10 @@ export const makeHandler = (checkSession: typeof AuthCheckSession.Service, notes
  * middleware that asks `auth` through its service binding, the example-feature gate, and Problem
  * Details on every error it produces. It has no public address; `web` forwards `/api/*` to it.
  *
- * Initialization binds `auth` and the `AppDb` database, reads no setting and builds the notes
- * service once for the isolate; the database client is built on first use in each execution, and
- * so is the handler, which reads the knobs.
+ * Initialization binds `auth`, the `AppDb` database and the services of {@link ApiBlockProviders},
+ * such as the knobs namespace, reads no setting and builds the notes service once for the isolate;
+ * the database client is built on first use in each execution, and so is the handler, which reads
+ * the knobs.
  */
 export default ApiWorker.make(
   apiProps,
@@ -166,6 +178,9 @@ export default ApiWorker.make(
       }),
     );
 
+    // Bindings register at plan time, so the providers are built here, never per request.
+    const providers = Layer.succeedContext(yield* Layer.build(ApiBlockProviders));
+
     const notes = yield* Notes.pipe(
       Effect.provide(
         Notes.layer().pipe(
@@ -175,10 +190,11 @@ export default ApiWorker.make(
     );
 
     const handler = yield* makeExecutionMemo(
-      makeHandler((input) => withHostContext(authBinding.checkSession(input)), notes).pipe(
-        Effect.provideContext(context),
-        Effect.orDie,
-      ),
+      makeHandler(
+        (input) => withHostContext(authBinding.checkSession(input)),
+        notes,
+        providers,
+      ).pipe(Effect.provideContext(context), Effect.orDie),
     );
 
     return { fetch: Effect.flatten(handler) };

@@ -1,4 +1,5 @@
 import { Layer } from "effect";
+import { KnobsKvLive } from "@workspace/knobs-kv/live";
 import { SessionMiddlewareLive } from "./authorization.ts";
 import { ExampleFeatureGateLive } from "./notes/gate.ts";
 import { NotesApiHandlersNoDeps } from "./notes/http.ts";
@@ -24,4 +25,15 @@ export const ApiWorkerHandlerGroupLayers = Layer.mergeAll(
 export const ApiWorkerMiddlewareLayers = Layer.mergeAll(
   SessionMiddlewareLive,
   ExampleFeatureGateLive,
+);
+
+/**
+ * The provider layers of the `api` Worker: services the handlers and middleware read but never
+ * build, such as the live-knobs adapter. `worker.ts` builds this list once in Worker init, where
+ * bindings are registered, and provides the result beneath the other lists.
+ */
+export const ApiBlockProviders = Layer.mergeAll(
+  // block:knobs-kv start
+  KnobsKvLive,
+  // block:knobs-kv end
 );

@@ -9,7 +9,37 @@ import {
 import { Item, ItemContent, ItemDescription, ItemTitle } from "@workspace/ui/components/ui/item";
 import { Skeleton } from "@workspace/ui/components/ui/skeleton";
 import { AsyncResult } from "effect/reactivity";
+import { useMemo } from "react";
 import { notesListAtom } from "./-atoms.ts";
+
+/**
+ * One note in the list, linking to its detail page.
+ *
+ * @param props - The row's props.
+ * @param props.note - The note to show.
+ * @param props.note.id - The note's id, the detail route's `note-id`.
+ * @param props.note.title - The note's title.
+ * @param props.note.body - The note's body.
+ * @returns The list item.
+ */
+const NoteRow = ({
+  note,
+}: {
+  readonly note: { readonly id: string; readonly title: string; readonly body: string };
+}) => {
+  const params = useMemo(() => ({ "note-id": note.id }), [note.id]);
+
+  return (
+    <li>
+      <Item render={<Link params={params} to="/notes/$note-id" />} variant="outline">
+        <ItemContent>
+          <ItemTitle>{note.title}</ItemTitle>
+          <ItemDescription>{note.body}</ItemDescription>
+        </ItemContent>
+      </Item>
+    </li>
+  );
+};
 
 /**
  * The caller's notes, read from the list atom the loader hydrated.
@@ -42,17 +72,7 @@ export const NoteList = () => {
   return (
     <ul aria-label="Notes" className="flex w-full flex-col gap-4">
       {result.value.map((note) => (
-        <li key={note.id}>
-          <Item
-            render={<Link params={{ "note-id": note.id }} to="/notes/$note-id" />}
-            variant="outline"
-          >
-            <ItemContent>
-              <ItemTitle>{note.title}</ItemTitle>
-              <ItemDescription>{note.body}</ItemDescription>
-            </ItemContent>
-          </Item>
-        </li>
+        <NoteRow key={note.id} note={note} />
       ))}
     </ul>
   );

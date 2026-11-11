@@ -39,7 +39,34 @@ describe("domainFor", () => {
     }),
   );
 
-  it.effect("ignores CUSTOM_DOMAIN's absence on a test stage", () =>
+  it.effect("attaches the hostname on a test stage that sets STAGES_TEST_CUSTOM_DOMAIN", () =>
+    Effect.gen(function* testHostname() {
+      const config = yield* domainFor("test-i26").pipe(
+        Effect.provide(
+          ConfigProvider.layer(
+            ConfigProvider.fromUnknown({ STAGES_TEST_CUSTOM_DOMAIN: "example.test" }),
+          ),
+        ),
+      );
+
+      assert.strictEqual(config.domain, "example.test");
+      assert.strictEqual(config.workersDev, false);
+    }),
+  );
+
+  it.effect("stays on workers-dev on a test stage with only CUSTOM_DOMAIN set", () =>
+    Effect.gen(function* prodKeyOnly() {
+      const config = yield* domainFor("test-ci").pipe(
+        Effect.provide(
+          ConfigProvider.layer(ConfigProvider.fromUnknown({ CUSTOM_DOMAIN: "example.test" })),
+        ),
+      );
+
+      assert.strictEqual(config.kind, "workers-dev");
+    }),
+  );
+
+  it.effect("ignores STAGES_TEST_CUSTOM_DOMAIN's absence on a test stage", () =>
     Effect.gen(function* absent() {
       const config = yield* domainFor("test-i26").pipe(
         Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
@@ -51,6 +78,20 @@ describe("domainFor", () => {
 });
 
 describe("wafRateLimitRule", () => {
+  it("names the hostname in every rule expression", () => {
+    const ruleset = wafRateLimitRule("example.test", {
+      mitigationSeconds: 10,
+      periodSeconds: 10,
+      requests: 50,
+    });
+
+    assert.isTrue(
+      ruleset.rules.every(
+        (rule) => rule.expression?.includes('http.host eq "example.test"') === true,
+      ),
+    );
+  });
+
   it("carries the expression, 50 per 10 s, block and a 10 s timeout", () => {
     const ruleset = wafRateLimitRule("example.test", {
       mitigationSeconds: WAF_RATE_LIMIT_MITIGATION_SECONDS.default,
@@ -62,7 +103,10 @@ describe("wafRateLimitRule", () => {
 
     assert.strictEqual(ruleset.phase, "http_ratelimit");
     assert.strictEqual(ruleset.rules.length, 1);
-    assert.strictEqual(rule.expression, 'not starts_with(http.request.uri.path, "/assets/")');
+    assert.strictEqual(
+      rule.expression,
+      'http.host eq "example.test" and not starts_with(http.request.uri.path, "/assets/")',
+    );
     assert.strictEqual(rule.action, "block");
     assert.deepStrictEqual(rule.ratelimit, {
       characteristics: ["ip.src"],

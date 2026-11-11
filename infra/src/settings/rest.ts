@@ -39,7 +39,9 @@ export type RequestBody = Schema.JsonObject;
 
 /**
  * One idempotent settings call. `need` is the tier capability that must be present; without it the
- * call is not sent and is reported `unavailable`.
+ * call is not sent and is reported `unavailable`. `phrases` are extra unavailable wordings for this
+ * call alone. `confirm` names a `security_and_analysis` key to read back after a 2xx: GitHub
+ * answers 200 and ignores the change on a plan without the feature, so applied needs `enabled`.
  */
 interface Call {
   readonly setting: string;
@@ -47,6 +49,8 @@ interface Call {
   readonly method: HttpMethod;
   readonly path: string;
   readonly body?: RequestBody;
+  readonly phrases?: ReadonlyArray<string>;
+  readonly confirm?: string;
 }
 
 /**
@@ -69,6 +73,14 @@ const analysis = (key: string) => ({ security_and_analysis: { [key]: { status: "
 const PLAN_UNAVAILABLE = ["not available", "must be enabled", "upgrade to github"] as const;
 
 /**
+ * What GitHub says to a CodeQL default-setup call on a repository without code scanning: a 403
+ * "Code scanning is not enabled for this repository. Please enable code scanning in the repository
+ * settings." (observed on the public probe repository, 2026-11-11). It counts as `unavailable` for
+ * that one call only, so the same phrase on any other setting stays `failed`.
+ */
+const CODEQL_UNAVAILABLE = ["is not enabled for this repository"] as const;
+
+/**
  * One call's outcome: its kind, the HTTP status (0 for a transport failure), and, for a rejected
  * request, GitHub's `message`.
  */
@@ -79,18 +91,29 @@ interface Outcome {
 }
 
 /**
+ * How {@link settle} reads a response: `gated` marks a tier-gated call, `goneIsApplied` counts 404
+ * as applied, `phrases` adds message phrases that mean unavailable for this call alone.
+ */
+interface SettleOptions {
+  readonly gated?: boolean;
+  readonly goneIsApplied?: boolean;
+  readonly phrases?: ReadonlyArray<string>;
+}
+
+/**
  * Sort a response into an {@link Outcome}. 2xx applies; a 404 where `goneIsApplied` is set means
  * the thing is already gone; a 403 or 422 on a `gated` call whose message says the feature is not
  * offered ({@link PLAN_UNAVAILABLE}) is `unavailable`. Everything else is `failed` and carries the
  * response `message` (one line, 200 characters at most; never headers or the token).
  *
  * @param response - The GitHub response.
- * @param options - `gated` marks a tier-gated call; `goneIsApplied` counts 404 as applied.
+ * @param options - `gated` marks a tier-gated call; `goneIsApplied` counts 404 as applied;
+ *   `phrases` adds message phrases that count as unavailable for this call alone.
  * @returns The outcome.
  */
 export const settle = Effect.fn("settle")(function* settle(
   response: HttpClientResponse.HttpClientResponse,
-  options: { readonly gated?: boolean; readonly goneIsApplied?: boolean } = {},
+  options: SettleOptions = {},
 ) {
   const { status } = response;
 
@@ -107,7 +130,7 @@ export const settle = Effect.fn("settle")(function* settle(
   return (
     options.gated === true &&
     (status === 403 || status === 422) &&
-    PLAN_UNAVAILABLE.some((phrase) => lower.includes(phrase))
+    [...PLAN_UNAVAILABLE, ...(options.phrases ?? [])].some((phrase) => lower.includes(phrase))
       ? { kind: "unavailable", status }
       : { detail: message.replaceAll(/\s+/gu, " ").slice(0, 200), kind: "failed", status }
   ) satisfies Outcome;
@@ -139,7 +162,7 @@ export const report = (kind: Kind, setting: string, status: number | "tier", det
 export const reportResponse = <E, R>(
   setting: string,
   sent: Effect.Effect<HttpClientResponse.HttpClientResponse, E, R>,
-  options?: { readonly gated?: boolean; readonly goneIsApplied?: boolean },
+  options?: SettleOptions,
 ) =>
   sent.pipe(
     Effect.flatMap((response) => settle(response, options)),
@@ -232,6 +255,7 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
     },
     {
       body: analysis("secret_scanning"),
+      confirm: "secret_scanning",
       method: "PATCH",
       need: "secretScanning",
       path: repo,
@@ -239,6 +263,7 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
     },
     {
       body: analysis("secret_scanning_push_protection"),
+      confirm: "secret_scanning_push_protection",
       method: "PATCH",
       need: "pushProtection",
       path: repo,
@@ -261,10 +286,12 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
       method: "PATCH",
       need: "codeql",
       path: `${repo}/code-scanning/default-setup`,
+      phrases: CODEQL_UNAVAILABLE,
       setting: "codeql-default-setup",
     },
     {
       method: "PUT",
+      need: "privateVulnerabilityReporting",
       path: `${repo}/private-vulnerability-reporting`,
       setting: "private-vulnerability-reporting",
     },
@@ -285,12 +312,73 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
     {
       body: { approval_policy: "all_external_contributors" },
       method: "PUT",
-      need: "actionsSettings",
+      need: "forkApproval",
       path: `${repo}/actions/permissions/fork-pr-contributor-approval`,
       setting: "fork-approval",
     },
   ];
 };
+
+/**
+ * Send a call, and when it applied, read the repository back: the call stays `applied` only if
+ * `security_and_analysis[confirm].status` is `enabled`, otherwise it is `unavailable` ("silently
+ * ignored by GitHub"). A failed read-back is `failed`.
+ *
+ * @param send - The REST sender.
+ * @param call - The call; its `confirm` key is read back.
+ * @param confirm - The `security_and_analysis` key to verify.
+ * @returns The kind, after the outcome line is printed.
+ */
+const applyConfirmed = (send: Effect.Success<typeof restClient>, call: Call, confirm: string) =>
+  send(call.method, call.path, call.body).pipe(
+    Effect.flatMap((response) => settle(response, { gated: true, phrases: call.phrases })),
+    Effect.flatMap((outcome) =>
+      outcome.kind === "applied"
+        ? send("GET", call.path).pipe(
+            Effect.flatMap(HttpClientResponse.filterStatusOk),
+            Effect.flatMap(
+              HttpClientResponse.schemaBodyJson(
+                Schema.Struct({
+                  security_and_analysis: Schema.optional(
+                    Schema.Record(
+                      Schema.String,
+                      Schema.Struct({ status: Schema.optional(Schema.String) }),
+                    ),
+                  ),
+                }),
+              ),
+            ),
+            Effect.map((repository): Outcome =>
+              repository.security_and_analysis?.[confirm]?.status === "enabled"
+                ? outcome
+                : {
+                    detail: "silently ignored by GitHub",
+                    kind: "unavailable",
+                    status: outcome.status,
+                  },
+            ),
+          )
+        : Effect.succeed(outcome),
+    ),
+    Effect.orElseSucceed((): Outcome => ({ kind: "failed", status: 0 })),
+    Effect.flatMap(({ detail, kind, status }) => report(kind, call.setting, status, detail)),
+  );
+
+/**
+ * Send one call and print its outcome line, reading the repository back when the call names a
+ * `confirm` key.
+ *
+ * @param send - The REST sender.
+ * @param call - The call.
+ * @returns The kind, after the outcome line is printed.
+ */
+const sendCall = (send: Effect.Success<typeof restClient>, call: Call) =>
+  call.confirm === undefined
+    ? reportResponse(call.setting, send(call.method, call.path, call.body), {
+        gated: call.need !== undefined,
+        phrases: call.phrases,
+      })
+    : applyConfirmed(send, call, call.confirm);
 
 /**
  * Run every repository settings call the tier allows, print one outcome line each, and total them.
@@ -311,9 +399,7 @@ export const applyRest = Effect.fn("applyRest")(function* applyRest(
   const kinds = yield* Effect.forEach(callsFor(`${repository.owner}/${repository.name}`), (call) =>
     call.need !== undefined && !tier.capabilities.has(call.need)
       ? report("unavailable", call.setting, "tier")
-      : reportResponse(call.setting, send(call.method, call.path, call.body), {
-          gated: call.need !== undefined,
-        }),
+      : sendCall(send, call),
   );
 
   return yield* summarize(kinds);

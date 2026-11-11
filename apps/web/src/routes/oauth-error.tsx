@@ -9,6 +9,11 @@ import {
 import { oauthErrorCode, oauthErrorCopy } from "../lib/oauth-error-copy.ts";
 
 /**
+ * The sign-in link's search: no `redirect`, so signing in lands on `/`. Shared across renders.
+ */
+const signInSearch = { redirect: undefined };
+
+/**
  * Where Better Auth sends a failed OAuth callback. It shows fixed copy chosen from the `error`
  * code and nothing else from the query.
  *
@@ -25,7 +30,7 @@ const OAuthError = () => {
           <CardDescription>{oauthErrorCopy(error)}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Link className="text-sm underline" search={{ redirect: undefined }} to="/sign-in">
+          <Link className="text-sm underline" search={signInSearch} to="/sign-in">
             Back to sign in
           </Link>
         </CardContent>

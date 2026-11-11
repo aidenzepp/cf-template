@@ -1,5 +1,7 @@
+import babel from "@rolldown/plugin-babel";
 import tailwindcss from "@tailwindcss/vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
+import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 import type { Plugin } from "vite";
 import { WEB_DEV_PORT } from "@workspace/config/public-origin";
@@ -76,6 +78,10 @@ export default defineConfig({
       },
       server: { entry: "server.ts" },
     }),
+    // TanStack Start documents the React plugin after `tanstackStart()`. The compiler runs through
+    // Babel: `@vitejs/plugin-react` 6 marks its own `compiler` option (a Rust port) experimental.
+    react(),
+    babel({ presets: [reactCompilerPreset()] }),
     tailwindcss(),
   ],
   resolve: {

@@ -74,7 +74,8 @@ describe("rateLimitErrorQuery", () => {
 
       assert.include(query, "accountTag = 'acct'");
       assert.include(query, `scriptName = '${script}'`);
-      assert.include(query, "= 'web.ratelimit.error'");
+      assert.include(query, "attributes['event'] = 'web.ratelimit.error'");
+      assert.notInclude(query, "JSONExtract");
       assert.notInclude(query, "-api-");
     }),
   );

@@ -13,3 +13,4 @@ dist/
 work/
 docs/superpowers/
 .claude/settings.local.json
+/.claude/skills/supdoc/

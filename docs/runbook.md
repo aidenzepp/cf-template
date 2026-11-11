@@ -12,7 +12,13 @@ Subrequests: once a `test-<slug>` stage measures p99 subrequests per invocation,
 
 `AUTH_CPU_LIMIT_MS` follows the hash cost through `CPU_LIMIT_HEADROOM`; the hash cost is never lowered to fit a limit.
 
-I-44 fills the rest of this section.
+Budget guard: the latch also clears itself at the billing-period end, because the receiver puts `state` with a KV `expiration` at the start of the next UTC month.
+
+`CPU_MS_PER_REQUEST` and `BYTES_PER_REQUEST` set the guard threshold and have no default. Measure both on a bounded `test-<slug>` run (p99 CPU per invocation and bytes served per request) and set them as deploy knobs; until both are set, no guard alert is declared.
+
+Re-check the guard when the first project with outside users runs on `workers.dev` without an owned domain, and when a native Cloudflare spend cap becomes available to this account, after which the block is pulled out with `bun run pullout budget-guard`.
+
+Reset a stage's latch with `bun packages/budget-guard/scripts/reset.ts --stage <stage>`: it finds the one namespace titled `<stack>-<stage>-guard`, deletes its `state` key, and prints the namespace id, title and result. `prod` is refused unless `CI=true`, and zero or several matching namespaces write nothing.
 
 ## Domain
 
@@ -33,7 +39,7 @@ Detach:
 1. Set `CUSTOM_DOMAIN` to `workers-dev`.
 2. Deploy `prod`. The hostname is detached (`domain: null`), `workers.dev` is on again and `PUBLIC_ORIGIN` returns to the `workers.dev` address. Callbacks and passkeys move back the same way.
 
-Only `prod` honours `CUSTOM_DOMAIN`; `staging-<N>` refuses it.
+`prod` reads `CUSTOM_DOMAIN`. A `test-<slug>` stage ignores it and reads `STAGES_TEST_CUSTOM_DOMAIN` only when the deploy environment sets it; unset, it stays on `workers.dev`. `staging-<N>` and `dev` refuse `CUSTOM_DOMAIN`.
 
 Observed consequence (inferred, not run): after an attach, requests to the old `workers.dev` address return Cloudflare's disabled-route response (error 1042), a pre-switch session cookie gets 401 from `/api/session` on the hostname, a passkey registered before the switch fails there, and a fresh sign-in works. A detach restores the `workers.dev` address. This stays inferred until a throwaway hostname on a zone the maintainer controls exists; the first real attach on `prod` is then the proof.
 

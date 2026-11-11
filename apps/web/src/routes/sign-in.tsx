@@ -33,7 +33,7 @@ const SignIn = () => {
 };
 
 export const Route = createFileRoute("/sign-in")({
+  validateSearch: validateRedirectSearch,
   beforeLoad: ({ context }) => (context.session._tag === "signedIn" ? redirect({ to: "/" }) : {}),
   component: SignIn,
-  validateSearch: validateRedirectSearch,
 });
