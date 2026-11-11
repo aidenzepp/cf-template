@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [],
+        "patterns": [
+          {
+            "group": ["./db/*", "../db/*", "**/db/*"],
+            "message": "handlers import no database module"
+          }
+        ]
+      }
+    ]
+  }
+}

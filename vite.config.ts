@@ -77,6 +77,32 @@ const noServerFunctions = {
   name: "@tanstack/react-start",
 };
 
+/**
+ * R7: services build no HTTP; handlers live in `**\/http.ts`. `worker.ts` composes the
+ * `HttpApiBuilder` layers and lifts this ban.
+ */
+const noHttpBuilder = {
+  importNames: ["HttpApiBuilder"],
+  message: "services do not build HTTP; handlers live in **/http.ts",
+  name: "effect/http-api",
+};
+
+/**
+ * R7: services import no handler module.
+ */
+const httpModules = {
+  group: ["./http", "../http", "**/http"],
+  message: "services import no handler module; handlers live in **/http.ts",
+};
+
+/**
+ * R8: handlers import no database module.
+ */
+const dbModules = {
+  group: ["./db/*", "../db/*", "**/db/*"],
+  message: "handlers import no database module",
+};
+
 export default defineConfig({
   fmt: {
     ignorePatterns: [
@@ -139,6 +165,18 @@ export default defineConfig({
       restrictImports(["apps/web/src/**/*.test.ts"], {
         paths: [noServerFunctions],
         patterns: [...appImports, webContracts],
+      }),
+      restrictImports(["apps/api/src/**", "apps/auth/src/**"], {
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+      }),
+      // `worker.ts` composes `HttpApiBuilder` layers from the http modules; it keeps R1.
+      restrictImports(["apps/api/src/worker.ts", "apps/auth/src/worker.ts"], {
+        patterns: appImports,
+      }),
+      // Handlers may use `HttpApiBuilder`; they keep R1 and import no database module.
+      restrictImports(["apps/api/src/**/http.ts", "apps/auth/src/**/http.ts"], {
+        patterns: [...appImports, dbModules],
       }),
       {
         // The lint-rule tests import bun:test from plain JavaScript. The type-aware checker does

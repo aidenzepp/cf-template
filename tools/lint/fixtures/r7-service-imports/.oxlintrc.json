@@ -1,0 +1,22 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "effect/http-api",
+            "importNames": ["HttpApiBuilder"],
+            "message": "services do not build HTTP; handlers live in **/http.ts"
+          }
+        ],
+        "patterns": [
+          {
+            "group": ["./http", "../http", "**/http"],
+            "message": "services import no handler module; handlers live in **/http.ts"
+          }
+        ]
+      }
+    ]
+  }
+}
