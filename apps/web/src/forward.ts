@@ -1,6 +1,4 @@
-import { fromCloudflareFetcher } from "@alchemy.run/cloudflare/Fetcher";
 import { Cause, Effect } from "effect";
-import { Headers as EffectHeaders, HttpServerRequest, HttpServerResponse } from "effect/http";
 import type { ServiceBinding } from "./env.ts";
 import { FORWARD_PREFIXES } from "./forward-prefixes.ts";
 
@@ -71,7 +69,8 @@ export const badGateway = (request: Request): Response => {
  *
  * Inbound `traceparent`, `tracestate` and `b3` are removed and nothing is injected. Any status the
  * binding returns, 4xx and 5xx included, passes through unchanged. The forward fails only when the
- * binding rejects or throws, and that failure answers 502 through {@link badGateway}.
+ * binding rejects or throws, and that failure answers 502 through {@link badGateway}. The response
+ * is the binding's own object, so `Set-Cookie` lines and redirects reach the client unchanged.
  *
  * @param binding - The service binding to call.
  * @param request - The inbound request.
@@ -79,12 +78,17 @@ export const badGateway = (request: Request): Response => {
  */
 export const forward = Effect.fn("web.forward")(
   function* forward(binding: ServiceBinding, request: Request) {
-    const incoming = HttpServerRequest.fromWeb(request);
-    const headers = EffectHeaders.removeMany(incoming.headers, STRIPPED_HEADERS);
+    const headers = new Headers(request.headers);
 
-    const response = yield* fromCloudflareFetcher(binding).fetch(incoming.modify({ headers }));
+    for (const name of STRIPPED_HEADERS) {
+      headers.delete(name);
+    }
 
-    return HttpServerResponse.toWeb(response);
+    // The binding's Response is returned as it is: its status, every Set-Cookie line and its body
+    // stream are never parsed or rebuilt. A redirect is the backend's answer, so it is not followed.
+    return yield* Effect.promise(() =>
+      binding.fetch(new Request(request, { headers, redirect: "manual" })),
+    );
   },
   (effect, _binding, request) =>
     Effect.catchCause(effect, (cause) =>

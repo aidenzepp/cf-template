@@ -3,6 +3,7 @@ import { expect, layer } from "@effect/vitest";
 import { Context, Effect, FileSystem, Layer, Path, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Miniflare } from "miniflare";
+import { FORWARD_PREFIXES } from "./forward-prefixes.ts";
 
 /**
  * The response type of a Miniflare dispatch, which is not the global `Response`.
@@ -17,18 +18,37 @@ class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessError", {
 }) {}
 
 /**
+ * The compatibility date of every Worker, as `infra/src/compat.ts` sets it. `apps/web` cannot
+ * import `infra` (its `rootDir` is `src`), so a bump there is repeated here.
+ */
+const COMPAT_DATE = "2026-10-26";
+
+/**
  * A stub service binding. It answers `404` for `/missing`, throws for `/throws`, and echoes what it
  * received as JSON for every other path.
  */
 const stubScript = (name: string) => `
 export default {
-  fetch(request) {
+  async fetch(request) {
     const url = new URL(request.url);
     if (url.pathname.endsWith("/throws")) throw new Error("stub failure");
     if (url.pathname.endsWith("/missing")) return new Response("nope", { status: 404 });
+    if (url.pathname.endsWith("/redirect")) {
+      return new Response(null, { status: 302, headers: { location: "/elsewhere?x=1" } });
+    }
+    if (url.pathname.endsWith("/cookies")) {
+      const headers = new Headers();
+      headers.append("set-cookie", "a=1; Path=/; HttpOnly; Secure; SameSite=Lax");
+      headers.append("set-cookie", "a=; Path=/old; Max-Age=0");
+      headers.append("set-cookie", "__Secure-b=2; Path=/; Secure; Partitioned; Priority=High");
+      return new Response("ok", { headers });
+    }
     return Response.json({
       binding: ${JSON.stringify(name)},
+      body: await request.text(),
       cookie: request.headers.get("cookie"),
+      headers: Object.fromEntries(request.headers),
+      method: request.method,
       path: url.pathname + url.search,
       traceparent: request.headers.get("traceparent"),
       tracestate: request.headers.get("tracestate"),
@@ -49,7 +69,7 @@ export default {
     const mode = headers.get("x-test-sec-fetch-mode");
     headers.delete("x-test-sec-fetch-mode");
     if (mode !== null) headers.set("sec-fetch-mode", mode);
-    return env.WEB.fetch(new Request(request, { headers }));
+    return env.WEB.fetch(new Request(request, { headers, redirect: "manual" }));
   },
 };
 `;
@@ -64,7 +84,11 @@ class WebProd extends Context.Service<
   {
     readonly request: (
       path: string,
-      init?: { readonly headers?: Record<string, string> },
+      init?: {
+        readonly body?: string;
+        readonly headers?: Record<string, string>;
+        readonly method?: string;
+      },
     ) => Effect.Effect<HarnessResponse, HarnessError>;
   }
 >()("@workspace/web/WebProd") {}
@@ -100,7 +124,7 @@ const WebProdLive = Layer.effect(WebProd)(
           const instance = new Miniflare({
             workers: [
               {
-                compatibilityDate: "2026-10-26",
+                compatibilityDate: COMPAT_DATE,
                 modules: true,
                 name: "driver",
                 script: driverScript,
@@ -111,14 +135,14 @@ const WebProdLive = Layer.effect(WebProd)(
                   directory: client,
                   routerConfig: {
                     has_user_worker: true,
-                    static_routing: { user_worker: ["/api/*", "/auth/*"] },
+                    static_routing: { user_worker: [...FORWARD_PREFIXES] },
                   },
                 },
                 bindings: {
                   AUTH_METHODS: '{"email":false,"providers":[]}',
                   PUBLIC_ORIGIN: "http://x",
                 },
-                compatibilityDate: "2026-10-26",
+                compatibilityDate: COMPAT_DATE,
 
                 modules: files.map((file) => ({ path: path.join(server, file), type: "ESModule" })),
                 modulesRoot: server,
@@ -126,13 +150,13 @@ const WebProdLive = Layer.effect(WebProd)(
                 serviceBindings: { API: "api", AUTH: "auth" },
               },
               {
-                compatibilityDate: "2026-10-26",
+                compatibilityDate: COMPAT_DATE,
                 modules: true,
                 name: "api",
                 script: stubScript("api"),
               },
               {
-                compatibilityDate: "2026-10-26",
+                compatibilityDate: COMPAT_DATE,
                 modules: true,
                 name: "auth",
                 script: stubScript("auth"),
@@ -152,7 +176,7 @@ const WebProdLive = Layer.effect(WebProd)(
       request: (target, init) =>
         Effect.tryPromise({
           catch: (cause) => new HarnessError({ message: String(cause) }),
-          try: () => mf.dispatchFetch(`http://web.test${target}`, init),
+          try: () => mf.dispatchFetch(`http://web.test${target}`, { redirect: "manual", ...init }),
         }),
     });
   }),
@@ -161,7 +185,10 @@ const WebProdLive = Layer.effect(WebProd)(
 const Echo = Schema.Struct({
   b3: Schema.NullOr(Schema.String),
   binding: Schema.String,
+  body: Schema.String,
   cookie: Schema.NullOr(Schema.String),
+  headers: Schema.Record(Schema.String, Schema.String),
+  method: Schema.String,
   path: Schema.String,
   traceparent: Schema.NullOr(Schema.String),
   tracestate: Schema.NullOr(Schema.String),
@@ -200,7 +227,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
         .request("/api/x?q=1", { headers: traced })
         .pipe(Effect.flatMap((response) => decodeBody(Echo, response)));
 
-      expect(body).toEqual({
+      expect(body).toMatchObject({
         b3: null,
         binding: "api",
         cookie: "a=1; b=2",
@@ -298,6 +325,81 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
         .pipe(Effect.flatMap((response) => decodeBody(Echo, response)));
 
       expect(body).toMatchObject({ binding: "api", path: "/api/shadow.txt" });
+    }),
+  );
+
+  it.effect("keeps a POST body, its method and arbitrary request headers intact", () =>
+    Effect.gen(function* post() {
+      const web = yield* WebProd;
+
+      const body = yield* web
+        .request("/api/notes", {
+          body: '{"title":"t"}',
+          headers: {
+            authorization: "Bearer probe",
+            "content-type": "application/json",
+            origin: "https://example.test",
+            "x-custom": "kept",
+          },
+          method: "POST",
+        })
+        .pipe(Effect.flatMap((response) => decodeBody(Echo, response)));
+
+      expect(body.method).toBe("POST");
+      expect(body.body).toBe('{"title":"t"}');
+      expect(body.headers).toMatchObject({
+        authorization: "Bearer probe",
+        "content-type": "application/json",
+        origin: "https://example.test",
+        "x-custom": "kept",
+      });
+    }),
+  );
+
+  it.effect(
+    "delivers every Set-Cookie line of the backend unchanged, same-name cookies included",
+    () =>
+      Effect.gen(function* cookies() {
+        const web = yield* WebProd;
+        const response = yield* web.request("/auth/cookies");
+
+        expect(response.status).toBe(200);
+
+        expect(response.headers.getSetCookie()).toEqual([
+          "a=1; Path=/; HttpOnly; Secure; SameSite=Lax",
+          "a=; Path=/old; Max-Age=0",
+          "__Secure-b=2; Path=/; Secure; Partitioned; Priority=High",
+        ]);
+      }),
+  );
+
+  it.effect("passes a 302 and its Location through without following it", () =>
+    Effect.gen(function* redirect() {
+      const web = yield* WebProd;
+      const response = yield* web.request("/api/redirect");
+
+      expect(response.status).toBe(302);
+      expect(response.headers.get("location")).toBe("/elsewhere?x=1");
+    }),
+  );
+
+  it.effect("does not forward bare /api, which matches no prefix and is TanStack's 404", () =>
+    Effect.gen(function* bare() {
+      const web = yield* WebProd;
+      const response = yield* web.request("/api", { headers: { accept: "text/html" } });
+
+      expect(response.status).toBe(404);
+      expect(response.headers.get("content-type")).toContain("text/html");
+    }),
+  );
+
+  it.effect("OBSERVED: an encoded /%61pi/health is not forwarded, it is TanStack's 404", () =>
+    Effect.gen(function* encoded() {
+      const web = yield* WebProd;
+      const response = yield* web.request("/%61pi/health", { headers: { accept: "text/html" } });
+
+      expect(response.status).toBe(404);
+      expect(response.headers.get("content-type")).toContain("text/html");
     }),
   );
 });
