@@ -238,7 +238,9 @@ it.effect("the real api blocks.ts collapsed onto single lines still yields its s
           .join(", ")})`,
     );
 
+    // block:notes start
     assert.notStrictEqual(collapsed, text);
+    // block:notes end
     assert.deepStrictEqual(
       (yield* parseAttach("mergeAll", "collapsed-api-blocks", collapsed)).map((line) => line.name),
       [
