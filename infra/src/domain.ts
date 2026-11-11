@@ -47,28 +47,38 @@ export const domainFor = Effect.fn("domainFor")(function* domainFor(
 /**
  * The props of the one WAF rate-limit `Cloudflare.Ruleset` of an owned domain, without its `zone`.
  *
- * It blocks an IP for 10 s once it sends more than 50 requests in 10 s outside `/assets/`, before
- * a Worker runs. A Free zone keys a rule on the IP alone.
+ * It blocks an IP for `mitigationSeconds` once it sends more than `requests` requests in
+ * `periodSeconds` outside `/assets/`, before a Worker runs. A Free zone keys a rule on the IP
+ * alone.
  *
  * @param hostname - The attached hostname, named in the rule's description.
+ * @param values - The WAF knob values, as `wafKnobs` reads them.
+ * @param values.requests - The value of `WAF_RATE_LIMIT_REQUESTS`.
+ * @param values.periodSeconds - The value of `WAF_RATE_LIMIT_PERIOD_SECONDS`.
+ * @param values.mitigationSeconds - The value of `WAF_RATE_LIMIT_MITIGATION_SECONDS`.
  * @returns The `phase`, `rules` and `description` of the ruleset.
  */
 export const wafRateLimitRule = (
   hostname: string,
+  values: {
+    readonly requests: number;
+    readonly periodSeconds: number;
+    readonly mitigationSeconds: number;
+  },
 ): Omit<Cloudflare.Ruleset.RulesetProps, "zone"> => ({
   description: `Rate limit requests to ${hostname} outside /assets/ before a Worker is invoked`,
   phase: "http_ratelimit",
   rules: [
     {
       action: "block",
-      description: "Block an IP above 50 requests per 10 s outside /assets/",
+      description: `Block an IP above ${values.requests} requests per ${values.periodSeconds} s outside /assets/`,
       enabled: true,
       expression: 'not starts_with(http.request.uri.path, "/assets/")',
       ratelimit: {
         characteristics: ["ip.src"],
-        mitigationTimeout: 10,
-        period: 10,
-        requestsPerPeriod: 50,
+        mitigationTimeout: values.mitigationSeconds,
+        period: values.periodSeconds,
+        requestsPerPeriod: values.requests,
       },
     },
   ],

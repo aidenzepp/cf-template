@@ -1,4 +1,9 @@
 import { assert, describe, it } from "@effect/vitest";
+import {
+  WAF_RATE_LIMIT_MITIGATION_SECONDS,
+  WAF_RATE_LIMIT_PERIOD_SECONDS,
+  WAF_RATE_LIMIT_REQUESTS,
+} from "@workspace/config/waf";
 import { ConfigProvider, Effect } from "effect";
 import { domainFor, wafRateLimitRule } from "./domain.ts";
 
@@ -47,7 +52,12 @@ describe("domainFor", () => {
 
 describe("wafRateLimitRule", () => {
   it("carries the expression, 50 per 10 s, block and a 10 s timeout", () => {
-    const ruleset = wafRateLimitRule("example.test");
+    const ruleset = wafRateLimitRule("example.test", {
+      mitigationSeconds: WAF_RATE_LIMIT_MITIGATION_SECONDS.default,
+      periodSeconds: WAF_RATE_LIMIT_PERIOD_SECONDS.default,
+      requests: WAF_RATE_LIMIT_REQUESTS.default,
+    });
+
     const [rule] = ruleset.rules;
 
     assert.strictEqual(ruleset.phase, "http_ratelimit");

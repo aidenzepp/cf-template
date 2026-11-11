@@ -14,7 +14,8 @@
     "./auth-password": "./src/auth-password.ts",
     "./limits": "./src/limits.ts",
     "./mailer": "./src/mailer.ts",
-    "./observability": "./src/observability.ts"
+    "./observability": "./src/observability.ts",
+    "./waf": "./src/waf.ts"
   },
   "dependencies": {
     "effect": "4.1.2"
