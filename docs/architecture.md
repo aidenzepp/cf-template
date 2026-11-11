@@ -47,7 +47,7 @@ art with its findings; the supdoc day-one docs above stay.
 
 Later add-ins, out of day one: R2, Queues and Workflows, Durable Objects, AI, email (a block under C32i, ST9), a
 landing site, the contract-derived CLI and MCP surfaces (a Later feature-request issue gated on the generator FRs,
-C45), generators for add-ins, the budget guard block (LR-4), KV Instant (a want), XState (a want), a second CI identity (M2, DQ-1's trigger). Out of this plan entirely: Cloudflare official skills,
+C45), generators for add-ins, KV Instant (a want), XState (a want), a second CI identity (M2, DQ-1's trigger). Out of this plan entirely: Cloudflare official skills,
 renaming sibling repos, the global `work/` rule, the contract-strategy revisit, Grizzle (brief section 7).
 
 "Removable" names two contracts in this plan: a **block** passes the pull-out test with C32i A1-A3 (the knobs
@@ -74,12 +74,13 @@ one-line switch" is the first contract (ST9), not a third.
    (C25e). The `prod`-destructive gate is the owner-only `workflow_dispatch` confirmation on every tier
    (the GitHub Pro protection probe: environment required reviewers 422 on private Pro); Actions on private repositories draw on
    the included credit (a flagged meter); private-repository CI is Linux-only.
-3. The trust statement, with DQ-1 open: one GitHub identity, one Cloudflare account and one token, copied into the
+3. The trust statement, with DQ-1 ruled (C19n, C25h): one GitHub identity, one Cloudflare account and one token, copied into the
    `prod` environment where environments exist (a same-value copy of the repository secret, N-4: the environment
    gives the `main`-only deployment-branch rule and a record of which jobs may name `prod`, and becomes a
    credential boundary only when two tokens are minted, O2 (b), DQ-1 (c)), so the preview token is
-   `prod`-equivalent and every actor, label, fingerprint and reviewer check is satisfiable by the owner identity the
-   agents hold. Day one buys a record and review attestation (DC1; default (a)); the runbook's "what you are agreeing
+   `prod`-equivalent. Agents push, open PRs and merge as the C24j GitHub App, never as the maintainer, so the
+   `triggering_actor` check is a real boundary (C19n, C25h); the label, fingerprint and reviewer checks stay
+   satisfiable by the owner identity. Day one buys a record and review attestation (DC1; default (a)); the runbook's "what you are agreeing
    to" block states it (C33), and states plainly, as its fifth sentence, that there is no self-service account
    recovery (no password reset, no email verification) until the email add-in is on (FQ-2 (a)), with the passkey
    nudge at sign-up as the mitigation and the one-line email switch (ST9) as the exit.
@@ -826,9 +827,10 @@ volume `CustomAlert`, created on every stage whose `Stages` entry sets `volumeAl
 placeholder, PB-8) over the Worker names derived from the `Workers` list in `infra/stages.ts` (`web`, `api`, `auth` on day one; I-45)
 plus the state store `<stack>-state`, the one Worker with a public address beside `web` (an unauthenticated flood on
 it bills any invocation that reaches a script like `web`'s and has no rate-limit binding we control; N-6), so a block
-that adds a Worker joins the alert with no alert-list edit; Cloudflare's default $10 account alert kept (C40j, number pending PB-9). The budget guard (C40k,
-C40l: an SQL-API alert into a KV latch read by `web`, 503 while latched) is deferred with CG8's triggers (LR-4 default
-(a); the maintainer's session recommends (b); open). A distributed flood has no automatic stop on day one; the runbook's
+that adds a Worker joins the alert with no alert-list edit; Cloudflare's default $10 account alert kept, with a `worker_requests` usage alert at 5,000,000 beside it, both
+account-wide and declared once per account (C40j). The budget guard (C40k, C40l: an SQL-API alert into a KV latch read
+by `web`, 503 while latched) is a removable day-one block built as I-44 (C40k); CG8's triggers no longer gate a build
+and remain the runbook's re-check points (C40l). A distributed flood has no automatic stop on day one; the runbook's
 first step is the manual route stop (disable `web`'s `workers.dev` route or `workersDev: false` and redeploy, CG7).
 Every money-stopping control is **inferred** until the first test stage (CG9).
 
