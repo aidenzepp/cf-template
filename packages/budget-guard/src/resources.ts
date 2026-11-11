@@ -47,6 +47,15 @@ export class GuardPlan extends Context.Service<
 export type GuardPlanValue = typeof GuardPlan.Service;
 
 /**
+ * The title of the latch namespace of a stage: the lookup key of the reset command.
+ *
+ * @param stack - The stack name.
+ * @param stage - The decoded stage.
+ * @returns `<stack>-<stage>-guard`.
+ */
+export const guardNamespaceTitle = (stack: string, stage: string) => `${stack}-${stage}-guard`;
+
+/**
  * Declare the latch namespace `<stack>-<stage>-guard`, retained on `prod` only.
  *
  * @param plan - The block's plan.
@@ -54,7 +63,7 @@ export type GuardPlanValue = typeof GuardPlan.Service;
  */
 export const guardNamespace = (plan: GuardPlanValue) =>
   Cloudflare.KV.Namespace(GUARD_KV_ID, {
-    title: `${plan.identity.stack}-${plan.identity.stage}-guard`,
+    title: guardNamespaceTitle(plan.identity.stack, plan.identity.stage),
   }).pipe(RemovalPolicy.retain(plan.identity.stage === "prod"));
 
 /**
