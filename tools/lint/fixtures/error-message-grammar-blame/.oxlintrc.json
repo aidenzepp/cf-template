@@ -1,0 +1,4 @@
+{
+  "jsPlugins": ["../../plugin.mjs"],
+  "rules": { "workspace/error-message-grammar": "error" }
+}

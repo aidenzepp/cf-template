@@ -1,5 +1,6 @@
 import kebabCasePaths from "./kebab-case-paths.mjs";
 import noBuiltInTryCatch from "./no-built-in-try-catch.mjs";
+import errorMessageGrammar from "./rules/error-message-grammar.ts";
 import noMutableModuleState from "./rules/no-mutable-module-state.ts";
 
 /**
@@ -8,6 +9,7 @@ import noMutableModuleState from "./rules/no-mutable-module-state.ts";
 export default {
   meta: { name: "workspace" },
   rules: {
+    "error-message-grammar": errorMessageGrammar,
     "kebab-case-paths": kebabCasePaths,
     "no-built-in-try-catch": noBuiltInTryCatch,
     "no-mutable-module-state": noMutableModuleState,
