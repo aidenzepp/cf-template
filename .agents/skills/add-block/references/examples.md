@@ -49,16 +49,16 @@ POSITIVE: one entry per line, the unit entry in a region.
 
 ```ts
 export const ApiWorkerBlockLayers = Layer.mergeAll(
-  // block:knobs-kv start
+  // block:gizmo start
   KnobsKvLive,
-  // block:knobs-kv end
+  // block:gizmo end
 );
 ```
 
 NEGATIVE: a trailing marker. The lint rule against inline comments rejects it.
 
 ```ts
-  KnobsKvLive, // block:knobs-kv
+  KnobsKvLive, // block:gizmo
 ```
 
 NEGATIVE: a collapsed list that holds the unit. It fails with `put KnobsKvLive on its own line`.
@@ -72,9 +72,9 @@ export const ApiWorkerBlockLayers = Layer.mergeAll(SystemLive, KnobsKvLive);
 POSITIVE: a bare statement, or a call, in `infra/alchemy.run.ts`.
 
 ```ts
-// block:knobs-kv start
+// block:gizmo start
 yield* knobsNamespace(stack, stage);
-// block:knobs-kv end
+// block:gizmo end
 ```
 
 NEGATIVE: the tail of an assignment. It is not an attach line, so it fails as an unknown shape.
@@ -91,9 +91,9 @@ POSITIVE: one link per line in the core list.
 ```ts
 export const Api = HttpApi.make("api")
   .add(SystemApiGroup)
-  // block:knobs-kv start
+  // block:gizmo start
   .add(KnobsApiGroup);
-// block:knobs-kv end
+// block:gizmo end
 ```
 
 ## Form 4: an `as const` array entry
@@ -103,9 +103,9 @@ POSITIVE: one entry per line in `tools/knob/registry.ts`.
 ```ts
 export const liveKnobs = [
   logLevelKnob,
-  // block:knobs-kv start
+  // block:gizmo start
   kvKnob,
-  // block:knobs-kv end
+  // block:gizmo end
 ] as const;
 ```
 
@@ -116,9 +116,9 @@ provides that list under the handler and middleware layers.
 
 ```ts
 export const ApiWorkerProviderLayers = Layer.mergeAll(
-  // block:knobs-kv start
+  // block:gizmo start
   KnobsKvLive,
-  // block:knobs-kv end
+  // block:gizmo end
 );
 
 // worker.ts
@@ -141,9 +141,9 @@ const kv = yield* Cloudflare.KV.Namespace("KnobsKv");
 POSITIVE: wrap it in the region form, on its own lines.
 
 ```ts
-// block:knobs-kv start
+// block:gizmo start
 ignores: ["packages/knobs-kv/dist"],
-// block:knobs-kv end
+// block:gizmo end
 ```
 
 NEGATIVE: a unit name that starts like another's only works because the match ends at a character
