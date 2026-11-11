@@ -4,6 +4,7 @@ import { WorkerEnvironment } from "@alchemy.run/cloudflare";
 import { BunServices } from "@effect/platform-bun";
 import { Array as Arr, Context, Effect, FileSystem, Layer, Order, Path } from "effect";
 import { Miniflare } from "miniflare";
+import { Mailer } from "@workspace/config/mailer";
 import type { RawDatabase } from "@workspace/db/database";
 import { AuthService, authDatabaseLayer } from "./auth.ts";
 import { CheckSession } from "./session.ts";
@@ -27,6 +28,7 @@ const STATEMENT_BREAKPOINT = "--> statement-breakpoint";
  */
 export const settings = (overrides: Readonly<Record<string, string>> = {}) =>
   Layer.succeed(WorkerEnvironment, {
+    AUTH_METHODS: '{"email":false,"providers":[]}',
     BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-0123",
     PUBLIC_ORIGIN: ORIGIN,
     ...overrides,
@@ -110,13 +112,19 @@ export const disposedD1 = Effect.gen(function* startDisposedD1() {
  *
  * @param binding - The raw D1 binding.
  * @param overrides - Deployment settings that replace the defaults.
+ * @param mailer - The mail port the instance sends through; `Mailer.None` by default.
  * @returns A layer providing `AuthService` and `CheckSession`.
  */
-export const authOver = (binding: RawDatabase, overrides?: Readonly<Record<string, string>>) =>
+export const authOver = (
+  binding: RawDatabase,
+  overrides?: Readonly<Record<string, string>>,
+  mailer: typeof Mailer.None = Mailer.None,
+) =>
   CheckSession.layer.pipe(
     Layer.provideMerge(AuthService.layer),
     Layer.provide(authDatabaseLayer(Effect.succeed(binding))),
     Layer.provide(settings(overrides)),
+    Layer.provide(Layer.succeed(Mailer, mailer)),
   );
 
 /**
