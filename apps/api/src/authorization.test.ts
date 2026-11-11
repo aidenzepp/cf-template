@@ -3,16 +3,24 @@ import {
   ConfigProvider,
   Context,
   DateTime,
+  // block:notes start
   Deferred,
+  // block:notes end
   Effect,
+  // block:notes start
   Fiber,
+  // block:notes end
   Layer,
   Logger,
+  // block:notes start
   References,
   Ref,
+  // block:notes end
   Schema,
 } from "effect";
+// block:notes start
 import { TestClock } from "effect/testing";
+// block:notes end
 import { HttpRouter, HttpServer } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 import { RpcCallError } from "alchemy/Rpc";
@@ -59,11 +67,23 @@ const stack = (
 ) =>
   HttpApiBuilder.layer(Api).pipe(
     Layer.provide(
-      Layer.mergeAll(NotesApiHandlersNoDeps, SystemApiHandlers).pipe(
+      Layer.mergeAll(
+        // block:notes start
+        NotesApiHandlersNoDeps,
+        // block:notes end
+        SystemApiHandlers,
+      ).pipe(
+        // block:notes start
         Layer.provide(Notes.layerMemory),
+        // block:notes end
       ),
     ),
-    Layer.provide([SessionMiddlewareLive, ExampleFeatureGateLive]),
+    Layer.provide([
+      SessionMiddlewareLive,
+      // block:notes start
+      ExampleFeatureGateLive,
+      // block:notes end
+    ]),
     Layer.provide(SessionLookup.layer),
     Layer.provide(Layer.succeed(AuthCheckSession, checkSession)),
     Layer.provide(layerProblemDetails({ includeDetails: false })),
@@ -108,8 +128,10 @@ const serve = (
     return (request: Request) => Effect.promise(() => handler(request, context));
   });
 
+// block:notes start
 const notesRequest = (headers?: Record<string, string>) =>
   new Request("http://api.test/api/notes", { headers });
+// block:notes end
 
 /**
  * Read a problem response's body.
@@ -119,6 +141,7 @@ const notesRequest = (headers?: Record<string, string>) =>
  */
 const bodyOf = (response: Response) => Effect.promise(() => response.json());
 
+// block:notes start
 describe("session middleware", () => {
   it.effect("answers 401 SessionRequired when auth returns null", () =>
     Effect.gen(function* signedOut() {
@@ -203,9 +226,11 @@ describe("session middleware", () => {
     }).pipe(Effect.scoped),
   );
 });
+// block:notes end
 
 const sessionRequest = () => new Request("http://api.test/api/session");
 
+// block:notes start
 describe("an answer or a fault that is not a clean session", () => {
   it.effect.each(["notes", "session"] as const)(
     "answers 503, never 500 or signed out, when the answer does not decode (%s)",
@@ -274,6 +299,7 @@ describe("knobs read from the Worker bindings", () => {
     }).pipe(Effect.scoped),
   );
 });
+// block:notes end
 
 describe("GET /api/session", () => {
   it.effect("answers the session of the caller, and null when signed out", () =>

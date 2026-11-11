@@ -362,10 +362,12 @@ const unscanned = [
 ];
 
 /**
- * The text of a string literal that names `name` as a path segment: `"./notes/x"`, `"/api/notes"`,
- * `"@workspace/contract/api/notes"` or `"notes"`, and not `"notes.example.com"` or a plain word.
+ * The text of a string literal that names `name` as a path segment beside a slash: `"./notes/x"`,
+ * `"/api/notes"`, `"@workspace/contract/api/notes"`, and not `"notes"`, `"notes.example.com"` or a
+ * plain word.
  */
-const pathLike = (name: string): string => String.raw`["'\`]([^"'\`]*/)?${name}(/[^"'\`]*)?["'\`]`;
+const pathLike = (name: string): string =>
+  String.raw`["'\`][^"'\`]*(/${name}(/[^"'\`]*)?|${name}/[^"'\`]*)["'\`]`;
 
 /**
  * The leftover scan: the code references to the unit that remain. A reference is the unit name as a

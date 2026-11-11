@@ -13,16 +13,12 @@ import {
 import { HttpRouter, HttpServer, HttpServerRequest } from "effect/http";
 import { HttpApiBuilder, HttpApiError } from "effect/http-api";
 import { Api } from "@workspace/contract/api/api";
-// block:notes start
 import { NOTE_TITLE_MAX_LENGTH } from "@workspace/contract/domain/note";
-// block:notes end
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
-// block:notes start
 import { ExampleFeatureGateLive } from "./notes/gate.ts";
 import { NotesApiHandlersNoDeps } from "./notes/http.ts";
 import { Notes } from "./notes/notes.ts";
-// block:notes end
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
 import { SystemApiHandlers } from "./system/http.ts";
 
