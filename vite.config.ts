@@ -484,6 +484,15 @@ export default defineConfig({
       { test: { ...noOnly, include: ["packages/db/src/**/*.test.ts"], name: "db" } },
       { test: { ...noOnly, include: ["packages/config/src/**/*.test.ts"], name: "config" } },
       { test: { ...noOnly, include: ["infra/**/*.test.ts"], name: "infra" } },
+      // block:budget-guard start
+      {
+        test: {
+          ...noOnly,
+          include: ["packages/budget-guard/src/**/*.test.ts"],
+          name: "budget-guard",
+        },
+      },
+      // block:budget-guard end
       {
         test: {
           ...noOnly,
