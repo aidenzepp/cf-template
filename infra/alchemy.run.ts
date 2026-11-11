@@ -3,8 +3,8 @@ import * as Alchemy from "alchemy";
 import { Config, Effect, Layer, Path, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
-import { declareDatabase as declareAuthDb } from "../apps/auth/src/db/database.ts";
 import { Stage, stageValues, workerName } from "./stages.ts";
+import { declareAuth } from "./src/auth.ts";
 import { compat } from "./src/compat.ts";
 import { d1LocationHint } from "./src/d1-location.ts";
 import { usesProjectState } from "./src/state-selection.ts";
@@ -81,18 +81,17 @@ const program = Effect.gen(function* declareStack() {
   const path = yield* Path.Path;
 
   yield* declareAppDb(stack, stage, hint);
-  yield* declareAuthDb(stack, stage, hint);
 
   const declareWorker = Effect.fn("declareWorker")(function* declareWorker(
-    id: "Web" | "Api" | "Auth",
-    app: "web" | "api" | "auth",
+    id: "Web" | "Api",
+    app: "web" | "api",
     workersDev: boolean,
   ) {
     const main = yield* path.fromFileUrl(new URL(`../apps/${app}/src/worker.ts`, import.meta.url));
 
     return yield* Cloudflare.Worker(id, {
       compatibility: { date: compat.date, flags: compat.flags.map((flag) => flag.name) },
-      env: { ...values },
+      env: { LOG_LEVEL: values.LOG_LEVEL },
       main,
       name: yield* workerName({ stack, stage, worker: app }),
       workersDev,
@@ -101,7 +100,7 @@ const program = Effect.gen(function* declareStack() {
 
   yield* declareWorker("Web", "web", true);
   yield* declareWorker("Api", "api", false);
-  yield* declareWorker("Auth", "auth", false);
+  yield* declareAuth({ stack, stage }, hint, values);
 
   return {};
 }).pipe(Effect.orDie);
