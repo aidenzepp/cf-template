@@ -71,11 +71,12 @@ export default defineConfig({
       "workspace/no-built-in-try-catch": "error",
     },
   },
-  // Tests run on Vitest with @effect/vitest. The lint-rule tests in tools/ import bun:test and
-  // run under `bun test`; `bun run test` runs both. The template ships no source, so an empty
+  // Tests run on Vitest with @effect/vitest. The lint-rule tests in tools/lint import bun:test
+  // and run under `bun test`; `bun run test` runs both. The template ships no source, so an empty
   // Vitest suite passes; delete `passWithNoTests` once the project has its first test.
   test: {
-    include: ["src/**/*.test.ts", "test/**/*.test.ts"],
+    exclude: ["tools/lint/**"],
+    include: ["src/**/*.test.ts", "test/**/*.test.ts", "tools/**/*.test.ts"],
     passWithNoTests: true,
   },
 });

@@ -5,7 +5,7 @@
   "scripts": {
     "check": "vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings",
     "fix": "vp check --fix",
-    "test": "bun test tools && vp test",
+    "test": "bun test tools/lint && vp test",
     "prepare": "vp config --no-agent && bun tools/supdoc/install.ts"
   },
   "dependencies": {

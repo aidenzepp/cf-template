@@ -16,9 +16,36 @@ If a rule appears inappropriate, explain the failing rule, why changing the code
 
 ## Workflow
 
-Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test tools` for the lint-rule suites, then `vp test` (Vitest with `@effect/vitest`) for project tests: `*.test.ts` files under `src/` or `test/`, using `it.effect` for effectful cases. Keep focused tests beside their implementation and cross-module tests in `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
+Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test tools/lint` only for the lint-rule suites that cannot load Effect, then `vp test` (Vitest with `@effect/vitest`) for project tests: `*.test.ts` files under `src/`, `test/` or `tools/` (not `tools/lint/`), using `it.effect` for effectful cases. Keep focused tests beside their implementation and cross-module tests in `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
 
 A pre-push hook (`.vite-hooks/pre-push`, installed by `bun install`) runs the same checks and blocks the push if any fail. Fix the problems rather than bypassing it with `--no-verify` or `VP_GIT_HOOKS=0`.
+
+## Effect-native source and tests
+
+All source and tests are Effect-native (operator ruling). No `throw`, `try/catch`, raw Promise chains, `Promise.allSettled`, `fetch`, `node:` imports or `Bun.` file calls in source; no new `bun:test` files. Use Schema to decode files, environment values and payloads, Config for settings, and `@effect/platform-bun` for the file system and HTTP. A suite that genuinely cannot load Effect (a Node-loaded `.mjs` lint plugin) may stay on `bun:test` with a one-line comment naming why.
+
+```ts
+// Typed error in the error channel
+class PinError extends Schema.TaggedError<PinError>()("PinError", { message: Schema.String }) {}
+```
+
+```ts
+// File system read through the platform service
+const text = Effect.gen(function* () {
+  const fs = yield* FileSystem.FileSystem;
+  return yield* fs.readFileString("tools/supdoc/pin.txt");
+}).pipe(Effect.provide(BunFileSystem.layer));
+```
+
+```ts
+// Test with @effect/vitest
+it.effect("rejects a text with no tag line", () =>
+  Effect.gen(function* () {
+    const error = yield* Effect.flip(parsePin("x"));
+    expect(error._tag).toBe("PinError");
+  }),
+);
+```
 
 ## Effect
 
