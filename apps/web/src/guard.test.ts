@@ -12,12 +12,12 @@ describe("refusal", () => {
 
   it.effect("returns the response the guard refuses with", () =>
     Effect.gen(function* guarded() {
-      const response = yield* refusal(new Request("https://app.test/notes")).pipe(
+      const response = yield* refusal(new Request("https://app.test/other")).pipe(
         Effect.provide(
           Layer.succeed(RequestGuard, {
             check: (request) =>
               Effect.succeed(
-                new URL(request.url).pathname === "/notes"
+                new URL(request.url).pathname === "/other"
                   ? new Response(null, { status: 503 })
                   : undefined,
               ),

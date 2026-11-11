@@ -40,7 +40,7 @@ const ask = (outcome: Effect.Effect<boolean, string>, paths: ReadonlyArray<strin
 describe("makeCheck", () => {
   it.effect("answers 503 problem+json with Retry-After 300 while the latch is set", () =>
     Effect.gen(function* latched() {
-      const { responses } = yield* ask(Effect.succeed(true), ["/", "/notes"]);
+      const { responses } = yield* ask(Effect.succeed(true), ["/", "/other"]);
 
       const refused = responses.filter(Predicate.isNotUndefined);
 
