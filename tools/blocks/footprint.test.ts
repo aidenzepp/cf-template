@@ -1,0 +1,100 @@
+import { assert, describe, it } from "@effect/vitest";
+import { Effect } from "effect";
+
+import trees from "./fixtures/footprint-trees.json" with { type: "json" };
+import { footprint, importSpecifiers } from "./footprint.ts";
+
+/**
+ * A `blocks.json` with one slice, `widgets`, and one attach file.
+ */
+const manifest = JSON.stringify({
+  attachFiles: ["apps/api/src/blocks.ts"],
+  blocks: [],
+  slices: [{ keep: [], name: "widgets", paths: ["apps/api/src/widgets/**"] }],
+});
+
+/**
+ * Runs the footprint of the fixture tree `name` with the manifest above.
+ */
+const measured = (name: keyof typeof trees) =>
+  footprint({ ...trees[name], "blocks.json": manifest });
+
+describe("importSpecifiers", () => {
+  it("finds static, side-effect, type, re-export, dynamic and require imports with their lines", () => {
+    const text = [
+      'import a from "./a.ts";',
+      'import type { B } from "./b.ts";',
+      'import "./c.ts";',
+      'export * from "./d.ts";',
+      'export { e } from "./e.ts";',
+      'const f = import("./f.ts");',
+      'import g = require("./g.ts");',
+      'const h = require("./h.ts");',
+    ].join("\n");
+
+    assert.deepStrictEqual(
+      importSpecifiers(text).map((ref) => [ref.specifier, ref.line]),
+      [
+        ["./a.ts", 1],
+        ["./b.ts", 2],
+        ["./c.ts", 3],
+        ["./d.ts", 4],
+        ["./e.ts", 5],
+        ["./f.ts", 6],
+        ["./g.ts", 7],
+        ["./h.ts", 8],
+      ],
+    );
+  });
+
+  it("ignores comments, strings, regular expressions and exports without a source", () => {
+    const text = [
+      '// import a from "./a.ts";',
+      '/* import b from "./b.ts"; */',
+      'const c = "import d from \\"./d.ts\\"";',
+      `const e = /import "x"/u.test(\`\${1} import "./y.ts"\`);`,
+      "export { c };",
+      'import real from "./real.ts";',
+    ].join("\n");
+
+    assert.deepStrictEqual(
+      importSpecifiers(text).map((ref) => ref.specifier),
+      ["./real.ts"],
+    );
+  });
+});
+
+describe("footprint", () => {
+  it.effect("a clean unit has no failures and one timed line", () =>
+    Effect.gen(function* clean() {
+      const result = yield* measured("clean");
+
+      assert.deepStrictEqual(result.failures, []);
+      assert.match(result.lines.join("\n"), /^widgets: 0 core references, \d+ ms$/u);
+    }),
+  );
+
+  it.effect("a core file importing the unit fails naming file and line", () =>
+    Effect.gen(function* coreImport() {
+      const result = yield* measured("core-import");
+
+      assert.deepStrictEqual(result.failures, [
+        'apps/api/src/worker.ts:2: core file references widgets via "./widgets/widget.ts"',
+      ]);
+    }),
+  );
+
+  it.effect("an attach file may import the unit", () =>
+    Effect.gen(function* attachImport() {
+      assert.deepStrictEqual((yield* measured("attach-import")).failures, []);
+    }),
+  );
+
+  it.effect("a collapsed attach line naming the unit fails with the grammar message", () =>
+    Effect.gen(function* collapsed() {
+      assert.deepStrictEqual((yield* measured("collapsed")).failures, [
+        "collapsed attach line apps/api/src/blocks.ts:3: put widgets on its own line between // block:widgets start and // block:widgets end",
+      ]);
+    }),
+  );
+});

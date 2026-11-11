@@ -1,0 +1,19 @@
+{
+  "name": "@workspace/knobs-kv",
+  "private": true,
+  "description": "Owns the Workers KV adapter of the LiveKnobs port: the namespace declaration, its title, the read-only binding and the cached reader. Must not own any knob definition, any write path to the namespace, or the LiveKnobs port itself.",
+  "type": "module",
+  "exports": {
+    "./live": "./src/live.ts"
+  },
+  "dependencies": {
+    "@alchemy.run/cloudflare": "2.0.0-beta.85",
+    "@workspace/config": "workspace:*",
+    "alchemy": "2.0.0-beta.85",
+    "effect": "4.1.2"
+  },
+  "devDependencies": {
+    "@effect/platform-bun": "4.1.2",
+    "@effect/vitest": "4.1.2"
+  }
+}
