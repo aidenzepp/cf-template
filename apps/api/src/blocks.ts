@@ -1,4 +1,5 @@
 import { Layer } from "effect";
+import { KnobsKvLive } from "@workspace/knobs-kv/live";
 import { SessionMiddlewareLive } from "./authorization.ts";
 import { ExampleFeatureGateLive } from "./notes/gate.ts";
 import { NotesApiHandlersNoDeps } from "./notes/http.ts";
@@ -22,6 +23,8 @@ export const ApiWorkerHandlerGroupLayers = Layer.mergeAll(
  * The middleware layers of the `api` Worker; see {@link ApiWorkerHandlerGroupLayers}.
  */
 export const ApiWorkerMiddlewareLayers = Layer.mergeAll(
+  // block:knobs-kv
+  KnobsKvLive,
   SessionMiddlewareLive,
   ExampleFeatureGateLive,
 );

@@ -17,6 +17,7 @@
     "@workspace/config": "workspace:*",
     "@workspace/contract": "workspace:*",
     "@workspace/db": "workspace:*",
+    "@workspace/knobs-kv": "workspace:*",
     "alchemy": "2.0.0-beta.85",
     "better-auth": "1.7.19",
     "drizzle-orm": "1.0.0-rc.5",

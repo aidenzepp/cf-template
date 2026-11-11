@@ -3,6 +3,7 @@ import * as Alchemy from "alchemy";
 import { Config, Effect, Layer, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { APP_DB_ID, declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
+import { knobsNamespace } from "@workspace/knobs-kv/live";
 import { Stage, stageValues } from "./stages.ts";
 import {
   issueNotificationAddress,
@@ -91,6 +92,7 @@ const program = Effect.gen(function* declareStack() {
 
   yield* guardLocationHints([APP_DB_ID, AUTH_DB_ID], hint);
   yield* declareAppDb(stack, stage, hint);
+  yield* knobsNamespace(stack, stage);
 
   const origin = yield* publicOrigin({ stack, stage });
   const auth = yield* declareAuth({ stack, stage }, hint, values, origin);

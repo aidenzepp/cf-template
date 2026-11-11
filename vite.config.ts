@@ -483,6 +483,8 @@ export default defineConfig({
       { test: { ...noOnly, include: ["packages/contract/src/**/*.test.ts"], name: "contract" } },
       { test: { ...noOnly, include: ["packages/db/src/**/*.test.ts"], name: "db" } },
       { test: { ...noOnly, include: ["packages/config/src/**/*.test.ts"], name: "config" } },
+      // block:knobs-kv
+      { test: { ...noOnly, include: ["packages/knobs-kv/src/**/*.test.ts"], name: "knobs-kv" } },
       { test: { ...noOnly, include: ["infra/**/*.test.ts"], name: "infra" } },
       {
         test: {

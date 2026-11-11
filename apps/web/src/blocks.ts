@@ -1,7 +1,11 @@
 import { Layer } from "effect";
+import { KnobsKvLive } from "@workspace/knobs-kv/live";
 
 /**
- * The attach file of `web`. No unit attaches here yet; `web` has no Worker program, so its runtime
- * provides the layer when one does.
+ * The attach file of `web`. `web` has no Worker program, so its runtime provides the layer when
+ * one does.
  */
-export const WebLayers = Layer.empty;
+export const WebLayers = Layer.mergeAll(
+  // block:knobs-kv
+  KnobsKvLive,
+);
