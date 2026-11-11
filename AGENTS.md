@@ -11,12 +11,15 @@ This repository is an intentionally empty TypeScript project on Bun and Effect. 
 - Name files and directories in kebab-case. `unicorn/filename-case` and `workspace/kebab-case-paths` enforce it.
 - Do not add function-decomposition, type-design, or require-doc-comment lint policies.
 - Preserve the pinned dependency versions. Add a dependency only with a stated reason.
+- Before writing code, walk the ladder: a Cloudflare platform capability, then an Alchemy resource or binding, then an Effect module, service or layer, then code in this repository, and only then an external service.
 
 If a rule appears inappropriate, explain the failing rule, why changing the code would be worse, the smallest policy change, and its consequences. Change the policy only after approval.
 
 ## Workflow
 
 Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test .test.mjs` only for the Node-loaded lint-rule suites, then `vp test` (Vitest with `@effect/vitest`) for project tests: every `*.test.ts` file, including those under `tools/lint/` except `tools/lint/fixtures/**`, under a workspace's `src/`, the root `test/` or `tools/`, using `it.effect` for effectful cases. Keep focused tests beside their implementation and cross-module tests in `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
+
+A worktree runs its own `bun install` before any package script, binary or patch tool (`typescript` and `@effect/tsgo` included), because package resolution walks up into the main checkout.
 
 A pre-push hook (`.vite-hooks/pre-push`, installed by `bun install`) runs the same checks and blocks the push if any fail. Fix the problems rather than bypassing it with `--no-verify` or `VP_GIT_HOOKS=0`.
 
@@ -65,12 +68,16 @@ Do not introduce nullable fields, legacy repair paths, transitional models, or c
 
 ## Skills
 
-- `.agents/skills/conventional-commits`: commit boundaries, staging, and messages.
-- `.agents/skills/document-code`: JSDoc for every program unit and the constraints it must preserve.
-- `.agents/skills/effect-design`: the native-capability review and local Effect rulings.
-- `.agents/skills/error-messages`: caller-facing and developer-facing errors.
-- `.agents/skills/trace-effect`: spans and logs for effectful operations.
-- `.agents/skills/work-with-stacks`: deploying and destroying stages on local state, the orphan count, and what never runs from a laptop.
-- `.agents/skills/write-migration`: changing a schema and generating its D1 migration safely, and what `bun run db:check` refuses.
+- [.agents/skills/add-feature/SKILL.md](.agents/skills/add-feature/SKILL.md): adding a feature slice that declares no resource and adds no Worker.
+- [.agents/skills/conventional-commits/SKILL.md](.agents/skills/conventional-commits/SKILL.md): commit boundaries, staging, and messages.
+- [.agents/skills/document-code/SKILL.md](.agents/skills/document-code/SKILL.md): JSDoc for every program unit and the constraints it must preserve.
+- [.agents/skills/effect-design/SKILL.md](.agents/skills/effect-design/SKILL.md): the native-capability review and local Effect rulings.
+- [.agents/skills/error-messages/SKILL.md](.agents/skills/error-messages/SKILL.md): caller-facing and developer-facing errors.
+- [.agents/skills/supdoc/SKILL.md](.agents/skills/supdoc/SKILL.md): keeping linked docs in step with the code they point at.
+- [.agents/skills/trace-effect/SKILL.md](.agents/skills/trace-effect/SKILL.md): spans and logs for effectful operations.
+- [.agents/skills/work-with-stacks/SKILL.md](.agents/skills/work-with-stacks/SKILL.md): deploying and destroying stages on local state, the orphan count, and what never runs from a laptop.
+- [.agents/skills/write-migration/SKILL.md](.agents/skills/write-migration/SKILL.md): changing a schema and generating its D1 migration safely, and what `bun run db:check` refuses.
+
+A skill edit reruns `./node_modules/.bin/supdoc update` and commits the changed `supdoc.lock` entries. A supdoc bump runs `./node_modules/.bin/supdoc skill install --yes`, then `./node_modules/.bin/supdoc update`.
 
 Keep only broadly reusable foundation skills here. Project-specific skills belong in the project that needs them.
