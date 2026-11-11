@@ -121,6 +121,36 @@ it.effect("any other first line fails as a MeterError", () =>
   }),
 );
 
+it.effect("the three real blocks.ts files parse without an unknown attach shape", () =>
+  Effect.gen(function* real() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    const names = yield* Effect.forEach(["api", "auth", "web"], (app) =>
+      Effect.gen(function* attachFile() {
+        const file = `apps/${app}/src/blocks.ts`;
+
+        const text = yield* fs.readFileString(
+          yield* path.fromFileUrl(new URL(`../../${file}`, import.meta.url)),
+        );
+
+        return (yield* parseAttach("mergeAll", file, text)).map((line) => line.name);
+      }),
+    );
+
+    assert.deepStrictEqual(names, [
+      [
+        "SystemApiHandlers",
+        "NotesApiHandlersNoDeps",
+        "SessionMiddlewareLive",
+        "ExampleFeatureGateLive",
+      ],
+      [],
+      [],
+    ]);
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
 it.effect("the real blocks.json decodes", () =>
   Effect.gen(function* real() {
     const path = yield* Path.Path;
