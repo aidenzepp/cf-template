@@ -1,9 +1,9 @@
 import { BetterAuth, Database } from "@alchemy.run/better-auth";
 import { WorkerEnvironment } from "@alchemy.run/cloudflare";
 import { makeExecutionMemo } from "alchemy/Runtime/ExecutionMemo";
-import type { RuntimeContext } from "alchemy";
+import { RuntimeContext } from "alchemy";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
-import { Config, ConfigProvider, Context, Effect, Layer, Predicate } from "effect";
+import { Config, ConfigProvider, Context, Effect, Layer, Option, Predicate } from "effect";
 import { makeDatabase } from "@workspace/db/database";
 import type { RawDatabase } from "@workspace/db/database";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
@@ -19,6 +19,11 @@ import { passkeyPlugin } from "./passkeys.ts";
 import { passwordFor, rehashAfterSignIn } from "./password.ts";
 import type { RunEffect } from "./password.ts";
 import { socialProviders } from "./providers.ts";
+import {
+  AUTH_ORPHAN_GRACE_SECONDS,
+  ReclaimDatabase,
+  reclaimOrphanBeforeSignUp,
+} from "./reclaim.ts";
 
 /**
  * The origin the schema generator and the shared options assume: the local dev server. The Worker
@@ -233,7 +238,8 @@ const adapterFor = Effect.fnUntraced(function* adapterFor(binding: RawDatabase) 
 });
 
 /**
- * Provide `BetterAuth.Database` from the raw `AuthDb` binding.
+ * Provide `BetterAuth.Database` from the raw `AuthDb` binding, and {@link ReclaimDatabase}, the
+ * Drizzle database the orphan reclaim hook runs its guarded delete on.
  *
  * Alchemy's `BetterAuth` evaluates `runtime` once per execution on the execution scope, so the
  * `D1Client` and its prepared-statement cache close with the request. `migrate` is absent: the
@@ -241,17 +247,28 @@ const adapterFor = Effect.fnUntraced(function* adapterFor(binding: RawDatabase) 
  *
  * @param raw - The effect that reads the raw `D1Database` binding, as
  *   `Cloudflare.D1.QueryDatabase(...).raw` does.
- * @returns A layer providing `BetterAuth.Database`.
+ * @returns A layer providing `BetterAuth.Database` and `ReclaimDatabase`.
  */
 export const authDatabaseLayer = (
   raw: Effect.Effect<RawDatabase, never, RuntimeContext>,
-): Layer.Layer<Database> =>
-  Layer.succeed(
-    Database,
-    Database.of({
-      provider: "sqlite",
-      runtime: raw.pipe(Effect.flatMap(adapterFor), Effect.orDie),
-    }),
+): Layer.Layer<Database | ReclaimDatabase> =>
+  Layer.mergeAll(
+    Layer.succeed(
+      Database,
+      Database.of({
+        provider: "sqlite",
+        runtime: raw.pipe(Effect.flatMap(adapterFor), Effect.orDie),
+      }),
+    ),
+    Layer.succeed(
+      ReclaimDatabase,
+      raw.pipe(
+        Effect.flatMap(makeDatabase),
+        Effect.flatMap((access) => access),
+        Effect.map(({ db }) => db),
+        Effect.orDie,
+      ),
+    ),
   );
 
 /**
@@ -264,6 +281,7 @@ export const authDatabaseLayer = (
  */
 export const AuthSettings = Config.all({
   baseURL: Config.schema(PublicOrigin, "PUBLIC_ORIGIN"),
+  graceSeconds: AUTH_ORPHAN_GRACE_SECONDS.config,
   maxAge: CookieCacheMaxAgeKnob.config,
   methods: AUTH_METHODS,
   scrypt: AUTH_PASSWORD_SCRYPT.config,
@@ -286,11 +304,26 @@ const makeInstance = Effect.gen(function* makeInstance() {
 
   const services = yield* Effect.context();
   const providers = yield* socialProviders(settings.methods, env);
+  const reclaimDb = yield* ReclaimDatabase;
+
+  // The host's `RuntimeContext` is in the captured services at run time, as it is for the adapter.
+  const db = Option.match(Context.getOption(services, RuntimeContext), {
+    onNone: () => Effect.die("auth: the execution carries no RuntimeContext."),
+    onSome: (runtime) => reclaimDb.pipe(Effect.provideService(RuntimeContext, runtime)),
+  });
 
   return yield* BetterAuth({
     ...authOptions,
     ...passwordOptions(settings.scrypt, Effect.runPromiseWith(services), settings.baseURL),
     baseURL: settings.baseURL,
+    hooks: {
+      before: reclaimOrphanBeforeSignUp({
+        db,
+        emailLive: settings.methods.email,
+        graceSeconds: settings.graceSeconds,
+        run: Effect.runPromiseWith(services),
+      }),
+    },
     migrate: false,
     secret: Effect.succeed(settings.secret),
     session: {
@@ -320,7 +353,7 @@ export class AuthService extends Context.Service<AuthService, Effect.Effect<Auth
   static readonly layer = Layer.effect(
     AuthService,
     Effect.gen(function* buildAccessor() {
-      const context = yield* Effect.context<Database | WorkerEnvironment>();
+      const context = yield* Effect.context<Database | ReclaimDatabase | WorkerEnvironment>();
 
       return yield* makeExecutionMemo(
         makeInstance.pipe(Effect.provideContext(context), Effect.orDie),

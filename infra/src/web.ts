@@ -6,7 +6,7 @@ import type { WebEnv } from "../../apps/web/src/env.ts";
 import { FORWARD_PREFIXES } from "../../apps/web/src/forward-prefixes.ts";
 import { kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
-import { encodedAuthMethods, resolvePublicOrigin } from "./auth.ts";
+import { encodedAuthMethods, encodedOrphanGrace, resolvePublicOrigin } from "./auth.ts";
 import { compat } from "./compat.ts";
 
 /**
@@ -17,6 +17,7 @@ interface WebBindings extends Record<keyof WebEnv, string | object> {
   readonly API: Effect.Success<typeof ApiWorker>;
   readonly AUTH: Effect.Success<typeof Auth>;
   readonly AUTH_METHODS: string;
+  readonly AUTH_ORPHAN_GRACE_SECONDS: string;
   readonly PUBLIC_ORIGIN: string;
 }
 
@@ -50,12 +51,14 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
   const path = yield* Path.Path;
   const origin = yield* resolvePublicOrigin(identity);
   const methods = yield* encodedAuthMethods;
+  const grace = yield* encodedOrphanGrace;
   const compatibility = { date: compat.date, flags: compat.flags.map((flag) => flag.name) };
 
   const env = {
     API: workers.api,
     AUTH: workers.auth,
     AUTH_METHODS: methods,
+    AUTH_ORPHAN_GRACE_SECONDS: grace,
     PUBLIC_ORIGIN: origin,
   } satisfies WebBindings;
 
