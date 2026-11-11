@@ -6,6 +6,7 @@ import { Layer } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { AtomHttpApi } from "effect/reactivity";
 import { Api } from "@workspace/contract/api/api";
+import { browserApiBaseUrl, SERVER_API_BASE_URL } from "./api-base-url.ts";
 
 /**
  * The HTTP client layer of one environment.
@@ -32,10 +33,18 @@ const httpClient = createIsomorphicFn()
   .client(() => FetchHttpClient.layer);
 
 /**
+ * The base URL of one environment: the binding's placeholder on the server, the page origin in the
+ * browser, where `http://api.internal` would be blocked as mixed content.
+ */
+const baseUrl = createIsomorphicFn()
+  .server(() => SERVER_API_BASE_URL)
+  .client(() => browserApiBaseUrl());
+
+/**
  * The one typed client of the `Api`, with the atom helpers of the query and mutation atoms.
  */
 export class ApiClient extends AtomHttpApi.Service<ApiClient>()("@workspace/web/ApiClient", {
   api: Api,
-  baseUrl: "http://api.internal",
+  baseUrl: baseUrl(),
   httpClient: httpClient(),
 }) {}
