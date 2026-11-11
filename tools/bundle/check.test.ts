@@ -2,7 +2,14 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Path, Schema } from "effect";
 
-import { Chunks, TARGET_KIB, initialFiles, manifestLeak, report } from "./check.ts";
+import {
+  Chunks,
+  TARGET_KIB,
+  initialFiles,
+  initialGzipBytes,
+  manifestLeak,
+  report,
+} from "./check.ts";
 import graph from "./fixtures/chunk-graph.json" with { type: "json" };
 
 describe("initial JavaScript report", () => {
@@ -25,6 +32,24 @@ describe("initial JavaScript report", () => {
     ]);
     assert.lengthOf(report(300 * 1024), 1);
   });
+
+  it.effect("fails with a reason when the graph has no entry chunk", () =>
+    Effect.gen(function* entryless() {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const dir = yield* fs.makeTempDirectoryScoped();
+      const graphFile = path.join(dir, "chunk-graph.json");
+
+      yield* fs.writeFileString(
+        graphFile,
+        JSON.stringify({ "a.js": { file: "assets/a.js", imports: [] } }),
+      );
+
+      const error = yield* initialGzipBytes(graphFile, dir).pipe(Effect.flip);
+
+      assert.strictEqual(error.message, "no entry chunk in the chunk graph");
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+  );
 
   it.effect("warns only when the asset directory holds a Vite manifest", () =>
     Effect.gen(function* manifestLeakWarns() {

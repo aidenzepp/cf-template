@@ -12,10 +12,11 @@ const HARNESS_TREE = "node_modules/.cache/web-harness/route-tree.gen.ts";
 
 /**
  * Hands the client chunk graph (file, entry flag and static imports of each chunk) to
- * `tools/bundle/check.ts` as `dist/server/chunk-graph.json`. The client build runs first; the SSR
- * build emits what it recorded. The graph stays out of `dist/client`, the Worker static-asset
- * directory: Vite's own `build.manifest` writes `dist/client/.vite/manifest.json` there, and the
- * deploy runs this same config, so the manifest would be served publicly.
+ * `tools/bundle/check.ts` as `dist/server/.vite/chunk-graph.json`. The client build runs first; the
+ * SSR build emits what it recorded. The `.vite/` prefix keeps it out of the Worker upload (Alchemy
+ * skips `.vite/*` in the server output). The graph stays out of `dist/client`, the Worker
+ * static-asset directory: Vite's own `build.manifest` writes `dist/client/.vite/manifest.json`
+ * there, and the deploy runs this same config, so the manifest would be served publicly.
  */
 const chunkGraph = (): Plugin => {
   let client = "{}";
@@ -38,7 +39,7 @@ const chunkGraph = (): Plugin => {
           ),
         );
       } else if (this.environment.name === "ssr") {
-        this.emitFile({ fileName: "chunk-graph.json", source: client, type: "asset" });
+        this.emitFile({ fileName: ".vite/chunk-graph.json", source: client, type: "asset" });
       }
     },
     name: "chunk-graph",

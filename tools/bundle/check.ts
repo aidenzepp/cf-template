@@ -11,8 +11,8 @@ export const TARGET_KIB = 300;
 /**
  * The part of the client chunk graph this check reads: each chunk's file, whether it is an entry,
  * and the keys of its static imports. `dynamicImports` is left out on purpose: a chunk loaded on
- * demand is not initial. `apps/web/vite.config.ts` emits this graph into `dist/server`, outside the
- * asset directory.
+ * demand is not initial. `apps/web/vite.config.ts` emits this graph as
+ * `dist/server/.vite/chunk-graph.json`, outside the asset directory and the Worker upload.
  */
 export const Chunks = Schema.Record(
   Schema.String,
@@ -69,14 +69,25 @@ export const report = (gzipBytes: number): ReadonlyArray<string> => {
  */
 class GzipError extends Schema.TaggedError<GzipError>()("GzipError", {
   cause: Schema.Defect(),
+  message: Schema.String,
+}) {}
+
+/**
+ * Raised when the chunk graph holds no entry chunk, so there is no initial JavaScript to measure.
+ */
+class NoEntryChunkError extends Schema.TaggedError<NoEntryChunkError>()("NoEntryChunkError", {
+  message: Schema.String,
 }) {}
 
 /**
  * The gzipped byte length of `bytes`, from the platform `CompressionStream`.
  */
-const gzipLength = Effect.fn("bundle.gzipLength")(function* gzipLength(bytes: Uint8Array) {
+const gzipLength = Effect.fn("bundle.gzipLength")(function* gzipLength(
+  file: string,
+  bytes: Uint8Array,
+) {
   const gzipped = yield* Effect.tryPromise({
-    catch: (cause) => new GzipError({ cause }),
+    catch: (cause) => new GzipError({ cause, message: `gzip of ${file} failed` }),
     try: () =>
       new Response(
         new Blob([bytes]).stream().pipeThrough(new CompressionStream("gzip")),
@@ -100,9 +111,17 @@ export const initialGzipBytes = Effect.fn("bundle.initialGzipBytes")(function* i
     .readFileString(graphFile)
     .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Chunks))));
 
+  const files = initialFiles(chunks);
+
+  if (files.length === 0) {
+    return yield* new NoEntryChunkError({ message: "no entry chunk in the chunk graph" });
+  }
+
   const sizes = yield* Effect.all(
-    initialFiles(chunks).map((file) =>
-      fs.readFile(path.join(clientDir, file)).pipe(Effect.flatMap(gzipLength)),
+    files.map((file) =>
+      fs
+        .readFile(path.join(clientDir, file))
+        .pipe(Effect.flatMap((bytes) => gzipLength(file, bytes))),
     ),
   );
 
@@ -138,7 +157,7 @@ const main = Effect.gen(function* main() {
   const clientDir = path.join(web, "dist/client");
 
   const sizeLines = yield* initialGzipBytes(
-    path.join(web, "dist/server/chunk-graph.json"),
+    path.join(web, "dist/server/.vite/chunk-graph.json"),
     clientDir,
   ).pipe(
     Effect.map(report),
