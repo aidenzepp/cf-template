@@ -6,6 +6,7 @@ import { AuthMethods } from "@workspace/config/auth-methods";
 import { PublicOrigin, WEB_DEV_PORT } from "@workspace/config/public-origin";
 import { Auth } from "../../apps/auth/src/contract.ts";
 import { declareDatabase } from "../../apps/auth/src/db/database.ts";
+import { AUTH_ORPHAN_GRACE_SECONDS } from "../../apps/auth/src/reclaim.ts";
 import AuthWorker, { AuthDeployment } from "../../apps/auth/src/worker.ts";
 import { kindOf, workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
@@ -142,6 +143,14 @@ export const encodedAuthMethods = resolveMethods().pipe(
 );
 
 /**
+ * The text bound as `AUTH_ORPHAN_GRACE_SECONDS`, on `auth` and on `web`: the knob's default, as no
+ * stage row carries a value for it.
+ */
+export const encodedOrphanGrace = AUTH_ORPHAN_GRACE_SECONDS.encode(
+  AUTH_ORPHAN_GRACE_SECONDS.default,
+);
+
+/**
  * The interim public origin of a stage, with the `workers.dev` subdomain read from
  * `CLOUDFLARE_WORKERS_SUBDOMAIN`. The one place that reads it, for `auth` and `web`.
  *
@@ -187,6 +196,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
   const { methods, secrets } = yield* resolveMethods();
   const encodedMethods = yield* Schema.encodeEffect(Schema.fromJsonString(AuthMethods))(methods);
   const scrypt = yield* AUTH_PASSWORD_SCRYPT.encode(values.AUTH_PASSWORD_SCRYPT);
+  const grace = yield* encodedOrphanGrace;
   const main = yield* path.fromFileUrl(new URL("../../apps/auth/src/worker.ts", import.meta.url));
 
   const props = {
@@ -195,6 +205,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
       AUTH_COOKIE_CACHE_MAX_AGE_S: values.AUTH_COOKIE_CACHE_MAX_AGE_S,
       AUTH_COOKIE_CACHE_STRATEGY: values.AUTH_COOKIE_CACHE_STRATEGY,
       AUTH_METHODS: encodedMethods,
+      AUTH_ORPHAN_GRACE_SECONDS: grace,
       AUTH_PASSWORD_SCRYPT: scrypt,
       BETTER_AUTH_SECRET: secret.text,
       LOG_LEVEL: values.LOG_LEVEL,
