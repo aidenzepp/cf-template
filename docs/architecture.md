@@ -18,6 +18,10 @@ Reading conventions: `Cn` is a convention row of the conventions record, `Cn<let
 plan review; `OQ`/`FQ`/`DQ`/`SQ`/`LQ`/`LR`/`PB` are rulings by the maintainer or the maintainer's delegate. A fact
 marked **inferred** was not proved by a unit; the first issue that depends on it proves it.
 
+Citations to the maintainer brief, to review digests (such as digest V1) and to named research reports or topics (such
+as the gates research) refer to working material that is not in the repository. The plan states every conclusion it
+relies on itself; those labels say where a conclusion came from, not where to look it up.
+
 ## Scope
 
 **Day one** (brief section 3, binding): a Cloudflare project template that a person spins up with three logins
@@ -90,8 +94,8 @@ one-line switch" is the first contract (ST9), not a third.
 **What this plan is not.** It settles design, not implementation order: the issue DAG slices it
 vertically with one end-to-end path early (digest V1, V2). It builds on the frozen predecessor's direction, never
 its code. Every custom piece below names its ladder rung (Cloudflare, Alchemy, Effect, own code, external) with a
-citation or a steelmanned reason (the ladder rules); the ladder walks are in the
-research sections and are restated here only where this plan adds or changes an element. Deferred item C1 of the
+citation or a steelmanned reason (the ladder rules); the ladder walks themselves are working material that is
+not in the repository, so this plan states each rung it relies on. Deferred item C1 of the
 maintainer brief ("one contract, many surfaces", the contract research): every contract-derived surface is Later, the API
 reference pages with the docs site (C44, deferred) and the CLI and MCP (C45), each a Later feature-request
 issue; nothing derives a docs surface on day one, the supdoc day-one docs stay, and day one does not block them (the
@@ -888,7 +892,7 @@ Producer facts this plan builds on without proof, each owned by the first issue 
 
 ## Open items
 
-The convention parts this plan left open are ruled; each ruling is in its family file under `docs/decisions/`.
+The convention parts this plan left open are ruled; each ruling is in its family file under `docs/decisions/`, except C2 (task runner), whose file still carries only its topic line.
 
 Recorded wants, not questions: telemetry defaults of the shadcn CLI, Vite+ and Bun; the KV Instant swap;
 the bundle-size ratchet; the XState revisit; per-module Effect imports
