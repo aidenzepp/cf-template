@@ -11,13 +11,11 @@ import { Auth } from "@workspace/auth/contract";
 import { Api } from "@workspace/contract/api/api";
 import { makeDatabase } from "@workspace/db/database";
 import { ProblemDetailsIncludeKnob } from "./config.ts";
-import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
-import { ExampleFeatureGateLive } from "./notes/gate.ts";
-import { NotesApiHandlersNoDeps } from "./notes/http.ts";
+import { AuthCheckSession, SessionLookup } from "./authorization.ts";
+import { ApiWorkerHandlerGroupLayers, ApiWorkerMiddlewareLayers } from "./blocks.ts";
 import { Notes, NotesDatabase } from "./notes/notes.ts";
 import type { NotesService } from "./notes/notes.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
-import { SystemApiHandlers } from "./system/http.ts";
 
 /**
  * Run a call on the `auth` binding with the host context of the request in progress.
@@ -124,13 +122,11 @@ export const makeHandler = (checkSession: typeof AuthCheckSession.Service, notes
       Layer.provide(Layer.succeed(AuthCheckSession, checkSession)),
     );
 
-    const handlers = Layer.mergeAll(NotesApiHandlersNoDeps, SystemApiHandlers).pipe(
-      Layer.provide(Layer.succeed(Notes, notes)),
-    );
+    const handlers = ApiWorkerHandlerGroupLayers.pipe(Layer.provide(Layer.succeed(Notes, notes)));
 
     const routes = HttpApiBuilder.layer(Api).pipe(
       Layer.provide(handlers),
-      Layer.provide([SessionMiddlewareLive, ExampleFeatureGateLive]),
+      Layer.provide(ApiWorkerMiddlewareLayers),
       Layer.provide(sessions),
       Layer.provide(layerProblemDetails({ includeDetails })),
       Layer.provide(Http.Platform),

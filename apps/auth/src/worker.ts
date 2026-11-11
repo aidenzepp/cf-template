@@ -3,6 +3,7 @@ import { Telemetry as AlchemyTelemetry } from "alchemy";
 import type { InputProps } from "alchemy/Input";
 import { Context, Effect, Layer, Logger, Option } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
+import type { WorkerRequirements } from "@workspace/config/worker-requirements";
 import { AuthService, authDatabaseLayer } from "./auth.ts";
 import { Auth, AUTH_BASE_PATH } from "./contract.ts";
 import { CheckSession } from "./session.ts";
@@ -88,5 +89,5 @@ export default Auth.make(
           : HttpServerResponse.empty({ status: 404 });
       }),
     };
-  }).pipe(Effect.provide(authObservability)),
+  }).pipe(Effect.provide(authObservability), Effect.satisfiesServicesType<WorkerRequirements>()),
 );
