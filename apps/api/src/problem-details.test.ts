@@ -13,6 +13,7 @@ import {
 import { HttpRouter, HttpServer, HttpServerRequest } from "effect/http";
 import { HttpApiBuilder, HttpApiError } from "effect/http-api";
 import { Api } from "@workspace/contract/api/api";
+import { NOTE_TITLE_MAX_LENGTH } from "@workspace/contract/domain/note";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
 import { ExampleFeatureGateLive } from "./notes/gate.ts";
@@ -217,6 +218,41 @@ describe("the adapter", () => {
         title: "Note not found",
         type: "/problems/note-not-found",
       });
+    }).pipe(Effect.scoped),
+  );
+});
+
+describe("note size caps", () => {
+  it.effect("answers 400 for a title or body over its cap and stores nothing", () =>
+    Effect.gen(function* oversized() {
+      const send = yield* serve({ includeDetails: false, notes: Notes.layerMemory });
+
+      const title = yield* send(
+        json(
+          "/api/notes",
+          "POST",
+          JSON.stringify({ body: "b", title: "t".repeat(NOTE_TITLE_MAX_LENGTH + 1) }),
+        ),
+      );
+
+      const patch = yield* send(
+        json(
+          "/api/notes/any",
+          "PATCH",
+          JSON.stringify({ title: "t".repeat(NOTE_TITLE_MAX_LENGTH + 1) }),
+        ),
+      );
+
+      for (const response of [title, patch]) {
+        assert.strictEqual(response.status, 400);
+        assert.match(response.headers.get("content-type") ?? "", /^application\/problem\+json/u);
+        assert.deepStrictEqual(yield* Effect.promise(() => response.json()), {
+          detail: "Request validation failed",
+          status: 400,
+          title: "Bad Request",
+          type: "about:blank",
+        });
+      }
     }).pipe(Effect.scoped),
   );
 });

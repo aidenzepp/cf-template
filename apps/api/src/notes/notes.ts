@@ -1,9 +1,13 @@
-import { Context, DateTime, Effect, Layer, Random, Ref } from "effect";
+import { and, desc, eq, sql } from "drizzle-orm";
+import { Context, DateTime, Effect, Layer, Random, Ref, Schema } from "effect";
+import type { SqlError } from "effect/sql/SqlError";
+import { batch } from "@workspace/db/batch";
+import type { makeDatabase } from "@workspace/db/database";
 import type { UserId } from "@workspace/contract/domain/session";
-import { Note, NoteId } from "@workspace/contract/domain/note";
+import { Note, NoteBody, NoteId, NoteTitle } from "@workspace/contract/domain/note";
 import type { NoteCreate, NotePatch } from "@workspace/contract/domain/note";
 import { NoteNotFound, NoteQuotaExceeded } from "@workspace/contract/domain/note-errors";
-import { NOTES_MAX_PER_OWNER } from "./table.ts";
+import { NOTES_MAX_PER_OWNER, noteQuota, notes as noteRows } from "./table.ts";
 
 /**
  * The identifier of a note owner, the `userId` of a session.
@@ -48,12 +52,226 @@ export interface NotesService {
 }
 
 /**
+ * The per-execution accessor of the app database, as `makeDatabase` returns it. Evaluating it
+ * outside an execution scope is a defect.
+ */
+export class NotesDatabase extends Context.Service<
+  NotesDatabase,
+  Effect.Success<ReturnType<typeof makeDatabase>>
+>()("@workspace/api/notes/NotesDatabase") {}
+
+/**
+ * The D1 error text of the quota constraint, named in `table.ts`.
+ */
+const QUOTA_CONSTRAINT = "note_quota_used_le_max";
+
+/**
+ * Whether a failed batch broke the quota constraint. D1 reports it as `CHECK constraint failed:
+ * note_quota_used_le_max`.
+ *
+ * @param failure - The failure of the batch.
+ * @returns `true` when the underlying error names `note_quota_used_le_max`.
+ */
+const violatesQuota = (failure: SqlError) =>
+  String(failure.reason.cause).includes(QUOTA_CONSTRAINT);
+
+/**
+ * The live count of an owner's notes, as a subquery.
+ *
+ * @param owner - The owner.
+ * @returns The `count(*)` expression the quota row is set from.
+ */
+const countOf = (owner: OwnerId) =>
+  sql`(SELECT count(*) FROM ${noteRows} WHERE ${noteRows.ownerId} = ${owner})`;
+
+/**
+ * Die when a title or body is over the contract's bound. The HTTP payload is already bounded, so
+ * only a direct caller of the store reaches this.
+ *
+ * @param fields - The title and body that are about to be stored.
+ * @param fields.body - The body, when the caller names one.
+ * @param fields.title - The title, when the caller names one.
+ * @returns Nothing when both are within bounds.
+ */
+const requireWithinBounds = (fields: {
+  readonly body?: string | undefined;
+  readonly title?: string | undefined;
+}) =>
+  (fields.title === undefined || Schema.is(NoteTitle)(fields.title)) &&
+  (fields.body === undefined || Schema.is(NoteBody)(fields.body))
+    ? Effect.void
+    : Effect.die("A note title or body is over its size cap.");
+
+/**
+ * Mint the id of a new note.
+ */
+const mintId = Effect.gen(function* mintId() {
+  const high = yield* Random.nextInt;
+  const low = yield* Random.nextInt;
+
+  return NoteId.make(`${high.toString(16)}${low.toString(16)}`);
+});
+
+/**
+ * A stored row as the contract's `Note`.
+ *
+ * @param row - A row of `notes`.
+ * @returns The note.
+ */
+const toNote = (row: typeof noteRows.$inferSelect) =>
+  new Note({
+    body: row.body,
+    createdAt: DateTime.makeUnsafe(row.createdAt),
+    id: NoteId.make(row.id),
+    title: row.title,
+    updatedAt: DateTime.makeUnsafe(row.updatedAt),
+  });
+
+/**
  * The service behind the notes endpoints.
  *
  * `layerMemory` keeps notes in the memory of one isolate: a request that reaches another isolate
  * does not see them.
  */
 export class Notes extends Context.Service<Notes, NotesService>()("@workspace/api/notes/Notes") {
+  /**
+   * Notes stored in the app D1 database. Every write is one `batch`; the named `CHECK` on
+   * `note_quota` refuses a create past `max`.
+   *
+   * @param max - The most notes one owner may hold, written into `note_quota.max` at each create.
+   * @returns The layer, over {@link NotesDatabase}.
+   */
+  static readonly layer = (max: number = NOTES_MAX_PER_OWNER) =>
+    Layer.effect(
+      Notes,
+      Effect.gen(function* buildD1Notes() {
+        const database = (yield* NotesDatabase).pipe(Effect.orDie);
+
+        const list: NotesService["list"] = Effect.fn("Notes.list")(function* list(owner) {
+          const { db } = yield* database;
+
+          const rows = yield* db
+            .select()
+            .from(noteRows)
+            .where(eq(noteRows.ownerId, owner))
+            .orderBy(desc(noteRows.createdAt))
+            .pipe(Effect.orDie);
+
+          return rows.map(toNote);
+        });
+
+        const get: NotesService["get"] = Effect.fn("Notes.get")(function* get(owner, id) {
+          const { db } = yield* database;
+
+          const rows = yield* db
+            .select()
+            .from(noteRows)
+            .where(and(eq(noteRows.id, id), eq(noteRows.ownerId, owner)))
+            .pipe(Effect.orDie);
+
+          const [row] = rows;
+
+          if (row === undefined) {
+            return yield* new NoteNotFound({ id });
+          }
+
+          return toNote(row);
+        });
+
+        const create: NotesService["create"] = Effect.fn("Notes.create")(
+          function* create(owner, input) {
+            yield* requireWithinBounds(input);
+
+            const { client, db } = yield* database;
+            const now = DateTime.toEpochMillis(yield* DateTime.now);
+            const id = yield* mintId;
+
+            yield* batch(client, [
+              db.insert(noteRows).values({
+                body: input.body,
+                createdAt: now,
+                id,
+                ownerId: owner,
+                title: input.title,
+                updatedAt: now,
+              }),
+              db
+                .insert(noteQuota)
+                .values({ max, ownerId: owner, used: countOf(owner) })
+                .onConflictDoUpdate({
+                  set: { max, used: countOf(owner) },
+                  target: noteQuota.ownerId,
+                }),
+            ]).pipe(
+              Effect.catchTag("SqlError", (error) =>
+                violatesQuota(error)
+                  ? Effect.fail(new NoteQuotaExceeded({ limit: max }))
+                  : Effect.die(error),
+              ),
+            );
+
+            return new Note({
+              body: input.body,
+              createdAt: DateTime.makeUnsafe(now),
+              id,
+              title: input.title,
+              updatedAt: DateTime.makeUnsafe(now),
+            });
+          },
+        );
+
+        const update: NotesService["update"] = Effect.fn("Notes.update")(
+          function* update(owner, id, patch) {
+            yield* requireWithinBounds(patch);
+
+            const { db } = yield* database;
+
+            const rows = yield* db
+              .update(noteRows)
+              .set({
+                body: patch.body,
+                title: patch.title,
+                updatedAt: DateTime.toEpochMillis(yield* DateTime.now),
+              })
+              .where(and(eq(noteRows.id, id), eq(noteRows.ownerId, owner)))
+              .returning()
+              .pipe(Effect.orDie);
+
+            const [row] = rows;
+
+            if (row === undefined) {
+              return yield* new NoteNotFound({ id });
+            }
+
+            return toNote(row);
+          },
+        );
+
+        const remove: NotesService["remove"] = Effect.fn("Notes.remove")(
+          function* remove(owner, id) {
+            const { client, db } = yield* database;
+
+            const [deleted] = yield* batch(client, [
+              db
+                .delete(noteRows)
+                .where(and(eq(noteRows.id, id), eq(noteRows.ownerId, owner)))
+                .returning({ id: noteRows.id }),
+              db
+                .update(noteQuota)
+                .set({ used: countOf(owner) })
+                .where(eq(noteQuota.ownerId, owner)),
+            ]).pipe(Effect.orDie);
+
+            if (deleted.length === 0) {
+              yield* new NoteNotFound({ id });
+            }
+          },
+        );
+
+        return Notes.of({ create, get, list, remove, update });
+      }),
+    );
+
   /**
    * Notes held in memory, newest first per owner.
    */
@@ -77,13 +295,6 @@ export class Notes extends Context.Service<Notes, NotesService>()("@workspace/ap
         }
 
         return note;
-      });
-
-      const mintId = Effect.gen(function* mintId() {
-        const high = yield* Random.nextInt;
-        const low = yield* Random.nextInt;
-
-        return NoteId.make(`${high.toString(16)}${low.toString(16)}`);
       });
 
       const list: NotesService["list"] = (owner) => heldBy(owner);
