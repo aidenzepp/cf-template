@@ -312,7 +312,8 @@ const trimPackages = Effect.fn("pullout.trimPackages")(function* trimPackages(
 /**
  * Removes the unit's attach lines and their imports from the attach files of `manifest`. A name is
  * the unit's when it is imported from a specifier that resolves to a file that goes with the unit;
- * `targets` maps a workspace specifier to its file.
+ * `targets` maps a workspace specifier to its file. A file that imports nothing of the unit has no
+ * attach line of it, so it is not parsed and its other lines are never judged.
  */
 const detachAttach = Effect.fn("pullout.detachAttach")(function* detachAttach(
   unit: Unit,
@@ -328,19 +329,19 @@ const detachAttach = Effect.fn("pullout.detachAttach")(function* detachAttach(
     (file) => fs.exists(path.join(unit.tree, file)),
   );
 
-  return yield* rewrite(unit.tree, present, (file, text) =>
-    parseAttach(forms.get(file) ?? "mergeAll", file, text, names).pipe(
-      Effect.map((attach) =>
-        detach(text, attach, (spec) => {
-          const target = spec.startsWith(".")
-            ? path.join(path.dirname(file), spec)
-            : targets.get(spec);
+  return yield* rewrite(unit.tree, present, (file, text) => {
+    const owns = (spec: string) => {
+      const target = spec.startsWith(".") ? path.join(path.dirname(file), spec) : targets.get(spec);
 
-          return target !== undefined && unit.doomed(target);
-        }),
-      ),
-    ),
-  );
+      return target !== undefined && unit.doomed(target);
+    };
+
+    return readImports(text).some(({ spec }) => owns(spec))
+      ? parseAttach(forms.get(file) ?? "mergeAll", file, text, names).pipe(
+          Effect.map((attach) => detach(text, attach, owns)),
+        )
+      : Effect.succeed(text);
+  });
 });
 
 /**
@@ -469,7 +470,11 @@ export const pullout = Effect.fn("pullout")(function* pullout(root: string, name
       yield* Console.log(patch);
 
       return yield* leftovers(unit);
-    }),
+    }).pipe(
+      Effect.onError(() =>
+        Effect.ignore(exec(root, "git", ["worktree", "remove", "--force", tree])),
+      ),
+    ),
   );
 
   yield* Console.log(
