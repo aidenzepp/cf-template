@@ -115,16 +115,16 @@ export const volumeAlert = Effect.fn("volumeAlert")(function* volumeAlert(
 
 /**
  * The SQL API query behind the rate-limit error alert: log rows of `logs.workersLogs` for the
- * account whose `scriptName` is `script` and whose logged JSON `message` has `event` equal to
- * `web.ratelimit.error`. The `message` column and `JSONExtractString` are unverified until a cloud
- * run.
+ * account whose `scriptName` is `script` and whose `attributes` JSON column has the top-level key
+ * `event` equal to `web.ratelimit.error`. The SQL API reads a `Json` column by exact key and
+ * supports no JSON functions, so it rejects `JSONExtractString` (Error 17203).
  *
  * @param accountId - The deploying account's id.
  * @param script - The `web` Worker script name.
  * @returns The query text.
  */
 export const rateLimitErrorQuery = (accountId: string, script: string): string =>
-  `SELECT count() AS value FROM logs.workersLogs WHERE accountTag = '${accountId}' AND scriptName = '${script}' AND JSONExtractString(message, 'event') = 'web.ratelimit.error'`;
+  `SELECT count() AS value FROM logs.workersLogs WHERE accountTag = '${accountId}' AND scriptName = '${script}' AND attributes['event'] = 'web.ratelimit.error'`;
 
 /**
  * Declare the `web.ratelimit.error` alert, only where the stage's kind sets `volumeAlert`.
