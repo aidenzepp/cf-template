@@ -4,7 +4,7 @@ import { runMessage, runNames } from "./restricted-properties.ts";
  * One `paths` entry of `no-restricted-imports`: a module, optionally narrowed to named imports.
  */
 interface RestrictedPath {
-  importNames?: string[];
+  importNames?: Array<string>;
   message?: string;
   name: string;
 }
@@ -13,7 +13,7 @@ interface RestrictedPath {
  * One `patterns` entry of `no-restricted-imports`: gitignore-style module globs.
  */
 interface RestrictedPattern {
-  group: string[];
+  group: Array<string>;
   message?: string;
 }
 
@@ -21,7 +21,7 @@ interface RestrictedPattern {
  * The import ban every `no-restricted-imports` override repeats, because the rule replaces rather
  * than merges its options per matching override: the run family, from both Effect entry points.
  */
-export const basePaths: readonly RestrictedPath[] = ["effect/Effect", "effect"].map((name) => ({
+export const basePaths: ReadonlyArray<RestrictedPath> = ["effect/Effect", "effect"].map((name) => ({
   importNames: [...runNames],
   message: runMessage,
   name,
@@ -32,14 +32,14 @@ export const basePaths: readonly RestrictedPath[] = ["effect/Effect", "effect"].
  * no scoped override silently drops the base ban. Only a runtime boundary passes `base: false`.
  */
 export const restrictImports = (
-  files: readonly string[],
+  files: ReadonlyArray<string>,
   restrictions: {
     base?: boolean;
-    paths?: readonly RestrictedPath[];
-    patterns?: readonly RestrictedPattern[];
+    paths?: ReadonlyArray<RestrictedPath>;
+    patterns?: ReadonlyArray<RestrictedPattern>;
   },
 ) => {
-  const rule: ["error", { paths: RestrictedPath[]; patterns: RestrictedPattern[] }] = [
+  const rule: ["error", { paths: Array<RestrictedPath>; patterns: Array<RestrictedPattern> }] = [
     "error",
     {
       paths: [...(restrictions.base === false ? [] : basePaths), ...(restrictions.paths ?? [])],

@@ -6,7 +6,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
  * Runs `git` with the given arguments in the current directory and returns its exit code and
  * trimmed stdout. A non-zero exit code is a result, not a failure.
  */
-const git = Effect.fn("hooks.git")(function* git(args: readonly string[]) {
+const git = Effect.fn("hooks.git")(function* git(args: ReadonlyArray<string>) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
   return yield* Effect.scoped(

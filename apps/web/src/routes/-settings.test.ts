@@ -20,7 +20,7 @@ import {
  * answers with `answer(path)`.
  */
 const recordingClient = (answer: (path: string) => Response) => {
-  const paths: string[] = [];
+  const paths: Array<string> = [];
 
   const client = createAuthClient({
     basePath: AUTH_BASE_PATH,

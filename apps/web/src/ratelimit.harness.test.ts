@@ -83,7 +83,7 @@ class WebProd extends Context.Service<
       headers: Record<string, string>,
     ) => Effect.Effect<HarnessResponse, HarnessError>;
     readonly limiterCalls: (name: "credential" | "public") => Effect.Effect<number, HarnessError>;
-    readonly stderr: () => readonly string[];
+    readonly stderr: () => ReadonlyArray<string>;
   }
 >()("@workspace/web/RateLimitWebProd") {}
 
@@ -125,7 +125,7 @@ const WebProdLive = Layer.effect(WebProd)(
       file.endsWith(".js"),
     );
 
-    const stderr: string[] = [];
+    const stderr: Array<string> = [];
 
     const mf = yield* Effect.acquireRelease(
       Effect.tryPromise({

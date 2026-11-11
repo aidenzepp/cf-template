@@ -52,7 +52,7 @@ export const SignUpForm = ({
 }: {
   readonly email: boolean;
   readonly graceSeconds: number;
-  readonly providers: readonly string[];
+  readonly providers: ReadonlyArray<string>;
   readonly redirect: string;
 }) => {
   const { message, pending, submit } = useAuthSubmit(redirect);

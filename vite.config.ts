@@ -326,6 +326,8 @@ export default defineConfig({
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],
+      // Issue #11 item 10: `ReadonlyArray<T>` is the accepted array spelling.
+      "typescript/array-type": ["error", { default: "generic", readonly: "generic" }],
       // Effect adapters return existing promises without introducing async wrappers.
       "typescript/promise-function-async": "off",
       "unicorn/filename-case": ["error", { case: "kebabCase" }],

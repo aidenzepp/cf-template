@@ -59,7 +59,7 @@ export const ENDPOINT_CLASSES = {
  * The registered paths of the `credential` class, relative to {@link AUTH_BASE_PATH}: the paths the
  * credential rate limit applies to.
  */
-export const CREDENTIAL_PATHS: readonly string[] = Object.entries(ENDPOINT_CLASSES).flatMap(
+export const CREDENTIAL_PATHS: ReadonlyArray<string> = Object.entries(ENDPOINT_CLASSES).flatMap(
   ([path, endpointClass]) => (endpointClass === "credential" ? [path] : []),
 );
 
@@ -67,6 +67,6 @@ export const CREDENTIAL_PATHS: readonly string[] = Object.entries(ENDPOINT_CLASS
  * The credential paths as the browser requests them: each of {@link CREDENTIAL_PATHS} under
  * {@link AUTH_BASE_PATH}.
  */
-export const CREDENTIAL_ROUTES: readonly string[] = CREDENTIAL_PATHS.map(
+export const CREDENTIAL_ROUTES: ReadonlyArray<string> = CREDENTIAL_PATHS.map(
   (path) => `${AUTH_BASE_PATH}${path}`,
 );

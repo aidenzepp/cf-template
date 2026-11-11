@@ -78,7 +78,7 @@ export const SignInForm = ({
 }: {
   readonly email: boolean;
   readonly fork: typeof Fork;
-  readonly providers: readonly string[];
+  readonly providers: ReadonlyArray<string>;
   readonly redirect: string;
 }) => {
   const { message, pending, submit } = useAuthSubmit(redirect);

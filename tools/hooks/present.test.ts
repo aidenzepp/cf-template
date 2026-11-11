@@ -37,7 +37,7 @@ const isolatedEnvironment = Effect.fn("hooks.test.environment")(function* isolat
 const run = Effect.fn("hooks.test.run")(function* run(
   cwd: string,
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const env = yield* isolatedEnvironment(cwd);
@@ -64,7 +64,7 @@ const run = Effect.fn("hooks.test.run")(function* run(
  */
 const inherited = Effect.fn("hooks.test.inherited")(function* inherited(
   cwd: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
@@ -92,7 +92,7 @@ const realConfiguration = Effect.fn("hooks.test.realConfiguration")(function* re
   const here = yield* path.fromFileUrl(new URL(".", import.meta.url));
   const common = path.resolve(here, yield* inherited(here, ["rev-parse", "--git-common-dir"]));
 
-  const config = (args: readonly string[]) =>
+  const config = (args: ReadonlyArray<string>) =>
     inherited(here, [`--git-dir=${common}`, "config", "--local", ...args]);
 
   return {

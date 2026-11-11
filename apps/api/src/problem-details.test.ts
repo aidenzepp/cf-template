@@ -176,7 +176,7 @@ describe("the adapter", () => {
 
   it.effect("turns a defect into a 500 problem and still reports the original defect", () =>
     Effect.gen(function* defect() {
-      const reports = yield* Ref.make<readonly string[]>([]);
+      const reports = yield* Ref.make<ReadonlyArray<string>>([]);
 
       const reporter = ErrorReporter.make(({ error }) => {
         Effect.runSync(Ref.update(reports, (all) => [...all, error.message]));

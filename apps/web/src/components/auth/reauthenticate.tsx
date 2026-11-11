@@ -43,7 +43,7 @@ export const Reauthenticate = ({
   readonly onDone: () => void;
 }) => {
   const [message, setMessage] = useState<string | null>(null);
-  const [providers, setProviders] = useState<readonly string[]>([]);
+  const [providers, setProviders] = useState<ReadonlyArray<string>>([]);
 
   useEffect(() => {
     if (open) {
