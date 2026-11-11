@@ -11,6 +11,7 @@ import { kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 import { encodedAuthMethods, encodedOrphanGrace } from "./auth.ts";
 import { compat } from "./compat.ts";
+import { domainFor } from "./domain.ts";
 import type { publicOrigin } from "./origin.ts";
 import { webObservability } from "./telemetry.ts";
 
@@ -79,15 +80,18 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     }),
   } satisfies WebBindings;
 
+  const domain = yield* domainFor(stage);
+
   const web = yield* Cloudflare.Website.Vite("Web", {
     assets: { runWorkerFirst: [...FORWARD_PREFIXES] },
     compatibility,
+    domain: domain.domain,
     env,
     limits: limitsFor("web", { ...knobs, scrypt: AUTH_PASSWORD_SCRYPT.default }),
     name: yield* workerName({ stack, stage, worker: "web" }),
     observability: webObservability(stage),
     rootDir: "apps/web",
-    workersDev: true,
+    workersDev: domain.workersDev,
   });
 
   if (kindOf(stage) === "local") {
