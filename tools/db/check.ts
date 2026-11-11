@@ -493,9 +493,83 @@ const dangerousSql: Check = {
 };
 
 /**
+ * Whether `version`, the output of `node --version`, is at least 22.12, the floor the Better Auth
+ * CLI needs.
+ */
+const nodeSupported = (version: string): boolean => {
+  const found = /^v(?<major>\d+)\.(?<minor>\d+)/u.exec(version)?.groups;
+  const [major, minor] = [Number(found?.major), Number(found?.minor)];
+
+  return major > 22 || (major === 22 && minor >= 12);
+};
+
+/**
+ * `auth-schema`: the committed `apps/auth/src/db/schema.ts` equals what the Better Auth CLI
+ * generates from `apps/auth/auth.config.ts`, run on Node, since Bun's output differs. The
+ * `auth:generate` script also runs `drizzle-kit generate` and the digest step, so the check invokes
+ * only its CLI part, with the same config and `--output` set to a scratch file under `work/`,
+ * which is removed when the check ends.
+ */
+const authSchema: Check = {
+  name: "auth-schema",
+  run: Effect.fn("db.check.authSchema")(function* authSchema(context, database) {
+    if (database.name !== "apps/auth") {
+      return [];
+    }
+
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const app = path.join(context.root, database.name);
+    const subject = `${database.name}/src/db/schema.ts`;
+    const version = yield* run(context.root, "node", ["--version"]).pipe(Effect.option);
+
+    if (Option.isNone(version) || !nodeSupported(version.value)) {
+      return [
+        {
+          reason: `${Option.match(version, { onNone: () => "not found on PATH", onSome: (found) => `${found.trim()} is too old` })}; install Node >= 22.12, which the Better Auth CLI needs`,
+          subject: "node",
+        },
+      ];
+    }
+
+    yield* fs.makeDirectory(path.join(context.root, "work"), { recursive: true });
+
+    const scratch = path.join(
+      yield* fs.makeTempDirectoryScoped({
+        directory: path.join(context.root, "work"),
+        prefix: "db-check-auth-",
+      }),
+      "schema.ts",
+    );
+
+    yield* run(app, "node", [
+      "./node_modules/.bin/auth",
+      "generate",
+      "--config",
+      "./auth.config.ts",
+      "--output",
+      scratch,
+      "--yes",
+    ]);
+
+    const generated = (yield* fs.exists(scratch)) ? yield* fs.readFileString(scratch) : undefined;
+
+    return generated === (yield* fs.readFileString(path.join(context.root, subject)))
+      ? []
+      : [
+          {
+            reason:
+              "differs from what the Better Auth CLI generates on Node; run bun run auth:generate",
+            subject,
+          },
+        ];
+  }, Effect.scoped),
+};
+
+/**
  * The checks, in the order their findings print.
  */
-const checks: ReadonlyArray<Check> = [ungenerated, minimalSet, dangerousSql];
+const checks: ReadonlyArray<Check> = [ungenerated, minimalSet, dangerousSql, authSchema];
 
 /**
  * Runs the checks named in `only` (all when omitted) over every database in the tree at `root` and
