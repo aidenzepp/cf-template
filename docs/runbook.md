@@ -39,4 +39,6 @@ Observed consequence (inferred, not run): after an attach, requests to the old `
 
 ## Build and gates
 
-I-31 and I-38 fill this section.
+`bun run build` ends with `initial JS: <n> / 300 KiB gzipped`, the web entry chunk plus its static imports. It only reports: it warns when over the target and never fails. CI repeats the line in the job summary.
+
+I-38 fills the rest of this section.
