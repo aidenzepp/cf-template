@@ -265,7 +265,9 @@ const inputFile = /(?:^|\/)(?:blocks\.json|package\.json|README\.md)$/u;
 
 /**
  * The units of the tree `files`: every workspace package whose README starts with a valid `Meter:`
- * line, then every slice and block of its `blocks.json`.
+ * line, then every slice and block of its `blocks.json`. A package a slice or block names is not
+ * listed twice: the declaration owns the wider path set, and a package-only twin would flag the
+ * unit's own files as core.
  */
 const discoverUnits = Effect.fn("footprint.discoverUnits")(function* discoverUnits(
   files: Readonly<Record<string, string>>,
@@ -277,13 +279,16 @@ const discoverUnits = Effect.fn("footprint.discoverUnits")(function* discoverUni
     .filter((file) => pattern.test(file))
     .map(dirname);
 
+  const declared = new Set(extra.map((unit) => unit.name));
   const units: Array<Unit> = [];
 
   for (const dir of dirs) {
+    const name = dir.split("/").at(-1) ?? dir;
     const meter = yield* Effect.result(parseMeter(files[`${dir}/README.md`] ?? ""));
 
-    if (Result.isSuccess(meter)) {
-      units.push({ name: dir.split("/").at(-1) ?? dir, paths: [`${dir}/`] });
+    // A unit `blocks.json` declares by name owns more than its package directory, and wins.
+    if (Result.isSuccess(meter) && !declared.has(name)) {
+      units.push({ name, paths: [`${dir}/`] });
     }
   }
 

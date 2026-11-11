@@ -102,6 +102,32 @@ describe("footprint", () => {
     }),
   );
 
+  it.effect(
+    "a block named like its metered package is measured once, over its declared paths",
+    () =>
+      Effect.gen(function* declared() {
+        const result = yield* footprint({
+          "blocks.json": JSON.stringify({
+            attachFiles: [],
+            blocks: [
+              {
+                name: "gizmo",
+                paths: ["packages/gizmo/", "infra/src/gizmo-plan.ts"],
+              },
+            ],
+            slices: [],
+          }),
+          "infra/src/gizmo-plan.ts": 'import { gizmo } from "../../packages/gizmo/src/stack.ts";\n',
+          "packages/gizmo/README.md": "Meter: KV\n\n# Gizmo\n",
+          "packages/gizmo/package.json": '{"name":"@workspace/gizmo"}',
+          "packages/gizmo/src/stack.ts": "export const gizmo = 1;\n",
+        });
+
+        assert.deepStrictEqual(result.failures, []);
+        assert.match(result.lines.join("\n"), /^gizmo: 0 core references, \d+ ms$/u);
+      }),
+  );
+
   it.effect("a collapsed attach line naming the unit fails with the grammar message", () =>
     Effect.gen(function* collapsed() {
       assert.deepStrictEqual((yield* measured("collapsed")).failures, [
