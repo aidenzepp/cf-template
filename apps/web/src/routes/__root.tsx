@@ -1,5 +1,8 @@
 import { RegistryProvider } from "@effect/atom-react";
+import { createIsomorphicFn } from "@tanstack/react-start";
+import { setResponseHeader, setResponseStatus } from "@tanstack/react-start/server";
 import {
+  ErrorComponent,
   HeadContent,
   Outlet,
   ScriptOnce,
@@ -9,10 +12,12 @@ import {
   useRouteContext,
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
+import { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
 import { Toaster } from "@workspace/ui/components/ui/sonner";
 import { Effect } from "effect";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import { isAuthUnavailable, Retry } from "../components/retry.tsx";
 import { Nav } from "../components/shell/nav.tsx";
 import { UserMenu } from "../components/shell/user-menu.tsx";
 import { validateRedirectSearch } from "../lib/redirect-target.ts";
@@ -23,6 +28,11 @@ import { AuthMethods } from "../web-layer.ts";
 import appCss from "../styles/app.css?url";
 
 const DARK_QUERY = "(prefers-color-scheme: dark)";
+
+/**
+ * The `Retry-After` seconds answered when `api` sent none or a value that is not whole seconds.
+ */
+const FALLBACK_RETRY_AFTER_SECONDS = 5;
 
 /**
  * Sets the `dark` class of the document from `prefers-color-scheme` before the first paint.
@@ -103,6 +113,32 @@ const RootLayout = () => {
 };
 
 /**
+ * The `Retry-After` seconds of a failed session read, from the header `api` answered with.
+ *
+ * @param header - The `Retry-After` header text, when `api` sent one.
+ * @returns The whole seconds, or {@link FALLBACK_RETRY_AFTER_SECONDS} when the header is absent or
+ *   not a whole number.
+ */
+const parseRetryAfter = (header: string | undefined): number => {
+  const seconds = Number(header);
+
+  return Number.isInteger(seconds) && seconds >= 0 ? seconds : FALLBACK_RETRY_AFTER_SECONDS;
+};
+
+/**
+ * Answers the server-rendered response of an unreadable session with `503` and `Retry-After`. The
+ * browser has no response to set, so it only passes the seconds through.
+ */
+const answerUnavailable = createIsomorphicFn()
+  .server((retryAfterSeconds: number) => {
+    setResponseStatus(503);
+    setResponseHeader("Retry-After", String(retryAfterSeconds));
+
+    return retryAfterSeconds;
+  })
+  .client((retryAfterSeconds: number) => retryAfterSeconds);
+
+/**
  * The root context of a request. A session-less path reads no session, so the outage page never
  * waits on `api`.
  *
@@ -113,7 +149,19 @@ const readContext = (pathname: string) =>
   Effect.gen(function* readPathContext() {
     const authMethods = yield* AuthMethods;
 
-    const session = isSessionLess(pathname) ? ({ _tag: "unknown" } as const) : yield* readSession;
+    if (isSessionLess(pathname)) {
+      return { authMethods, session: { _tag: "unknown" } as const } as const;
+    }
+
+    const session = yield* readSession;
+
+    if (session._tag === "unknown") {
+      const retryAfterSeconds = answerUnavailable(
+        parseRetryAfter("retryAfter" in session ? session.retryAfter : undefined),
+      );
+
+      return yield* new AuthUnavailable({ retryAfterSeconds });
+    }
 
     return { authMethods, session } as const;
   });
@@ -141,6 +189,12 @@ export const Route = createRootRoute({
     return context;
   },
   component: RootLayout,
+  errorComponent: ({ error }) =>
+    error instanceof Error && isAuthUnavailable(error) ? (
+      <Retry />
+    ) : (
+      <ErrorComponent error={error} />
+    ),
   head: () => ({
     links: [{ href: appCss, rel: "stylesheet" }],
     meta: [

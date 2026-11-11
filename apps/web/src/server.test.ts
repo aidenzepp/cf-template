@@ -523,20 +523,21 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
     }),
   );
 
-  it.effect("derives unknown from a 503, keeping Retry-After", () =>
+  it.effect("answers a 503 session read with 503 and the retry screen", () =>
     Effect.gen(function* unavailable() {
       const { html, status } = yield* sessionState("stub=503");
 
-      expect(status).toBe(200);
-      expect(html).toContain('data-session="unknown"');
-      expect(html).toContain("retryAfter");
+      expect(status).toBe(503);
+      expect(html).toContain("We could not check your sign-in.");
     }),
   );
 
-  it.effect("derives unknown, never signedOut, from a transport or decode fault", () =>
+  it.effect("shows the retry screen, never a redirect, on a transport or decode fault", () =>
     Effect.gen(function* faults() {
-      expect((yield* sessionState("stub=throw")).html).toContain('data-session="unknown"');
-      expect((yield* sessionState("stub=bad")).html).toContain('data-session="unknown"');
+      expect((yield* sessionState("stub=throw")).html).toContain(
+        "We could not check your sign-in.",
+      );
+      expect((yield* sessionState("stub=bad")).html).toContain("We could not check your sign-in.");
     }),
   );
 
@@ -683,15 +684,16 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
     }),
   );
 
-  it.effect("renders / with the shell for unknown, never redirecting or showing Sign in", () =>
-    Effect.gen(function* unknownHome() {
-      const { html, status } = yield* sessionState("stub=503");
+  it.effect(
+    "renders / with the retry screen for unknown, never redirecting or showing Sign in",
+    () =>
+      Effect.gen(function* unknownHome() {
+        const { html, status } = yield* sessionState("stub=503");
 
-      expect(status).toBe(200);
-      expect(html).toContain('data-session="unknown"');
-      expect(html).toContain('aria-label="Loading account"');
-      expect(html).not.toContain("Sign in");
-    }),
+        expect(status).toBe(503);
+        expect(html).toContain("We could not check your sign-in.");
+        expect(html).not.toContain("Sign in");
+      }),
   );
 
   it.effect("paints the skeleton, not the menu or Sign in, on a signedIn full load", () =>
