@@ -204,15 +204,16 @@ it.effect("the three real blocks.ts files parse without an unknown attach shape"
         "NotesApiHandlersNoDeps",
         "SessionMiddlewareLive",
         "ExampleFeatureGateLive",
+        "NoBlockProviders",
         "KnobsKvLive",
       ],
-      ["KnobsKvLive"],
-      ["KnobsKvLive"],
+      ["NoAuthLayers", "KnobsKvLive"],
+      ["NoWebLayers", "KnobsKvLive"],
     ]);
   }).pipe(Effect.provide(BunServices.layer)),
 );
 
-it.effect("the real api blocks.ts collapsed onto single lines still yields its four names", () =>
+it.effect("the real api blocks.ts collapsed onto single lines still yields its five names", () =>
   Effect.gen(function* collapsedReal() {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -238,6 +239,7 @@ it.effect("the real api blocks.ts collapsed onto single lines still yields its f
         "NotesApiHandlersNoDeps",
         "SessionMiddlewareLive",
         "ExampleFeatureGateLive",
+        "NoBlockProviders",
       ],
     );
   }).pipe(Effect.provide(BunServices.layer)),
