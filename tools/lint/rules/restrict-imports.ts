@@ -1,8 +1,25 @@
 /**
+ * One `paths` entry of `no-restricted-imports`: a module, optionally narrowed to named imports.
+ */
+interface RestrictedPath {
+  importNames?: string[];
+  message?: string;
+  name: string;
+}
+
+/**
+ * One `patterns` entry of `no-restricted-imports`: gitignore-style module globs.
+ */
+interface RestrictedPattern {
+  group: string[];
+  message?: string;
+}
+
+/**
  * The import ban every `no-restricted-imports` override repeats, because the rule replaces rather
  * than merges its options per matching override. P4 adds the run-family entries.
  */
-export const basePaths: readonly unknown[] = [];
+export const basePaths: readonly RestrictedPath[] = [];
 
 /**
  * Builds one `lint.overrides` entry that restricts imports for `files`, always prepending
@@ -10,16 +27,18 @@ export const basePaths: readonly unknown[] = [];
  */
 export const restrictImports = (
   files: readonly string[],
-  patterns: { paths?: readonly unknown[]; patterns?: readonly unknown[] },
-) => ({
-  files: [...files],
-  rules: {
-    "no-restricted-imports": [
-      "error",
-      {
-        paths: [...basePaths, ...(patterns.paths ?? [])],
-        patterns: [...(patterns.patterns ?? [])],
-      },
-    ],
+  restrictions: {
+    paths?: readonly RestrictedPath[];
+    patterns?: readonly RestrictedPattern[];
   },
-});
+) => {
+  const rule: ["error", { paths: RestrictedPath[]; patterns: RestrictedPattern[] }] = [
+    "error",
+    {
+      paths: [...basePaths, ...(restrictions.paths ?? [])],
+      patterns: [...(restrictions.patterns ?? [])],
+    },
+  ];
+
+  return { files: [...files], rules: { "no-restricted-imports": rule } };
+};
