@@ -4,6 +4,7 @@ import ApiWorkerImpl, { ApiDeployment, ApiWorker } from "../../apps/api/src/work
 import { workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
 import { compat } from "./compat.ts";
+import { issuesObservability, telemetryOptions } from "./telemetry.ts";
 
 /**
  * Declare the `api` Worker with its bindings.
@@ -39,10 +40,15 @@ export const declareApi = Effect.fn("declareApi")(function* declareApi(
     },
     main,
     name: yield* workerName({ stack, stage, worker: "api" }),
+    observability: issuesObservability,
     workersDev: false,
   } satisfies Cloudflare.WorkerProps;
 
+  const telemetry = telemetryOptions(stage);
+
   return yield* ApiWorker.pipe(
-    Effect.provide(ApiWorkerImpl.pipe(Layer.provide(Layer.succeed(ApiDeployment, { props })))),
+    Effect.provide(
+      ApiWorkerImpl.pipe(Layer.provide(Layer.succeed(ApiDeployment, { props, telemetry }))),
+    ),
   );
 });

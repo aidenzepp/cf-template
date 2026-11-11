@@ -7,7 +7,7 @@ import { Session, UserId } from "@workspace/contract/domain/session";
 import { Notes } from "./notes/notes.ts";
 import type { NotesService } from "./notes/notes.ts";
 import type ApiWorker from "./worker.ts";
-import { ApiDeployment, apiProps, makeHandler } from "./worker.ts";
+import { ApiDeployment, apiProps, apiTelemetry, makeHandler } from "./worker.ts";
 
 /**
  * The services the Worker's layer still needs from its provider. `ApiDeployment` must not be one:
@@ -31,10 +31,21 @@ describe("the api Worker module", () => {
   it.effect("takes the properties of the deployment when infra provides it", () =>
     Effect.gen(function* withDeployment() {
       const props = yield* apiProps.pipe(
-        Effect.provideService(ApiDeployment, { props: { name: "x" } }),
+        Effect.provideService(ApiDeployment, { props: { name: "x" }, telemetry: {} }),
       );
 
       assert.deepStrictEqual(props, { name: "x" });
+    }),
+  );
+
+  it.effect("takes the tracing options of the deployment, and none in the deployed bundle", () =>
+    Effect.gen(function* tracing() {
+      const planned = yield* apiTelemetry.pipe(
+        Effect.provideService(ApiDeployment, { props: {}, telemetry: { headSamplingRate: 1 } }),
+      );
+
+      assert.deepStrictEqual(planned, { headSamplingRate: 1 });
+      assert.deepStrictEqual(yield* apiTelemetry, {});
     }),
   );
 });

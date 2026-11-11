@@ -9,6 +9,7 @@ import type { StageName } from "../stages.ts";
 import { encodedAuthMethods, encodedOrphanGrace } from "./auth.ts";
 import { compat } from "./compat.ts";
 import type { publicOrigin } from "./origin.ts";
+import { webObservability } from "./telemetry.ts";
 
 /**
  * The bindings of `web`: the two Workers it forwards to and the two values `apps/web` reads. Every
@@ -69,6 +70,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     compatibility,
     env,
     name: yield* workerName({ stack, stage, worker: "web" }),
+    observability: webObservability(stage),
     rootDir: "apps/web",
     workersDev: true,
   });
