@@ -1,0 +1,4 @@
+export default Effect.gen(function* () {
+  const web =
+    yield* Web;
+});

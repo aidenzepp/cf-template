@@ -1,0 +1,4 @@
+export const liveKnobs = [
+  logLevelKnob,
+  notesKnob,
+] as const;

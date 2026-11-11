@@ -1,0 +1,6 @@
+export default Effect.gen(function* () {
+  const stack = yield* Stack;
+
+  yield* Web;
+  yield* Notes;
+});
