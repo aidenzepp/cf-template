@@ -15,6 +15,7 @@
     "ui": "cd packages/ui && bunx shadcn@4.23.0",
     "ui:typecheck": "bun run --filter @workspace/ui typecheck",
     "fix": "vp check --fix",
+    "footprint": "bun tools/blocks/footprint.ts",
     "mirrors": "bun tools/mirrors/mirror.ts",
     "alchemy": "ALCHEMY_TELEMETRY_DISABLED=1 alchemy",
     "settings": "ALCHEMY_TELEMETRY_DISABLED=1 bun infra/stacks/settings.ts",
