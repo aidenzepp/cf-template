@@ -395,9 +395,13 @@ const leftovers = Effect.fn("pullout.leftovers")(function* leftovers(unit: Unit)
 });
 
 /**
- * The generated route tree of `apps/web` and the directory of the routes it lists.
+ * The generated route tree of `apps/web`.
  */
 const routeTree = "apps/web/src/route-tree.gen.ts";
+
+/**
+ * The directory of the routes the generated route tree lists.
+ */
 const routesDir = "apps/web/src/routes/";
 
 /**

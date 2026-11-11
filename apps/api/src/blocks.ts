@@ -38,4 +38,9 @@ const NoIsolateServices = Layer.empty;
  * The services the Worker builds once per isolate and every execution shares, over `AppDatabase`;
  * see {@link ApiWorkerHandlerGroupLayers}.
  */
-export const ApiWorkerIsolateLayers = Layer.mergeAll(NoIsolateServices, NotesIsolateLive);
+export const ApiWorkerIsolateLayers = Layer.mergeAll(
+  NoIsolateServices,
+  // block:notes start
+  NotesIsolateLive,
+  // block:notes end
+);
