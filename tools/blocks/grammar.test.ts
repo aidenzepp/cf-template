@@ -205,10 +205,22 @@ it.effect("the three real blocks.ts files parse without an unknown attach shape"
         "SessionMiddlewareLive",
         "ExampleFeatureGateLive",
         "NoBlockProviders",
+        // block:knobs-kv start
         "KnobsKvLive",
+        // block:knobs-kv end
       ],
-      ["NoAuthLayers", "KnobsKvLive"],
-      ["NoWebLayers", "KnobsKvLive"],
+      [
+        "NoAuthLayers",
+        // block:knobs-kv start
+        "KnobsKvLive",
+        // block:knobs-kv end
+      ],
+      [
+        "NoWebLayers",
+        // block:knobs-kv start
+        "KnobsKvLive",
+        // block:knobs-kv end
+      ],
     ]);
   }).pipe(Effect.provide(BunServices.layer)),
 );
@@ -241,7 +253,9 @@ it.effect("the real api blocks.ts collapsed onto single lines still yields its s
         "SessionMiddlewareLive",
         "ExampleFeatureGateLive",
         "NoBlockProviders",
+        // block:knobs-kv start
         "KnobsKvLive",
+        // block:knobs-kv end
       ],
     );
   }).pipe(Effect.provide(BunServices.layer)),
@@ -260,6 +274,13 @@ it.effect("the real blocks.json decodes", () =>
       manifest.slices.map((slice) => [slice.name, slice.keep]),
       [["notes", ["apps/api/src/notes/table.ts"]]],
     );
-    assert.deepStrictEqual(manifest.blocks, []);
+    assert.deepStrictEqual(
+      manifest.blocks.map((block) => block.name),
+      [
+        // block:knobs-kv start
+        "knobs-kv",
+        // block:knobs-kv end
+      ],
+    );
   }).pipe(Effect.provide(BunServices.layer)),
 );
