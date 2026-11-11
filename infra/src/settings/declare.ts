@@ -57,11 +57,11 @@ export const LABELS = [
 ] as const;
 
 /**
- * A required status check; `integrationId` is the app that must stamp it, unset for any app.
+ * A required status check and the app that must stamp it.
  */
 export interface StatusCheck {
   readonly context: string;
-  readonly integrationId: number | undefined;
+  readonly integrationId: number;
 }
 
 /**
@@ -134,11 +134,13 @@ const mainRuleset = (reviewer: Option.Option<number>): Declaration => ({
     blockDeletion: true,
     blockForcePush: true,
     bypassActors: [],
-    checks: REQUIRED_CHECKS.map((context) => ({
-      context,
-      integrationId:
-        context === "reviewer-agent" ? Option.getOrUndefined(reviewer) : ACTIONS_INTEGRATION_ID,
-    })),
+    checks: REQUIRED_CHECKS.flatMap((context): ReadonlyArray<StatusCheck> => {
+      if (context !== "reviewer-agent") {
+        return [{ context, integrationId: ACTIONS_INTEGRATION_ID }];
+      }
+
+      return Option.isSome(reviewer) ? [{ context, integrationId: reviewer.value }] : [];
+    }),
     linearHistory: true,
     mergeMethods: ["squash"],
     name: "main",
@@ -149,10 +151,21 @@ const mainRuleset = (reviewer: Option.Option<number>): Declaration => ({
 });
 
 /**
+ * Whether `prod-destructive` gets the owner as its required reviewer: public repositories only,
+ * and only a `User` owner, whose login is a valid reviewer. An organization login never is.
+ *
+ * @param repository - The guarded repository.
+ * @returns True when the owner login is declared as the reviewer.
+ */
+const ownerReviews = (repository: GuardedRepository): boolean =>
+  repository.visibility === "public" && repository.ownerType === "User";
+
+/**
  * Build the environment declarations.
  *
- * @param repository - The guarded repository; the required reviewer is its owner.
- * @returns `prod`, limited to `main`, and `prod-destructive`, with a reviewer on public only.
+ * @param repository - The guarded repository.
+ * @returns `prod` and `prod-destructive`, both limited to `main`, the latter with a reviewer only
+ *   under {@link ownerReviews}.
  */
 const environments = (repository: GuardedRepository): ReadonlyArray<Declaration> => [
   {
@@ -164,11 +177,37 @@ const environments = (repository: GuardedRepository): ReadonlyArray<Declaration>
     id: "prod-destructive",
     kind: "Environment",
     props: {
-      branches: [],
+      branches: ["main"],
       name: "prod-destructive",
-      reviewers: repository.visibility === "public" ? [repository.owner] : [],
+      reviewers: ownerReviews(repository) ? [repository.owner] : [],
     },
   },
+];
+
+/**
+ * The `UNAVAILABLE` lines for declarations the plan leaves out for lack of an input.
+ *
+ * - `reviewer-agent` is not a required check without `GITHUB_REVIEWER_APP_ID`: with no integration id
+ *   any app could stamp it.
+ * - An organization owner on a public repository gets no `prod-destructive` reviewer: an organization
+ *   login is not a reviewer, and a team or user must be configured.
+ *
+ * @param repository - The guarded repository.
+ * @param tier - The detected tier.
+ * @param reviewer - The optional `GITHUB_REVIEWER_APP_ID`.
+ * @returns The warning lines, empty when nothing is left out.
+ */
+export const planWarnings = (
+  repository: GuardedRepository,
+  tier: Tier,
+  reviewer: Option.Option<number>,
+): ReadonlyArray<string> => [
+  ...(tier.branchProtection === "ruleset" && Option.isNone(reviewer)
+    ? ["UNAVAILABLE reviewer-agent check: GITHUB_REVIEWER_APP_ID not set"]
+    : []),
+  ...(tier.environments && repository.visibility === "public" && !ownerReviews(repository)
+    ? ["UNAVAILABLE prod-destructive reviewer: organization owner needs a team or configured user"]
+    : []),
 ];
 
 /**

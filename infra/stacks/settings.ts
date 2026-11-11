@@ -5,6 +5,7 @@ import {
   GitHubProviderMissing,
   MISSING_GITHUB_RESOURCES,
   declarationPlan,
+  planWarnings,
   reviewerAppId,
 } from "../src/settings/declare.ts";
 import { getJson, guardAdmin, resolveRepository } from "../src/settings/repository.ts";
@@ -39,7 +40,10 @@ const apply = Effect.gen(function* applySettings() {
     secrets.secrets.map((secret) => secret.name),
   );
 
-  const plan = declarationPlan(repository, tier, yield* reviewerAppId);
+  const reviewer = yield* reviewerAppId;
+  const plan = declarationPlan(repository, tier, reviewer);
+
+  yield* Effect.forEach(planWarnings(repository, tier, reviewer), (line) => Console.warn(line));
 
   return yield* new GitHubProviderMissing({
     message: `Planned ${plan.length} declarations for ${owner}/${repo} but applied none: the pinned Alchemy has no ${MISSING_GITHUB_RESOURCES.join(", ")}.`,

@@ -5,6 +5,7 @@ import {
   LABELS,
   REQUIRED_CHECKS,
   declarationPlan,
+  planWarnings,
   reviewerAppId,
 } from "./declare.ts";
 import type { Declaration } from "./declare.ts";
@@ -74,7 +75,26 @@ describe("declarationPlan", () => {
 
     const [prod, destructive] = ofKind(plan, "Environment");
     assert.deepStrictEqual(prod?.props.branches, ["main"]);
+    assert.deepStrictEqual(destructive?.props.branches, ["main"]);
     assert.deepStrictEqual(destructive?.props.reviewers, ["acme"]);
+  });
+
+  it("declares no reviewer for an organization owner and warns", () => {
+    const organization: GuardedRepository = {
+      ...repository,
+      ownerType: "Organization",
+      visibility: "public",
+    };
+
+    const plan = declarationPlan(organization, publicTier, Option.some(4242));
+    const [, destructive] = ofKind(plan, "Environment");
+
+    assert.deepStrictEqual(destructive?.props.branches, ["main"]);
+    assert.deepStrictEqual(destructive?.props.reviewers, []);
+
+    assert.deepStrictEqual(planWarnings(organization, publicTier, Option.some(4242)), [
+      "UNAVAILABLE prod-destructive reviewer: organization owner needs a team or configured user",
+    ]);
   });
 
   it("declares the ruleset and environments on private Pro, without a reviewer", () => {
@@ -84,7 +104,10 @@ describe("declarationPlan", () => {
     assert.deepStrictEqual(idsOf(plan, "Environment"), ["prod", "prod-destructive"]);
 
     const [, destructive] = ofKind(plan, "Environment");
+    assert.deepStrictEqual(destructive?.props.branches, ["main"]);
     assert.deepStrictEqual(destructive?.props.reviewers, []);
+
+    assert.deepStrictEqual(planWarnings(repository, proTier, Option.some(4242)), []);
   });
 
   it("declares neither ruleset nor environments on private Free", () => {
@@ -151,6 +174,19 @@ describe("declarationPlan", () => {
     assert.isTrue(ruleset?.props.adopt);
     assert.deepStrictEqual(ruleset?.props.bypassActors, []);
     assert.deepStrictEqual(ruleset?.props.mergeMethods, ["squash"]);
+  });
+
+  it("omits the reviewer-agent check and warns when GITHUB_REVIEWER_APP_ID is unset", () => {
+    const [ruleset] = ofKind(planFor("private", proTier), "Ruleset");
+
+    assert.deepStrictEqual(
+      ruleset?.props.checks.map((entry) => entry.context),
+      REQUIRED_CHECKS.filter((context) => context !== "reviewer-agent"),
+    );
+
+    assert.deepStrictEqual(planWarnings(repository, proTier, Option.none()), [
+      "UNAVAILABLE reviewer-agent check: GITHUB_REVIEWER_APP_ID not set",
+    ]);
   });
 });
 
