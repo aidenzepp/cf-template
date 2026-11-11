@@ -1,5 +1,4 @@
 import { Config, Context, Effect, Option, Predicate, Schema } from "effect";
-import { TaggedError as taggedError } from "effect/Schema";
 
 /**
  * The defect that `Knob.make` raises at construction when the schema lacks a required annotation.
@@ -7,7 +6,7 @@ import { TaggedError as taggedError } from "effect/Schema";
  * Annotations are not part of the schema's type, so the check runs when the module that declares
  * the knob loads, not when the compiler runs.
  */
-export class MissingKnobAnnotationError extends taggedError<MissingKnobAnnotationError>()(
+export class MissingKnobAnnotationError extends Schema.TaggedError<MissingKnobAnnotationError>()(
   "MissingKnobAnnotationError",
   { annotation: Schema.Literals(["description", "default"]), key: Schema.String },
 ) {
@@ -20,7 +19,7 @@ export class MissingKnobAnnotationError extends taggedError<MissingKnobAnnotatio
  * The defect that `Knob.encode` raises when a knob's schema is not a leaf and so has no one-string
  * form.
  */
-export class KnobNotLeafError extends taggedError<KnobNotLeafError>()("KnobNotLeafError", {
+export class KnobNotLeafError extends Schema.TaggedError<KnobNotLeafError>()("KnobNotLeafError", {
   key: Schema.String,
 }) {
   override get message(): string {
@@ -116,7 +115,7 @@ export class Knob<A> {
 /**
  * The failure of a live source read, such as an unreachable store.
  */
-export class LiveSourceError extends taggedError<LiveSourceError>()("LiveSourceError", {
+export class LiveSourceError extends Schema.TaggedError<LiveSourceError>()("LiveSourceError", {
   cause: Schema.Unknown,
   source: Schema.String,
 }) {
