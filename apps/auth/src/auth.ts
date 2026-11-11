@@ -16,6 +16,7 @@ import { PublicOrigin, WEB_DEV_PORT } from "@workspace/config/public-origin";
 import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "./config.ts";
 import { AUTH_BASE_PATH, OAUTH_ERROR_PATH } from "./contract.ts";
 import * as schema from "./db/schema.ts";
+import { authRelations } from "./db/schema.ts";
 import { createAuthMiddleware } from "better-auth/api";
 import { requireFreshSession } from "./fresh-session.ts";
 import { passkeyPlugin } from "./passkeys.ts";
@@ -231,7 +232,7 @@ export const adapterOptions = {
  * `db.transaction`.
  */
 const adapterFor = Effect.fnUntraced(function* adapterFor(binding: RawDatabase) {
-  const access = yield* makeDatabase(binding);
+  const access = yield* makeDatabase(binding, authRelations);
   const { db } = yield* access;
   const services = yield* Effect.context();
 
