@@ -25,11 +25,8 @@ A pre-push hook (`.vite-hooks/pre-push`, installed by `bun install`) runs the sa
 All source and tests are Effect-native (operator ruling). No `throw`, `try/catch`, raw Promise chains, `Promise.allSettled`, `fetch`, `node:` imports or `Bun.` file calls in source; no new `bun:test` files. Use Schema to decode files, environment values and payloads, Config for settings, and `@effect/platform-bun` for the file system and HTTP. A suite that genuinely cannot load Effect (a Node-loaded `.mjs` lint plugin) may stay on `bun:test` with a one-line comment naming why.
 
 ```ts
-// Typed error in the error channel. Import TaggedError under a lower-case name:
-// oxlint's unicorn/throw-new-error flags any `*Error(...)` call without `new` and has no option.
-import { TaggedError as taggedError } from "effect/Schema";
-
-class PinError extends taggedError<PinError>()("PinError", { message: Schema.String }) {}
+// Typed error in the error channel
+class PinError extends Schema.TaggedError<PinError>()("PinError", { message: Schema.String }) {}
 ```
 
 ```ts

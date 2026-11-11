@@ -1,41 +1,43 @@
 import { BunCrypto, BunFileSystem, BunHttpClient, BunPath, BunRuntime } from "@effect/platform-bun";
 import { Effect, FileSystem, Layer, Path, Schema } from "effect";
-import { TaggedError as taggedError } from "effect/Schema";
 import { Digest } from "effect/crypto";
 import { HttpClient } from "effect/http";
 
 /**
  * The pin file is malformed: its message names the line number and the missing field.
  */
-export class PinError extends taggedError<PinError>()("PinError", {
+export class PinError extends Schema.TaggedError<PinError>()("PinError", {
   message: Schema.String,
 }) {}
 
 /**
  * The archive digest differs from the pinned one, so the archive is refused.
  */
-export class DigestMismatch extends taggedError<DigestMismatch>()("DigestMismatch", {
+export class DigestMismatch extends Schema.TaggedError<DigestMismatch>()("DigestMismatch", {
   message: Schema.String,
 }) {}
 
 /**
  * The release archive could not be fetched.
  */
-export class DownloadError extends taggedError<DownloadError>()("DownloadError", {
+export class DownloadError extends Schema.TaggedError<DownloadError>()("DownloadError", {
   message: Schema.String,
 }) {}
 
 /**
  * The host platform and architecture have no published release binary.
  */
-export class UnsupportedPlatform extends taggedError<UnsupportedPlatform>()("UnsupportedPlatform", {
-  message: Schema.String,
-}) {}
+export class UnsupportedPlatform extends Schema.TaggedError<UnsupportedPlatform>()(
+  "UnsupportedPlatform",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The pinned release archive could not be unpacked or its binary could not be placed.
  */
-export class InstallError extends taggedError<InstallError>()("InstallError", {
+export class InstallError extends Schema.TaggedError<InstallError>()("InstallError", {
   message: Schema.String,
 }) {}
 
