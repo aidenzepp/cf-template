@@ -1,6 +1,6 @@
 import type * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
-import { Config, Effect, Layer, Option, Path, Schema } from "effect";
+import { Config, ConfigProvider, Effect, Layer, Option, Path, Schema } from "effect";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { AuthMethods } from "@workspace/config/auth-methods";
 import { PublicOrigin, WEB_DEV_PORT } from "@workspace/config/public-origin";
@@ -24,10 +24,81 @@ export class WorkersSubdomainMissing extends Schema.TaggedError<WorkersSubdomain
 }
 
 /**
- * The sign-in methods `auth` offers until the provider and mail blocks land: no OAuth provider and
- * no mail add-in. `infra` is the one producer; `auth` only reads the value.
+ * Read the credential pair of one OAuth provider: `<PREFIX>_CLIENT_ID` with
+ * `<PREFIX>_CLIENT_SECRET`.
+ *
+ * Both set yields `Some`, neither set yields `None`, and one alone fails through the `Config` error
+ * channel, so the deploy stops before any resource is touched. An empty string reads as absent.
+ *
+ * @param prefix - The upper-case provider name, such as `GITHUB`.
+ * @returns The pair, or `None` when the provider is not configured.
  */
-const METHODS: typeof AuthMethods.Type = { email: false, providers: [] };
+const providerPair = (prefix: string) =>
+  Config.all({
+    id: Config.option(Config.Redacted(`${prefix}_CLIENT_ID`)),
+    secret: Config.option(Config.Redacted(`${prefix}_CLIENT_SECRET`)),
+  }).pipe(
+    Config.mapEffect(({ id, secret }) => {
+      if (Option.isSome(id) && Option.isSome(secret)) {
+        return Effect.succeed(Option.some({ id: id.value, secret: secret.value }));
+      }
+
+      if (Option.isNone(id) && Option.isNone(secret)) {
+        return Effect.succeed(Option.none());
+      }
+
+      const [set, missing] = Option.isSome(id)
+        ? [`${prefix}_CLIENT_ID`, `${prefix}_CLIENT_SECRET`]
+        : [`${prefix}_CLIENT_SECRET`, `${prefix}_CLIENT_ID`];
+
+      return Effect.fail(
+        new Config.ConfigError(
+          new ConfigProvider.SourceError({
+            message: `${set} is set but ${missing} is not. Set both to enable the provider, or neither to omit it.`,
+          }),
+        ),
+      );
+    }),
+  );
+
+/**
+ * The credential pair of every provider, read once at deploy.
+ */
+export const providerCredentials = Config.all({
+  github: providerPair("GITHUB"),
+  google: providerPair("GOOGLE"),
+});
+
+/**
+ * Evaluate which providers are live from their credential pairs.
+ *
+ * @returns The sign-in methods, the provider ids in schema order with the mail add-in off, and the
+ *   bindings of each live provider's pair. `email` stays false until the mail add-in's attach line
+ *   exists in `infra/alchemy.run.ts`.
+ */
+export const resolveMethods = Effect.fn("resolveMethods")(function* resolveMethods() {
+  const pairs = yield* providerCredentials;
+
+  const live = (
+    [
+      ["github", "GITHUB", pairs.github],
+      ["google", "GOOGLE", pairs.google],
+    ] as const
+  ).flatMap(([id, prefix, pair]) =>
+    Option.isSome(pair) ? [{ id, pair: pair.value, prefix }] : [],
+  );
+
+  const methods: typeof AuthMethods.Type = { email: false, providers: live.map(({ id }) => id) };
+
+  const secrets = Object.fromEntries(
+    live.flatMap(({ pair, prefix }) => [
+      [`${prefix}_CLIENT_ID`, pair.id],
+      [`${prefix}_CLIENT_SECRET`, pair.secret],
+    ]),
+  );
+
+  return { methods, secrets };
+});
 
 /**
  * Compute the interim public origin of a stage: the `workers.dev` address of its `web` Worker on a
@@ -66,7 +137,9 @@ export const interimPublicOrigin = Effect.fn("interimPublicOrigin")(
 /**
  * The JSON text bound as `AUTH_METHODS`, on `auth` and on `web`. This file is its one producer.
  */
-export const encodedAuthMethods = Schema.encodeEffect(Schema.fromJsonString(AuthMethods))(METHODS);
+export const encodedAuthMethods = resolveMethods().pipe(
+  Effect.flatMap(({ methods }) => Schema.encodeEffect(Schema.fromJsonString(AuthMethods))(methods)),
+);
 
 /**
  * The interim public origin of a stage, with the `workers.dev` subdomain read from
@@ -111,7 +184,8 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
 
   const secret = yield* Alchemy.Random("BetterAuthSecret");
   const origin = yield* resolvePublicOrigin({ stack, stage });
-  const methods = yield* encodedAuthMethods;
+  const { methods, secrets } = yield* resolveMethods();
+  const encodedMethods = yield* Schema.encodeEffect(Schema.fromJsonString(AuthMethods))(methods);
   const scrypt = yield* AUTH_PASSWORD_SCRYPT.encode(values.AUTH_PASSWORD_SCRYPT);
   const main = yield* path.fromFileUrl(new URL("../../apps/auth/src/worker.ts", import.meta.url));
 
@@ -120,11 +194,12 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
     env: {
       AUTH_COOKIE_CACHE_MAX_AGE_S: values.AUTH_COOKIE_CACHE_MAX_AGE_S,
       AUTH_COOKIE_CACHE_STRATEGY: values.AUTH_COOKIE_CACHE_STRATEGY,
-      AUTH_METHODS: methods,
+      AUTH_METHODS: encodedMethods,
       AUTH_PASSWORD_SCRYPT: scrypt,
       BETTER_AUTH_SECRET: secret.text,
       LOG_LEVEL: values.LOG_LEVEL,
       PUBLIC_ORIGIN: origin,
+      ...secrets,
     },
     main,
     name: yield* workerName({ stack, stage, worker: "auth" }),
