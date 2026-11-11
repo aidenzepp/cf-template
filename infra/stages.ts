@@ -3,6 +3,7 @@ import type { LogLevel } from "effect";
 import { Digest } from "effect/crypto";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { LogLevelKnob } from "@workspace/config/log-level";
+import { HeadSamplingRateKnob } from "@workspace/config/observability";
 import { AuthCheckSessionTimeoutKnob, ProblemDetailsIncludeKnob } from "../apps/api/src/config.ts";
 import { ExampleFeatureKnob } from "../apps/api/src/notes/knob.ts";
 import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "../apps/auth/src/config.ts";
@@ -218,8 +219,13 @@ export interface StageValues {
   readonly AUTH_COOKIE_CACHE_STRATEGY: typeof CookieCacheStrategyKnob.default;
   readonly AUTH_PASSWORD_SCRYPT: typeof AUTH_PASSWORD_SCRYPT.default;
   readonly EXAMPLE_FEATURE_ENABLED: typeof ExampleFeatureKnob.default;
+  readonly HEAD_SAMPLING_RATE: typeof HeadSamplingRateKnob.default;
   readonly LOG_LEVEL: LogLevel.LogLevel;
   readonly PROBLEM_DETAILS_INCLUDE: typeof ProblemDetailsIncludeKnob.default;
+  /**
+   * Whether the stage declares the requests-count volume alert. A plain stage flag, not a knob.
+   */
+  readonly volumeAlert: boolean;
 }
 
 /**
@@ -230,19 +236,23 @@ export interface StageValues {
  * @param api - The `api` switches of the kind, both off on `prod`.
  * @param api.exampleFeature - Whether the example notes feature is on.
  * @param api.problemDetails - Whether a 400 problem body lists the validation issues.
+ * @param volumeAlert - Whether the kind declares the volume alert.
  * @returns The validated values of the kind.
  */
 const stageRow = (
   logLevel: string,
   api: { readonly exampleFeature: string; readonly problemDetails: string },
+  volumeAlert: boolean,
 ): StageValues => ({
   AUTH_CHECK_SESSION_TIMEOUT_MS: validated(AuthCheckSessionTimeoutKnob, "500"),
   AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob.default,
   AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
   AUTH_PASSWORD_SCRYPT: AUTH_PASSWORD_SCRYPT.default,
   EXAMPLE_FEATURE_ENABLED: validated(ExampleFeatureKnob, api.exampleFeature),
+  HEAD_SAMPLING_RATE: validated(HeadSamplingRateKnob, "1"),
   LOG_LEVEL: validated(LogLevelKnob, logLevel),
   PROBLEM_DETAILS_INCLUDE: validated(ProblemDetailsIncludeKnob, api.problemDetails),
+  volumeAlert,
 });
 
 /**
@@ -250,10 +260,10 @@ const stageRow = (
  * loads. Each knob-adding block adds its key and a value per kind.
  */
 export const Stages: Record<StageKind, StageValues> = {
-  local: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }),
-  prod: stageRow("Info", { exampleFeature: "false", problemDetails: "false" }),
-  staging: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }),
-  test: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }),
+  local: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }, false),
+  prod: stageRow("Info", { exampleFeature: "false", problemDetails: "false" }, true),
+  staging: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }, false),
+  test: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }, true),
 };
 
 /**
