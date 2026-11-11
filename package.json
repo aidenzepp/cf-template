@@ -23,7 +23,7 @@
     "db:regenerate": "git clean -fdq apps/api/migrations && bun run db:generate",
     "db:generate": "cd apps/api && ../../node_modules/.bin/drizzle-kit generate && bun ./scripts/migrations-digest.ts && cd ../auth && ../../node_modules/.bin/drizzle-kit generate",
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config --local core.hooksPath .vite-hooks || true && bun tools/supdoc/install.ts",
-    "build": "vp run -r build"
+    "build": "vp run -F '@workspace/*' build && bun tools/bundle/check.ts"
   },
   "dependencies": {
     "effect": "4.1.2"
