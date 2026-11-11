@@ -63,12 +63,36 @@ it.effect("an as const array entry passes", () =>
   }).pipe(Effect.provide(BunServices.layer)),
 );
 
-it.effect("a collapsed Layer.mergeAll(A, B) fails as an unknown shape", () =>
+it.effect("a collapsed Layer.mergeAll(A, B) of core entries passes as A, B", () =>
   Effect.gen(function* collapsed() {
-    assert.strictEqual(
-      yield* rejected("mergeAll", "collapsed-merge-all"),
-      "unknown attach shape collapsed-merge-all:4",
-    );
+    assert.deepStrictEqual(yield* attached("mergeAll", "collapsed-merge-all"), [
+      "KnobsKvLive",
+      "NotesLive",
+    ]);
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect(
+  "a collapsed Layer.mergeAll(...) holding a unit name fails with the unit's own-line fix",
+  () =>
+    Effect.gen(function* collapsed() {
+      const text = yield* fixture("collapsed-unit");
+
+      const error = yield* Effect.flip(
+        parseAttach("mergeAll", "collapsed-unit", text, ["NotesLive"]),
+      );
+
+      assert.strictEqual(
+        error.message,
+        "collapsed attach line collapsed-unit:4: put NotesLive on its own line with // block:NotesLive",
+      );
+    }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("comment text never parses as an attach form", () =>
+  Effect.gen(function* comments() {
+    assert.deepStrictEqual(yield* attached("mergeAll", "jsdoc-merge-all"), []);
+    assert.deepStrictEqual(yield* attached("mergeAll", "commented-merge-all"), ["KnobsKvLive"]);
   }).pipe(Effect.provide(BunServices.layer)),
 );
 
@@ -148,6 +172,37 @@ it.effect("the three real blocks.ts files parse without an unknown attach shape"
       [],
       [],
     ]);
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("the real api blocks.ts collapsed onto single lines still yields its four names", () =>
+  Effect.gen(function* collapsedReal() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    const text = yield* fs.readFileString(
+      yield* path.fromFileUrl(new URL("../../apps/api/src/blocks.ts", import.meta.url)),
+    );
+
+    const collapsed = text.replaceAll(
+      /Layer\.mergeAll\(\n(?<entries>[^)]*?),?\n\)/gu,
+      (_call, body: string) =>
+        `Layer.mergeAll(${body
+          .split("\n")
+          .map((entry) => entry.trim().replace(/,$/u, ""))
+          .join(", ")})`,
+    );
+
+    assert.notStrictEqual(collapsed, text);
+    assert.deepStrictEqual(
+      (yield* parseAttach("mergeAll", "collapsed-api-blocks", collapsed)).map((line) => line.name),
+      [
+        "SystemApiHandlers",
+        "NotesApiHandlersNoDeps",
+        "SessionMiddlewareLive",
+        "ExampleFeatureGateLive",
+      ],
+    );
   }).pipe(Effect.provide(BunServices.layer)),
 );
 
