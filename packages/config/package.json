@@ -7,7 +7,9 @@
     "./knob": "./src/knob.ts",
     "./log-level": "./src/log-level.ts",
     "./worker-requirements": "./src/worker-requirements.ts",
-    "./plan": "./src/plan.ts"
+    "./plan": "./src/plan.ts",
+    "./auth-methods": "./src/auth-methods.ts",
+    "./public-origin": "./src/public-origin.ts"
   },
   "dependencies": {
     "effect": "4.1.2"
