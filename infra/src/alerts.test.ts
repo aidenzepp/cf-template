@@ -117,6 +117,25 @@ describe("issueNotificationAddress", () => {
   );
 });
 
+describe("issueNotificationAddress validation", () => {
+  it.effect("fails at plan on a malformed address, naming the key", () =>
+    Effect.gen(function* malformed() {
+      for (const bad of ["", "no-at-sign", "a@", "@b.invalid", "a b@c.invalid", "a@@b.invalid"]) {
+        const failure = yield* Effect.flip(
+          issueNotificationAddress("prod").pipe(
+            Effect.provide(
+              ConfigProvider.layer(ConfigProvider.fromUnknown({ ISSUE_NOTIFICATION_EMAIL: bad })),
+            ),
+          ),
+        );
+
+        assert.strictEqual(failure._tag, "ConfigError");
+        assert.include(failure.message, "ISSUE_NOTIFICATION_EMAIL");
+      }
+    }),
+  );
+});
+
 describe("volumeAlert flag", () => {
   it("is on for prod and test and off for staging and local", () => {
     assert.isTrue(Stages.prod.volumeAlert);

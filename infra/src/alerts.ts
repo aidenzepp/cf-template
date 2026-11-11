@@ -1,5 +1,6 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
-import { Config, Effect, Option } from "effect";
+import type { Input } from "alchemy/Input";
+import { Config, Effect, Option, Schema } from "effect";
 import { AlertFractionKnob, AllowanceShareKnob } from "@workspace/config/observability";
 import { Stages, Workers, kindOf, workerName } from "../stages.ts";
 import type { StageName, WorkerNameTooLongError } from "../stages.ts";
@@ -44,6 +45,12 @@ export const volumeAlertWorkers = (
   );
 
 /**
+ * An email address as far as the plan can check it: one `@`, a non-empty local part and domain,
+ * and no whitespace.
+ */
+const EmailAddress = Schema.String.check(Schema.isPattern(/^[^\s@]+@[^\s@]+$/u));
+
+/**
  * Read the stack input `ISSUE_NOTIFICATION_EMAIL`, only where an alert needs it: a stage whose kind
  * sets `volumeAlert`, or `prod`. Every other stage never reads the variable.
  *
@@ -53,7 +60,7 @@ export const volumeAlertWorkers = (
 export const issueNotificationAddress = Effect.fn("issueNotificationAddress")(
   function* issueNotificationAddress(stage: StageName) {
     return Stages[kindOf(stage)].volumeAlert || stage === "prod"
-      ? Option.some(yield* Config.String("ISSUE_NOTIFICATION_EMAIL"))
+      ? Option.some(yield* Config.schema(EmailAddress, "ISSUE_NOTIFICATION_EMAIL"))
       : Option.none<string>();
   },
 );
@@ -110,13 +117,22 @@ export const volumeAlert = Effect.fn("volumeAlert")(function* volumeAlert(
  * Declare the Workers Issues notification on `prod` only: one email policy and one automation for
  * each of `web`, `api` and `auth` that notifies at the first occurrence of an issue.
  *
+ * Each automation's `service` is the declared Worker's own name output, so it depends on that
+ * Worker and never covers the whole account.
+ *
  * @param stage - The decoded stage.
  * @param stack - The stack name.
  * @param address - The `ISSUE_NOTIFICATION_EMAIL` value.
+ * @param workers - The declared Worker resources, keyed by their `Workers` entry.
  * @returns Nothing; every other stage declares no resource.
  */
 export const prodIssueNotification = Effect.fn("prodIssueNotification")(
-  function* prodIssueNotification(stage: StageName, stack: string, address: string) {
+  function* prodIssueNotification(
+    stage: StageName,
+    stack: string,
+    address: string,
+    workers: Readonly<Record<(typeof Workers)[number], { readonly workerName: Input<string> }>>,
+  ) {
     if (stage !== "prod") {
       return;
     }
@@ -128,13 +144,13 @@ export const prodIssueNotification = Effect.fn("prodIssueNotification")(
     });
 
     for (const worker of Workers) {
-      const service = yield* workerName({ stack, stage, worker });
+      const name = yield* workerName({ stack, stage, worker });
 
       yield* Cloudflare.Workers.IssueAutomation(`Issues-${worker}`, {
         afterOccurrences: 1,
-        name: `${service}-issues`,
+        name: `${name}-issues`,
         policyId: policy.policyId,
-        service,
+        service: workers[worker].workerName,
       });
     }
   },

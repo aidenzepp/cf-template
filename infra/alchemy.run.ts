@@ -90,13 +90,13 @@ const program = Effect.gen(function* declareStack() {
   const origin = yield* publicOrigin({ stack, stage });
   const auth = yield* declareAuth({ stack, stage }, hint, values, origin);
   const api = yield* declareApi({ stack, stage }, values);
-  yield* declareWeb({ stack, stage }, { api, auth }, origin);
+  const web = yield* declareWeb({ stack, stage }, { api, auth }, origin);
 
   const address = yield* issueNotificationAddress(stage);
 
   if (Option.isSome(address)) {
     yield* volumeAlert(stage, stack, address.value);
-    yield* prodIssueNotification(stage, stack, address.value);
+    yield* prodIssueNotification(stage, stack, address.value, { api, auth, web });
   }
 
   return {};
