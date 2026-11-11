@@ -3,5 +3,18 @@
   "private": true,
   "description": "Owns makeDatabase and batch, the only atomic-write path. Must not own schemas, migrations, any table, or the Better Auth promise view.",
   "type": "module",
-  "exports": {}
+  "exports": {
+    "./database": "./src/database.ts",
+    "./batch": "./src/batch.ts"
+  },
+  "dependencies": {
+    "@effect/sql-d1": "4.1.2",
+    "alchemy": "2.0.0-beta.85",
+    "drizzle-orm": "1.0.0-rc.5",
+    "effect": "4.1.2"
+  },
+  "devDependencies": {
+    "@effect/vitest": "4.1.2",
+    "miniflare": "4.20260730.0"
+  }
 }
