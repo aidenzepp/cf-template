@@ -514,4 +514,35 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       expect(html).not.toContain("data-session");
     }),
   );
+
+  it.effect("renders the sign-in and sign-up forms with zero provider buttons", () =>
+    Effect.gen(function* screens() {
+      const web = yield* WebProd;
+
+      for (const path of ["/sign-in", "/sign-up?redirect=%2Fnotes"]) {
+        const response = yield* web.request(path, { headers: { accept: "text/html" } });
+        const html = yield* text(response);
+
+        expect(response.status).toBe(200);
+        expect(html).toContain('type="email"');
+        expect(html).toContain('type="password"');
+        expect(html).not.toContain("Continue with");
+      }
+    }),
+  );
+
+  it.effect("redirects a signed-in visit to /sign-in or /sign-up to /", () =>
+    Effect.gen(function* signedIn() {
+      const web = yield* WebProd;
+
+      for (const path of ["/sign-in", "/sign-up"]) {
+        const response = yield* web.request(path, {
+          headers: { accept: "text/html", cookie: "stub=in" },
+        });
+
+        expect(response.status).toBe(307);
+        expect(response.headers.get("location")).toBe("/");
+      }
+    }),
+  );
 });

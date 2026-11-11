@@ -3,7 +3,6 @@
   "compilerOptions": {
     "lib": ["ESNext", "DOM"],
     "jsx": "react-jsx",
-    "paths": { "@workspace/ui/*": ["../../packages/ui/src/*"] },
     "rootDir": "src"
   },
   "include": ["src"]
