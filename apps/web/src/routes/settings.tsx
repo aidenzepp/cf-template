@@ -99,6 +99,7 @@ const useLoaded = <Item,>(
     return () => {
       current = false;
     };
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- reloads is the Reload trigger: bumping it reruns the effect; the effect intentionally does not read it
   }, [call, decode, reloads]);
 
   return {

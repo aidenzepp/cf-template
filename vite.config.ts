@@ -1,6 +1,8 @@
 import { defineConfig } from "vite-plus";
 import core from "ultracite/oxlint/core";
 import antiSlop from "ultracite/oxlint/anti-slop";
+import drizzle from "ultracite/oxlint/drizzle";
+import react from "ultracite/oxlint/react";
 import shadcn from "ultracite/oxlint/shadcn";
 import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
 import {
@@ -125,7 +127,11 @@ export default defineConfig({
     jsdoc: { commentLineStrategy: "multiline", lineWrappingStyle: "balance" },
   },
   lint: {
-    extends: [core, antiSlop, shadcn],
+    // `drizzle` is adopted although it has no oxlint rules today, so a later Drizzle rule arrives
+    // with the preset. `react` is scoped in `overrides` below; `vitest` waits for its own part. `tanstack` is not
+    // adopted: it turns `sort-keys` off for the whole repository and the kebab-case filename rule
+    // off under `routes/`; two of its decisions are copied as scoped overrides instead.
+    extends: [core, antiSlop, shadcn, drizzle],
     ignorePatterns: [
       ".agents/**",
       ".worktrees/**",
@@ -256,6 +262,29 @@ export default defineConfig({
         // `batch`).
         files: ["apps/auth/src/auth.ts"],
         rules: { "no-restricted-properties": "off" },
+      },
+      {
+        // `react` is scoped to the web components: the root preset fired `react-hooks/rules-of-hooks`
+        // on Effect `Service.use(...)` calls elsewhere.
+        files: ["apps/web/**/*.tsx"],
+        plugins: react.plugins,
+        rules: react.rules,
+      },
+      {
+        // Copied from the `tanstack` preset: file routes are mutually recursive (`Route` references the
+        // component, which calls `Route.useParams()`), so no declaration order satisfies the rule and
+        // `tsc` still catches real temporal-dead-zone crashes.
+        files: ["apps/web/src/routes/**"],
+        rules: { "no-use-before-define": "off" },
+      },
+      {
+        // Copied from the `tanstack` preset: TypeScript infers the generic parameters of
+        // `createFileRoute` and the query and mutation options from their callbacks in source order,
+        // so alphabetical keys break inference.
+        // Schema field order is the wire order of a contract and the column order of a table, so
+        // `packages/contract/src/**` and every `table.ts` keep it too.
+        files: ["apps/web/src/**", "packages/contract/src/**", "**/table.ts"],
+        rules: { "sort-keys": "off" },
       },
       {
         // The lint-rule tests import bun:test from plain JavaScript. The type-aware checker does
