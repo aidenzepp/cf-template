@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { usesProjectState } from "../alchemy.run.ts";
+import { usesProjectState } from "./state-selection.ts";
 
 describe("state selection", () => {
   for (const stage of ["prod", "staging-12", "test-ci"]) {

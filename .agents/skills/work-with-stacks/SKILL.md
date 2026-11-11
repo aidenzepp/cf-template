@@ -19,8 +19,12 @@ bun run alchemy <command> --stage <stage> infra/alchemy.run.ts
   `alchemy.run.ts` in the current directory and the repository has none at its root.
 - Cloudflare auth is the Alchemy default profile. Never read, print, copy or log profile
   contents or tokens, and never export a raw `CLOUDFLARE_API_TOKEN` to work around it.
-- Never `--yes` against a state store. Never target the account's shared
-  `alchemy-state-store`.
+- `--yes` is allowed only through `bun infra/scripts/test-stage.ts <deploy|destroy> <stage>`.
+  The script refuses, before any `alchemy` call, unless the stage matches
+  `^test-[a-z0-9-]+$` and the stack program keeps it on local state (`usesProjectState` is
+  false). `test-ci`, `dev`, `prod` and `staging-<N>` are refused. Never pass `--yes` to
+  `alchemy` directly, never to a stage in a state store, and never to `staging-<N>` or `prod`.
+- Never target the account's shared `alchemy-state-store`.
 - Never deploy, destroy, plan or `dev` stage `prod` or `staging-<N>` from a laptop. The stack
   program refuses `prod` without `CI=true` before it declares any resource. Those stages
   belong to CI.
@@ -44,14 +48,15 @@ with local state. It is the only stage `dev` accepts.
 ## Round trip on `test-<slug>`
 
 1. Record the before counts (below).
-2. `bun run alchemy deploy --stage test-<slug> infra/alchemy.run.ts`
+2. `bun infra/scripts/test-stage.ts deploy test-<slug>`
 3. Make the few requests the proof needs. No load, volume or soak.
-4. `bun run alchemy destroy --stage test-<slug> infra/alchemy.run.ts`
+4. `bun infra/scripts/test-stage.ts destroy test-<slug>`
 5. Record the after counts. Every count must equal its before count. A leftover blocks the
    report: name it exactly and delete only what this unit created.
 
-Deploy and destroy ask for approval. Run them in a terminal where a person can answer; a
-non-interactive shell stops with "Nothing was changed" and the answer is not to add `--yes`.
+Deploy and destroy ask for approval, and a non-interactive shell stops with "Nothing was
+changed". The script passes the guarded `--yes`, so no approval prompt remains for a
+`test-<slug>` stage.
 
 ## Count procedure
 
