@@ -83,7 +83,15 @@ export const SignInForm = ({
     const controller = new AbortController();
     const credential = typeof PublicKeyCredential === "undefined" ? undefined : PublicKeyCredential;
 
-    Effect.runFork(passkeyAutofill(authClient.signIn.passkey, credential, controller.signal));
+    // The runtime module reads the Worker bindings, so it loads here, on the browser's first
+    // effect, not when this module (and its unit test) loads.
+    void (async () => {
+      const { fork } = await import("../../runtime.ts");
+
+      fork(passkeyAutofill(authClient.signIn.passkey, credential, controller.signal), {
+        signal: controller.signal,
+      });
+    })();
 
     return () => {
       controller.abort();

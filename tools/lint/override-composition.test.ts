@@ -45,10 +45,41 @@ const underAppSource = (files: readonly string[] | undefined) =>
 
 const sample = [{ message: "sample base entry", name: "effect" }];
 
+/**
+ * The runtime boundaries, the only overrides allowed to drop the base paths (`base: false`).
+ */
+const boundaries = new Set([
+  "apps/api/src/**/*.test.ts",
+  "apps/auth/src/**/*.test.ts",
+  "apps/auth/src/auth.ts",
+  "apps/web/src/**/*.test.ts",
+  "apps/web/src/runtime.ts",
+  "apps/web/src/server.ts",
+  "**/*.test.ts",
+]);
+
 describe("no-restricted-imports override composition", () => {
-  it("every override in the lint config carries the base paths", () => {
+  it("every override carries the base paths unless it is a runtime boundary", () => {
     for (const override of config.lint?.overrides ?? []) {
-      assert.isTrue(carriesBase(override, basePaths));
+      const files = override.files ?? [];
+
+      const boundary = files.length > 0 && files.every((glob) => boundaries.has(glob));
+
+      assert.isTrue(boundary || carriesBase(override, basePaths), files.join(", "));
+    }
+  });
+
+  it("an override that drops the base paths is a listed boundary", () => {
+    const dropped = (config.lint?.overrides ?? []).filter(
+      (override) =>
+        override.rules?.["no-restricted-imports"] !== undefined &&
+        !carriesBase(override, basePaths),
+    );
+
+    assert.isAbove(dropped.length, 0);
+
+    for (const override of dropped) {
+      assert.isTrue((override.files ?? []).every((glob) => boundaries.has(glob)));
     }
   });
 

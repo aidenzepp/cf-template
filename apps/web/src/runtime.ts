@@ -75,7 +75,28 @@ const makeRuntime = () =>
 let runtime: ReturnType<typeof makeRuntime> | undefined;
 
 /**
- * Run an effect on the runtime of `web`. This is the only `Effect.run*` boundary in `apps/web`.
+ * Start an effect on the runtime of `web` without awaiting it, for work that ends with its unit of
+ * work (a mounted component). Aborting the signal interrupts the fiber.
+ *
+ * @param effect - The effect to start; it handles its own failures.
+ * @param options - The abort signal of the unit of work the effect belongs to.
+ * @param options.signal - Interrupts the effect when aborted.
+ */
+export const fork = (
+  effect: Effect.Effect<
+    void,
+    never,
+    ManagedRuntime.ManagedRuntime.Services<ReturnType<typeof makeRuntime>>
+  >,
+  options?: { readonly signal?: AbortSignal },
+): void => {
+  runtime ??= makeRuntime();
+  runtime.runFork(effect, options);
+};
+
+/**
+ * Run an effect on the runtime of `web`. With `fork`, this is the only `Effect.run*` boundary in
+ * `apps/web`.
  *
  * @param effect - The effect to run.
  * @param options - The abort signal of the unit of work the effect belongs to.
