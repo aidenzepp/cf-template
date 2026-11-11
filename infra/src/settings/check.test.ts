@@ -228,6 +228,38 @@ describe("readDrift", () => {
       assert.deepStrictEqual(right, []);
     }),
   );
+
+  it.effect("reports a widened merge method and a changed merge setting", () =>
+    Effect.gen(function* widened() {
+      const lines = yield* drift({
+        [`GET ${base}`]: ok({
+          allow_auto_merge: true,
+          allow_merge_commit: true,
+          allow_rebase_merge: false,
+          allow_squash_merge: true,
+          delete_branch_on_merge: true,
+          owner: { login: "acme", type: "User" },
+          permissions: { admin: true },
+          private: true,
+        }),
+        [`GET ${base}/rulesets/7`]: ok({
+          rules: [
+            { parameters: { allowed_merge_methods: ["merge", "squash"] }, type: "pull_request" },
+          ],
+        }),
+      });
+
+      assert.include(lines, "MISMATCH allow_merge_commit: live true, declared false");
+      assert.include(
+        lines,
+        "MISMATCH main ruleset merge methods: live merge,squash, declared squash",
+      );
+      assert.include(
+        lines,
+        "MISMATCH main ruleset required checks: live , declared checks,convention-guard,merge-gate,pr-body,pr-title",
+      );
+    }),
+  );
 });
 
 describe("checkSettings", () => {
