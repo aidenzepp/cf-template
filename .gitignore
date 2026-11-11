@@ -3,6 +3,7 @@ dist/
 *.tsbuildinfo
 .env*
 !.env.example
+.alchemy/
 .DS_Store
 .worktrees/
 .vivi/
