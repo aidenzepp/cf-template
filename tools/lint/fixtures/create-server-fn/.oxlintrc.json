@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "importNames": ["createServerFn"],
+            "message": "no server functions in web (ST10)",
+            "name": "@tanstack/react-start"
+          }
+        ],
+        "patterns": []
+      }
+    ]
+  }
+}

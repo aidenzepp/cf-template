@@ -23,7 +23,7 @@ it("decodes a filled form into the contract's create request", () => {
 });
 
 it("rejects a form with a missing field", () => {
-  expect(Option.isNone(readNoteCreate(formOf({ title: "Shopping" })))).toBe(true);
+  expect(Option.isNone(readNoteCreate(formOf({ title: "Shopping" })))).toBeTruthy();
 });
 
 it("decodes a filled form into the contract's update request", () => {

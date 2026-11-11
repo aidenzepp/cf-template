@@ -39,7 +39,7 @@ const SQL_D1 = "4.1.2";
  */
 const traced = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* record() {
-    const spans: Tracer.NativeSpan[] = [];
+    const spans: Array<Tracer.NativeSpan> = [];
 
     const tracer = Tracer.make({
       span: (options) => {

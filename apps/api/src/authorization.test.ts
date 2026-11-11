@@ -23,7 +23,7 @@ import { ExampleFeatureGateLive } from "./notes/gate.ts";
 import { NotesApiHandlersNoDeps } from "./notes/http.ts";
 import { Notes } from "./notes/notes.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
-import { SystemApiHandlers } from "./system.ts";
+import { SystemApiHandlers } from "./system/http.ts";
 
 const ada = new Session({
   email: "ada@example.test",
@@ -179,7 +179,7 @@ describe("session middleware", () => {
 
   it.effect("passes the whole Cookie header, and the empty string when absent", () =>
     Effect.gen(function* cookies() {
-      const seen = yield* Ref.make<readonly string[]>([]);
+      const seen = yield* Ref.make<ReadonlyArray<string>>([]);
 
       const send = yield* serve(({ cookie }) =>
         Ref.update(seen, (all) => [...all, cookie]).pipe(Effect.as(wire(ada))),
@@ -220,7 +220,7 @@ describe("an answer or a fault that is not a clean session", () => {
   it.effect("logs a defect of the check by name only and answers 503", () =>
     Effect.gen(function* defect() {
       const cookie = "session=SECRETCOOKIE-1234";
-      const lines = yield* Ref.make<readonly string[]>([]);
+      const lines = yield* Ref.make<ReadonlyArray<string>>([]);
 
       const logger = Logger.make(({ fiber, message }) => {
         const annotations = fiber.getRef(References.CurrentLogAnnotations);

@@ -27,7 +27,7 @@ export interface NotesService {
   /**
    * List the owner's notes, newest first.
    */
-  readonly list: (owner: OwnerId) => Effect.Effect<readonly Note[]>;
+  readonly list: (owner: OwnerId) => Effect.Effect<ReadonlyArray<Note>>;
   /**
    * Store a new note, failing with `NoteQuotaExceeded` when the owner already holds
    * {@link NOTES_MAX_PER_OWNER}.
@@ -278,12 +278,12 @@ export class Notes extends Context.Service<Notes, NotesService>()("@workspace/ap
   static readonly layerMemory = Layer.effect(
     Notes,
     Effect.gen(function* buildMemoryNotes() {
-      const store = yield* Ref.make<ReadonlyMap<OwnerId, readonly Note[]>>(new Map());
+      const store = yield* Ref.make<ReadonlyMap<OwnerId, ReadonlyArray<Note>>>(new Map());
 
       const heldBy = (owner: OwnerId) =>
         Effect.map(Ref.get(store), (notes) => notes.get(owner) ?? []);
 
-      const replace = (owner: OwnerId, notes: readonly Note[]) =>
+      const replace = (owner: OwnerId, notes: ReadonlyArray<Note>) =>
         Ref.update(store, (current) => new Map(current).set(owner, notes));
 
       const find = Effect.fnUntraced(function* find(owner: OwnerId, id: NoteIdType) {

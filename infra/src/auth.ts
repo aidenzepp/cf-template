@@ -4,6 +4,7 @@ import { Config, ConfigProvider, Effect, Layer, Option, Path, Schema } from "eff
 import { AUTH_ORPHAN_GRACE_SECONDS } from "@workspace/config/auth-orphan-grace";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { AuthMethods } from "@workspace/config/auth-methods";
+import { limitKnobs, limitsFor } from "@workspace/config/limits";
 import { Auth } from "../../apps/auth/src/contract.ts";
 import { declareDatabase } from "../../apps/auth/src/db/database.ts";
 import AuthWorker, { AuthDeployment } from "../../apps/auth/src/worker.ts";
@@ -11,6 +12,7 @@ import { workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
 import { compat } from "./compat.ts";
 import type { publicOrigin } from "./origin.ts";
+import { issuesObservability, telemetryOptions } from "./telemetry.ts";
 
 /**
  * Read the credential pair of one OAuth provider: `<PREFIX>_CLIENT_ID` with
@@ -136,6 +138,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
   const encodedMethods = yield* Schema.encodeEffect(Schema.fromJsonString(AuthMethods))(methods);
   const scrypt = yield* AUTH_PASSWORD_SCRYPT.encode(values.AUTH_PASSWORD_SCRYPT);
   const grace = yield* encodedOrphanGrace;
+  const knobs = yield* limitKnobs;
   const main = yield* path.fromFileUrl(new URL("../../apps/auth/src/worker.ts", import.meta.url));
 
   const props = {
@@ -151,12 +154,18 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
       PUBLIC_ORIGIN: origin,
       ...secrets,
     },
+    limits: limitsFor("auth", { ...knobs, scrypt: values.AUTH_PASSWORD_SCRYPT }),
     main,
     name: yield* workerName({ stack, stage, worker: "auth" }),
+    observability: issuesObservability,
     workersDev: false,
   } satisfies Cloudflare.WorkerProps;
 
+  const telemetry = telemetryOptions(stage);
+
   return yield* Auth.pipe(
-    Effect.provide(AuthWorker.pipe(Layer.provide(Layer.succeed(AuthDeployment, { props })))),
+    Effect.provide(
+      AuthWorker.pipe(Layer.provide(Layer.succeed(AuthDeployment, { props, telemetry }))),
+    ),
   );
 });

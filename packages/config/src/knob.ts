@@ -1,4 +1,4 @@
-import { Config, Context, Effect, Option, Predicate, Schema } from "effect";
+import { Config, Context, Effect, Option, Predicate, Result, Schema } from "effect";
 
 /**
  * The defect that `Knob.make` raises at construction when the schema lacks a required annotation.
@@ -57,6 +57,11 @@ export class Knob<A> {
    */
   readonly decode: (raw: string) => Effect.Effect<A, Schema.SchemaError>;
   /**
+   * Decode the string form synchronously, throwing the `Schema.SchemaError` when it is invalid. For
+   * module-load validation, where a bad value must stop the load.
+   */
+  readonly decodeSync: (raw: string) => A;
+  /**
    * Encode a knob value into its string form, as written to a live source.
    */
   readonly encode: (a: A) => Effect.Effect<string, Schema.SchemaError>;
@@ -68,6 +73,7 @@ export class Knob<A> {
     this.default = defaultValue;
     this.config = Config.schema(schema, key).pipe(Config.withDefault(defaultValue));
     this.decode = (raw) => Schema.decodeUnknownEffect(codec)(raw);
+    this.decodeSync = Schema.decodeUnknownSync(codec);
     this.encode = (a) =>
       Schema.encodeEffect(codec)(a).pipe(
         Effect.flatMap((tree) =>
@@ -87,28 +93,26 @@ export class Knob<A> {
    * @param key - The name the knob is read under in every tier.
    * @param schema - A leaf schema annotated with `description` and `default`.
    * @returns The knob for `key`.
-   * @throws {MissingKnobAnnotationError} At module load, raised by `Effect.runSync`, when
-   *   `description` or `default` is absent from the schema.
+   * @throws {MissingKnobAnnotationError} At module load, when `description` or `default` is absent
+   *   from the schema.
    */
   static make<A>(key: string, schema: Schema.Codec<A, unknown>): Knob<A> {
     const annotations = Schema.resolveAnnotations(schema);
 
-    // `Effect.runSync` raises the typed failure at module load.
-    const { default: defaultValue } = Effect.runSync(
-      Effect.gen(function* annotated() {
-        if (annotations?.description === undefined) {
-          return yield* new MissingKnobAnnotationError({ annotation: "description", key });
-        }
-
-        if (annotations.default === undefined) {
-          return yield* new MissingKnobAnnotationError({ annotation: "default", key });
-        }
-
-        return { default: annotations.default };
-      }),
+    const checked: Result.Result<A, MissingKnobAnnotationError> = Result.fromNullishOr(
+      annotations?.description,
+      () => new MissingKnobAnnotationError({ annotation: "description", key }),
+    ).pipe(
+      Result.flatMap(() =>
+        Result.fromNullishOr(
+          annotations?.default,
+          () => new MissingKnobAnnotationError({ annotation: "default", key }),
+        ),
+      ),
     );
 
-    return new Knob(key, defaultValue, schema);
+    // `Result.getOrThrow` raises the typed failure at module load.
+    return new Knob(key, Result.getOrThrow(checked), schema);
   }
 }
 

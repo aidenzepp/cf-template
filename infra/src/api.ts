@@ -1,9 +1,11 @@
 import type * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Layer, Path } from "effect";
 import ApiWorkerImpl, { ApiDeployment, ApiWorker } from "../../apps/api/src/worker.ts";
+import { limitKnobs, limitsFor } from "@workspace/config/limits";
 import { workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
 import { compat } from "./compat.ts";
+import { issuesObservability, telemetryOptions } from "./telemetry.ts";
 
 /**
  * Declare the `api` Worker with its bindings.
@@ -28,6 +30,7 @@ export const declareApi = Effect.fn("declareApi")(function* declareApi(
   const { stack, stage } = identity;
   const path = yield* Path.Path;
   const main = yield* path.fromFileUrl(new URL("../../apps/api/src/worker.ts", import.meta.url));
+  const knobs = yield* limitKnobs;
 
   const props = {
     compatibility: { date: compat.date, flags: compat.flags.map((flag) => flag.name) },
@@ -37,12 +40,18 @@ export const declareApi = Effect.fn("declareApi")(function* declareApi(
       LOG_LEVEL: values.LOG_LEVEL,
       PROBLEM_DETAILS_INCLUDE: values.PROBLEM_DETAILS_INCLUDE,
     },
+    limits: limitsFor("api", { ...knobs, scrypt: values.AUTH_PASSWORD_SCRYPT }),
     main,
     name: yield* workerName({ stack, stage, worker: "api" }),
+    observability: issuesObservability,
     workersDev: false,
   } satisfies Cloudflare.WorkerProps;
 
+  const telemetry = telemetryOptions(stage);
+
   return yield* ApiWorker.pipe(
-    Effect.provide(ApiWorkerImpl.pipe(Layer.provide(Layer.succeed(ApiDeployment, { props })))),
+    Effect.provide(
+      ApiWorkerImpl.pipe(Layer.provide(Layer.succeed(ApiDeployment, { props, telemetry }))),
+    ),
   );
 });

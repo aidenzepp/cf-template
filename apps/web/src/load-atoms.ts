@@ -16,7 +16,7 @@ import type { AsyncResult, Atom } from "effect/reactivity";
  * @returns The dehydrated entries of the serializable atoms that left their initial state.
  */
 export const loadAtoms = Effect.fn("loadAtoms")(function* loadAtoms(
-  atoms: readonly Atom.Atom<AsyncResult.AsyncResult<unknown, unknown>>[],
+  atoms: ReadonlyArray<Atom.Atom<AsyncResult.AsyncResult<unknown, unknown>>>,
 ) {
   const registry = yield* Effect.acquireRelease(
     Effect.sync(() => AtomRegistry.make()),

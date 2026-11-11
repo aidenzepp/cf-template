@@ -1,0 +1,5 @@
+{
+  "rules": {
+    "no-restricted-properties": ["error", { "property": "withTransaction", "message": "writes only in packages/db" }]
+  }
+}

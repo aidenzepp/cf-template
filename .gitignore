@@ -4,8 +4,11 @@ dist/
 .env*
 !.env.example
 .alchemy/
+.tanstack/
+.vitest/
 .DS_Store
 .worktrees/
+/.mirrors/
 .vivi/
 work/
 docs/superpowers/

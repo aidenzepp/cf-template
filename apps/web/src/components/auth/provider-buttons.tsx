@@ -19,7 +19,7 @@ export const ProviderButtons = ({
   providers,
 }: {
   readonly callbackURL: string;
-  readonly providers: readonly string[];
+  readonly providers: ReadonlyArray<string>;
 }) =>
   providers.length === 0 ? null : (
     <div className="flex flex-col gap-2">

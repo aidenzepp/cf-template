@@ -1,14 +1,19 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Path } from "effect";
+import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
+import { limitKnobs, limitsFor } from "@workspace/config/limits";
 import type { Auth } from "../../apps/auth/src/contract.ts";
 import type { ApiWorker } from "../../apps/api/src/worker.ts";
 import type { WebEnv } from "../../apps/web/src/env.ts";
 import { FORWARD_PREFIXES } from "../../apps/web/src/forward-prefixes.ts";
+import { namespaceId } from "../../apps/web/src/ratelimit.ts";
 import { kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 import { encodedAuthMethods, encodedOrphanGrace } from "./auth.ts";
 import { compat } from "./compat.ts";
+import { domainFor } from "./domain.ts";
 import type { publicOrigin } from "./origin.ts";
+import { webObservability } from "./telemetry.ts";
 
 /**
  * The bindings of `web`: the two Workers it forwards to and the two values `apps/web` reads. Every
@@ -20,6 +25,8 @@ interface WebBindings extends Record<keyof WebEnv, string | object> {
   readonly AUTH_METHODS: string;
   readonly AUTH_ORPHAN_GRACE_SECONDS: string;
   readonly PUBLIC_ORIGIN: string;
+  readonly RATELIMIT_CREDENTIAL: object;
+  readonly RATELIMIT_PUBLIC: object;
 }
 
 /**
@@ -54,6 +61,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
   const path = yield* Path.Path;
   const methods = yield* encodedAuthMethods;
   const grace = yield* encodedOrphanGrace;
+  const knobs = yield* limitKnobs;
   const compatibility = { date: compat.date, flags: compat.flags.map((flag) => flag.name) };
 
   const env = {
@@ -62,15 +70,28 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     AUTH_METHODS: methods,
     AUTH_ORPHAN_GRACE_SECONDS: grace,
     PUBLIC_ORIGIN: origin,
+    RATELIMIT_CREDENTIAL: Cloudflare.RateLimit("RATELIMIT_CREDENTIAL", {
+      namespaceId: namespaceId(stack, stage, "credential"),
+      simple: { limit: 5, period: 60 },
+    }),
+    RATELIMIT_PUBLIC: Cloudflare.RateLimit("RATELIMIT_PUBLIC", {
+      namespaceId: namespaceId(stack, stage, "public"),
+      simple: { limit: 100, period: 10 },
+    }),
   } satisfies WebBindings;
+
+  const domain = yield* domainFor(stage);
 
   const web = yield* Cloudflare.Website.Vite("Web", {
     assets: { runWorkerFirst: [...FORWARD_PREFIXES] },
     compatibility,
+    domain: domain.domain,
     env,
+    limits: limitsFor("web", { ...knobs, scrypt: AUTH_PASSWORD_SCRYPT.default }),
     name: yield* workerName({ stack, stage, worker: "web" }),
+    observability: webObservability(stage),
     rootDir: "apps/web",
-    workersDev: true,
+    workersDev: domain.workersDev,
   });
 
   if (kindOf(stage) === "local") {

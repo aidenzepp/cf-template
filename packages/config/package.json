@@ -12,7 +12,9 @@
     "./public-origin": "./src/public-origin.ts",
     "./auth-orphan-grace": "./src/auth-orphan-grace.ts",
     "./auth-password": "./src/auth-password.ts",
-    "./mailer": "./src/mailer.ts"
+    "./limits": "./src/limits.ts",
+    "./mailer": "./src/mailer.ts",
+    "./observability": "./src/observability.ts"
   },
   "dependencies": {
     "effect": "4.1.2"

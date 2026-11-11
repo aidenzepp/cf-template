@@ -2,7 +2,6 @@ import { RegistryProvider } from "@effect/atom-react";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { setResponseHeader, setResponseStatus } from "@tanstack/react-start/server";
 import {
-  ErrorComponent,
   HeadContent,
   Outlet,
   ScriptOnce,
@@ -17,6 +16,8 @@ import { Toaster } from "@workspace/ui/components/ui/sonner";
 import { Effect } from "effect";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
+import { RouteError } from "../components/errors/error.tsx";
+import { NotFound } from "../components/errors/not-found.tsx";
 import { isAuthUnavailable, Retry } from "../components/retry.tsx";
 import { Nav } from "../components/shell/nav.tsx";
 import { UserMenu } from "../components/shell/user-menu.tsx";
@@ -190,11 +191,7 @@ export const Route = createRootRoute({
   },
   component: RootLayout,
   errorComponent: ({ error }) =>
-    error instanceof Error && isAuthUnavailable(error) ? (
-      <Retry />
-    ) : (
-      <ErrorComponent error={error} />
-    ),
+    error instanceof Error && isAuthUnavailable(error) ? <Retry /> : <RouteError />,
   head: () => ({
     links: [{ href: appCss, rel: "stylesheet" }],
     meta: [
@@ -204,5 +201,6 @@ export const Route = createRootRoute({
     ],
   }),
   headers: () => ({ "Cache-Control": "private, no-store" }),
+  notFoundComponent: NotFound,
   shellComponent: RootDocument,
 });

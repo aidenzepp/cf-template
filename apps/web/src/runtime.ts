@@ -1,8 +1,7 @@
 import { env } from "cloudflare:workers";
 import { createIsomorphicFn } from "@tanstack/react-start";
-import { Layer, ManagedRuntime } from "effect";
+import { Effect, Layer, Logger, ManagedRuntime } from "effect";
 import { AtomRegistry } from "effect/reactivity";
-import type { Effect } from "effect";
 import { ApiClient } from "./api-client.ts";
 import { makeOrphanGraceLayer, makeWebLayer } from "./web-layer.ts";
 
@@ -52,11 +51,21 @@ export const hydrateAuthMethods = (text: string): void => {
 };
 
 /**
+ * Structured JSON logs that reach `console.error`, `console.warn` and the rest at their own level.
+ *
+ * `web` is a `Website.Vite` Worker with no Alchemy init effect, so `Cloudflare.Telemetry` has no
+ * Worker to bind to here: its Effect spans stay local and Cloudflare's own spans come from the
+ * `observability.traces` prop `infra/src/web.ts` sets.
+ */
+export const structuredLogs = Logger.layer([Logger.withLeveledConsole(Logger.formatStructured)]);
+
+/**
  * The one runtime of `web`, built on first use so the browser reads the hydrated text.
  */
 const makeRuntime = () =>
   ManagedRuntime.make(
     Layer.mergeAll(
+      structuredLogs,
       makeWebLayer({ AUTH_METHODS: authMethodsText() }),
       makeOrphanGraceLayer({ AUTH_ORPHAN_GRACE_SECONDS: orphanGraceText() }),
       AtomRegistry.make().get(ApiClient.runtime.layer),
@@ -66,7 +75,28 @@ const makeRuntime = () =>
 let runtime: ReturnType<typeof makeRuntime> | undefined;
 
 /**
- * Run an effect on the runtime of `web`. This is the only `Effect.run*` boundary in `apps/web`.
+ * Start an effect on the runtime of `web` without awaiting it, for work that ends with its unit of
+ * work (a mounted component). Aborting the signal interrupts the fiber.
+ *
+ * @param effect - The effect to start; it handles its own failures.
+ * @param options - The abort signal of the unit of work the effect belongs to.
+ * @param options.signal - Interrupts the effect when aborted.
+ */
+export const fork = (
+  effect: Effect.Effect<
+    void,
+    never,
+    ManagedRuntime.ManagedRuntime.Services<ReturnType<typeof makeRuntime>>
+  >,
+  options?: { readonly signal?: AbortSignal },
+): void => {
+  runtime ??= makeRuntime();
+  runtime.runFork(effect, options);
+};
+
+/**
+ * Run an effect on the runtime of `web`. With `fork`, this is the only `Effect.run*` boundary in
+ * `apps/web`.
  *
  * @param effect - The effect to run.
  * @param options - The abort signal of the unit of work the effect belongs to.
@@ -83,5 +113,14 @@ export const run = <A, E>(
 ): Promise<A> => {
   runtime ??= makeRuntime();
 
-  return runtime.runPromise(effect, options);
+  // A defect that is not an `Error` (a string passed to `die`) would reject with that bare value,
+  // which the router dehydrates as it is. An `Error` goes through the router's hidden-error adapter.
+  return runtime.runPromise(
+    effect.pipe(
+      Effect.catchDefect((defect) =>
+        Effect.die(defect instanceof Error ? defect : new Error("Unexpected defect")),
+      ),
+    ),
+    options,
+  );
 };

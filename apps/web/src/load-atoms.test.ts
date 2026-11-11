@@ -11,7 +11,7 @@ const FailingResult = AsyncResult.Schema({ error: Schema.String });
  * A query atom the way a route declares one: serializable under a key, with the schema of its
  * result.
  */
-const titles = Atom.make(Effect.succeed<readonly string[]>(["a", "b"])).pipe(
+const titles = Atom.make(Effect.succeed<ReadonlyArray<string>>(["a", "b"])).pipe(
   Atom.serializable({ key: "titles", schema: TitlesResult, skipInitialRun: true }),
 );
 
@@ -21,7 +21,7 @@ const failing = Atom.make(Effect.fail("down")).pipe(
 
 const plain = Atom.make(Effect.succeed(1));
 
-const keys = (state: readonly Hydration.DehydratedAtom[]) =>
+const keys = (state: ReadonlyArray<Hydration.DehydratedAtom>) =>
   Hydration.toValues(state)
     .map((entry) => entry.key)
     .toSorted();

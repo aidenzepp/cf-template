@@ -1,0 +1,214 @@
+import { BunServices } from "@effect/platform-bun";
+
+import { assert, describe, it } from "@effect/vitest";
+
+import { Array as Arr, Effect, FileSystem, Order, Path, Schema } from "effect";
+
+import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
+import antiSlopPreset from "ultracite/oxlint/anti-slop";
+
+import config from "../../vite.config.ts";
+
+/**
+ * The lines of `blank-lines/cases.ts` that `anti-slop/require-readable-spacing` reports. The
+ * fixture diff for turning that rule off recorded them; the stylistic rule must keep reporting
+ * all of them.
+ */
+const expectedAntiSlopLines: ReadonlyArray<number> = [
+  2, 3, 5, 8, 9, 12, 13, 16, 17, 18, 19, 21, 22, 26, 27, 29, 31, 32, 34, 37, 38, 40, 41, 43, 44, 47,
+  49, 50, 53, 54, 56, 57, 60,
+];
+
+/**
+ * The oxlint JSON report, reduced to the file name of each diagnostic.
+ */
+const Report = Schema.fromJsonString(
+  Schema.Struct({ diagnostics: Schema.Array(Schema.Struct({ filename: Schema.String })) }),
+);
+
+/**
+ * Resolves the repository root, the oxlint binary and the type-aware engine, both from the
+ * installed Vite+ so the fixtures and `vp check` run one engine. Vite+ pins `oxlint` and
+ * `oxlint-tsgolint` as its own dependencies, so they resolve only from its package location.
+ * Setting `OXLINT_TSGOLINT_PATH` on every spawn keeps a bare `oxlint` from preferring another
+ * engine (`tsrs-lint`) from Oxlint 1.92 on.
+ */
+const toolchain = Effect.gen(function* resolve() {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const root = yield* path.fromFileUrl(new URL("../..", import.meta.url));
+
+  // In an isolated install the dependencies of Vite+ sit beside its real package directory, not
+  // beside the `node_modules/vite-plus` link.
+  const dependencies = path.dirname(
+    yield* fs.realPath(path.join(root, "node_modules", "vite-plus")),
+  );
+
+  const tsgolint = path.join(dependencies, "oxlint-tsgolint", "bin", "tsgolint.js");
+
+  const oxlint = path.join(dependencies, "oxlint", "bin", "oxlint");
+
+  return { oxlint, root, tsgolint };
+});
+
+/**
+ * Lints the given fixture files with the fixture's own `.oxlintrc.json` and returns the number of
+ * diagnostics reported per file name.
+ */
+const lintFixture = Effect.fnUntraced(function* lintFixture(
+  dir: string,
+  files: ReadonlyArray<string>,
+) {
+  const path = yield* Path.Path;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const { oxlint, root, tsgolint } = yield* toolchain;
+
+  const output = yield* spawner.string(
+    ChildProcess.make(
+      "node",
+      [
+        oxlint,
+        "-f",
+        "json",
+        "-c",
+        path.join(dir, ".oxlintrc.json"),
+        ...files.map((file) => path.join(dir, file)),
+      ],
+      { cwd: root, env: { OXLINT_TSGOLINT_PATH: tsgolint }, extendEnv: true },
+    ),
+  );
+
+  const { diagnostics } = yield* Schema.decodeUnknownEffect(Report)(output);
+
+  return (file: string) =>
+    diagnostics.filter((diagnostic) => path.basename(diagnostic.filename) === file).length;
+});
+
+/**
+ * The rule settings of the repository's own lint configuration.
+ */
+type LintRules = NonNullable<NonNullable<typeof config.lint>["rules"]>;
+
+/**
+ * The oxlint JSON report, reduced to the line of each diagnostic.
+ */
+const LineReport = Schema.fromJsonString(
+  Schema.Struct({
+    diagnostics: Schema.Array(
+      Schema.Struct({
+        labels: Schema.Array(Schema.Struct({ span: Schema.Struct({ line: Schema.Number }) })),
+      }),
+    ),
+  }),
+);
+
+/**
+ * Lints `blank-lines/cases.ts` with exactly one rule, from a throwaway config under `work/`, and
+ * returns the sorted, distinct lines it reports.
+ */
+const reportedLines = Effect.fnUntraced(function* reportedLines(
+  jsPlugins: ReadonlyArray<string | { name: string; specifier: string }>,
+  rules: LintRules,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const { oxlint, root, tsgolint } = yield* toolchain;
+
+  yield* fs.makeDirectory(path.join(root, "work"), { recursive: true });
+
+  const dir = yield* fs.makeTempDirectoryScoped({ directory: path.join(root, "work") });
+  const configPath = path.join(dir, "oxlintrc.json");
+
+  yield* fs.writeFileString(configPath, JSON.stringify({ jsPlugins, rules }));
+
+  const output = yield* spawner.string(
+    ChildProcess.make(
+      "node",
+      [
+        oxlint,
+        "-f",
+        "json",
+        "-c",
+        configPath,
+        path.join(root, "tools", "lint", "fixtures", "blank-lines", "cases.ts"),
+      ],
+      { cwd: root, env: { OXLINT_TSGOLINT_PATH: tsgolint }, extendEnv: true },
+    ),
+  );
+
+  const { diagnostics } = yield* Schema.decodeUnknownEffect(LineReport)(output);
+
+  return Arr.sort(
+    [...new Set(diagnostics.flatMap(({ labels }) => labels.map(({ span }) => span.line)))],
+    Order.Number,
+  );
+});
+
+describe("lint fixtures", () => {
+  it.effect("the stylistic padding rule reports every line require-readable-spacing reports", () =>
+    Effect.gen(function* superset() {
+      const antiSlop = yield* reportedLines(antiSlopPreset.jsPlugins ?? [], {
+        "anti-slop/require-readable-spacing": "error",
+      });
+
+      const stylistic = yield* reportedLines(["@stylistic/eslint-plugin"], {
+        "@stylistic/padding-line-between-statements":
+          config.lint?.rules?.["@stylistic/padding-line-between-statements"],
+      });
+
+      assert.deepStrictEqual(antiSlop, expectedAntiSlopLines);
+      assert.isTrue(antiSlop.every((line) => stylistic.includes(line)));
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+  );
+
+  it.effect("the type-aware engine Vite+ uses exists", () =>
+    Effect.gen(function* engine() {
+      const fs = yield* FileSystem.FileSystem;
+      const { oxlint, tsgolint } = yield* toolchain;
+
+      assert.isTrue(yield* fs.exists(tsgolint));
+      assert.isTrue(yield* fs.exists(oxlint));
+    }).pipe(Effect.provide(BunServices.layer)),
+  );
+
+  it.effect("each rule fixture fires once on fire.ts and never on pass.ts", () =>
+    Effect.gen(function* rules() {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const { root } = yield* toolchain;
+      const fixtures = path.join(root, "tools", "lint", "fixtures");
+
+      for (const name of yield* fs.readDirectory(fixtures)) {
+        const dir = path.join(fixtures, name);
+
+        if (yield* fs.exists(path.join(dir, ".oxlintrc.json"))) {
+          const count = yield* lintFixture(dir, ["fire.ts", "pass.ts"]);
+
+          assert.strictEqual(count("fire.ts"), 1, `${name}/fire.ts`);
+          assert.strictEqual(count("pass.ts"), 0, `${name}/pass.ts`);
+        }
+      }
+    }).pipe(Effect.provide(BunServices.layer)),
+  );
+
+  it.effect("a package import that leaves rootDir fails the installed tsc with TS6059", () =>
+    Effect.gen(function* escape() {
+      const path = yield* Path.Path;
+      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+      const { root } = yield* toolchain;
+
+      // `typescript` 7.0.2 installs the native compiler behind `node_modules/.bin/tsc`.
+      const output = yield* spawner.string(
+        ChildProcess.make(
+          path.join(root, "node_modules", ".bin", "tsc"),
+          ["-p", "tools/lint/fixtures/package-escape/tsconfig.json"],
+          { cwd: root },
+        ),
+      );
+
+      assert.include(output, "error TS6059");
+    }).pipe(Effect.provide(BunServices.layer)),
+  );
+});
