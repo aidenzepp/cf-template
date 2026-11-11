@@ -1,4 +1,5 @@
 import { Config, Context, Effect, Option, Predicate, Schema } from "effect";
+import { TaggedError as taggedError } from "effect/Schema";
 
 /**
  * The defect that `Knob.make` raises at construction when the schema lacks a required annotation.
@@ -6,18 +7,24 @@ import { Config, Context, Effect, Option, Predicate, Schema } from "effect";
  * Annotations are not part of the schema's type, so the check runs when the module that declares
  * the knob loads, not when the compiler runs.
  */
-export class MissingKnobAnnotationError extends Error {
-  override readonly name = "MissingKnobAnnotationError";
-  readonly _tag = "MissingKnobAnnotation";
-  readonly annotation: "description" | "default";
-  readonly key: string;
+export class MissingKnobAnnotationError extends taggedError<MissingKnobAnnotationError>()(
+  "MissingKnobAnnotationError",
+  { annotation: Schema.Literals(["description", "default"]), key: Schema.String },
+) {
+  override get message(): string {
+    return `Knob ${this.key} has no "${this.annotation}" annotation. Add it with Schema.annotate({ ${this.annotation}: ... }) where the knob is declared.`;
+  }
+}
 
-  constructor(key: string, annotation: "description" | "default") {
-    super(
-      `Knob ${key} has no "${annotation}" annotation. Add it with Schema.annotate({ ${annotation}: ... }) where the knob is declared.`,
-    );
-    this.annotation = annotation;
-    this.key = key;
+/**
+ * The defect that `Knob.encode` raises when a knob's schema is not a leaf and so has no one-string
+ * form.
+ */
+export class KnobNotLeafError extends taggedError<KnobNotLeafError>()("KnobNotLeafError", {
+  key: Schema.String,
+}) {
+  override get message(): string {
+    return `Knob ${this.key} is not a leaf schema, so it has no one-string form.`;
   }
 }
 
@@ -67,9 +74,7 @@ export class Knob<A> {
         Effect.flatMap((tree) =>
           Predicate.isString(tree)
             ? Effect.succeed(tree)
-            : Effect.die(
-                new Error(`Knob ${key} is not a leaf schema, so it has no one-string form.`),
-              ),
+            : Effect.die(new KnobNotLeafError({ key })),
         ),
       );
   }
@@ -83,34 +88,40 @@ export class Knob<A> {
    * @param key - The name the knob is read under in every tier.
    * @param schema - A leaf schema annotated with `description` and `default`.
    * @returns The knob for `key`.
-   * @throws {MissingKnobAnnotationError} When `description` or `default` is absent from the schema.
+   * @throws {MissingKnobAnnotationError} At module load, raised by `Effect.runSync`, when
+   *   `description` or `default` is absent from the schema.
    */
   static make<A>(key: string, schema: Schema.Codec<A>): Knob<A> {
     const annotations = Schema.resolveAnnotations(schema);
 
-    if (annotations?.description === undefined) {
-      throw new MissingKnobAnnotationError(key, "description");
-    }
+    // `Effect.runSync` raises the typed failure at module load.
+    const { default: defaultValue } = Effect.runSync(
+      Effect.gen(function* annotated() {
+        if (annotations?.description === undefined) {
+          return yield* new MissingKnobAnnotationError({ annotation: "description", key });
+        }
 
-    if (annotations.default === undefined) {
-      throw new MissingKnobAnnotationError(key, "default");
-    }
+        if (annotations.default === undefined) {
+          return yield* new MissingKnobAnnotationError({ annotation: "default", key });
+        }
 
-    return new Knob(key, annotations.default, schema);
+        return { default: annotations.default };
+      }),
+    );
+
+    return new Knob(key, defaultValue, schema);
   }
 }
 
 /**
  * The failure of a live source read, such as an unreachable store.
  */
-export class LiveSourceError extends Error {
-  override readonly name = "LiveSourceError";
-  readonly _tag = "LiveSourceError";
-  readonly source: string;
-
-  constructor(source: string, cause: unknown) {
-    super(`Live source ${source} could not be read.`, { cause });
-    this.source = source;
+export class LiveSourceError extends taggedError<LiveSourceError>()("LiveSourceError", {
+  cause: Schema.Unknown,
+  source: Schema.String,
+}) {
+  override get message(): string {
+    return `Live source ${this.source} could not be read.`;
   }
 }
 
