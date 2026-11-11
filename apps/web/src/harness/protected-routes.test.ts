@@ -66,16 +66,22 @@ const WebProdLive = Layer.effect(WebProd)(
     const web = yield* path.fromFileUrl(new URL("../..", import.meta.url));
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
+    // Its own output directory: `server.test.ts` builds into `dist` in parallel, and a shared one
+    // lets either build empty the other's bundle ("Modules list cannot be empty").
+    const outDir = path.join(web, "node_modules", ".cache", "protected-routes-harness");
+
     const build = yield* spawner
-      .exitCode(ChildProcess.make("bun", ["run", "build:prod-harness"], { cwd: web }))
+      .exitCode(
+        ChildProcess.make("bun", ["run", "build:prod-harness", "--outDir", outDir], { cwd: web }),
+      )
       .pipe(Effect.mapError((cause) => new HarnessError({ message: cause.message })));
 
     if (build !== 0) {
       return yield* new HarnessError({ message: `build:prod-harness exited ${build}` });
     }
 
-    const server = path.join(web, "dist", "server");
-    const client = path.join(web, "dist", "client");
+    const server = path.join(outDir, "server");
+    const client = path.join(outDir, "client");
 
     const files = (yield* fs.readDirectory(server, { recursive: true })).filter((file) =>
       file.endsWith(".js"),
