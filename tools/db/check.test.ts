@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, it } from "@effect/vitest";
-import { Effect, FileSystem, Layer, Path, Stream } from "effect";
+import { Config, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { findings, run } from "./check.ts";
@@ -73,8 +73,10 @@ const copied = [
   "apps/api/src/db/schema.ts",
   "apps/api/src/notes/table.ts",
   "apps/api/migrations",
+  "apps/auth/auth.config.ts",
   "apps/auth/drizzle.config.ts",
-  "apps/auth/src/db/schema.ts",
+  "apps/auth/package.json",
+  "apps/auth/src",
   "apps/auth/migrations",
 ];
 
@@ -196,6 +198,43 @@ const dropRepository = Effect.fn("db.test.dropRepository")(function* dropReposit
   return { base: (yield* git("rev-parse", "HEAD")).trim(), root };
 });
 
+/**
+ * Runs the real `.vite-hooks/pre-push` in `root` with only `PATH` and `HOME` set and a `bun` on
+ * `PATH` that exits 0, so only the hook's own lines decide the result. Returns its exit code and
+ * stderr.
+ */
+const prePush = Effect.fn("db.test.prePush")(function* prePush(root: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const bin = path.join(root, "stub");
+
+  yield* fs.makeDirectory(bin, { recursive: true });
+  yield* fs.writeFileString(path.join(bin, "bun"), "#!/bin/sh\nexit 0\n", { mode: 0o755 });
+
+  const env = {
+    HOME: yield* Config.String("HOME"),
+    PATH: `${bin}:${yield* Config.String("PATH")}`,
+  };
+
+  const hook = yield* path.fromFileUrl(new URL("../../.vite-hooks/pre-push", import.meta.url));
+
+  return yield* Effect.scoped(
+    Effect.gen(function* spawned() {
+      const handle = yield* spawner.spawn(
+        ChildProcess.make("sh", [hook], { cwd: root, env, extendEnv: false }),
+      );
+
+      const [stderr, code] = yield* Effect.all(
+        [Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode],
+        { concurrency: 2 },
+      );
+
+      return { code: Number(code), stderr: stderr.trim() };
+    }),
+  );
+});
+
 const timeout = { timeout: 120_000 };
 
 it.layer(realRepositoryUnchanged)("db:check", () => {
@@ -282,6 +321,79 @@ it.layer(realRepositoryUnchanged)("db:check", () => {
           yield* findings(green.root, { base: green.base, only: ["dangerous-sql"] }),
           [],
         );
+      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+    timeout,
+  );
+
+  it.effect(
+    "auth-schema fails the stale-auth-schema fixture, naming the file",
+    () =>
+      Effect.gen(function* stale() {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* scratchTree();
+
+        yield* fs.copyFile(
+          yield* path.fromFileUrl(
+            new URL("fixtures/stale-auth-schema/schema.txt", import.meta.url),
+          ),
+          path.join(root, "apps/auth/src/db/schema.ts"),
+        );
+
+        assert.deepStrictEqual(yield* findings(root, { only: ["auth-schema"] }), [
+          "db:check auth-schema: apps/auth/src/db/schema.ts: differs from what the Better Auth CLI generates on Node; run bun run auth:generate",
+        ]);
+      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+    timeout,
+  );
+
+  it.effect(
+    "pre-push refuses an uncommitted migration, then proceeds once it is committed",
+    () =>
+      Effect.gen(function* hook() {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const repo = yield* path.fromFileUrl(new URL("../..", import.meta.url));
+
+        yield* fs.makeDirectory(path.join(repo, "work"), { recursive: true });
+
+        const root = yield* fs.makeTempDirectoryScoped({
+          directory: path.join(repo, "work"),
+          prefix: "db-check-hook-",
+        });
+
+        const git = (...args: ReadonlyArray<string>) =>
+          run(root, "git", [
+            "-C",
+            root,
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "commit.gpgsign=false",
+            ...args,
+          ]);
+
+        const migration = path.join(root, "apps/x/migrations/20260101000000_new");
+
+        yield* git("init", "-q");
+        yield* git("commit", "-q", "--allow-empty", "-m", "base");
+        yield* fs.makeDirectory(migration, { recursive: true });
+        yield* fs.writeFileString(
+          path.join(migration, "migration.sql"),
+          "CREATE TABLE `x` (`id` text);\n",
+        );
+
+        assert.deepStrictEqual(yield* prePush(root), {
+          code: 1,
+          stderr: "uncommitted migrations under apps/*/migrations/; commit them before pushing",
+        });
+
+        yield* git("add", "apps/x/migrations");
+        yield* git("commit", "-q", "-m", "migration");
+
+        assert.deepStrictEqual(yield* prePush(root), { code: 0, stderr: "" });
       }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
     timeout,
   );

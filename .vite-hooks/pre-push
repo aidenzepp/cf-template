@@ -3,5 +3,6 @@ set -eu
 # Block the push unless it would pass CI: checks, build, then the tests.
 PATH="$(git rev-parse --show-toplevel)/node_modules/.bin:$PATH"
 bun run check
+[ -z "$(git status --porcelain -- 'apps/*/migrations/*')" ] || { echo "uncommitted migrations under apps/*/migrations/; commit them before pushing" >&2; exit 1; }
 bun run build
 bun run test
