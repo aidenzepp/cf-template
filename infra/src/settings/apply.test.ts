@@ -103,7 +103,10 @@ describe("applySettings", () => {
       Effect.gen(function* accepted() {
         const { calls, run } = harness({ GITHUB_API_URL: value }, true);
 
-        yield* run;
+        // The test checks only that the ambient-credential refusal lets the run start. This fake
+        // answers every read with one body, so the run ends later at a read it cannot decode;
+        // check.test.ts covers the reads with real-shaped state.
+        yield* Effect.ignore(run);
 
         assert.strictEqual(calls[0], "GET /repos/acme/widget");
       }),
