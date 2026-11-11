@@ -94,7 +94,7 @@ export const SignInForm = ({
     return () => {
       controller.abort();
     };
-  }, []);
+  }, [fork]);
 
   const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
     event.preventDefault();

@@ -95,7 +95,7 @@ export const Reauthenticate = ({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Confirm it's you</DialogTitle>
+          <DialogTitle>Confirm it&apos;s you</DialogTitle>
           <DialogDescription>
             {providers.length === 0
               ? "Enter your password to continue."
