@@ -10,6 +10,7 @@
   "scripts": {
     "check": "vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings",
     "fix": "vp check --fix",
+    "alchemy": "ALCHEMY_TELEMETRY_DISABLED=1 alchemy",
     "test": "bun test tools/lint && vp test",
     "prepare": "vp config --no-agent && bun tools/supdoc/install.ts",
     "build": "vp run -r build"
