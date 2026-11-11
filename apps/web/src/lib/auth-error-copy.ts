@@ -16,8 +16,17 @@ export interface AuthErrorInput {
  * copy.
  */
 const CODE_COPY = {
+  ACCOUNT_NOT_FOUND: "That account isn't linked anymore. Reload the page.",
+  FAILED_TO_UNLINK_LAST_ACCOUNT:
+    "That is your only way to sign in. Add another one before you remove it.",
+  FAILED_TO_UPDATE_PASSKEY: "The passkey couldn't be renamed. Try again.",
+  FAILED_TO_VERIFY_REGISTRATION: "The passkey couldn't be added. Try again.",
   INVALID_EMAIL_OR_PASSWORD: "Wrong email or password.",
+  INVALID_PASSWORD: "That password is wrong.",
+  PASSKEY_NOT_FOUND: "That passkey is gone. Reload the page.",
+  PASSWORD_TOO_LONG: "Use a shorter password.",
   PASSWORD_TOO_SHORT: "Use a longer password.",
+  SESSION_EXPIRED: "Your session ended. Sign in again.",
   USER_ALREADY_EXISTS: "An account with this email already exists. Sign in instead.",
 } as const satisfies Record<string, string>;
 
