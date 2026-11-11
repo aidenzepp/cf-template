@@ -4,6 +4,7 @@ import { Config, Effect, Layer, Path, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
 import { Stage, stageValues, workerName } from "./stages.ts";
+import { declareApi } from "./src/api.ts";
 import { declareAuth } from "./src/auth.ts";
 import { compat } from "./src/compat.ts";
 import { d1LocationHint } from "./src/d1-location.ts";
@@ -83,8 +84,8 @@ const program = Effect.gen(function* declareStack() {
   yield* declareAppDb(stack, stage, hint);
 
   const declareWorker = Effect.fn("declareWorker")(function* declareWorker(
-    id: "Web" | "Api",
-    app: "web" | "api",
+    id: "Web",
+    app: "web",
     workersDev: boolean,
   ) {
     const main = yield* path.fromFileUrl(new URL(`../apps/${app}/src/worker.ts`, import.meta.url));
@@ -99,8 +100,9 @@ const program = Effect.gen(function* declareStack() {
   });
 
   yield* declareWorker("Web", "web", true);
-  yield* declareWorker("Api", "api", false);
+
   yield* declareAuth({ stack, stage }, hint, values);
+  yield* declareApi({ stack, stage }, values);
 
   return {};
 }).pipe(Effect.orDie);

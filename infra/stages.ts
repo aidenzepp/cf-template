@@ -2,6 +2,8 @@ import { Config, Effect, Option, Schema, SchemaTransformation } from "effect";
 import type { LogLevel } from "effect";
 import { Digest } from "effect/crypto";
 import { LogLevelKnob } from "@workspace/config/log-level";
+import { AuthCheckSessionTimeoutKnob, ProblemDetailsIncludeKnob } from "../apps/api/src/config.ts";
+import { ExampleFeatureKnob } from "../apps/api/src/notes/knob.ts";
 import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "../apps/auth/src/config.ts";
 
 /**
@@ -210,21 +212,34 @@ const validated = <A>(
  * The knob values of one stage kind.
  */
 export interface StageValues {
+  readonly AUTH_CHECK_SESSION_TIMEOUT_MS: typeof AuthCheckSessionTimeoutKnob.default;
   readonly AUTH_COOKIE_CACHE_MAX_AGE_S: typeof CookieCacheMaxAgeKnob.default;
   readonly AUTH_COOKIE_CACHE_STRATEGY: typeof CookieCacheStrategyKnob.default;
+  readonly EXAMPLE_FEATURE_ENABLED: typeof ExampleFeatureKnob.default;
   readonly LOG_LEVEL: LogLevel.LogLevel;
+  readonly PROBLEM_DETAILS_INCLUDE: typeof ProblemDetailsIncludeKnob.default;
 }
 
 /**
- * The knob values of one stage kind: the given log level and every other knob at its default.
+ * The knob values of one stage kind: the given log level, the given `api` switches and every other
+ * knob at its default.
  *
  * @param logLevel - The raw `LOG_LEVEL` value of the kind.
+ * @param api - The `api` switches of the kind, both off on `prod`.
+ * @param api.exampleFeature - Whether the example notes feature is on.
+ * @param api.problemDetails - Whether a 400 problem body lists the validation issues.
  * @returns The validated values of the kind.
  */
-const stageRow = (logLevel: string): StageValues => ({
+const stageRow = (
+  logLevel: string,
+  api: { readonly exampleFeature: string; readonly problemDetails: string },
+): StageValues => ({
+  AUTH_CHECK_SESSION_TIMEOUT_MS: validated(AuthCheckSessionTimeoutKnob, "500"),
   AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob.default,
   AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
+  EXAMPLE_FEATURE_ENABLED: validated(ExampleFeatureKnob, api.exampleFeature),
   LOG_LEVEL: validated(LogLevelKnob, logLevel),
+  PROBLEM_DETAILS_INCLUDE: validated(ProblemDetailsIncludeKnob, api.problemDetails),
 });
 
 /**
@@ -232,10 +247,10 @@ const stageRow = (logLevel: string): StageValues => ({
  * loads. Each knob-adding block adds its key and a value per kind.
  */
 export const Stages: Record<StageKind, StageValues> = {
-  local: stageRow("Debug"),
-  prod: stageRow("Info"),
-  staging: stageRow("Debug"),
-  test: stageRow("Debug"),
+  local: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }),
+  prod: stageRow("Info", { exampleFeature: "false", problemDetails: "false" }),
+  staging: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }),
+  test: stageRow("Debug", { exampleFeature: "true", problemDetails: "true" }),
 };
 
 /**
