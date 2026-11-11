@@ -79,6 +79,7 @@
         "@effect/atom-react": "4.1.2",
         "@tanstack/react-router": "1.170.46",
         "@tanstack/react-start": "1.169.5",
+        "@workspace/budget-guard": "workspace:*",
         "@workspace/config": "workspace:*",
         "@workspace/contract": "workspace:*",
         "@workspace/knobs-kv": "workspace:*",
@@ -116,6 +117,7 @@
       "name": "@workspace/budget-guard",
       "dependencies": {
         "@alchemy.run/cloudflare": "2.0.0-beta.85",
+        "@workspace/config": "workspace:*",
         "alchemy": "2.0.0-beta.85",
         "effect": "4.1.2",
       },
