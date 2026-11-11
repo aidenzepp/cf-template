@@ -1,6 +1,7 @@
 import { defineConfig } from "vite-plus";
 import core from "ultracite/oxlint/core";
 import antiSlop from "ultracite/oxlint/anti-slop";
+import shadcn from "ultracite/oxlint/shadcn";
 
 /**
  * Matches module declarations and calls without spacing local call groups.
@@ -18,6 +19,20 @@ const effectLogStatement = {
     'ExpressionStatement:matches([expression.type="CallExpression"], [expression.type="YieldExpression"]):has(CallExpression[callee.type="MemberExpression"][callee.object.name="Effect"][callee.property.name=/^log(Trace|Debug|Info|Warning|Error|Fatal)?$/])',
 };
 
+/**
+ * The registry-owned tree of `packages/ui`, written only by the shadcn CLI. Policy change required
+ * by `AGENTS.md`:
+ *
+ * - Failing rules: 555 lint diagnostics and 26 format failures without this ignore.
+ * - Why changing the code is worse: vendored code is never edited, so no finding there could ever be
+ *   fixed.
+ * - Smallest change: ignore only the registry-owned tree and `components.json`; the hand-authored
+ *   `packages/ui/package.json` and `tsconfig.json` stay formatted and linted.
+ * - Consequence: no lint or format on those paths; the type check moves to the `packages/ui` script
+ *   run by `bun run check`.
+ */
+const vendored = ["packages/ui/src/**", "packages/ui/components.json"];
+
 export default defineConfig({
   fmt: {
     ignorePatterns: [
@@ -26,17 +41,19 @@ export default defineConfig({
       "apps/auth/src/db/schema.ts",
       "bun.lock",
       "work/**",
+      ...vendored,
     ],
     jsdoc: { commentLineStrategy: "multiline", lineWrappingStyle: "balance" },
   },
   lint: {
-    extends: [core, antiSlop],
+    extends: [core, antiSlop, shadcn],
     ignorePatterns: [
       ".agents/**",
       ".worktrees/**",
       "apps/auth/src/db/schema.ts",
       "dist/**",
       "work/**",
+      ...vendored,
     ],
     jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin"],
     // `vp check` runs type-aware rules and the type check only when both are enabled.

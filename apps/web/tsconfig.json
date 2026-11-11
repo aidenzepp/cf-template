@@ -1,6 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
+    "lib": ["ESNext", "DOM"],
+    "paths": { "@workspace/ui/*": ["../../packages/ui/src/*"] },
     "rootDir": "src"
   },
   "include": ["src"]
