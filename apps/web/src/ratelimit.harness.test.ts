@@ -84,6 +84,7 @@ class WebProd extends Context.Service<
     ) => Effect.Effect<HarnessResponse, HarnessError>;
     readonly limiterCalls: (name: "credential" | "public") => Effect.Effect<number, HarnessError>;
     readonly stderr: () => ReadonlyArray<string>;
+    readonly awaitStderr: (from: number, text: string) => Effect.Effect<string>;
   }
 >()("@workspace/web/RateLimitWebProd") {}
 
@@ -127,6 +128,10 @@ const WebProdLive = Layer.effect(WebProd)(
 
     const stderr: Array<string> = [];
 
+    // Callbacks that re-check the stream when a chunk arrives: workerd delivers its stderr to this
+    // process on its own schedule, after the response that caused the line.
+    const watchers = new Set<() => void>();
+
     const mf = yield* Effect.acquireRelease(
       Effect.tryPromise({
         catch: (cause) =>
@@ -138,6 +143,10 @@ const WebProdLive = Layer.effect(WebProd)(
             handleRuntimeStdio: (_stdout: StderrStream, err: StderrStream) => {
               err.on("data", (chunk) => {
                 stderr.push(new TextDecoder().decode(chunk));
+
+                for (const notify of watchers) {
+                  notify();
+                }
               });
             },
             workers: [
@@ -190,6 +199,24 @@ const WebProdLive = Layer.effect(WebProd)(
     );
 
     return WebProd.of({
+      awaitStderr: (from, text) =>
+        Effect.callback<string>((resume) => {
+          const check = () => {
+            const output = stderr.slice(from).join("");
+
+            if (output.includes(text)) {
+              watchers.delete(check);
+              resume(Effect.succeed(output));
+            }
+          };
+
+          watchers.add(check);
+          check();
+
+          return Effect.sync(() => {
+            watchers.delete(check);
+          });
+        }),
       limiterCalls: (name) =>
         Effect.tryPromise({
           catch: (cause) =>
@@ -289,12 +316,9 @@ layer(WebProdLive, { timeout: 180_000 })("front-door rate limit", (it) => {
 
       expect(response.status).not.toBe(429);
 
-      const lines = web
-        .stderr()
-        .slice(before)
-        .join("")
-        .split("\n")
-        .filter((line) => line.includes("web.ratelimit.error"));
+      const output = yield* web.awaitStderr(before, "web.ratelimit.error");
+
+      const lines = output.split("\n").filter((line) => line.includes("web.ratelimit.error"));
 
       expect(lines).toHaveLength(1);
       expect(lines[0]).toContain('{"event":"web.ratelimit.error","ratelimit.class":"credential"}');

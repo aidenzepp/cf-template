@@ -146,6 +146,12 @@ const reportedLines = Effect.fnUntraced(function* reportedLines(
   );
 });
 
+/**
+ * The timeout of the rule-fixture test, which spawns the linter once per fixture directory in
+ * sequence: about 1.5 s alone, more than the 5 s default on a loaded machine.
+ */
+const SPAWN_TIMEOUT_MS = 60_000;
+
 describe("lint fixtures", () => {
   it.effect("the stylistic padding rule reports every line require-readable-spacing reports", () =>
     Effect.gen(function* superset() {
@@ -173,24 +179,27 @@ describe("lint fixtures", () => {
     }).pipe(Effect.provide(BunServices.layer)),
   );
 
-  it.effect("each rule fixture fires once on fire.ts and never on pass.ts", () =>
-    Effect.gen(function* rules() {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const { root } = yield* toolchain;
-      const fixtures = path.join(root, "tools", "lint", "fixtures");
+  it.effect(
+    "each rule fixture fires once on fire.ts and never on pass.ts",
+    () =>
+      Effect.gen(function* rules() {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const { root } = yield* toolchain;
+        const fixtures = path.join(root, "tools", "lint", "fixtures");
 
-      for (const name of yield* fs.readDirectory(fixtures)) {
-        const dir = path.join(fixtures, name);
+        for (const name of yield* fs.readDirectory(fixtures)) {
+          const dir = path.join(fixtures, name);
 
-        if (yield* fs.exists(path.join(dir, ".oxlintrc.json"))) {
-          const count = yield* lintFixture(dir, ["fire.ts", "pass.ts"]);
+          if (yield* fs.exists(path.join(dir, ".oxlintrc.json"))) {
+            const count = yield* lintFixture(dir, ["fire.ts", "pass.ts"]);
 
-          assert.strictEqual(count("fire.ts"), 1, `${name}/fire.ts`);
-          assert.strictEqual(count("pass.ts"), 0, `${name}/pass.ts`);
+            assert.strictEqual(count("fire.ts"), 1, `${name}/fire.ts`);
+            assert.strictEqual(count("pass.ts"), 0, `${name}/pass.ts`);
+          }
         }
-      }
-    }).pipe(Effect.provide(BunServices.layer)),
+      }).pipe(Effect.provide(BunServices.layer)),
+    SPAWN_TIMEOUT_MS,
   );
 
   it.effect("a package import that leaves rootDir fails the installed tsc with TS6059", () =>

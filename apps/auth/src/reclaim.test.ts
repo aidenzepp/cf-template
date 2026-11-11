@@ -161,6 +161,12 @@ const retry = (
 const reclaims = (lines: ReadonlyArray<Line>) =>
   lines.filter((line) => line.message === '["auth.orphan.reclaim"]');
 
+/**
+ * The timeout of the guarded-delete test, which strands seven orphans, each a real sign-up that
+ * hashes a password: under 2 s alone, more than the 5 s default on a loaded machine.
+ */
+const SIGN_UP_TIMEOUT_MS = 60_000;
+
 layer(LocalAuthD1.layer)("the orphan reclaim hook", (live) => {
   live.effect("keeps a verified orphan", () =>
     Effect.gen(function* verified() {
@@ -283,95 +289,104 @@ layer(LocalAuthD1.layer)("the orphan reclaim hook", (live) => {
     }),
   );
 
-  live.effect("the guarded delete keeps a row unless every guard holds", () =>
-    Effect.gen(function* guards() {
-      const binding = yield* LocalAuthD1;
+  live.effect(
+    "the guarded delete keeps a row unless every guard holds",
+    () =>
+      Effect.gen(function* guards() {
+        const binding = yield* LocalAuthD1;
 
-      const run = (statement: string, ...values: ReadonlyArray<string>) =>
-        Effect.promise(() =>
-          binding
-            .prepare(statement)
-            .bind(...values)
-            .run(),
+        const run = (statement: string, ...values: ReadonlyArray<string>) =>
+          Effect.promise(() =>
+            binding
+              .prepare(statement)
+              .bind(...values)
+              .run(),
+          );
+
+        const attempt = (id: string, overrides: Partial<Parameters<typeof deleteOrphan>[1]>) =>
+          Effect.gen(function* delete_() {
+            const access = yield* makeDatabase(binding);
+            const { db } = yield* access;
+
+            return yield* deleteOrphan(db, {
+              address: "never@example.com",
+              cutoff: new Date(Date.now() + 60_000),
+              id,
+              ...overrides,
+            });
+          }).pipe(asExecution);
+
+        const fresh = (name: string) =>
+          orphanOf(binding, `${name}@example.com`).pipe(
+            Effect.map((id) => ({ address: `${name}@example.com`, id })),
+          );
+
+        const kept = (name: string, id: string) =>
+          rowsFor(binding, `${name}@example.com`).pipe(
+            Effect.tap((rows) =>
+              Effect.sync(() => {
+                assert.strictEqual(rows, 1, `${name}: ${id}`);
+              }),
+            ),
+          );
+
+        const verified = yield* fresh("guard-verified");
+
+        yield* run("update user set email_verified = 1 where id = ?", verified.id);
+        assert.lengthOf(yield* attempt(verified.id, { address: verified.address }), 0);
+        yield* kept("guard-verified", verified.id);
+
+        const old = yield* fresh("guard-age");
+
+        assert.lengthOf(
+          yield* attempt(old.id, {
+            address: old.address,
+            cutoff: new Date(Date.now() - 3_600_000),
+          }),
+          0,
         );
+        yield* kept("guard-age", old.id);
 
-      const attempt = (id: string, overrides: Partial<Parameters<typeof deleteOrphan>[1]>) =>
-        Effect.gen(function* delete_() {
-          const access = yield* makeDatabase(binding);
-          const { db } = yield* access;
+        const withAccount = yield* fresh("guard-account");
 
-          return yield* deleteOrphan(db, {
-            address: "never@example.com",
-            cutoff: new Date(Date.now() + 60_000),
-            id,
-            ...overrides,
-          });
-        }).pipe(asExecution);
-
-      const fresh = (name: string) =>
-        orphanOf(binding, `${name}@example.com`).pipe(
-          Effect.map((id) => ({ address: `${name}@example.com`, id })),
+        yield* run(
+          "insert into account (id, account_id, provider_id, user_id, updated_at) values ('guard-acc', 'x', 'credential', ?, 0)",
+          withAccount.id,
         );
+        assert.lengthOf(yield* attempt(withAccount.id, { address: withAccount.address }), 0);
+        yield* kept("guard-account", withAccount.id);
 
-      const kept = (name: string, id: string) =>
-        rowsFor(binding, `${name}@example.com`).pipe(
-          Effect.tap((rows) =>
-            Effect.sync(() => {
-              assert.strictEqual(rows, 1, `${name}: ${id}`);
-            }),
-          ),
+        const withPasskey = yield* fresh("guard-passkey");
+
+        yield* run(
+          "insert into passkey (id, public_key, user_id, credential_id, counter, device_type, backed_up) values ('guard-pk', 'key', ?, 'guard-cred', 0, 'singleDevice', 0)",
+          withPasskey.id,
         );
+        assert.lengthOf(yield* attempt(withPasskey.id, { address: withPasskey.address }), 0);
+        yield* kept("guard-passkey", withPasskey.id);
 
-      const verified = yield* fresh("guard-verified");
+        const otherId = yield* fresh("guard-id");
 
-      yield* run("update user set email_verified = 1 where id = ?", verified.id);
-      assert.lengthOf(yield* attempt(verified.id, { address: verified.address }), 0);
-      yield* kept("guard-verified", verified.id);
+        assert.lengthOf(yield* attempt("not-this-id", { address: otherId.address }), 0);
+        yield* kept("guard-id", otherId.id);
 
-      const old = yield* fresh("guard-age");
+        const otherAddress = yield* fresh("guard-address");
 
-      assert.lengthOf(
-        yield* attempt(old.id, { address: old.address, cutoff: new Date(Date.now() - 3_600_000) }),
-        0,
-      );
-      yield* kept("guard-age", old.id);
+        assert.lengthOf(
+          yield* attempt(otherAddress.id, { address: "someone-else@example.com" }),
+          0,
+        );
+        yield* kept("guard-address", otherAddress.id);
 
-      const withAccount = yield* fresh("guard-account");
+        const control = yield* fresh("guard-control");
 
-      yield* run(
-        "insert into account (id, account_id, provider_id, user_id, updated_at) values ('guard-acc', 'x', 'credential', ?, 0)",
-        withAccount.id,
-      );
-      assert.lengthOf(yield* attempt(withAccount.id, { address: withAccount.address }), 0);
-      yield* kept("guard-account", withAccount.id);
-
-      const withPasskey = yield* fresh("guard-passkey");
-
-      yield* run(
-        "insert into passkey (id, public_key, user_id, credential_id, counter, device_type, backed_up) values ('guard-pk', 'key', ?, 'guard-cred', 0, 'singleDevice', 0)",
-        withPasskey.id,
-      );
-      assert.lengthOf(yield* attempt(withPasskey.id, { address: withPasskey.address }), 0);
-      yield* kept("guard-passkey", withPasskey.id);
-
-      const otherId = yield* fresh("guard-id");
-
-      assert.lengthOf(yield* attempt("not-this-id", { address: otherId.address }), 0);
-      yield* kept("guard-id", otherId.id);
-
-      const otherAddress = yield* fresh("guard-address");
-
-      assert.lengthOf(yield* attempt(otherAddress.id, { address: "someone-else@example.com" }), 0);
-      yield* kept("guard-address", otherAddress.id);
-
-      const control = yield* fresh("guard-control");
-
-      assert.deepStrictEqual(
-        (yield* attempt(control.id, { address: control.address })).map((row) => row.id),
-        [control.id],
-      );
-      assert.strictEqual(yield* rowsFor(binding, control.address), 0);
-    }),
+        assert.deepStrictEqual(
+          (yield* attempt(control.id, { address: control.address })).map((row) => row.id),
+          [control.id],
+        );
+        assert.strictEqual(yield* rowsFor(binding, control.address), 0);
+      }),
+    SIGN_UP_TIMEOUT_MS,
   );
 });
 
