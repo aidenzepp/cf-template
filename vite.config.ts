@@ -298,6 +298,7 @@ export default defineConfig({
       "unicorn/throw-new-error": "off",
       "workspace/kebab-case-paths": "error",
       "workspace/no-built-in-try-catch": "error",
+      "workspace/no-mutable-module-state": "error",
     },
     // The shadcn preset finds the components and the theme through these two entries.
     settings: { shadcn: { ui: ["@workspace/ui/components", "apps/web/src/styles/app.css"] } },
