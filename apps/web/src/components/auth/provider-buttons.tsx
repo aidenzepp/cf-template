@@ -1,6 +1,11 @@
 import { Button } from "@workspace/ui/components/ui/button";
 import { authClient } from "../../lib/auth-client.ts";
 
+const PROVIDER_NAMES = new Map([
+  ["github", "GitHub"],
+  ["google", "Google"],
+]);
+
 /**
  * One button per live OAuth provider; nothing renders for an empty list.
  *
@@ -27,7 +32,7 @@ export const ProviderButtons = ({
           type="button"
           variant="outline"
         >
-          Continue with {provider}
+          {`Continue with ${PROVIDER_NAMES.get(provider) ?? provider}`}
         </Button>
       ))}
     </div>

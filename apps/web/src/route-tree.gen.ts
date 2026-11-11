@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OauthErrorRouteImport } from './routes/oauth-error'
 import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as NotesIndexRouteImport } from './routes/notes/index'
@@ -18,6 +19,11 @@ import { Route as NotesNoteIdRouteImport } from './routes/notes/$note-id'
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthErrorRoute = OauthErrorRouteImport.update({
+  id: '/oauth-error',
+  path: '/oauth-error',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignInRoute = SignInRouteImport.update({
@@ -43,6 +49,7 @@ const NotesNoteIdRoute = NotesNoteIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/oauth-error': typeof OauthErrorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/notes/$note-id': typeof NotesNoteIdRoute
@@ -50,6 +57,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/oauth-error': typeof OauthErrorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/notes/$note-id': typeof NotesNoteIdRoute
@@ -58,6 +66,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/oauth-error': typeof OauthErrorRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/notes/$note-id': typeof NotesNoteIdRoute
@@ -65,14 +74,34 @@ export interface FileRoutesById {
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sign-in' | '/sign-up' | '/notes/$note-id' | '/notes/'
+  fullPaths:
+    | '/'
+    | '/oauth-error'
+    | '/sign-in'
+    | '/sign-up'
+    | '/notes/$note-id'
+    | '/notes/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in' | '/sign-up' | '/notes/$note-id' | '/notes'
-  id: '__root__' | '/' | '/sign-in' | '/sign-up' | '/notes/$note-id' | '/notes/'
+  to:
+    | '/'
+    | '/oauth-error'
+    | '/sign-in'
+    | '/sign-up'
+    | '/notes/$note-id'
+    | '/notes'
+  id:
+    | '__root__'
+    | '/'
+    | '/oauth-error'
+    | '/sign-in'
+    | '/sign-up'
+    | '/notes/$note-id'
+    | '/notes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  OauthErrorRoute: typeof OauthErrorRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   NotesNoteIdRoute: typeof NotesNoteIdRoute
@@ -86,6 +115,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth-error': {
+      id: '/oauth-error'
+      path: '/oauth-error'
+      fullPath: '/oauth-error'
+      preLoaderRoute: typeof OauthErrorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/sign-in': {
@@ -121,6 +157,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  OauthErrorRoute: OauthErrorRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   NotesNoteIdRoute: NotesNoteIdRoute,

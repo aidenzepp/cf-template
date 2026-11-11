@@ -21,7 +21,7 @@ const SignUp = () => {
       redirect={requested}
       title="Create an account"
     >
-      <SignUpForm providers={authMethods.providers} redirect={target} />
+      <SignUpForm email={authMethods.email} providers={authMethods.providers} redirect={target} />
     </AuthFormShell>
   );
 };

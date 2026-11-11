@@ -3,6 +3,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@workspace/ui/compone
 import { Input } from "@workspace/ui/components/ui/input";
 import type { SyntheticEvent } from "react";
 import { authClient } from "../../lib/auth-client.ts";
+import { PasskeyNudge } from "./email-off-notices.tsx";
 import { ProviderButtons } from "./provider-buttons.tsx";
 import { readField, useAuthSubmit } from "./use-auth-submit.ts";
 
@@ -10,14 +11,17 @@ import { readField, useAuthSubmit } from "./use-auth-submit.ts";
  * The email and password sign-up form. A new account is signed in at once.
  *
  * @param props - The form's props.
- * @param props.providers - The provider ids of `AuthMethods`.
+ * @param props.email - `AuthMethods.email`: whether reset mail exists.
+ * @param props.providers -The provider ids of `AuthMethods`.
  * @param props.redirect - The validated root-relative path to open after sign-up.
  * @returns The form.
  */
 export const SignUpForm = ({
+  email: emailLive,
   providers,
   redirect,
 }: {
+  readonly email: boolean;
   readonly providers: readonly string[];
   readonly redirect: string;
 }) => {
@@ -62,6 +66,7 @@ export const SignUpForm = ({
           </Button>
         </FieldGroup>
       </form>
+      <PasskeyNudge email={emailLive} />
       <ProviderButtons callbackURL={redirect} providers={providers} />
     </>
   );
