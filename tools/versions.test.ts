@@ -1,8 +1,7 @@
-import { describe, expect, test } from "bun:test";
-import { fileURLToPath } from "node:url";
-import { Schema } from "effect";
-
-const root = fileURLToPath(new URL("..", import.meta.url));
+import { BunServices } from "@effect/platform-bun";
+import { describe, expect, it } from "@effect/vitest";
+import { Effect, FileSystem, Path, Schema } from "effect";
+import { Jsonc } from "effect/encoding";
 
 const Specs = Schema.optional(Schema.Record(Schema.String, Schema.String));
 
@@ -23,32 +22,63 @@ const Lock = Schema.Struct({
   ),
 });
 
-const decodeManifest = Schema.decodeUnknownSync(Manifest);
+const decodeManifest = Schema.decodeUnknownEffect(Schema.fromJsonString(Manifest));
 
-const decodeLock = Schema.decodeUnknownSync(Lock);
+const decodeLock = Schema.decodeUnknownEffect(Lock);
 
 const isString = Schema.is(Schema.String);
 
 const isJsonObject = Schema.is(Schema.Record(Schema.String, Schema.Json));
 
-const readText = (path: string): Promise<string> => Bun.file(`${root}${path}`).text();
+// bun.lock is JSONC with trailing commas, which Effect's Jsonc parser rejects; dropping each comma
+// that precedes a closing bracket leaves valid JSONC (the lock has no such text inside a string).
+const trailingComma = /,(?=\s*[}\]])/gu;
 
-const readManifest = async (path: string) => decodeManifest(Bun.JSONC.parse(await readText(path)));
+const parseLock = (text: string) =>
+  Effect.fromResult(Jsonc.parse(text.replaceAll(trailingComma, "")));
 
-const rootManifest = await readManifest("package.json");
+/**
+ * Reads the root manifest, the lock and every workspace manifest through the platform file system.
+ * A workspace pattern `dir/*` names each subdirectory of `dir` that holds a package.json; any other
+ * pattern names a directory directly.
+ */
+const load = Effect.gen(function* loadWorkspace() {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const root = yield* path.fromFileUrl(new URL("..", import.meta.url));
+  const read = (relative: string) => fs.readFileString(path.join(root, relative));
+  const readManifest = (relative: string) => Effect.flatMap(read(relative), decodeManifest);
+  const rootManifest = yield* readManifest("package.json");
+  const lock = yield* Effect.flatMap(Effect.flatMap(read("bun.lock"), parseLock), decodeLock);
 
-const lock = decodeLock(Bun.JSONC.parse(await readText("bun.lock")));
+  const directories = yield* Effect.all(
+    (rootManifest.workspaces ?? []).map((pattern) =>
+      pattern.endsWith("/*")
+        ? Effect.map(fs.readDirectory(path.join(root, pattern.slice(0, -2))), (names) =>
+            names.map((name) => `${pattern.slice(0, -2)}/${name}`),
+          )
+        : Effect.succeed([pattern]),
+    ),
+  );
 
-const manifestPaths = [
-  "package.json",
-  ...(rootManifest.workspaces ?? []).flatMap((pattern) => [
-    ...new Bun.Glob(`${pattern}/package.json`).scanSync({ cwd: root }),
-  ]),
-];
+  const candidates = ["", ...directories.flat()].map((directory) =>
+    directory === "" ? "package.json" : `${directory}/package.json`,
+  );
 
-const manifests = await Promise.all(
-  manifestPaths.map(async (path) => ({ manifest: await readManifest(path), path })),
-);
+  const present = yield* Effect.all(
+    candidates.map((relative) => fs.exists(path.join(root, relative))),
+  );
+
+  const manifests = yield* Effect.all(
+    candidates
+      .flatMap((relative, index) => (present[index] ? [relative] : []))
+      .map((relative) =>
+        Effect.map(readManifest(relative), (manifest) => ({ manifest, path: relative })),
+      ),
+  );
+
+  return { lock, manifests, rootManifest };
+}).pipe(Effect.provide(BunServices.layer));
 
 /**
  * One installed package: `key` is the lock key, `name` its package name, `version` its resolved
@@ -64,14 +94,15 @@ interface Resolved {
 // A key `a/b` is a second resolution of `b` nested under `a`; the package name is its last segment.
 const lastPackageName = /(?<name>@[^/]+\/[^/]+|[^/@][^/]*)$/u;
 
-const resolved: Resolved[] = Object.entries(lock.packages).map(([key, [id]]) => ({
-  id,
-  key,
-  name: lastPackageName.exec(key)?.groups?.name ?? key,
-  version: id.slice(id.indexOf("@", 1) + 1),
-}));
+const resolveLock = (lock: typeof Lock.Type): Resolved[] =>
+  Object.entries(lock.packages).map(([key, [id]]) => ({
+    id,
+    key,
+    name: lastPackageName.exec(key)?.groups?.name ?? key,
+    version: id.slice(id.indexOf("@", 1) + 1),
+  }));
 
-const versionsOf = (matches: (name: string) => boolean): string[] => [
+const versionsOf = (resolved: Resolved[], matches: (name: string) => boolean): string[] => [
   ...new Set(resolved.flatMap(({ name, version }) => (matches(name) ? [version] : []))),
 ];
 
@@ -120,60 +151,89 @@ const specsOf = (value: typeof Schema.Json.Type, path: string): [string, string]
   return [];
 };
 
-const manifestSpecs = manifests.flatMap(({ manifest, path }) =>
-  (
-    [
-      "dependencies",
-      "devDependencies",
-      "peerDependencies",
-      "optionalDependencies",
-      "overrides",
-    ] as const
-  ).flatMap((field) => specsOf(manifest[field] ?? {}, `${path}:${field}`)),
-);
+const manifestSpecs = (manifests: readonly { manifest: typeof Manifest.Type; path: string }[]) =>
+  manifests.flatMap(({ manifest, path }) =>
+    (
+      [
+        "dependencies",
+        "devDependencies",
+        "peerDependencies",
+        "optionalDependencies",
+        "overrides",
+      ] as const
+    ).flatMap((field) => specsOf(manifest[field] ?? {}, `${path}:${field}`)),
+  );
 
 describe("singletons", () => {
-  test.each(singletons)("%s resolves to at most one version", (name) => {
-    expect(versionsOf((candidate) => candidate === name).length).toBeLessThanOrEqual(1);
-  });
+  for (const name of singletons) {
+    it.effect(`${name} resolves to at most one version`, () =>
+      Effect.gen(function* singleton() {
+        const { lock } = yield* load;
+
+        expect(
+          versionsOf(resolveLock(lock), (candidate) => candidate === name).length,
+        ).toBeLessThanOrEqual(1);
+      }),
+    );
+  }
 });
 
 describe("Vite+", () => {
-  test("vite-plus, the vite alias and overrides.vite name one version", () => {
-    const { devDependencies, overrides } = rootManifest;
-    const overrideVite = overrides?.vite;
+  it.effect("vite-plus, the vite alias and overrides.vite name one version", () =>
+    Effect.gen(function* vitePlus() {
+      const { devDependencies, overrides } = (yield* load).rootManifest;
+      const overrideVite = overrides?.vite;
 
-    expect([
-      ...new Set([
-        devDependencies?.["vite-plus"],
-        specVersion(devDependencies?.vite ?? ""),
-        isString(overrideVite) ? specVersion(overrideVite) : undefined,
-      ]),
-    ]).toHaveLength(1);
-  });
+      expect([
+        ...new Set([
+          devDependencies?.["vite-plus"],
+          specVersion(devDependencies?.vite ?? ""),
+          isString(overrideVite) ? specVersion(overrideVite) : undefined,
+        ]),
+      ]).toHaveLength(1);
+    }),
+  );
 });
 
 describe("lockstep families", () => {
-  test.each(Object.entries(lockstepFamilies))("%s resolves to one version", (_family, matches) => {
-    expect(versionsOf(matches).length).toBeLessThanOrEqual(1);
-  });
+  for (const [family, matches] of Object.entries(lockstepFamilies)) {
+    it.effect(`${family} resolves to one version`, () =>
+      Effect.gen(function* lockstep() {
+        const { lock } = yield* load;
+
+        expect(versionsOf(resolveLock(lock), matches).length).toBeLessThanOrEqual(1);
+      }),
+    );
+  }
 });
 
 describe("package.json versions", () => {
-  test("no version is a range, a tag or empty", () => {
-    expect(manifestSpecs.filter(([, spec]) => !isExact(spec)).map(([path]) => path)).toEqual([]);
-  });
+  it.effect("no version is a range, a tag or empty", () =>
+    Effect.gen(function* exactPins() {
+      const { manifests } = yield* load;
+
+      expect(
+        manifestSpecs(manifests)
+          .filter(([, spec]) => !isExact(spec))
+          .map(([path]) => path),
+      ).toEqual([]);
+    }),
+  );
 });
 
 describe("bun.lock sources", () => {
-  test("every resolved package comes from the npm registry", () => {
-    const offenders = resolved.flatMap(({ id, key, version }) => {
-      const isWorkspace = version.startsWith("workspace:");
-      const isViteAlias = key === "vite" && id.startsWith("@voidzero-dev/vite-plus-core@");
+  it.effect("every resolved package comes from the npm registry", () =>
+    Effect.gen(function* registrySources() {
+      const { lock } = yield* load;
 
-      return isWorkspace || isViteAlias || exactVersion.test(version) ? [] : [key];
-    });
+      const offenders = resolveLock(lock).flatMap(({ id, key, version }) => {
+        const isWorkspace = version.startsWith("workspace:");
+        const isViteAlias = key === "vite" && id.startsWith("@voidzero-dev/vite-plus-core@");
 
-    expect(offenders).toEqual([]);
-  });
+        return isWorkspace || isViteAlias || exactVersion.test(version) ? [] : [key];
+      });
+
+      expect(offenders).toEqual([]);
+    }),
+  );
 });
