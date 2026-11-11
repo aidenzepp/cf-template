@@ -12,6 +12,7 @@
     "./public-origin": "./src/public-origin.ts",
     "./auth-orphan-grace": "./src/auth-orphan-grace.ts",
     "./auth-password": "./src/auth-password.ts",
+    "./limits": "./src/limits.ts",
     "./mailer": "./src/mailer.ts",
     "./observability": "./src/observability.ts"
   },
