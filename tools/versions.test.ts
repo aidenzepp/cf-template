@@ -123,7 +123,9 @@ const lockstepFamilies = {
   // @alchemy.run/sigil is versioned off the Alchemy release train (0.1.0-alpha.1).
   alchemy: (name: string) =>
     name === "alchemy" || (name.startsWith("@alchemy.run/") && name !== "@alchemy.run/sigil"),
-  "better-auth": (name: string) => name === "better-auth" || name.startsWith("@better-auth/"),
+  // @better-auth/utils is versioned on its own line (0.5.1) and better-auth@1.7.19 depends on it.
+  "better-auth": (name: string) =>
+    name === "better-auth" || (name.startsWith("@better-auth/") && name !== "@better-auth/utils"),
   effect: (name: string) =>
     name === "effect" ||
     (name.startsWith("@effect/") && name !== "@effect/tsgo" && name !== "@effect/language-service"),
