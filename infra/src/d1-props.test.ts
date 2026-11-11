@@ -1,9 +1,11 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Option } from "effect";
+import { BunServices } from "@effect/platform-bun";
+import { Effect, Option } from "effect";
 import {
   MIGRATIONS_DIR as APP_MIGRATIONS_DIR,
   d1Props as appProps,
 } from "../../apps/api/src/db/database.ts";
+import { migrationsDigest } from "../migrations-digest.ts";
 import { APP_MIGRATIONS_DIGEST } from "../../apps/api/src/db/migrations-digest.ts";
 import { MIGRATIONS_DIR, d1Props as authProps } from "../../apps/auth/src/db/database.ts";
 import { AUTH_MIGRATIONS_DIGEST } from "../../apps/auth/src/db/migrations-digest.ts";
@@ -23,6 +25,26 @@ const databases = [
     props: authProps,
   },
 ];
+
+describe("migrations directories", () => {
+  it.effect(
+    "points the app database at apps/api/migrations, whose digest is the committed one",
+    () =>
+      Effect.gen(function* appDirectory() {
+        assert.isTrue(APP_MIGRATIONS_DIR.endsWith("/apps/api/migrations"));
+        assert.strictEqual(yield* migrationsDigest(APP_MIGRATIONS_DIR), APP_MIGRATIONS_DIGEST);
+      }).pipe(Effect.provide(BunServices.layer)),
+  );
+
+  it.effect(
+    "points the auth database at apps/auth/migrations, whose digest is the committed one",
+    () =>
+      Effect.gen(function* authDirectory() {
+        assert.isTrue(MIGRATIONS_DIR.endsWith("/apps/auth/migrations"));
+        assert.strictEqual(yield* migrationsDigest(MIGRATIONS_DIR), AUTH_MIGRATIONS_DIGEST);
+      }).pipe(Effect.provide(BunServices.layer)),
+  );
+});
 
 describe("d1Props", () => {
   for (const { extra, name, nonProdName, props } of databases) {

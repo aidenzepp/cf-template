@@ -1,6 +1,6 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Effect, FileSystem, Path } from "effect";
-import { migrationsDigest } from "../../auth/scripts/digest.ts";
+import { migrationsDigest } from "../../../infra/migrations-digest.ts";
 
 /**
  * Write `src/db/migrations-digest.ts` from the digest of `migrations/`. This is the step of

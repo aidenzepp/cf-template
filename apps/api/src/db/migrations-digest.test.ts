@@ -1,7 +1,7 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, it } from "@effect/vitest";
 import { Effect, Path } from "effect";
-import { migrationsDigest } from "../../../auth/scripts/digest.ts";
+import { migrationsDigest } from "../../../../infra/migrations-digest.ts";
 import { APP_MIGRATIONS_DIGEST } from "./migrations-digest.ts";
 
 it.effect("holds the digest of the committed migration files", () =>
