@@ -1,5 +1,5 @@
 import { BunCrypto, BunHttpClient, BunRuntime, BunServices } from "@effect/platform-bun";
-import { Config, Effect, FileSystem, Layer, Path, Schema } from "effect";
+import { Config, Console, Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
 import { Digest } from "effect/crypto";
 import { HttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
@@ -8,6 +8,13 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
  * The pin file is malformed: its message names the line number and the missing field.
  */
 export class PinError extends Schema.TaggedError<PinError>()("PinError", {
+  message: Schema.String,
+}) {}
+
+/**
+ * The scanner printed no JSON result this script can read.
+ */
+export class ScanError extends Schema.TaggedError<ScanError>()("ScanError", {
   message: Schema.String,
 }) {}
 
@@ -280,8 +287,48 @@ const ensureBinary = Effect.fn("advisories.ensureBinary")(function* ensureBinary
 });
 
 /**
- * Scans `bun.lock` in `options.dir` (default the repository root) with the pinned OSV-Scanner and
- * returns its exit code. The child sees only `PATH` and `HOME`.
+ * The part of OSV-Scanner's JSON result the license check reads: each package and the licenses
+ * that violate the allowlist. The vulnerability section is not decoded; `bun run audit` owns it.
+ */
+export const ScanResult = Schema.fromJsonString(
+  Schema.Struct({
+    results: Schema.Array(
+      Schema.Struct({
+        packages: Schema.Array(
+          Schema.Struct({
+            license_violations: Schema.optionalKey(Schema.Array(Schema.String)),
+            package: Schema.Struct({ name: Schema.String, version: Schema.String }),
+          }),
+        ),
+      }),
+    ),
+  }),
+);
+
+/**
+ * One `license: <package>@<version>: <license>` line per package whose license is outside the
+ * allowlist, from OSV-Scanner's JSON result. Vulnerabilities add no line.
+ */
+export const violationLines = Effect.fn("advisories.violationLines")(function* violationLines(
+  json: string,
+) {
+  const { results } = yield* Schema.decodeUnknownEffect(ScanResult)(json);
+
+  return results.flatMap((result) =>
+    result.packages.flatMap((entry) => {
+      const violations = entry.license_violations ?? [];
+
+      return violations.length === 0
+        ? []
+        : [`license: ${entry.package.name}@${entry.package.version}: ${violations.join(", ")}`];
+    }),
+  );
+});
+
+/**
+ * Scans `bun.lock` in `options.dir` (default the repository root) with the pinned OSV-Scanner,
+ * prints one line per license violation and returns 1 when there is any, else 0. The child sees
+ * only `PATH` and `HOME`.
  */
 export const scan = Effect.fn("advisories.license")(function* scan(options: Options) {
   const fs = yield* FileSystem.FileSystem;
@@ -304,21 +351,32 @@ export const scan = Effect.fn("advisories.license")(function* scan(options: Opti
           [
             "scan",
             "source",
+            "--format=json",
             `--config=${path.join(root, "tools/advisories/osv-scanner.toml")}`,
             "--lockfile=bun.lock",
             licensesFlag(options.allow ?? ALLOWED_LICENSES),
           ],
-          {
-            cwd: path.resolve(options.dir ?? root),
-            env,
-            extendEnv: false,
-            stderr: "inherit",
-            stdout: "inherit",
-          },
+          { cwd: path.resolve(options.dir ?? root), env, extendEnv: false, stderr: "inherit" },
         ),
       );
 
-      return yield* handle.exitCode;
+      const [stdout, code] = yield* Effect.all(
+        [Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode],
+        { concurrency: 2 },
+      );
+
+      const lines = yield* violationLines(stdout).pipe(
+        Effect.mapError(
+          () =>
+            new ScanError({
+              message: `license: osv-scanner exited ${code} without a readable JSON result.`,
+            }),
+        ),
+      );
+
+      yield* Effect.all(lines.map((line) => Console.log(line)));
+
+      return lines.length > 0 ? 1 : 0;
     }),
   );
 });

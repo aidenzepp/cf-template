@@ -10,6 +10,7 @@ import {
   licensesFlag,
   parseOptions,
   parsePins,
+  violationLines,
 } from "./license.ts";
 
 const digest = "a".repeat(64);
@@ -78,62 +79,132 @@ describe("allowlist", () => {
   );
 });
 
+/**
+ * An OSV-Scanner JSON result holding `packages`, plus `extra` result-level members.
+ */
+const result = (packages: string, extra = "") =>
+  `{"results":[{"source":{"path":"bun.lock","type":"lockfile"},"packages":[${packages}]${extra}}]}`;
+
+describe("violationLines", () => {
+  it.effect("prints one line per violating package", () =>
+    Effect.gen(function* case8() {
+      const lines = yield* violationLines(
+        result(
+          '{"package":{"name":"left-pad","version":"1.0.0"},"licenses":["GPL-3.0"],"license_violations":["GPL-3.0"]},' +
+            '{"package":{"name":"fine","version":"2.0.0"},"licenses":["MIT"]}',
+        ),
+      );
+
+      assert.deepStrictEqual(lines, ["license: left-pad@1.0.0: GPL-3.0"]);
+    }),
+  );
+
+  it.effect("ignores vulnerabilities when no license is in violation", () =>
+    Effect.gen(function* case9() {
+      const lines = yield* violationLines(
+        result(
+          '{"package":{"name":"undici","version":"7.28.0"},"licenses":["MIT"],"vulnerabilities":[{"id":"GHSA-8xcm-r25x-g524"}]}',
+          ',"vulnerabilities":[{"id":"GHSA-8xcm-r25x-g524"}]',
+        ),
+      );
+
+      assert.deepStrictEqual(lines, []);
+    }),
+  );
+
+  it.effect("fails on text that is not a JSON result", () =>
+    Effect.gen(function* case10() {
+      const error = yield* Effect.flip(violationLines("not json"));
+
+      assert.strictEqual(error._tag, "SchemaError");
+    }),
+  );
+});
+
+/**
+ * Runs `license.ts` on copies of the root `package.json` and `bun.lock` in a scratch directory
+ * under `work/`, with `allow` when given, and returns its output and exit code. Returns null
+ * and prints one line when the scanner binary is not cached.
+ */
+const seededRun = Effect.fn("license.test.seededRun")(function* seededRun(
+  allow: string | undefined,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
+  const root = yield* path.fromFileUrl(new URL("../..", import.meta.url));
+
+  const pins = yield* parsePins(
+    yield* fs.readFileString(path.join(root, "tools/advisories/osv-scanner.pins.txt")),
+  );
+
+  const binary = cachedBinary(path, root, pins, yield* hostAsset(process.platform, process.arch));
+
+  if (!(yield* fs.exists(binary))) {
+    yield* Console.log("skipped: the scanner binary is not cached; run bun run license once.");
+
+    return null;
+  }
+
+  yield* fs.makeDirectory(path.join(root, "work"), { recursive: true });
+
+  const seeded = yield* fs.makeTempDirectoryScoped({
+    directory: path.join(root, "work"),
+    prefix: "license-test-",
+  });
+
+  yield* fs.copyFile(path.join(root, "package.json"), path.join(seeded, "package.json"));
+  yield* fs.copyFile(path.join(root, "bun.lock"), path.join(seeded, "bun.lock"));
+
+  const env = { HOME: yield* Config.String("HOME"), PATH: yield* Config.String("PATH") };
+
+  const script = path.join(root, "tools/advisories/license.ts");
+
+  return yield* Effect.scoped(
+    Effect.gen(function* spawned() {
+      const handle = yield* spawner.spawn(
+        ChildProcess.make(
+          "bun",
+          [script, "--dir", seeded, ...(allow === undefined ? [] : ["--allow", allow])],
+          { env, extendEnv: false },
+        ),
+      );
+
+      return yield* Effect.all([Stream.mkString(Stream.decodeText(handle.all)), handle.exitCode], {
+        concurrency: 2,
+      });
+    }),
+  );
+}, Effect.scoped);
+
 describe("license.ts against a seeded tree", () => {
   it.effect("exits 1 and names a package when the allowlist excludes a present license", () =>
     Effect.gen(function* case7() {
-      const fs = yield* FileSystem.FileSystem;
-      const path = yield* Path.Path;
-      const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-      const root = yield* path.fromFileUrl(new URL("../..", import.meta.url));
+      const run = yield* seededRun("MIT-0");
 
-      const pins = yield* parsePins(
-        yield* fs.readFileString(path.join(root, "tools/advisories/osv-scanner.pins.txt")),
-      );
-
-      const binary = cachedBinary(
-        path,
-        root,
-        pins,
-        yield* hostAsset(process.platform, process.arch),
-      );
-
-      if (!(yield* fs.exists(binary))) {
-        yield* Console.log("skipped: the scanner binary is not cached; run bun run license once.");
-
+      if (run === null) {
         return;
       }
 
-      yield* fs.makeDirectory(path.join(root, "work"), { recursive: true });
-
-      const seeded = yield* fs.makeTempDirectoryScoped({
-        directory: path.join(root, "work"),
-        prefix: "license-test-",
-      });
-
-      yield* fs.copyFile(path.join(root, "package.json"), path.join(seeded, "package.json"));
-      yield* fs.copyFile(path.join(root, "bun.lock"), path.join(seeded, "bun.lock"));
-
-      const env = { HOME: yield* Config.String("HOME"), PATH: yield* Config.String("PATH") };
-
-      const [output, code] = yield* Effect.scoped(
-        Effect.gen(function* spawned() {
-          const handle = yield* spawner.spawn(
-            ChildProcess.make(
-              "bun",
-              [path.join(root, "tools/advisories/license.ts"), "--dir", seeded, "--allow", "MIT-0"],
-              { env, extendEnv: false },
-            ),
-          );
-
-          return yield* Effect.all(
-            [Stream.mkString(Stream.decodeText(handle.all)), handle.exitCode],
-            { concurrency: 2 },
-          );
-        }),
-      );
+      const [output, code] = run;
 
       assert.strictEqual(code, 1);
-      assert.match(output, /\beffect\b/u);
-    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+      assert.match(output, /^license: effect@\S+: MIT$/mu);
+    }).pipe(Effect.provide(BunServices.layer)),
+  );
+
+  it.effect("exits 0 on a tree with vulnerabilities and no license violation", () =>
+    Effect.gen(function* case11() {
+      const run = yield* seededRun(undefined);
+
+      if (run === null) {
+        return;
+      }
+
+      const [output, code] = run;
+
+      assert.strictEqual(code, 0);
+      assert.notMatch(output, /GHSA-/u);
+    }).pipe(Effect.provide(BunServices.layer)),
   );
 });
