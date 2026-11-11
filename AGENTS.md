@@ -67,5 +67,6 @@ Do not introduce nullable fields, legacy repair paths, transitional models, or c
 - `.agents/skills/error-messages`: caller-facing and developer-facing errors.
 - `.agents/skills/trace-effect`: spans and logs for effectful operations.
 - `.agents/skills/work-with-stacks`: deploying and destroying stages on local state, the orphan count, and what never runs from a laptop.
+- `.agents/skills/write-migration`: changing a schema and generating its D1 migration safely, and what `bun run db:check` refuses.
 
 Keep only broadly reusable foundation skills here. Project-specific skills belong in the project that needs them.
