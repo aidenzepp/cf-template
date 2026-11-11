@@ -12,7 +12,11 @@ import shadcn from "ultracite/oxlint/shadcn";
 
 import vitest from "ultracite/oxlint/vitest";
 
-import { RECOMMENDED_RULES, TANSTACK_START_RULES } from "oxlint-plugin-react-doctor";
+import {
+  REACT_COMPILER_RULES,
+  RECOMMENDED_RULES,
+  TANSTACK_START_RULES,
+} from "oxlint-plugin-react-doctor";
 
 import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
 
@@ -318,8 +322,14 @@ export default defineConfig({
         // plus the TanStack Start rules the CLI adds for this framework. Project-wide rules (cycles,
         // unused dependencies) need the CLI and do nothing under oxlint; the CLI is not installed.
         files: ["apps/web/**/*.{ts,tsx}"],
-        jsPlugins: ["oxlint-plugin-react-doctor"],
+        // `react-hooks-js` is the React Compiler's own diagnostics (`eslint-plugin-react-hooks` 7):
+        // each rule flags code the compiler bails out of, which React Doctor's rule keys name.
+        jsPlugins: [
+          "oxlint-plugin-react-doctor",
+          { name: "react-hooks-js", specifier: "eslint-plugin-react-hooks" },
+        ],
         rules: {
+          ...REACT_COMPILER_RULES,
           ...RECOMMENDED_RULES,
           ...TANSTACK_START_RULES,
           // Findings in existing `apps/web` code at adoption (58 diagnostics). `vp check` denies

@@ -44,6 +44,7 @@
     "alchemy": "2.0.0-beta.85",
     "axe-core": "4.14.0",
     "drizzle-kit": "1.0.0-rc.5",
+    "eslint-plugin-react-hooks": "7.1.1",
     "oxlint-plugin-react-doctor": "0.9.18",
     "playwright": "1.65.0",
     "supdoc": "0.6.0",
