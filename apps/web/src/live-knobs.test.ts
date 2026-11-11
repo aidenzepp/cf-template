@@ -31,6 +31,16 @@ describe("the knobs port of web", () => {
     }),
   );
 
+  it.effect("answers the tier (b) value and reads nothing when the binding is absent", () =>
+    Effect.gen(function* absent() {
+      const level = yield* Effect.gen(function* read() {
+        return yield* yield* webKnobs(undefined).bind(LogLevelKnob);
+      }).pipe(Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))), Effect.orDie);
+
+      assert.strictEqual(level, LogLevelKnob.default);
+    }),
+  );
+
   it.effect("answers the tier (b) value when the binding fails", () =>
     Effect.gen(function* failing() {
       const level = yield* levelOver(() => Promise.reject(new Error("kv down")));

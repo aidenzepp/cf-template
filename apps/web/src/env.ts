@@ -17,13 +17,14 @@ export interface KnobsBinding {
 
 /**
  * The bindings of the `web` Worker. `infra/src/web.ts` declares them and imports this type only.
+ * `KNOBS` is optional because the `knobs-kv` block adds it and may be absent.
  */
 export interface WebEnv {
   readonly API: ServiceBinding;
   readonly AUTH: ServiceBinding;
   readonly AUTH_METHODS: string;
   readonly AUTH_ORPHAN_GRACE_SECONDS: string;
-  readonly KNOBS: KnobsBinding;
+  readonly KNOBS?: KnobsBinding;
   readonly PUBLIC_ORIGIN: string;
   readonly RATELIMIT_CREDENTIAL: RateLimitBinding;
   readonly RATELIMIT_PUBLIC: RateLimitBinding;

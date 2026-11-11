@@ -18,7 +18,7 @@ declare module "cloudflare:workers" {
     };
     readonly AUTH_METHODS: string;
     readonly AUTH_ORPHAN_GRACE_SECONDS: string;
-    readonly KNOBS: {
+    readonly KNOBS?: {
       readonly get: (key: string, options: { readonly cacheTtl: number }) => Promise<string | null>;
     };
     readonly PUBLIC_ORIGIN: string;
