@@ -33,6 +33,8 @@ export const PRO = [
  */
 export const PUBLIC = [
   ...PRO,
+  "forkApproval",
+  "privateVulnerabilityReporting",
   "environmentReviewers",
   "secretScanning",
   "pushProtection",
