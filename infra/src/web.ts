@@ -1,5 +1,7 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Path } from "effect";
+import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
+import { limitKnobs, limitsFor } from "@workspace/config/limits";
 import type { Auth } from "../../apps/auth/src/contract.ts";
 import type { ApiWorker } from "../../apps/api/src/worker.ts";
 import type { WebEnv } from "../../apps/web/src/env.ts";
@@ -58,6 +60,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
   const path = yield* Path.Path;
   const methods = yield* encodedAuthMethods;
   const grace = yield* encodedOrphanGrace;
+  const knobs = yield* limitKnobs;
   const compatibility = { date: compat.date, flags: compat.flags.map((flag) => flag.name) };
 
   const env = {
@@ -80,6 +83,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     assets: { runWorkerFirst: [...FORWARD_PREFIXES] },
     compatibility,
     env,
+    limits: limitsFor("web", { ...knobs, scrypt: AUTH_PASSWORD_SCRYPT.default }),
     name: yield* workerName({ stack, stage, worker: "web" }),
     observability: webObservability(stage),
     rootDir: "apps/web",

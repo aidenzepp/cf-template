@@ -6,7 +6,13 @@ Stuck sign-up address with the mail add-in on (the reclaim hook is off, so the r
 
 ## Limits
 
-I-25 and I-44 fill this section.
+CPU: once a `test-<slug>` stage measures p99 CPU per invocation for a Worker, its CPU knob (`WEB_CPU_LIMIT_MS`, `API_CPU_LIMIT_MS`) becomes `max(200, ceil(p99 x 10))`.
+
+Subrequests: once a `test-<slug>` stage measures p99 subrequests per invocation, `WORKER_SUBREQUEST_LIMIT` becomes `max(50, ceil(p99 x 10))`.
+
+`AUTH_CPU_LIMIT_MS` follows the hash cost through `CPU_LIMIT_HEADROOM`; the hash cost is never lowered to fit a limit.
+
+I-44 fills the rest of this section.
 
 ## Domain
 
