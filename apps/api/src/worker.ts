@@ -9,6 +9,7 @@ import { HttpRouter } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 import { Auth } from "@workspace/auth/contract";
 import { Api } from "@workspace/contract/api/api";
+import { atLogLevel, liveLogLevel } from "@workspace/config/log-level";
 import { makeDatabase } from "@workspace/db/database";
 import { ProblemDetailsIncludeKnob } from "./config.ts";
 import { AuthCheckSession, SessionLookup } from "./authorization.ts";
@@ -113,6 +114,9 @@ export class ApiWorker extends Cloudflare.Worker<ApiWorker, ApiEntrypoint>()("Ap
  * against the deployer's environment and binds that value over the one `infra` binds per stage. A
  * missing or invalid binding is a defect of that execution's requests and nothing else.
  *
+ * The returned effect runs each request at the live `LOG_LEVEL`, read once per request through the
+ * `LiveKnobs` port.
+ *
  * The isolate services are not built here: they hold state such as a store, so they are built once
  * per isolate and shared by every execution; a store built per execution would be empty on every
  * request.
@@ -151,7 +155,11 @@ export const makeHandler = (
       Layer.provide(provider),
     );
 
-    return yield* HttpRouter.toHttpEffect(routes);
+    const atLevel = atLogLevel(
+      yield* liveLogLevel.pipe(Effect.provide(providers), Effect.provide(provider)),
+    );
+
+    return atLevel(yield* HttpRouter.toHttpEffect(routes));
   });
 
 /**

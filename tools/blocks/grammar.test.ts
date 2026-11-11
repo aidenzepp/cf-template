@@ -208,19 +208,32 @@ it.effect("the three real blocks.ts files parse without an unknown attach shape"
         // block:notes start
         "ExampleFeatureGateLive",
         // block:notes end
+        "NoBlockProviders",
+        // block:knobs-kv start
         "KnobsKvLive",
+        // block:knobs-kv end
         "NoIsolateServices",
         // block:notes start
         "NotesIsolateLive",
         // block:notes end
       ],
-      ["KnobsKvLive"],
-      ["KnobsKvLive"],
+      [
+        "NoAuthLayers",
+        // block:knobs-kv start
+        "KnobsKvLive",
+        // block:knobs-kv end
+      ],
+      [
+        "NoWebLayers",
+        // block:knobs-kv start
+        "KnobsKvLive",
+        // block:knobs-kv end
+      ],
     ]);
   }).pipe(Effect.provide(BunServices.layer)),
 );
 
-it.effect("the real api blocks.ts collapsed onto single lines still yields its seven names", () =>
+it.effect("the real api blocks.ts collapsed onto single lines still yields its eight names", () =>
   Effect.gen(function* collapsedReal() {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -253,7 +266,10 @@ it.effect("the real api blocks.ts collapsed onto single lines still yields its s
         // block:notes start
         "ExampleFeatureGateLive",
         // block:notes end
+        "NoBlockProviders",
+        // block:knobs-kv start
         "KnobsKvLive",
+        // block:knobs-kv end
         "NoIsolateServices",
         // block:notes start
         "NotesIsolateLive",
@@ -280,11 +296,16 @@ it.effect("the real blocks.json decodes", () =>
         // block:notes end
       ],
     );
-    // block:budget-guard start
     assert.deepStrictEqual(
       manifest.blocks.map((block) => block.name),
-      ["budget-guard"],
+      [
+        // block:budget-guard start
+        "budget-guard",
+        // block:budget-guard end
+        // block:knobs-kv start
+        "knobs-kv",
+        // block:knobs-kv end
+      ],
     );
-    // block:budget-guard end
   }).pipe(Effect.provide(BunServices.layer)),
 );

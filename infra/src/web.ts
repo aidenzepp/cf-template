@@ -16,10 +16,11 @@ import type { publicOrigin } from "./origin.ts";
 import { webObservability } from "./telemetry.ts";
 
 /**
- * The bindings of `web`: the two Workers it forwards to and the two values `apps/web` reads. Every
- * key is a key of `WebEnv`, the type `apps/web` reads its bindings by.
+ * The bindings of `web` that are always present: the two Workers it forwards to and the values
+ * `apps/web` reads. Every key is a key of `WebEnv`, the type `apps/web` reads its bindings by,
+ * except `KNOBS`, which a block adds through `blockBindings` and `WebEnv` declares optional.
  */
-interface WebBindings extends Record<keyof WebEnv, string | object> {
+interface WebBindings extends Record<Exclude<keyof WebEnv, "KNOBS">, string | object> {
   readonly API: Effect.Success<typeof ApiWorker>;
   readonly AUTH: Effect.Success<typeof Auth>;
   readonly AUTH_METHODS: string;

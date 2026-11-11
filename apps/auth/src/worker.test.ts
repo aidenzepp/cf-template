@@ -1,8 +1,10 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect } from "effect";
-import type { Layer } from "effect";
+import * as Cloudflare from "@alchemy.run/cloudflare";
+import { Effect, Layer, Logger, Option } from "effect";
+import type { LogLevel } from "effect";
+import { LiveKnobs, fromSource } from "@workspace/config/knob";
 import type AuthWorker from "./worker.ts";
-import { AuthDeployment, authProps, authTelemetry } from "./worker.ts";
+import { AuthDeployment, authProps, authTelemetry, makeAtLevel } from "./worker.ts";
 
 /**
  * The services the Worker's layer still needs from its provider. `AuthDeployment` must not be one:
@@ -42,5 +44,24 @@ describe("the auth Worker module", () => {
       assert.deepStrictEqual(planned, { headSamplingRate: 1 });
       assert.deepStrictEqual(yield* authTelemetry, {});
     }),
+  );
+
+  it.effect("runs a request at the live LOG_LEVEL read through the LiveKnobs port", () =>
+    Effect.gen(function* liveLevel() {
+      const seen: Array<LogLevel.LogLevel> = [];
+
+      const logger = Logger.make(({ logLevel }) => {
+        seen.push(logLevel);
+      });
+
+      const live = fromSource({ name: "test", read: () => Effect.succeed(Option.some("Warn")) });
+      const atLevel = yield* yield* makeAtLevel(Layer.succeed(LiveKnobs, live));
+
+      yield* atLevel(
+        Effect.logInfo("handled").pipe(Effect.andThen(Effect.logWarning("slow"))),
+      ).pipe(Effect.provide(Logger.layer([logger])));
+
+      assert.deepStrictEqual(seen, ["Warn"]);
+    }).pipe(Effect.scoped, Effect.provideService(Cloudflare.WorkerEnvironment, {}), Effect.orDie),
   );
 });

@@ -17,7 +17,7 @@ const escapeRegExp = (text: string): string =>
 
 /**
  * The three line patterns of `unit`'s markers. The unit name matches only when the next character
- * is outside `[a-z0-9-]`, so `block:knobs-kv` never matches `block:knobs-kv-extra`.
+ * is outside `[a-z0-9-]`, so `block:<unit>` never matches `block:<unit>-extra`.
  */
 const markerPatterns = (unit: string) => {
   const marker = `block:${escapeRegExp(unit)}(?![a-z0-9-])`;

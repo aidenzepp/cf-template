@@ -34,6 +34,16 @@
         "infra/src/guard-threshold.ts",
         "infra/src/guard-threshold.test.ts"
       ]
+    },
+    {
+      "name": "knobs-kv",
+      "paths": [
+        "packages/knobs-kv/",
+        "tools/knob/alchemy.fixture.ts",
+        "tools/knob/alchemy.ts",
+        "tools/knob/knob.test.ts",
+        "tools/knob/knob.ts"
+      ]
     }
   ]
 }

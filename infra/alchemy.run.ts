@@ -6,7 +6,9 @@ import { APP_DB_ID, declareDatabase as declareAppDb } from "../apps/api/src/db/d
 // block:budget-guard start
 import { guardNamespace, resources } from "@workspace/budget-guard/stack";
 // block:budget-guard end
+// block:knobs-kv start
 import { knobsNamespace } from "@workspace/knobs-kv/live";
+// block:knobs-kv end
 import { Stage, stageValues } from "./stages.ts";
 import {
   issueNotificationAddress,
@@ -98,8 +100,9 @@ const program = Effect.gen(function* declareStack() {
 
   yield* guardLocationHints([APP_DB_ID, AUTH_DB_ID], hint);
   yield* declareAppDb(stack, stage, hint);
+
   // block:knobs-kv start
-  yield* knobsNamespace(stack, stage);
+  const knobs = yield* knobsNamespace(stack, stage);
 
   // block:knobs-kv end
   // block:budget-guard start
@@ -115,6 +118,9 @@ const program = Effect.gen(function* declareStack() {
     // block:budget-guard start
     ["GUARD_KV", guardNamespace(guard)],
     // block:budget-guard end
+    // block:knobs-kv start
+    ["KNOBS", knobs],
+    // block:knobs-kv end
   ]);
 
   const address = yield* issueNotificationAddress(stage);
