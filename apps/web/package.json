@@ -3,5 +3,8 @@
   "private": true,
   "description": "Owns routes, UI, the front door, the forward of /api/* and /auth/*, runtime.ts. Must not own data access, D1, sign-in, session storage, or runtime imports of api or auth.",
   "type": "module",
-  "exports": {}
+  "exports": {},
+  "dependencies": {
+    "effect": "4.1.2"
+  }
 }
