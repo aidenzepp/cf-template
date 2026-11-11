@@ -79,11 +79,11 @@ describe("domainFor", () => {
 
 describe("wafRateLimitRule", () => {
   it("names the hostname in every rule expression", () => {
-    const ruleset = wafRateLimitRule("example.test", {
-      mitigationSeconds: 10,
-      periodSeconds: 10,
-      requests: 50,
-    });
+    const ruleset = wafRateLimitRule(
+      "example.test",
+      { mitigationSeconds: 10, periodSeconds: 10, requests: 50 },
+      "app-prod-web-ratelimit",
+    );
 
     assert.isTrue(
       ruleset.rules.every(
@@ -93,11 +93,15 @@ describe("wafRateLimitRule", () => {
   });
 
   it("carries the expression, 50 per 10 s, block and a 10 s timeout", () => {
-    const ruleset = wafRateLimitRule("example.test", {
-      mitigationSeconds: WAF_RATE_LIMIT_MITIGATION_SECONDS.default,
-      periodSeconds: WAF_RATE_LIMIT_PERIOD_SECONDS.default,
-      requests: WAF_RATE_LIMIT_REQUESTS.default,
-    });
+    const ruleset = wafRateLimitRule(
+      "example.test",
+      {
+        mitigationSeconds: WAF_RATE_LIMIT_MITIGATION_SECONDS.default,
+        periodSeconds: WAF_RATE_LIMIT_PERIOD_SECONDS.default,
+        requests: WAF_RATE_LIMIT_REQUESTS.default,
+      },
+      "app-prod-web-ratelimit",
+    );
 
     const [rule] = ruleset.rules;
 
@@ -108,6 +112,7 @@ describe("wafRateLimitRule", () => {
       'http.host eq "example.test" and not starts_with(http.request.uri.path, "/assets/")',
     );
     assert.strictEqual(rule.action, "block");
+    assert.strictEqual(rule.ref, "app-prod-web-ratelimit");
     assert.deepStrictEqual(rule.ratelimit, {
       characteristics: ["ip.src"],
       mitigationTimeout: 10,
