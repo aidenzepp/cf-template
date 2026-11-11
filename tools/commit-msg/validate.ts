@@ -50,7 +50,7 @@ const isReleaseVersion = (message: string) =>
 /**
  * Messages accepted without the header check, ported from `@commitlint/is-ignored` 21.2.4.
  */
-const ignored: readonly ((message: string) => boolean)[] = [
+const ignored: ReadonlyArray<(message: string) => boolean> = [
   (message) =>
     /^(?:(?:Merge pull request)|(?:Merge .*? into .*?|(?:Merge branch .*?))(?:\r?\n)*$)/mu.test(
       message,
@@ -70,7 +70,7 @@ const ignored: readonly ((message: string) => boolean)[] = [
  * Checks a commit message against the rules. Returns the one-line failure naming the broken
  * rule, or nothing when the message is valid. `scopes` are the workspace directory names.
  */
-export const validate = (message: string, scopes: readonly string[]): Option.Option<string> => {
+export const validate = (message: string, scopes: ReadonlyArray<string>): Option.Option<string> => {
   if (trailer.test(message)) {
     return Option.some(trailerMessage);
   }
@@ -126,7 +126,10 @@ const workspaceScopes = Effect.fn("commitMsg.workspaceScopes")(function* workspa
     }
 
     const parent = glob.slice(0, -2);
-    const names = yield* fs.readDirectory(parent).pipe(Effect.orElseSucceed((): string[] => []));
+
+    const names = yield* fs
+      .readDirectory(parent)
+      .pipe(Effect.orElseSucceed((): Array<string> => []));
 
     return yield* pipe(
       names,

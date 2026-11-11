@@ -4,7 +4,7 @@ import { EMAIL_AUTOCOMPLETE, passkeyAutofill } from "./sign-in-form.tsx";
 
 const run = (available: boolean | undefined, controller = new AbortController()) =>
   Effect.gen(function* started() {
-    const calls: AbortSignal[] = [];
+    const calls: Array<AbortSignal> = [];
 
     yield* passkeyAutofill(
       ({ autoFill, fetchOptions }) => {

@@ -19,7 +19,7 @@ const Restriction = Schema.Tuple([
  */
 const carriesBase = (
   override: { rules?: { "no-restricted-imports"?: unknown } },
-  base: readonly unknown[],
+  base: ReadonlyArray<unknown>,
 ) => {
   const rule = override.rules?.["no-restricted-imports"];
 
@@ -41,7 +41,7 @@ const Patterned = Schema.Tuple([
 /**
  * The files globs that name a path under an app's `src`, such as `apps/api/src/worker.ts`.
  */
-const underAppSource = (files: readonly string[] | undefined) =>
+const underAppSource = (files: ReadonlyArray<string> | undefined) =>
   (files ?? []).some((glob) => /^apps\/[^/]+\/src\//u.test(glob));
 
 const sample = [{ message: "sample base entry", name: "effect" }];

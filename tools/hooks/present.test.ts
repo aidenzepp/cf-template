@@ -37,7 +37,7 @@ const isolatedEnvironment = Effect.fn("hooks.test.environment")(function* isolat
 const run = Effect.fn("hooks.test.run")(function* run(
   cwd: string,
   command: string,
-  args: readonly string[],
+  args: ReadonlyArray<string>,
 ) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const env = yield* isolatedEnvironment(cwd);

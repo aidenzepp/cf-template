@@ -94,7 +94,7 @@ interface Resolved {
 // A key `a/b` is a second resolution of `b` nested under `a`; the package name is its last segment.
 const lastPackageName = /(?<name>@[^/]+\/[^/]+|[^/@][^/]*)$/u;
 
-const resolveLock = (lock: typeof Lock.Type): Resolved[] =>
+const resolveLock = (lock: typeof Lock.Type): Array<Resolved> =>
   Object.entries(lock.packages).map(([key, [id]]) => ({
     id,
     key,
@@ -102,7 +102,10 @@ const resolveLock = (lock: typeof Lock.Type): Resolved[] =>
     version: id.slice(id.indexOf("@", 1) + 1),
   }));
 
-const versionsOf = (resolved: Resolved[], matches: (name: string) => boolean): string[] => [
+const versionsOf = (
+  resolved: Array<Resolved>,
+  matches: (name: string) => boolean,
+): Array<string> => [
   ...new Set(resolved.flatMap(({ name, version }) => (matches(name) ? [version] : []))),
 ];
 
@@ -143,7 +146,7 @@ const isExact = (spec: string): boolean =>
 /**
  * Every version string under `value`, with the dotted path that reaches it (overrides may nest).
  */
-const specsOf = (value: typeof Schema.Json.Type, path: string): [string, string][] => {
+const specsOf = (value: typeof Schema.Json.Type, path: string): Array<[string, string]> => {
   if (isString(value)) {
     return [[path, value]];
   }
@@ -155,7 +158,9 @@ const specsOf = (value: typeof Schema.Json.Type, path: string): [string, string]
   return [];
 };
 
-const manifestSpecs = (manifests: readonly { manifest: typeof Manifest.Type; path: string }[]) =>
+const manifestSpecs = (
+  manifests: ReadonlyArray<{ manifest: typeof Manifest.Type; path: string }>,
+) =>
   manifests.flatMap(({ manifest, path }) =>
     (
       [

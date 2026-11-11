@@ -22,7 +22,7 @@ const CURRENT = AUTH_PASSWORD_SCRYPT.default;
  */
 const logged = <A, E>(effect: Effect.Effect<A, E>) =>
   Effect.gen(function* collect() {
-    const lines = yield* Ref.make<readonly string[]>([]);
+    const lines = yield* Ref.make<ReadonlyArray<string>>([]);
 
     const logger = Logger.make(({ message }) => {
       Effect.runSync(Ref.update(lines, (all) => [...all, JSON.stringify(message)]));

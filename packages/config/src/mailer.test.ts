@@ -19,7 +19,7 @@ interface Captured {
  */
 const capture = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* collect() {
-    const lines: Captured[] = [];
+    const lines: Array<Captured> = [];
 
     const logger = Logger.make(({ fiber, logLevel, message }) => {
       const annotations = fiber.getRef(References.CurrentLogAnnotations);

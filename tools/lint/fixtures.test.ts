@@ -39,7 +39,10 @@ const toolchain = Effect.gen(function* resolve() {
  * Lints the given fixture files with the fixture's own `.oxlintrc.json` and returns the number of
  * diagnostics reported per file name.
  */
-const lintFixture = Effect.fnUntraced(function* lintFixture(dir: string, files: readonly string[]) {
+const lintFixture = Effect.fnUntraced(function* lintFixture(
+  dir: string,
+  files: ReadonlyArray<string>,
+) {
   const path = yield* Path.Path;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const { oxlint, root, tsgolint } = yield* toolchain;

@@ -39,7 +39,7 @@ export const volumeAlertThreshold = (share: number, fraction: number): number =>
 export const volumeAlertWorkers = (
   stack: string,
   stage: StageName,
-): Effect.Effect<readonly string[], WorkerNameTooLongError> =>
+): Effect.Effect<ReadonlyArray<string>, WorkerNameTooLongError> =>
   Effect.all(Workers.map((worker) => workerName({ stack, stage, worker }))).pipe(
     Effect.map((names) => [...names, `${stack}-state`]),
   );
@@ -74,7 +74,7 @@ export const issueNotificationAddress = Effect.fn("issueNotificationAddress")(
  * @param workers - The Worker script names to count.
  * @returns The query text.
  */
-export const volumeAlertQuery = (accountId: string, workers: readonly string[]): string =>
+export const volumeAlertQuery = (accountId: string, workers: ReadonlyArray<string>): string =>
   `SELECT count() AS value FROM logs.workersLogs WHERE accountTag = '${accountId}' AND logType = 'cf-worker-event' AND scriptName IN (${workers.map((name) => `'${name}'`).join(", ")})`;
 
 /**

@@ -229,7 +229,7 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
       const web = yield* WebProd;
       const page = yield* web.get("/unavailable");
 
-      const navigations: readonly Record<string, string>[] = [
+      const navigations: ReadonlyArray<Record<string, string>> = [
         { "x-test-sec-fetch-mode": "navigate" },
         { accept: "text/html" },
       ];
