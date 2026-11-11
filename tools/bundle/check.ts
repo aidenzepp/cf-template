@@ -110,6 +110,24 @@ export const initialGzipBytes = Effect.fn("bundle.initialGzipBytes")(function* i
 });
 
 /**
+ * A warning line when the Worker asset directory `clientDir` holds a Vite manifest, which would be
+ * served publicly at `/.vite/manifest.json`; no lines when it does not.
+ */
+export const manifestLeak = Effect.fn("bundle.manifestLeak")(function* manifestLeak(
+  clientDir: string,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const leaked = yield* fs.exists(path.join(clientDir, ".vite/manifest.json"));
+
+  return leaked
+    ? [
+        "warning: Vite manifest found in the Worker asset directory (served publicly at /.vite/manifest.json)",
+      ]
+    : [];
+});
+
+/**
  * Prints the report and appends it to the CI job summary when `GITHUB_STEP_SUMMARY` names a file.
  * Any failure to measure becomes a warning line; this check never fails the build.
  */
@@ -117,14 +135,23 @@ const main = Effect.gen(function* main() {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const web = yield* path.fromFileUrl(new URL("../../apps/web/", import.meta.url));
+  const clientDir = path.join(web, "dist/client");
 
-  const lines = yield* initialGzipBytes(
+  const sizeLines = yield* initialGzipBytes(
     path.join(web, "dist/server/chunk-graph.json"),
-    path.join(web, "dist/client"),
+    clientDir,
   ).pipe(
     Effect.map(report),
     Effect.catch((error) => Effect.succeed([`warning: initial JS not measured: ${error.message}`])),
   );
+
+  const leakLines = yield* manifestLeak(clientDir).pipe(
+    Effect.catch((error) =>
+      Effect.succeed([`warning: asset directory not checked: ${error.message}`]),
+    ),
+  );
+
+  const lines = [...sizeLines, ...leakLines];
 
   yield* Console.log(lines.join("\n"));
 

@@ -1,9 +1,8 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, FileSystem, Path, Schema, Stream } from "effect";
-import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { Effect, FileSystem, Path, Schema } from "effect";
 
-import { Chunks, TARGET_KIB, initialFiles, report } from "./check.ts";
+import { Chunks, TARGET_KIB, initialFiles, manifestLeak, report } from "./check.ts";
 import graph from "./fixtures/chunk-graph.json" with { type: "json" };
 
 describe("initial JavaScript report", () => {
@@ -27,21 +26,20 @@ describe("initial JavaScript report", () => {
     assert.lengthOf(report(300 * 1024), 1);
   });
 
-  it.effect(
-    "a build leaves no Vite manifest in the Worker asset directory",
-    () =>
-      Effect.gen(function* assetDirHasNoManifest() {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-        const web = yield* path.fromFileUrl(new URL("../../apps/web/", import.meta.url));
-        const handle = yield* spawner.spawn(ChildProcess.make("vp", ["build"], { cwd: web }));
+  it.effect("warns only when the asset directory holds a Vite manifest", () =>
+    Effect.gen(function* manifestLeakWarns() {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const clientDir = yield* fs.makeTempDirectoryScoped();
 
-        yield* Stream.runDrain(handle.all);
-        assert.strictEqual(yield* handle.exitCode, 0);
-        assert.isFalse(yield* fs.exists(path.join(web, "dist/client/.vite/manifest.json")));
-        assert.isTrue(yield* fs.exists(path.join(web, "dist/server/chunk-graph.json")));
-      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
-    120_000,
+      assert.deepStrictEqual(yield* manifestLeak(clientDir), []);
+
+      yield* fs.makeDirectory(path.join(clientDir, ".vite"));
+      yield* fs.writeFileString(path.join(clientDir, ".vite/manifest.json"), "{}");
+
+      assert.deepStrictEqual(yield* manifestLeak(clientDir), [
+        "warning: Vite manifest found in the Worker asset directory (served publicly at /.vite/manifest.json)",
+      ]);
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
   );
 });
