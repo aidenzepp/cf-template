@@ -124,7 +124,14 @@ const WebProdLive = Layer.effect(WebProd)(
 
     const build = yield* spawner
       .exitCode(ChildProcess.make("bun", ["run", "build:prod-harness"], { cwd: web }))
-      .pipe(Effect.mapError((cause) => new HarnessError({ message: cause.message })));
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new HarnessError({
+              message: `the production harness build could not be spawned: ${cause.message}`,
+            }),
+        ),
+      );
 
     if (build !== 0) {
       return yield* new HarnessError({ message: `build:prod-harness exited ${build}` });
@@ -141,7 +148,10 @@ const WebProdLive = Layer.effect(WebProd)(
 
     const mf = yield* Effect.acquireRelease(
       Effect.tryPromise({
-        catch: (cause) => new HarnessError({ message: String(cause) }),
+        catch: (cause) =>
+          new HarnessError({
+            message: `Miniflare could not start the web Worker: ${String(cause)}`,
+          }),
         try: async () => {
           const instance = new Miniflare({
             workers: [
@@ -239,7 +249,10 @@ const WebProdLive = Layer.effect(WebProd)(
     return WebProd.of({
       request: (target, init) =>
         Effect.tryPromise({
-          catch: (cause) => new HarnessError({ message: String(cause) }),
+          catch: (cause) =>
+            new HarnessError({
+              message: `the harness request to ${target} did not complete: ${String(cause)}`,
+            }),
           try: () => mf.dispatchFetch(`http://web.test${target}`, { redirect: "manual", ...init }),
         }),
     });
@@ -262,16 +275,27 @@ const Problem = Schema.Struct({ status: Schema.Number, title: Schema.String, typ
 
 const decodeBody = <S extends Schema.Decoder<unknown>>(schema: S, response: HarnessResponse) =>
   Effect.tryPromise({
-    catch: (cause) => new HarnessError({ message: String(cause) }),
+    catch: (cause) =>
+      new HarnessError({
+        message: `the harness response body was not valid JSON: ${String(cause)}`,
+      }),
     try: () => response.json(),
   }).pipe(
     Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-    Effect.mapError((cause) => new HarnessError({ message: String(cause) })),
+    Effect.mapError(
+      (cause) =>
+        new HarnessError({
+          message: `the harness response body did not match the expected schema: ${String(cause)}`,
+        }),
+    ),
   );
 
 const text = (response: HarnessResponse) =>
   Effect.tryPromise({
-    catch: (cause) => new HarnessError({ message: String(cause) }),
+    catch: (cause) =>
+      new HarnessError({
+        message: `the harness response body could not be read as text: ${String(cause)}`,
+      }),
     try: () => response.text(),
   });
 

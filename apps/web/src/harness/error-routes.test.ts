@@ -86,7 +86,14 @@ const WebProdLive = Layer.effect(WebProd)(
           extendEnv: true,
         }),
       )
-      .pipe(Effect.mapError((cause) => new HarnessError({ message: cause.message })));
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new HarnessError({
+              message: `the production harness build could not be spawned: ${cause.message}`,
+            }),
+        ),
+      );
 
     if (build !== 0) {
       return yield* new HarnessError({ message: `build:prod-harness exited ${build}` });
@@ -101,7 +108,10 @@ const WebProdLive = Layer.effect(WebProd)(
 
     const mf = yield* Effect.acquireRelease(
       Effect.tryPromise({
-        catch: (cause) => new HarnessError({ message: String(cause) }),
+        catch: (cause) =>
+          new HarnessError({
+            message: `Miniflare could not start the web Worker: ${String(cause)}`,
+          }),
         try: async () => {
           const instance = new Miniflare({
             workers: [
@@ -149,7 +159,10 @@ const WebProdLive = Layer.effect(WebProd)(
     return WebProd.of({
       get: (target, headers = HTML_ACCEPT) =>
         Effect.tryPromise({
-          catch: (cause) => new HarnessError({ message: String(cause) }),
+          catch: (cause) =>
+            new HarnessError({
+              message: `the harness request to ${target} did not complete: ${String(cause)}`,
+            }),
           try: async () => {
             const response = await mf.dispatchFetch(`http://web.test${target}`, {
               headers,

@@ -29,7 +29,14 @@ layer(LocalAuthD1.layer)("the reset mail", (live) => {
       const mailer: typeof Mailer.None = {
         send: () =>
           Ref.update(attempts, (count) => count + 1).pipe(
-            Effect.andThen(Effect.fail(new MailerError({ cause: "boom", message: "failed" }))),
+            Effect.andThen(
+              Effect.fail(
+                new MailerError({
+                  cause: "boom",
+                  message: "the stub mailer refused the verification email",
+                }),
+              ),
+            ),
           ),
       };
 

@@ -105,7 +105,14 @@ const WebProdLive = Layer.effect(WebProd)(
           extendEnv: true,
         }),
       )
-      .pipe(Effect.mapError((cause) => new HarnessError({ message: cause.message })));
+      .pipe(
+        Effect.mapError(
+          (cause) =>
+            new HarnessError({
+              message: `the production harness build could not be spawned: ${cause.message}`,
+            }),
+        ),
+      );
 
     if (build !== 0) {
       return yield* new HarnessError({ message: `build:prod-harness exited ${build}` });
@@ -122,7 +129,10 @@ const WebProdLive = Layer.effect(WebProd)(
 
     const mf = yield* Effect.acquireRelease(
       Effect.tryPromise({
-        catch: (cause) => new HarnessError({ message: String(cause) }),
+        catch: (cause) =>
+          new HarnessError({
+            message: `Miniflare could not start the web Worker: ${String(cause)}`,
+          }),
         try: async () => {
           const instance = new Miniflare({
             handleRuntimeStdio: (_stdout: StderrStream, err: StderrStream) => {
@@ -182,7 +192,10 @@ const WebProdLive = Layer.effect(WebProd)(
     return WebProd.of({
       limiterCalls: (name) =>
         Effect.tryPromise({
-          catch: (cause) => new HarnessError({ message: String(cause) }),
+          catch: (cause) =>
+            new HarnessError({
+              message: `the rate limiter call count for ${name} could not be read: ${String(cause)}`,
+            }),
           try: async () => {
             const worker = await mf.getWorker(`limit-${name}`);
             const reply = await worker.fetch("http://limiter.test/");
@@ -193,7 +206,10 @@ const WebProdLive = Layer.effect(WebProd)(
         }),
       send: (method, target, headers) =>
         Effect.tryPromise({
-          catch: (cause) => new HarnessError({ message: String(cause) }),
+          catch: (cause) =>
+            new HarnessError({
+              message: `the harness ${method} request to ${target} did not complete: ${String(cause)}`,
+            }),
           try: () =>
             mf.dispatchFetch(`http://web.test${target}`, { headers, method, redirect: "manual" }),
         }),
