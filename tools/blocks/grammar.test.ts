@@ -256,9 +256,11 @@ it.effect("the real blocks.json decodes", () =>
       manifest.slices.map((slice) => [slice.name, slice.keep]),
       [["notes", ["apps/api/src/notes/table.ts"]]],
     );
+    // block:budget-guard start
     assert.deepStrictEqual(
       manifest.blocks.map((block) => block.name),
       ["budget-guard"],
     );
+    // block:budget-guard end
   }).pipe(Effect.provide(BunServices.layer)),
 );
