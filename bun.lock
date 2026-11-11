@@ -17,6 +17,7 @@
         "@types/bun": "1.4.4",
         "@types/node": "26.6.6",
         "alchemy": "2.0.0-beta.85",
+        "drizzle-kit": "1.0.0-rc.5",
         "typescript": "7.0.2",
         "ultracite": "8.1.1",
         "vite": "npm:@voidzero-dev/vite-plus-core@1.5.0",
@@ -31,6 +32,7 @@
         "@workspace/config": "workspace:*",
         "@workspace/contract": "workspace:*",
         "alchemy": "2.0.0-beta.85",
+        "drizzle-orm": "1.0.0-rc.5",
         "effect": "4.1.2",
       },
       "devDependencies": {

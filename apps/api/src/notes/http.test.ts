@@ -9,7 +9,8 @@ import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "../autho
 import { layerProblemDetails } from "../problem-details.ts";
 import { ExampleFeatureGateLive } from "./gate.ts";
 import { NotesApiHandlersNoDeps } from "./http.ts";
-import { NOTES_MAX_PER_OWNER, Notes } from "./notes.ts";
+import { Notes } from "./notes.ts";
+import { NOTES_MAX_PER_OWNER } from "./table.ts";
 
 /**
  * A signed-in caller with the given user id.

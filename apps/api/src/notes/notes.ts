@@ -3,6 +3,7 @@ import type { UserId } from "@workspace/contract/domain/session";
 import { Note, NoteId } from "@workspace/contract/domain/note";
 import type { NoteCreate, NotePatch } from "@workspace/contract/domain/note";
 import { NoteNotFound, NoteQuotaExceeded } from "@workspace/contract/domain/note-errors";
+import { NOTES_MAX_PER_OWNER } from "./table.ts";
 
 /**
  * The identifier of a note owner, the `userId` of a session.
@@ -13,11 +14,6 @@ type OwnerId = typeof UserId.Type;
  * The identifier of a note.
  */
 type NoteIdType = typeof NoteId.Type;
-
-/**
- * The most notes one owner may hold. A code constant, not a knob.
- */
-export const NOTES_MAX_PER_OWNER = 100;
 
 /**
  * The operations on notes. Every operation is scoped to the owner it names: a note of another owner
