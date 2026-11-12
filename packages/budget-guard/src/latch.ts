@@ -22,20 +22,22 @@ export const periodEnd = Effect.gen(function* periodEndSeconds() {
  */
 export interface Delivery {
   readonly alertCorrelationId: string | undefined;
-  readonly policyId: string | undefined;
+  readonly policyName: string | undefined;
   readonly ts: number;
 }
 
 /**
  * Build the handler of the guard alert's notifications over a KV write.
  *
- * The handler latches only a notification whose `policyId` is `policy`, the id of this stage's
- * guard alert; a notification with no `policyId`, or one of another policy, writes nothing. The
- * latch holds until {@link periodEnd}. A failed write logs `web.guard.latch_error` and never fails
- * the delivery.
+ * The handler latches only a notification whose `policyName` is `policy`, the name of this stage's
+ * guard alert; a notification with no `policyName`, or one of another policy, writes nothing. The
+ * name stands in for the policy id: it is known when the alert is declared, so binding it onto the
+ * receiver Worker adds no dependency on the alert. The latch holds until {@link periodEnd}. A
+ * failed write logs `web.guard.latch_error` and never fails the delivery.
  *
- * @param options - Where the handler reads the policy id and writes the latch.
- * @param options.policy - The id of the guard alert, `undefined` while the Worker has none bound.
+ * @param options - Where the handler reads the policy name and writes the latch.
+ * @param options.policy - The name of the guard alert, `undefined` or empty while the Worker has
+ *   none bound.
  * @param options.put - Write a key with an `expiration` in epoch seconds.
  * @returns The handler for one notification.
  */
@@ -52,7 +54,7 @@ export const makeReceive =
     Effect.gen(function* receive() {
       const policy = yield* options.policy;
 
-      if (policy === undefined || delivery.policyId !== policy) {
+      if (policy === undefined || policy === "" || delivery.policyName !== policy) {
         return;
       }
 

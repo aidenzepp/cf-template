@@ -70,11 +70,15 @@ export class GuardReceiver extends Cloudflare.Worker<GuardReceiver, ReceiverEntr
 /**
  * The receiver Worker: it consumes the guard alert's notifications at the alert's own delivery
  * path, which rejects a request without the `cf-webhook-auth` secret, then latches the ones whose
- * `policyId` is this alert's. It writes through its KV binding and holds no account token.
+ * `policyName` is this alert's name. It writes through its KV binding and holds no account token.
+ * The Worker is bound the alert's name, a plain string, and not its policy id: the id is an output
+ * of the alert, which would make the Worker, the webhook and the alert depend on each other, and
+ * Alchemy would test the webhook against the Worker's placeholder before the Worker holds its
+ * secret.
  *
  * While the plan has no alert, a planning run registers no alert and no route; the deployed bundle
- * has no plan to read, registers the route, and a delivery then finds no policy id bound, so it
- * latches nothing.
+ * has no plan to read, registers the route, and a delivery then finds no secret bound and is
+ * answered `500`, so it latches nothing.
  */
 export const GuardReceiverLive = GuardReceiver.make(
   receiverProps,
@@ -95,7 +99,11 @@ export const GuardReceiverLive = GuardReceiver.make(
       );
 
       const alert = yield* Cloudflare.Alerting.CustomAlert(GUARD_ALERT_ID, props.value);
-      const policy = yield* Output.named(alert.policyId, "BUDGET_GUARD_POLICY_ID");
+
+      const policy = yield* Output.named(
+        Output.asOutput(props.value.name ?? ""),
+        "BUDGET_GUARD_POLICY_NAME",
+      );
 
       yield* Cloudflare.Alerting.consumeNotifications(
         alert,

@@ -3,7 +3,7 @@ import { Effect, Logger } from "effect";
 import { TestClock } from "effect/testing";
 import { makeReceive } from "./latch.ts";
 
-const POLICY = "policy-1";
+const POLICY = "app-guard-test-x";
 
 const PERIOD_END = Date.UTC(2026, 11, 1) / 1000;
 
@@ -21,7 +21,7 @@ interface Put {
  * `fails` is set; the clock sits inside November 2026. Returns the writes and the logs.
  */
 const deliver = (
-  delivery: { policyId: string | undefined; ts: number },
+  delivery: { policyName: string | undefined; ts: number },
   options: { readonly fails?: boolean; readonly policy?: string | undefined } = {},
 ) =>
   Effect.gen(function* delivering() {
@@ -54,7 +54,7 @@ const deliver = (
 describe("makeReceive", () => {
   it.effect("latches the guard alert's notification until the period end", () =>
     Effect.gen(function* latched() {
-      const { puts } = yield* deliver({ policyId: POLICY, ts: 1_700_000_000 });
+      const { puts } = yield* deliver({ policyName: POLICY, ts: 1_700_000_000 });
 
       assert.deepStrictEqual(puts, [
         {
@@ -68,23 +68,33 @@ describe("makeReceive", () => {
 
   it.effect("writes nothing for another policy", () =>
     Effect.gen(function* foreign() {
-      const { puts } = yield* deliver({ policyId: "policy-2", ts: 1 });
+      const { puts } = yield* deliver({ policyName: "app-guard-test-y", ts: 1 });
 
       assert.deepStrictEqual(puts, []);
     }),
   );
 
-  it.effect("writes nothing for a notification without a policy id", () =>
+  it.effect("writes nothing for a notification without a policy name", () =>
     Effect.gen(function* anonymous() {
-      const { puts } = yield* deliver({ policyId: undefined, ts: 1 }, { policy: undefined });
+      const { puts } = yield* deliver({ policyName: undefined, ts: 1 });
 
       assert.deepStrictEqual(puts, []);
+    }),
+  );
+
+  it.effect("writes nothing while the Worker has no policy name bound", () =>
+    Effect.gen(function* unbound() {
+      const { puts } = yield* deliver({ policyName: "", ts: 1 }, { policy: "" });
+      const absent = yield* deliver({ policyName: POLICY, ts: 1 }, { policy: undefined });
+
+      assert.deepStrictEqual(puts, []);
+      assert.deepStrictEqual(absent.puts, []);
     }),
   );
 
   it.effect("logs web.guard.latch_error and does not fail when the write fails", () =>
     Effect.gen(function* failing() {
-      const { logs, puts } = yield* deliver({ policyId: POLICY, ts: 1 }, { fails: true });
+      const { logs, puts } = yield* deliver({ policyName: POLICY, ts: 1 }, { fails: true });
 
       assert.deepStrictEqual(puts, []);
       assert.deepStrictEqual(logs, ["Error:web.guard.latch_error"]);
