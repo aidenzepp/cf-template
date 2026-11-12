@@ -48,8 +48,8 @@ export const navItemsOf = (routes: ReadonlyArray<NavRoute>): ReadonlyArray<NavIt
     .toSorted((a, b) => a.order - b.order);
 
 /**
- * Whether a link is the current page or an ancestor of it. `/` is current only on `/` itself;
- * any other link is current on its own path and below it, so `/notes` stays marked on `/notes/1`.
+ * Whether a link is the current page or an ancestor of it. `/` is current only on `/` itself; any
+ * other link is current on its own path and below it, so `/widgets` stays marked on `/widgets/1`.
  *
  * @param to - The path a link opens.
  * @param pathname - The pathname of the current location.

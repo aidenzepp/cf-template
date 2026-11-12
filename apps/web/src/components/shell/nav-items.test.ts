@@ -54,13 +54,13 @@ describe("navItemsOf", () => {
 describe("isActivePath", () => {
   it("marks / only on /", () => {
     expect(isActivePath("/", "/")).toBeTruthy();
-    expect(isActivePath("/", "/notes")).toBeFalsy();
+    expect(isActivePath("/", "/widgets")).toBeFalsy();
   });
 
   it("marks a link on its path and below it, never on a path that only shares the prefix", () => {
-    expect(isActivePath("/notes", "/notes")).toBeTruthy();
-    expect(isActivePath("/notes", "/notes/abc")).toBeTruthy();
-    expect(isActivePath("/notes", "/notesy")).toBeFalsy();
-    expect(isActivePath("/notes", "/")).toBeFalsy();
+    expect(isActivePath("/widgets", "/widgets")).toBeTruthy();
+    expect(isActivePath("/widgets", "/widgets/abc")).toBeTruthy();
+    expect(isActivePath("/widgets", "/widgetsy")).toBeFalsy();
+    expect(isActivePath("/widgets", "/")).toBeFalsy();
   });
 });
