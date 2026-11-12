@@ -16,14 +16,24 @@ export const NOTE_TITLE_MAX_LENGTH = 200;
 export const NOTE_BODY_MAX_LENGTH = 10_000;
 
 /**
- * The title of a note, at most {@link NOTE_TITLE_MAX_LENGTH} characters.
+ * The title of a note, at most {@link NOTE_TITLE_MAX_LENGTH} characters. The check's `message` is
+ * the line a form shows under the title.
  */
-export const NoteTitle = Schema.String.check(Schema.isMaxLength(NOTE_TITLE_MAX_LENGTH));
+export const NoteTitle = Schema.String.check(
+  Schema.isMaxLength(NOTE_TITLE_MAX_LENGTH, {
+    message: `The title is too long: use at most ${NOTE_TITLE_MAX_LENGTH} characters.`,
+  }),
+);
 
 /**
- * The body of a note, at most {@link NOTE_BODY_MAX_LENGTH} characters.
+ * The body of a note, at most {@link NOTE_BODY_MAX_LENGTH} characters. The check's `message` is the
+ * line a form shows under the body.
  */
-export const NoteBody = Schema.String.check(Schema.isMaxLength(NOTE_BODY_MAX_LENGTH));
+export const NoteBody = Schema.String.check(
+  Schema.isMaxLength(NOTE_BODY_MAX_LENGTH, {
+    message: `The body is too long: use at most ${NOTE_BODY_MAX_LENGTH} characters.`,
+  }),
+);
 
 /**
  * A stored note as the API returns it.
