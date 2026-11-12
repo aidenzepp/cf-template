@@ -14,6 +14,9 @@ import {
   useSidebar,
 } from "@workspace/ui/components/ui/sidebar";
 import { authClient } from "../../lib/auth-client.ts";
+import { fork } from "../../runtime.ts";
+import { notify } from "../notify.ts";
+import { signOutFailure, signOutFlow } from "./sign-out.ts";
 
 /**
  * The account row of the sidebar footer and its menu, with Sign out. The menu opens beside the
@@ -38,14 +41,21 @@ const AccountMenu = ({
   const router = useRouter();
   const { isMobile } = useSidebar();
 
-  // The root `beforeLoad` re-derives the state after `invalidate`; a failed sign-out leaves the
-  // session in place, so the sign-in screen sends the person back to `/`.
+  // The root `beforeLoad` re-derives the state after `invalidate`. A failed sign-out leaves the
+  // session in place, so the person stays here and sees why.
   const signOut = () => {
-    void authClient
-      .signOut()
-      .catch(() => null)
-      .then(() => router.invalidate())
-      .then(() => router.navigate({ search: { redirect: undefined }, to: "/sign-in" }));
+    fork(
+      signOutFlow({
+        call: () => authClient.signOut(),
+        fail: () => {
+          notify.error(signOutFailure.title, signOutFailure.description);
+        },
+        leave: async () => {
+          await router.invalidate();
+          await router.navigate({ search: { redirect: undefined }, to: "/sign-in" });
+        },
+      }),
+    );
   };
 
   return (

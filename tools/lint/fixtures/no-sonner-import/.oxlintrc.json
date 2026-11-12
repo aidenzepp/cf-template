@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "message": "raise toasts through notify in apps/web/src/components/notify.ts, not sonner directly",
+            "name": "sonner"
+          }
+        ],
+        "patterns": []
+      }
+    ]
+  }
+}
