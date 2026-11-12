@@ -15,6 +15,11 @@ import { CheckSession } from "./session.ts";
 export const ORIGIN = "http://localhost:3000";
 
 /**
+ * The `EMAIL_KEY_SECRET` the test instance binds.
+ */
+export const TEST_EMAIL_KEY_SECRET = "test-email-key-secret-0123456789abcdef";
+
+/**
  * The marker `drizzle-kit` writes between the statements of one migration file.
  */
 const STATEMENT_BREAKPOINT = "--> statement-breakpoint";
@@ -30,6 +35,7 @@ export const settings = (overrides: Readonly<Record<string, string>> = {}) =>
   Layer.succeed(WorkerEnvironment, {
     AUTH_METHODS: '{"email":false,"providers":[]}',
     BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-0123",
+    EMAIL_KEY_SECRET: TEST_EMAIL_KEY_SECRET,
     PUBLIC_ORIGIN: ORIGIN,
     ...overrides,
   });

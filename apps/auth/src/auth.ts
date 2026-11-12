@@ -25,6 +25,7 @@ import { passwordFor, rehashAfterSignIn } from "./password.ts";
 import type { RunEffect } from "./password.ts";
 import { socialProviders } from "./providers.ts";
 import { ReclaimDatabase, reclaimOrphanBeforeSignUp } from "./reclaim.ts";
+import { logRejectedEmail } from "./rejected-email.ts";
 
 /**
  * The origin the schema generator and the shared options assume: the local dev server. The Worker
@@ -284,6 +285,7 @@ export const authDatabaseLayer = (
  */
 export const AuthSettings = Config.all({
   baseURL: Config.schema(PublicOrigin, "PUBLIC_ORIGIN"),
+  emailKeySecret: Config.Redacted("EMAIL_KEY_SECRET"),
   graceSeconds: AUTH_ORPHAN_GRACE_SECONDS.config,
   maxAge: CookieCacheMaxAgeKnob.config,
   methods: AUTH_METHODS,
@@ -327,6 +329,10 @@ const makeInstance = Effect.gen(function* makeInstance() {
     ...passwordOptions(settings.scrypt, Effect.runPromiseWith(services), settings.baseURL),
     baseURL: settings.baseURL,
     hooks: {
+      after: logRejectedEmail({
+        run: Effect.runPromiseWith(services),
+        secret: settings.emailKeySecret,
+      }),
       before: createAuthMiddleware(async (ctx) => {
         await requireFreshSession(ctx);
 
