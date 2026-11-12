@@ -1,36 +1,71 @@
 import { expect, it } from "@effect/vitest";
-import { Cause, Option } from "effect";
+import { Cause, Effect } from "effect";
 import { AsyncResult } from "effect/reactivity";
+import {
+  NOTE_BODY_MAX_LENGTH,
+  NOTE_TITLE_MAX_LENGTH,
+  NoteCreate,
+  NoteId,
+  NotePatch,
+} from "@workspace/contract/domain/note";
 import { NoteNotFound, NotesUnavailable } from "@workspace/contract/domain/note-errors";
-import { NoteId } from "@workspace/contract/domain/note";
+import { formValidator } from "../../components/form/form-hook.tsx";
 import { noteFailureOf } from "./-note-failure.ts";
-import { readNoteCreate, readNotePatch } from "./-note-input.ts";
 
-const formOf = (fields: Record<string, string>) => {
-  const form = new FormData();
+/**
+ * The lines a contract schema's validator gives each field of `values`, keyed by field name.
+ */
+const linesOf = (
+  validator: ReturnType<typeof formValidator>,
+  values: Readonly<Record<string, string>>,
+) =>
+  Effect.promise(async () => {
+    const result = await validator["~standard"].validate(values);
 
-  for (const [name, value] of Object.entries(fields)) {
-    form.set(name, value);
-  }
+    return "issues" in result && result.issues !== undefined
+      ? result.issues.map(({ message, path }) => [path, message])
+      : [];
+  });
 
-  return form;
-};
+it.effect("accepts a filled note and a note at the caps", () =>
+  Effect.gen(function* filled() {
+    const atCaps = {
+      body: "b".repeat(NOTE_BODY_MAX_LENGTH),
+      title: "t".repeat(NOTE_TITLE_MAX_LENGTH),
+    };
 
-it("decodes a filled form into the contract's create request", () => {
-  const payload = readNoteCreate(formOf({ body: "milk", title: "Shopping" }));
+    expect(
+      yield* linesOf(formValidator(NoteCreate), { body: "milk", title: "Shopping" }),
+    ).toStrictEqual([]);
+    expect(yield* linesOf(formValidator(NoteCreate), atCaps)).toStrictEqual([]);
+    expect(yield* linesOf(formValidator(NotePatch), atCaps)).toStrictEqual([]);
+  }),
+);
 
-  expect(Option.getOrUndefined(payload)).toMatchObject({ body: "milk", title: "Shopping" });
-});
+it.effect("gives an over-long title or body the contract's own line", () =>
+  Effect.gen(function* tooLong() {
+    const values = {
+      body: "b".repeat(NOTE_BODY_MAX_LENGTH + 1),
+      title: "t".repeat(NOTE_TITLE_MAX_LENGTH + 1),
+    };
 
-it("rejects a form with a missing field", () => {
-  expect(Option.isNone(readNoteCreate(formOf({ title: "Shopping" })))).toBeTruthy();
-});
+    const lines = [
+      [["body"], `The body is too long: use at most ${NOTE_BODY_MAX_LENGTH} characters.`],
+      [["title"], `The title is too long: use at most ${NOTE_TITLE_MAX_LENGTH} characters.`],
+    ];
 
-it("decodes a filled form into the contract's update request", () => {
-  const payload = readNotePatch(formOf({ body: "oat milk", title: "Shopping" }));
+    expect(yield* linesOf(formValidator(NoteCreate), values)).toStrictEqual(lines);
+    expect(yield* linesOf(formValidator(NotePatch), values)).toStrictEqual(lines);
+  }),
+);
 
-  expect(Option.getOrUndefined(payload)).toMatchObject({ body: "oat milk", title: "Shopping" });
-});
+it.effect("asks to fill in a field the values do not hold", () =>
+  Effect.gen(function* missing() {
+    expect(yield* linesOf(formValidator(NoteCreate), { title: "Shopping" })).toStrictEqual([
+      [["body"], "Fill in this field."],
+    ]);
+  }),
+);
 
 it("tells NoteNotFound and NotesUnavailable apart by tag", () => {
   const missing = AsyncResult.failure(Cause.fail(new NoteNotFound({ id: NoteId.make("n1") })));

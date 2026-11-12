@@ -55,7 +55,7 @@ const NoteDetail = () => {
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 p-4">
       <h1 className="text-lg font-semibold">Edit note</h1>
-      <EditNoteForm note={result.value} />
+      <EditNoteForm key={result.value.id} note={result.value} />
       <DeleteNoteButton id={result.value.id} />
     </main>
   );

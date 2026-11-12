@@ -1,15 +1,14 @@
-import { useAtom, useAtomRefresh } from "@effect/atom-react";
-import { Button } from "@workspace/ui/components/ui/button";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@workspace/ui/components/ui/field";
-import { Input } from "@workspace/ui/components/ui/input";
-import { Textarea } from "@workspace/ui/components/ui/textarea";
-import { Cause, Option } from "effect";
+import { useAtom } from "@effect/atom-react";
+import { FieldError, FieldGroup } from "@workspace/ui/components/ui/field";
+import { Cause, Exit, Option } from "effect";
 import { AsyncResult } from "effect/reactivity";
-import { useEffect, useRef, useState } from "react";
 import type { SyntheticEvent } from "react";
+import { NoteCreate, NotePatch } from "@workspace/contract/domain/note";
 import type { Note } from "@workspace/contract/domain/note";
-import { createNoteAtom, noteAtom, notesListAtom, updateNoteAtom } from "./-atoms.ts";
-import { readNoteCreate, readNotePatch } from "./-note-input.ts";
+import { focusFirstInvalid, formValidator, useAppForm } from "../../components/form/form-hook.tsx";
+import { notify } from "../../components/notify.ts";
+import { NOTES_KEY, createNoteAtom, noteKey, updateNoteAtom } from "./-atoms.ts";
+import { BodyField } from "./-body-field.tsx";
 
 /**
  * The line shown for the result of the last save call.
@@ -32,117 +31,101 @@ const failureLine = (
 };
 
 /**
- * The fields and the submit button shared by both modes.
+ * The submit handler of a form element: stops the page load and runs the form's own submit.
  *
- * @param props - The fields' props.
- * @param props.message - The line under the fields, or `null`.
- * @param props.note - The note being edited; absent when creating.
- * @param props.waiting - Whether a call is in flight.
- * @returns The fields.
+ * @param submit - The form's `handleSubmit`.
+ * @returns The handler.
  */
-const NoteFields = ({
-  message,
-  note,
-  waiting,
-}: {
-  readonly message: string | null;
-  readonly note?: Note;
-  readonly waiting: boolean;
-}) => (
-  <FieldGroup>
-    <Field>
-      <FieldLabel htmlFor="title">Title</FieldLabel>
-      <Input defaultValue={note?.title} id="title" name="title" required type="text" />
-    </Field>
-    <Field>
-      <FieldLabel htmlFor="body">Body</FieldLabel>
-      <Textarea defaultValue={note?.body} id="body" name="body" />
-    </Field>
-    <FieldError>{message}</FieldError>
-    <Button disabled={waiting} type="submit">
-      {note === undefined ? "Create note" : "Save note"}
-    </Button>
-  </FieldGroup>
-);
+const submitWith = (submit: () => Promise<void>) => (event: SyntheticEvent<HTMLFormElement>) => {
+  event.preventDefault();
+  void submit();
+};
 
 /**
- * The form that creates a note. After a successful call the list re-reads from the server once and
- * the form clears.
+ * The form that creates a note. The fields validate against the contract's `NoteCreate`; a saved
+ * note clears the form, raises a toast, and re-reads the list through the `notes` reactivity key.
  *
  * @returns The form.
  */
 export const NoteForm = () => {
-  const [result, create] = useAtom(createNoteAtom);
-  const refreshList = useAtomRefresh(notesListAtom);
-  const form = useRef<HTMLFormElement>(null);
-  const [invalid, setInvalid] = useState(false);
+  const [result, create] = useAtom(createNoteAtom, { mode: "promiseExit" });
 
-  useEffect(() => {
-    if (AsyncResult.isSuccess(result) && !result.waiting) {
-      form.current?.reset();
-      refreshList();
-    }
-  }, [result, refreshList]);
+  const form = useAppForm({
+    defaultValues: { body: "", title: "" },
+    onSubmit: async ({ formApi, value }) => {
+      const exit = await create({ payload: NoteCreate.make(value), reactivityKeys: [NOTES_KEY] });
 
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const payload = readNoteCreate(new FormData(event.currentTarget));
-
-    setInvalid(Option.isNone(payload));
-
-    if (Option.isSome(payload)) {
-      create({ payload: payload.value });
-    }
-  };
-
-  const message = invalid ? "Enter a title and a body." : failureLine(result);
+      if (Exit.isSuccess(exit)) {
+        formApi.reset();
+        notify.success("Note created");
+      }
+    },
+    onSubmitInvalid: focusFirstInvalid,
+    validators: { onSubmit: formValidator(NoteCreate) },
+  });
 
   return (
-    <form onSubmit={onSubmit} ref={form}>
-      <NoteFields message={message} waiting={result.waiting} />
+    <form
+      noValidate
+      onSubmit={submitWith(async () => {
+        await form.handleSubmit();
+      })}
+    >
+      <FieldGroup>
+        <form.AppField name="title">{(field) => <field.TextField label="Title" />}</form.AppField>
+        <form.AppField name="body">{(field) => <BodyField field={field} />}</form.AppField>
+        <FieldError>{failureLine(result)}</FieldError>
+        <form.AppForm>
+          <form.SubmitButton>Create note</form.SubmitButton>
+        </form.AppForm>
+      </FieldGroup>
     </form>
   );
 };
 
 /**
- * The form that edits a note. After a successful call the list and the note re-read from the server
- * once.
+ * The form that edits a note. The fields validate against the contract's `NotePatch`; a saved note
+ * raises a toast and re-reads the list and the note through their reactivity keys.
  *
  * @param props - The form's props.
  * @param props.note - The note being edited.
  * @returns The form.
  */
 export const EditNoteForm = ({ note }: { readonly note: Note }) => {
-  const [result, update] = useAtom(updateNoteAtom);
-  const refreshList = useAtomRefresh(notesListAtom);
-  const refreshNote = useAtomRefresh(noteAtom(note.id));
-  const [invalid, setInvalid] = useState(false);
+  const [result, update] = useAtom(updateNoteAtom, { mode: "promiseExit" });
 
-  useEffect(() => {
-    if (AsyncResult.isSuccess(result) && !result.waiting) {
-      refreshList();
-      refreshNote();
-    }
-  }, [result, refreshList, refreshNote]);
+  const form = useAppForm({
+    defaultValues: { body: note.body, title: note.title },
+    onSubmit: async ({ value }) => {
+      const exit = await update({
+        params: { id: note.id },
+        payload: NotePatch.make(value),
+        reactivityKeys: [NOTES_KEY, noteKey(note.id)],
+      });
 
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const payload = readNotePatch(new FormData(event.currentTarget));
-
-    setInvalid(Option.isNone(payload));
-
-    if (Option.isSome(payload)) {
-      update({ params: { id: note.id }, payload: payload.value });
-    }
-  };
-
-  const message = invalid ? "Enter a title and a body." : failureLine(result);
+      if (Exit.isSuccess(exit)) {
+        notify.success("Note saved");
+      }
+    },
+    onSubmitInvalid: focusFirstInvalid,
+    validators: { onSubmit: formValidator(NotePatch) },
+  });
 
   return (
-    <form key={note.updatedAt.epochMilliseconds} onSubmit={onSubmit}>
-      <NoteFields message={message} note={note} waiting={result.waiting} />
+    <form
+      noValidate
+      onSubmit={submitWith(async () => {
+        await form.handleSubmit();
+      })}
+    >
+      <FieldGroup>
+        <form.AppField name="title">{(field) => <field.TextField label="Title" />}</form.AppField>
+        <form.AppField name="body">{(field) => <BodyField field={field} />}</form.AppField>
+        <FieldError>{failureLine(result)}</FieldError>
+        <form.AppForm>
+          <form.SubmitButton>Save note</form.SubmitButton>
+        </form.AppForm>
+      </FieldGroup>
     </form>
   );
 };

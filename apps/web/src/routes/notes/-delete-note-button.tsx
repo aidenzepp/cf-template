@@ -1,37 +1,39 @@
-import { useAtom, useAtomRefresh } from "@effect/atom-react";
+import { useAtom } from "@effect/atom-react";
 import { useNavigate } from "@tanstack/react-router";
 import { Button } from "@workspace/ui/components/ui/button";
+import { Exit } from "effect";
 import { AsyncResult } from "effect/reactivity";
-import { useEffect } from "react";
 import type { NoteId } from "@workspace/contract/domain/note";
-import { deleteNoteAtom, notesListAtom } from "./-atoms.ts";
+import { notify } from "../../components/notify.ts";
+import { NOTES_KEY, deleteNoteAtom } from "./-atoms.ts";
 
 /**
- * The button that deletes a note. After a successful call the list re-reads from the server once
- * and the page returns to the list.
+ * The button that deletes a note. A deleted note raises a toast, re-reads the list through the
+ * `notes` reactivity key, and returns the page to the list.
  *
  * @param props - The button's props.
  * @param props.id - The note to delete.
  * @returns The button and the line for a failed call.
  */
 export const DeleteNoteButton = ({ id }: { readonly id: typeof NoteId.Type }) => {
-  const [result, remove] = useAtom(deleteNoteAtom);
-  const refreshList = useAtomRefresh(notesListAtom);
+  const [result, remove] = useAtom(deleteNoteAtom, { mode: "promiseExit" });
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (AsyncResult.isSuccess(result) && !result.waiting) {
-      refreshList();
-      void navigate({ to: "/notes" });
+  const onDelete = async () => {
+    const exit = await remove({ params: { id }, reactivityKeys: [NOTES_KEY] });
+
+    if (Exit.isSuccess(exit)) {
+      notify.success("Note deleted");
+      await navigate({ to: "/notes" });
     }
-  }, [result, refreshList, navigate]);
+  };
 
   return (
     <div className="flex flex-col gap-2">
       <Button
         disabled={result.waiting}
         onClick={() => {
-          remove({ params: { id } });
+          void onDelete();
         }}
         type="button"
         variant="destructive"
