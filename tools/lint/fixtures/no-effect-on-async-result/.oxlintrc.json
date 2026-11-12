@@ -1,0 +1,4 @@
+{
+  "jsPlugins": ["../../plugin.mjs"],
+  "rules": { "workspace/no-effect-on-async-result": "error" }
+}

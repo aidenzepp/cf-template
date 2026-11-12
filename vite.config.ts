@@ -494,6 +494,67 @@ export default defineConfig({
         rules: { "workspace/no-mutable-module-state": "off" },
       },
       {
+        // The capability registry's form row allows the form hook's own directory to read a submit.
+        files: ["apps/web/src/components/form/**"],
+        rules: { "workspace/no-raw-form-submit": "off" },
+      },
+      {
+        // Lifted until the TanStack Form migration (#253 and its C2/C3 children) replaces them: each
+        // file submits a `<form onSubmit>` or reads a `FormData`; the notes test feeds one to the
+        // parser the migration removes.
+        files: [
+          "apps/web/src/components/auth/reauthenticate.tsx",
+          "apps/web/src/components/auth/sign-in-form.tsx",
+          "apps/web/src/components/auth/sign-up-form.tsx",
+          "apps/web/src/routes/notes/-note-form.tsx",
+          "apps/web/src/routes/notes/-notes.test.ts",
+          "apps/web/src/routes/settings.tsx",
+        ],
+        rules: { "workspace/no-raw-form-submit": "off" },
+      },
+      {
+        // Lifted until #238 moves the re-auth account list into a loader or atom.
+        files: ["apps/web/src/components/auth/reauthenticate.tsx"],
+        rules: { "workspace/no-effect-data-load": "off" },
+      },
+      {
+        // Lifted until #235 loads the settings accounts in the route loader.
+        files: ["apps/web/src/routes/settings.tsx"],
+        rules: { "workspace/no-effect-data-load": "off" },
+      },
+      {
+        // Lifted until #239 refreshes the notes through `reactivityKeys` instead of these effects.
+        files: [
+          "apps/web/src/routes/notes/-delete-note-button.tsx",
+          "apps/web/src/routes/notes/-note-form.tsx",
+        ],
+        rules: { "workspace/no-effect-on-async-result": "off" },
+      },
+      {
+        // `packages/contract` defines the Problem classes, so it writes the media type. Tests assert
+        // it on the wire, and the rule's own file names it to look for it.
+        files: [
+          "packages/contract/**",
+          "**/*.test.ts",
+          "tools/lint/rules/no-hand-built-problem.ts",
+        ],
+        rules: { "workspace/no-hand-built-problem": "off" },
+      },
+      {
+        // Lifted until #245 builds these problem responses with `ProblemDetails`.
+        files: [
+          "apps/web/src/forward.ts",
+          "apps/web/src/ratelimit.ts",
+          "packages/budget-guard/src/live.ts",
+        ],
+        rules: { "workspace/no-hand-built-problem": "off" },
+      },
+      {
+        // Lifted until #247 replaces the `Map` with `Cache.makeWith`.
+        files: ["packages/knobs-kv/src/live.ts"],
+        rules: { "workspace/no-keyed-ttl-map": "off" },
+      },
+      {
         // The Ultracite `vitest` preset, scoped to the repository's own test files. The preset's own
         // globs also match `.mjs` suites, which run under `bun:test`, so its rules are re-scoped here
         // instead of adopted through `extends`.
@@ -593,7 +654,13 @@ export default defineConfig({
       "workspace/error-message-grammar": "error",
       "workspace/kebab-case-paths": "error",
       "workspace/no-built-in-try-catch": "error",
+      "workspace/no-effect-data-load": "error",
+      "workspace/no-effect-on-async-result": "error",
+      "workspace/no-hand-built-problem": "error",
+      "workspace/no-hand-rolled-retry": "error",
+      "workspace/no-keyed-ttl-map": "error",
       "workspace/no-mutable-module-state": "error",
+      "workspace/no-raw-form-submit": "error",
     },
     // The shadcn preset finds the components and the theme through these two entries.
     settings: { shadcn: { ui: ["@workspace/ui/components", "apps/web/src/styles/app.css"] } },
