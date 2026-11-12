@@ -1,12 +1,25 @@
 import { Button } from "@workspace/ui/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@workspace/ui/components/ui/field";
 import { Input } from "@workspace/ui/components/ui/input";
+import { useRouter } from "@tanstack/react-router";
+import { Schema } from "effect";
 import { useState } from "react";
-import type { SyntheticEvent } from "react";
 import { authClient } from "../../lib/auth-client.ts";
+import type { fork as Fork } from "../../runtime.ts";
+import { emailField, required } from "../form/fields.ts";
+import { useForm } from "../form/use-form.ts";
+import { authOutcome } from "./auth-outcome.ts";
 import { PasskeyNudge } from "./email-off-notices.tsx";
 import { ProviderButtons } from "./provider-buttons.tsx";
-import { readField, useAuthSubmit } from "./use-auth-submit.ts";
+
+/**
+ * The fields of the sign-up form.
+ */
+export const SignUpInput = Schema.Struct({
+  email: emailField,
+  name: required("Enter your name."),
+  password: required("Choose a password."),
+});
 
 /**
  * The line that tells a person how long an abandoned sign-up holds its email, or `null` when the
@@ -39,6 +52,7 @@ export const orphanGraceLine = (
  *
  * @param props - The form's props.
  * @param props.email - `AuthMethods.email`: whether reset mail exists.
+ * @param props.fork - The web runtime's `fork`, injected so this module never loads the runtime.
  * @param props.graceSeconds - The bound `AUTH_ORPHAN_GRACE_SECONDS`, for the grace lines.
  * @param props.providers -The provider ids of `AuthMethods`.
  * @param props.redirect - The validated root-relative path to open after sign-up.
@@ -46,51 +60,71 @@ export const orphanGraceLine = (
  */
 export const SignUpForm = ({
   email: emailLive,
+  fork,
   graceSeconds,
   providers,
   redirect,
 }: {
   readonly email: boolean;
+  readonly fork: typeof Fork;
   readonly graceSeconds: number;
   readonly providers: ReadonlyArray<string>;
   readonly redirect: string;
 }) => {
-  const { message, pending, submit } = useAuthSubmit(redirect);
+  const router = useRouter();
   const [graceLine, setGraceLine] = useState<string | null>(null);
 
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const { error, failure, field, formProps, pending } = useForm(
+    SignUpInput,
+    ({ email, name, password }) => {
+      setGraceLine(null);
 
-    const form = new FormData(event.currentTarget);
-    const name = readField(form, "name");
-    const email = readField(form, "email");
-    const password = readField(form, "password");
-
-    setGraceLine(null);
-    submit((signal) =>
-      authClient.signUp.email(
-        { email, name, password },
-        {
-          onError: ({ error }) => {
-            setGraceLine(orphanGraceLine(error, graceSeconds));
-          },
-          signal,
+      return authOutcome(
+        (signal) =>
+          authClient.signUp.email(
+            { email, name, password },
+            {
+              onError: ({ error: failed }) => {
+                setGraceLine(orphanGraceLine(failed, graceSeconds));
+              },
+              signal,
+            },
+          ),
+        () => {
+          router.history.push(redirect);
         },
-      ),
-    );
-  };
+      );
+    },
+    { fork },
+  );
 
   return (
     <>
-      <form onSubmit={onSubmit}>
+      <form {...formProps}>
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="name">Name</FieldLabel>
-            <Input autoComplete="name" id="name" name="name" required type="text" />
+            <Input
+              autoComplete="name"
+              id="name"
+              name="name"
+              required
+              type="text"
+              {...field("name")}
+            />
+            <FieldError {...error("name")} />
           </Field>
           <Field>
             <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input autoComplete="email" id="email" name="email" required type="email" />
+            <Input
+              autoComplete="email"
+              id="email"
+              name="email"
+              required
+              type="email"
+              {...field("email")}
+            />
+            <FieldError {...error("email")} />
           </Field>
           <Field>
             <FieldLabel htmlFor="password">Password</FieldLabel>
@@ -100,10 +134,12 @@ export const SignUpForm = ({
               name="password"
               required
               type="password"
+              {...field("password")}
             />
+            <FieldError {...error("password")} />
           </Field>
-          <FieldError>{message}</FieldError>
-          {message === null || graceLine === null ? null : (
+          <FieldError>{failure}</FieldError>
+          {failure === null || graceLine === null ? null : (
             <p className="text-muted-foreground text-sm">{graceLine}</p>
           )}
           <Button disabled={pending} type="submit">

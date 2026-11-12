@@ -8,15 +8,19 @@ import {
 } from "@workspace/ui/components/ui/dialog";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@workspace/ui/components/ui/field";
 import { Input } from "@workspace/ui/components/ui/input";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { useEffect, useState } from "react";
-import type { SyntheticEvent } from "react";
 import { authClient } from "../../lib/auth-client.ts";
-import { authErrorCopy } from "../../lib/auth-error-copy.ts";
 import { decodeAccounts, providerName, reauthProviders, settle } from "../../lib/settings-calls.ts";
-import type { Settled } from "../../lib/settings-calls.ts";
-import { run } from "../../runtime.ts";
-import { readField } from "./use-auth-submit.ts";
+import { fork, run } from "../../runtime.ts";
+import { required } from "../form/fields.ts";
+import { useAction, useForm } from "../form/use-form.ts";
+import { authOutcome } from "./auth-outcome.ts";
+
+/**
+ * The field of the prompt's password form.
+ */
+const PasswordInput = Schema.Struct({ password: required("Enter your password.") });
 
 /**
  * The prompt that asks for a fresh sign-in, opened when the server refuses an action for a stale
@@ -42,8 +46,17 @@ export const Reauthenticate = ({
   readonly onCancel: () => void;
   readonly onDone: () => void;
 }) => {
-  const [message, setMessage] = useState<string | null>(null);
   const [providers, setProviders] = useState<ReadonlyArray<string>>([]);
+
+  const form = useForm(
+    PasswordInput,
+    ({ password }) =>
+      authOutcome((signal) => authClient.signIn.email({ email, password }, { signal }), onDone),
+    { fork },
+  );
+
+  const action = useAction({ fork });
+  const message = form.failure ?? action.failure;
 
   useEffect(() => {
     if (open) {
@@ -58,31 +71,6 @@ export const Reauthenticate = ({
       );
     }
   }, [open]);
-
-  const answer = (call: () => PromiseLike<Settled>, succeeded: () => void) => {
-    setMessage(null);
-    void run(
-      settle(call).pipe(
-        Effect.tap(({ error }) =>
-          Effect.sync(() => {
-            if (error === null) {
-              succeeded();
-            } else {
-              setMessage(authErrorCopy({ aborted: false, error }));
-            }
-          }),
-        ),
-      ),
-    );
-  };
-
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const password = readField(new FormData(event.currentTarget), "password");
-
-    answer(() => authClient.signIn.email({ email, password }), onDone);
-  };
 
   return (
     <Dialog
@@ -103,7 +91,7 @@ export const Reauthenticate = ({
           </DialogDescription>
         </DialogHeader>
         {providers.length === 0 ? (
-          <form onSubmit={onSubmit}>
+          <form {...form.formProps}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="reauth-password">Password</FieldLabel>
@@ -113,10 +101,14 @@ export const Reauthenticate = ({
                   name="password"
                   required
                   type="password"
+                  {...form.field("password")}
                 />
+                <FieldError {...form.error("password")} />
               </Field>
               <FieldError>{message}</FieldError>
-              <Button type="submit">Continue</Button>
+              <Button disabled={form.pending} type="submit">
+                Continue
+              </Button>
             </FieldGroup>
           </form>
         ) : (
@@ -124,10 +116,13 @@ export const Reauthenticate = ({
             {providers.map((provider) => (
               <Button
                 key={provider}
+                disabled={action.pending}
                 onClick={() => {
-                  answer(
-                    () => authClient.signIn.social({ callbackURL: "/settings", provider }),
-                    onDone,
+                  action.run(
+                    authOutcome(
+                      () => authClient.signIn.social({ callbackURL: "/settings", provider }),
+                      onDone,
+                    ),
                   );
                 }}
                 type="button"

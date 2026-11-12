@@ -1,8 +1,8 @@
 import { Effect } from "effect";
 import { authErrorCopy } from "../../lib/auth-error-copy.ts";
-import { settle } from "../../lib/settings-calls.ts";
+import { needsFreshSession, settle } from "../../lib/settings-calls.ts";
 import type { Settled } from "../../lib/settings-calls.ts";
-import { failed, saved } from "../form/submit-form.ts";
+import { failed, paused, saved } from "../form/submit-form.ts";
 import type { Outcome } from "../form/submit-form.ts";
 
 /**
@@ -27,4 +27,30 @@ export const authOutcome = (
     }
 
     return failed(authErrorCopy({ aborted: false, error }));
+  });
+
+/**
+ * Makes one settings call and says how it went. A call the server refuses for a stale session is
+ * `paused`: the screen asks for the password, then runs the call again.
+ *
+ * @param call - The client call.
+ * @param title - The success toast's title, or none for a call that leaves the page.
+ * @param after - Runs once the call settled for any reason but a stale session, to reload a list.
+ * @returns The outcome.
+ */
+export const settingsOutcome = (
+  call: (signal: AbortSignal) => PromiseLike<Settled>,
+  title: string | undefined,
+  after?: () => void,
+): Effect.Effect<Outcome> =>
+  Effect.gen(function* attempt() {
+    const { error } = yield* settle(call);
+
+    if (needsFreshSession(error)) {
+      return paused;
+    }
+
+    yield* Effect.sync(() => after?.());
+
+    return error === null ? saved(title) : failed(authErrorCopy({ aborted: false, error }));
   });

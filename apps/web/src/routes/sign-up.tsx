@@ -8,7 +8,7 @@ import {
 import { AuthFormShell } from "../components/auth/auth-form-shell.tsx";
 import { SignUpForm } from "../components/auth/sign-up-form.tsx";
 import { DEFAULT_REDIRECT, validateRedirectSearch } from "../lib/redirect-target.ts";
-import { run } from "../runtime.ts";
+import { fork, run } from "../runtime.ts";
 import { OrphanGraceSeconds } from "../web-layer.ts";
 
 /**
@@ -32,6 +32,7 @@ const SignUp = () => {
     >
       <SignUpForm
         email={authMethods.email}
+        fork={fork}
         graceSeconds={orphanGraceSeconds}
         providers={authMethods.providers}
         redirect={target}
