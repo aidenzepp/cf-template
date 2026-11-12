@@ -1,8 +1,21 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Schema } from "effect";
 import config from "../../vite.config.ts";
-import { dataAccessMembers, globalThisFetch, runMembers } from "./rules/restricted-properties.ts";
-import { basePaths, restrictImports } from "./rules/restrict-imports.ts";
+import {
+  authFetchMembers,
+  dataAccessMembers,
+  globalThisFetch,
+  jsonStringifyMember,
+  registryMembers,
+  runMembers,
+} from "./rules/restricted-properties.ts";
+import {
+  basePaths,
+  libraryPatterns,
+  libraryPaths,
+  nodeBuiltins,
+  restrictImports,
+} from "./rules/restrict-imports.ts";
 
 /**
  * The shape `restrictImports` emits for `no-restricted-imports`: the severity and an options
@@ -63,6 +76,24 @@ const matchesGlob = (file: string, glob: string) =>
   ).test(file);
 
 /**
+ * The effective `no-restricted-properties` setting of a file: the last matching override, as in
+ * oxlint, else the root rule.
+ */
+const effective = (file: string) => {
+  let current = config.lint?.rules?.["no-restricted-properties"];
+
+  for (const override of config.lint?.overrides ?? []) {
+    const setting = override.rules?.["no-restricted-properties"];
+
+    if (setting !== undefined && (override.files ?? []).some((glob) => matchesGlob(file, glob))) {
+      current = setting;
+    }
+  }
+
+  return current;
+};
+
+/**
  * The runtime boundaries, the only overrides allowed to drop the base paths (`base: false`).
  */
 const boundaries = new Set([
@@ -72,6 +103,7 @@ const boundaries = new Set([
   "apps/web/src/**/*.test.ts",
   "apps/web/src/runtime.ts",
   "apps/web/src/server.ts",
+  "packages/*/src/**/*.test.ts",
   "**/*.test.ts",
 ]);
 
@@ -83,6 +115,29 @@ describe("no-restricted-imports override composition", () => {
       const boundary = files.length > 0 && files.every((glob) => boundaries.has(glob));
 
       assert.isTrue(boundary || carriesBase(override, basePaths), files.join(", "));
+    }
+  });
+
+  it("every override carries the banned libraries, runtime boundaries included", () => {
+    const Full = Schema.Tuple([
+      Schema.String,
+      Schema.Struct({
+        paths: Schema.Array(Schema.Unknown),
+        patterns: Schema.Array(Schema.Unknown),
+      }),
+    ]);
+
+    for (const override of config.lint?.overrides ?? []) {
+      const rule = override.rules?.["no-restricted-imports"];
+
+      if (rule !== undefined) {
+        assert.isTrue(
+          Schema.is(Full)(rule) &&
+            libraryPaths.every((entry) => rule[1].paths.includes(entry)) &&
+            libraryPatterns.every((entry) => rule[1].patterns.includes(entry)),
+          (override.files ?? []).join(", "),
+        );
+      }
     }
   });
 
@@ -109,7 +164,12 @@ describe("no-restricted-imports override composition", () => {
 
     assert.isTrue(decoded._tag === "Some");
 
-    const groups = decoded._tag === "Some" ? decoded.value[1].patterns : [];
+    // `password.ts` lifts `node:*` and keeps R1; the library bans every override carries are
+    // checked by their own test.
+    const groups = (decoded._tag === "Some" ? decoded.value[1].patterns : []).filter(
+      (pattern) =>
+        pattern !== nodeBuiltins && !libraryPatterns.some((library) => library === pattern),
+    );
 
     assert.isAbove(groups.length, 0);
 
@@ -129,53 +189,63 @@ describe("no-restricted-imports override composition", () => {
   });
 
   it("each listed file ends with the ruled no-restricted-properties list", () => {
-    const root = config.lint?.rules?.["no-restricted-properties"];
-
-    // The effective setting is the last matching override, as in oxlint, else the root rule.
-    const effective = (file: string) => {
-      let current = root;
-
-      for (const override of config.lint?.overrides ?? []) {
-        const setting = override.rules?.["no-restricted-properties"];
-
-        if (
-          setting !== undefined &&
-          (override.files ?? []).some((glob) => matchesGlob(file, glob))
-        ) {
-          current = setting;
-        }
-      }
-
-      return current;
-    };
-
     assert.deepStrictEqual(effective("apps/api/src/worker.ts"), [
       "error",
       ...runMembers,
       ...dataAccessMembers,
+      ...registryMembers,
     ]);
 
     assert.strictEqual(effective("apps/api/src/notes.test.ts"), "off");
     assert.deepStrictEqual(effective("apps/web/src/server.test.ts"), ["error", globalThisFetch]);
-    assert.deepStrictEqual(effective("apps/auth/src/reclaim.ts"), ["error", ...runMembers]);
 
-    assert.deepStrictEqual(effective("apps/web/src/lib/settings-calls.ts"), [
+    assert.deepStrictEqual(effective("apps/auth/src/reclaim.ts"), [
+      "error",
+      ...runMembers,
+      ...registryMembers,
+    ]);
+
+    assert.deepStrictEqual(effective("apps/web/src/lib/redirect-target.ts"), [
       "error",
       ...runMembers,
       ...dataAccessMembers,
+      ...registryMembers,
       globalThisFetch,
     ]);
 
     for (const file of ["apps/web/src/runtime.ts", "apps/web/src/server.ts"]) {
       assert.deepStrictEqual(
         effective(file),
-        ["error", ...dataAccessMembers, globalThisFetch],
+        ["error", ...dataAccessMembers, ...registryMembers, globalThisFetch],
         file,
       );
     }
 
-    assert.deepStrictEqual(effective("packages/db/src/batch.ts"), ["error", ...runMembers]);
+    assert.deepStrictEqual(effective("packages/db/src/batch.ts"), [
+      "error",
+      ...runMembers,
+      ...registryMembers,
+    ]);
+
     assert.strictEqual(effective("apps/auth/src/auth.ts"), "off");
+  });
+
+  it("each lifted file keeps every ban but the one it lifts", () => {
+    assert.deepStrictEqual(effective("apps/web/src/lib/settings-calls.ts"), [
+      "error",
+      ...runMembers,
+      ...dataAccessMembers,
+      jsonStringifyMember,
+      globalThisFetch,
+    ]);
+
+    for (const file of ["packages/budget-guard/src/latch.ts", "apps/auth/src/test-harness.ts"]) {
+      assert.deepStrictEqual(
+        effective(file),
+        ["error", ...runMembers, ...dataAccessMembers, ...authFetchMembers],
+        file,
+      );
+    }
   });
 
   it("restrictImports output carries the base paths", () => {
