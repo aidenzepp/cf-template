@@ -526,6 +526,11 @@ export default defineConfig({
         rules: { "workspace/no-effect-data-load": "off" },
       },
       {
+        // Passkey autofill effect: a WebAuthn conditional-mediation call, not a data load.
+        files: ["apps/web/src/components/auth/sign-in-form.tsx"],
+        rules: { "workspace/no-effect-data-load": "off" },
+      },
+      {
         // Lifted until #235 loads the settings accounts in the route loader.
         files: ["apps/web/src/routes/settings.tsx"],
         rules: { "workspace/no-effect-data-load": "off" },

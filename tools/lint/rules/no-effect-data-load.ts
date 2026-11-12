@@ -12,7 +12,7 @@ const noEffectDataLoad: Rule = {
     };
 
     return {
-      "CallExpression[callee.name=/^use(Layout)?Effect$/] CallExpression[callee.name=/^(run|runEffect)$/]":
+      "CallExpression[callee.name=/^use(Layout)?Effect$/] CallExpression[callee.name=/^(run|runEffect|fork)$/]":
         report,
       'CallExpression[callee.name=/^use(Layout)?Effect$/] CallExpression[callee.object.name="authClient"]':
         report,
