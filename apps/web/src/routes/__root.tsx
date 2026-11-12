@@ -1,4 +1,4 @@
-import { RegistryProvider } from "@effect/atom-react";
+import { RegistryProvider, useAtomSubscribe } from "@effect/atom-react";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { setResponseHeader, setResponseStatus } from "@tanstack/react-start/server";
 import {
@@ -13,13 +13,13 @@ import {
 import type { AnyRouter } from "@tanstack/react-router";
 import { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
 import { Effect } from "effect";
-import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { RouteError } from "../components/errors/error.tsx";
 import { NotFound } from "../components/errors/not-found.tsx";
 import { isAuthUnavailable, Retry } from "../components/retry.tsx";
 import { AppShell } from "../components/shell/app-shell.tsx";
 import { StatusToaster } from "../components/status-toaster.tsx";
+import { resolvedThemeAtom, THEME_SCRIPT } from "../lib/appearance.ts";
 import { validateRedirectSearch } from "../lib/redirect-target.ts";
 import { isAuthScreen, isSessionLess } from "../lib/session-less-paths.ts";
 import { run } from "../runtime.ts";
@@ -27,45 +27,20 @@ import { readSession } from "../session.ts";
 import { AuthMethods } from "../web-layer.ts";
 import appCss from "../styles/app.css?url";
 
-const DARK_QUERY = "(prefers-color-scheme: dark)";
-
 /**
  * The `Retry-After` seconds answered when `api` sent none or a value that is not whole seconds.
  */
 const FALLBACK_RETRY_AFTER_SECONDS = 5;
 
 /**
- * Sets the `dark` class of the document from `prefers-color-scheme` before the first paint.
- */
-const THEME_SCRIPT = `document.documentElement.classList.toggle("dark", matchMedia("${DARK_QUERY}").matches)`;
-
-const subscribeTheme = (onChange: () => void) => {
-  const query = matchMedia(DARK_QUERY);
-
-  const onPreference = () => {
-    document.documentElement.classList.toggle("dark", query.matches);
-    onChange();
-  };
-
-  query.addEventListener("change", onPreference);
-
-  return () => {
-    query.removeEventListener("change", onPreference);
-  };
-};
-
-/**
- * The theme the browser prefers, `light` on the server and until hydration. It also keeps the
- * document's `dark` class in step when the preference changes.
+ * Sets the `dark` class of the document to the resolved theme. The pre-paint script sets it for the
+ * first paint; this keeps it in step when the appearance or the browser's preference changes.
  *
- * @returns The resolved theme.
+ * @param theme - The resolved theme.
  */
-const useResolvedTheme = (): "light" | "dark" =>
-  useSyncExternalStore(
-    subscribeTheme,
-    () => (matchMedia(DARK_QUERY).matches ? "dark" : "light"),
-    () => "light",
-  );
+const applyTheme = (theme: "light" | "dark"): void => {
+  document.documentElement.classList.toggle("dark", theme === "dark");
+};
 
 /**
  * The document shell of every page.
@@ -88,6 +63,18 @@ const RootDocument = ({ children }: { readonly children: ReactNode }) => (
 );
 
 /**
+ * Keeps the document's `dark` class in step with the resolved theme. Inside the registry, it
+ * renders nothing.
+ *
+ * @returns Nothing.
+ */
+const ThemeSync = () => {
+  useAtomSubscribe(resolvedThemeAtom, applyTheme);
+
+  return null;
+};
+
+/**
  * The layout of every page: the page inside the sidebar shell for a signed-in caller, the bare page
  * for any other state, and the one toaster. `data-session` carries the state for tests.
  *
@@ -95,10 +82,10 @@ const RootDocument = ({ children }: { readonly children: ReactNode }) => (
  */
 const RootLayout = () => {
   const { session } = useRouteContext({ from: "__root__" });
-  const resolvedTheme = useResolvedTheme();
 
   return (
     <RegistryProvider>
+      <ThemeSync />
       <div className="contents" data-session={session._tag}>
         {session._tag === "signedIn" ? (
           <AppShell>
@@ -108,7 +95,7 @@ const RootLayout = () => {
           <Outlet />
         )}
       </div>
-      <StatusToaster theme={resolvedTheme} />
+      <StatusToaster />
     </RegistryProvider>
   );
 };

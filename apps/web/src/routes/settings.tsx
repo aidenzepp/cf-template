@@ -1,4 +1,4 @@
-import { createFileRoute, useRouteContext, useSearch } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouteContext, useSearch } from "@tanstack/react-router";
 import { Alert, AlertDescription } from "@workspace/ui/components/ui/alert";
 import { Button } from "@workspace/ui/components/ui/button";
 import {
@@ -14,11 +14,15 @@ import { Effect, Option, Schema } from "effect";
 import { useEffect, useState } from "react";
 import { Reauthenticate } from "../components/auth/reauthenticate.tsx";
 import { focusFirstInvalid, formValidator, useAppForm } from "../components/form/form-hook.tsx";
+import { AppearanceCard } from "../components/settings/appearance-card.tsx";
+import { DeveloperCard } from "../components/settings/developer-card.tsx";
+import { SettingsPanel, SettingsTabs } from "../components/settings/settings-tabs.tsx";
 import { authClient } from "../lib/auth-client.ts";
 import { authErrorCopy } from "../lib/auth-error-copy.ts";
 import { betterAuthCall } from "../lib/better-auth-call.ts";
 import type { Settled } from "../lib/better-auth-call.ts";
 import { oauthErrorCode, oauthErrorCopy } from "../lib/oauth-error-copy.ts";
+import { settingsTab } from "../lib/settings-tab.ts";
 import {
   PASSKEY_FALLBACK_NAME,
   decodeAccounts,
@@ -470,7 +474,8 @@ const AccountsCard = ({
  */
 const Settings = () => {
   const { authMethods, session } = useRouteContext({ from: "/settings" });
-  const { error } = useSearch({ from: "/settings" });
+  const { error, tab = "preferences" } = useSearch({ from: "/settings" });
+  const navigate = useNavigate({ from: "/settings" });
   const [retry, setRetry] = useState<(() => void) | undefined>(undefined);
 
   if (session._tag !== "signedIn") {
@@ -488,10 +493,29 @@ const Settings = () => {
           <AlertDescription>{oauthErrorCopy(error)}</AlertDescription>
         </Alert>
       )}
-      <ProfileCard askFresh={askFresh} image={session.session.image} name={session.session.name} />
-      <PasswordCard askFresh={askFresh} />
-      <PasskeysCard askFresh={askFresh} emailLive={authMethods.email} />
-      <AccountsCard askFresh={askFresh} providers={authMethods.providers} />
+      <SettingsTabs
+        onTabChange={(next) => {
+          void navigate({ search: (previous) => ({ ...previous, tab: next }) });
+        }}
+        tab={tab}
+      >
+        <SettingsPanel tab="preferences">
+          <AppearanceCard />
+        </SettingsPanel>
+        <SettingsPanel tab="account">
+          <ProfileCard
+            askFresh={askFresh}
+            image={session.session.image}
+            name={session.session.name}
+          />
+          <PasswordCard askFresh={askFresh} />
+          <PasskeysCard askFresh={askFresh} emailLive={authMethods.email} />
+          <AccountsCard askFresh={askFresh} providers={authMethods.providers} />
+        </SettingsPanel>
+        <SettingsPanel tab="developer">
+          <DeveloperCard />
+        </SettingsPanel>
+      </SettingsTabs>
       <Reauthenticate
         email={session.session.email}
         onCancel={() => {
@@ -509,10 +533,12 @@ const Settings = () => {
 
 export const Route = createFileRoute("/settings")({
   component: Settings,
-  // The same allowlist as `/oauth-error`: only a known code reaches the page or the address bar.
-  search: { middlewares: [({ search }) => ({ error: search.error })] },
+  // The same allowlist as `/oauth-error`: only a known code reaches the page or the address bar. The
+  // tab is the selected tab, so a reload or a link opens it; the first tab has no value.
+  search: { middlewares: [({ search }) => ({ error: search.error, tab: search.tab })] },
   staticData: { nav: { label: "Settings", order: 20 } },
-  validateSearch: (search: { readonly error?: unknown }) => ({
+  validateSearch: (search: { readonly error?: unknown; readonly tab?: unknown }) => ({
     error: oauthErrorCode(search.error),
+    tab: settingsTab(search.tab),
   }),
 });

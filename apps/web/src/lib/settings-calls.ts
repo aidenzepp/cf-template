@@ -20,7 +20,11 @@ export const settingsCalls = (client: SettingsClient) => ({
   deletePasskey: (id: string) =>
     client.$fetch("/passkey/delete-passkey", { body: { id }, method: "POST" }),
   linkProvider: (provider: string) =>
-    client.linkSocial({ callbackURL: "/settings", errorCallbackURL: "/settings", provider }),
+    client.linkSocial({
+      callbackURL: "/settings?tab=account",
+      errorCallbackURL: "/settings?tab=account",
+      provider,
+    }),
   listAccounts: () => client.listAccounts(),
   listPasskeys: () => client.$fetch("/passkey/list-user-passkeys", { method: "GET" }),
   renamePasskey: (id: string, name: string) =>

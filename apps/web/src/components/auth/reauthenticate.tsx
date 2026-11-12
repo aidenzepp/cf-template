@@ -39,7 +39,7 @@ const reauthAtom = Atom.fn((answer: Answer) =>
   betterAuthCall((signal) =>
     "provider" in answer
       ? authClient.signIn.social(
-          { callbackURL: "/settings", provider: answer.provider },
+          { callbackURL: "/settings?tab=account", provider: answer.provider },
           { signal },
         )
       : authClient.signIn.email(answer, { signal }),
