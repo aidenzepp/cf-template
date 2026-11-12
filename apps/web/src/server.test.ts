@@ -50,7 +50,9 @@ export default {
     }
     if (url.pathname === "/api/session-reads") return Response.json({ reads: sessionReads });
     if (url.pathname.endsWith("/throws")) throw new Error("stub failure");
-    if (url.pathname.endsWith("/missing")) return new Response("nope", { status: 404 });
+    if (url.pathname.endsWith("/missing") || url.pathname === "/llms.txt") {
+      return new Response("nope", { status: 404 });
+    }
     if (url.pathname.endsWith("/redirect")) {
       return new Response(null, { status: 302, headers: { location: "/elsewhere?x=1" } });
     }
@@ -426,6 +428,22 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
     }),
   );
 
+  it.effect(
+    "answers /llms.txt 404 from api with TanStack's own 404, as for any unrouted path",
+    () =>
+      Effect.gen(function* llms() {
+        const web = yield* WebProd;
+        const headers = { accept: "text/html", cookie: "stub=in" };
+        const off = yield* web.request("/llms.txt", { headers });
+        const unrouted = yield* web.request("/missing", { headers });
+
+        expect(off.status).toBe(unrouted.status);
+        expect(off.status).toBe(404);
+        expect(off.headers.get("content-type")).toBe(unrouted.headers.get("content-type"));
+        expect(yield* text(off)).not.toBe("nope");
+      }),
+  );
+
   it.effect("answers GET / from TanStack and GET /missing with TanStack's 404", () =>
     Effect.gen(function* pages() {
       const web = yield* WebProd;
@@ -439,7 +457,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       });
 
       expect(home.status).toBe(200);
-      expect(yield* text(home)).toContain("<main>web</main>");
+      expect(yield* text(home)).toContain(">Dashboard</h1>");
       expect(missing.status).toBe(404);
     }),
   );
@@ -749,7 +767,9 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
         'data-session="signedIn"',
         'aria-label="Loading account"',
         'aria-label="Main"',
-        ">Home<",
+        ">Dashboard</h1>",
+        ">Notes<",
+        ">Settings<",
       ]) {
         expect(html).toContain(shown);
       }
@@ -760,13 +780,14 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
     }),
   );
 
-  it.effect("shows Sign in in the signedOut shell and sets the theme script", () =>
-    Effect.gen(function* signedOutShell() {
+  it.effect("renders the sign-in page without the sidebar shell and sets the theme script", () =>
+    Effect.gen(function* signedOutPage() {
       const { html } = yield* sessionState("stub=401", "/sign-in");
 
-      expect(html).toContain('href="/sign-in"');
+      expect(html).toContain(">Sign in<");
       expect(html).toContain("prefers-color-scheme: dark");
       expect(html).not.toContain('aria-label="Main"');
+      expect(html).not.toContain('data-slot="sidebar"');
     }),
   );
 

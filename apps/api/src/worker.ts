@@ -20,6 +20,7 @@ import {
   ApiWorkerIsolateLayers,
   ApiWorkerMiddlewareLayers,
 } from "./blocks.ts";
+import { ApiDocsRoutes } from "./docs/routes.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
 
 /**
@@ -115,7 +116,8 @@ export class ApiWorker extends Cloudflare.Worker<ApiWorker, ApiEntrypoint>()("Ap
  * missing or invalid binding is a defect of that execution's requests and nothing else.
  *
  * The returned effect runs each request at the live `LOG_LEVEL`, read once per request through the
- * `LiveKnobs` port.
+ * `LiveKnobs` port. The documentation routes (`ApiDocsRoutes`) read `API_DOCS_ENABLED` the same
+ * way, once per request to one of them.
  *
  * The isolate services are not built here: they hold state such as a store, so they are built once
  * per isolate and shared by every execution; a store built per execution would be empty on every
@@ -152,6 +154,7 @@ export const makeHandler = (
       Layer.provide(layerProblemDetails({ includeDetails })),
       Layer.provide(Http.Platform),
       Layer.merge(ProblemAdapter),
+      Layer.merge(ApiDocsRoutes.pipe(Layer.provide(providers))),
       Layer.provide(provider),
     );
 

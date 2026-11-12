@@ -1,25 +1,26 @@
-import { Link, useRouteContext, useRouter } from "@tanstack/react-router";
+import { useRouteContext, useRouter } from "@tanstack/react-router";
 import { Avatar, AvatarFallback, AvatarImage } from "@workspace/ui/components/ui/avatar";
-import { buttonVariants } from "@workspace/ui/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/ui/dropdown-menu";
-import { Skeleton } from "@workspace/ui/components/ui/skeleton";
+import {
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarMenuSkeleton,
+  useSidebar,
+} from "@workspace/ui/components/ui/sidebar";
 import { authClient } from "../../lib/auth-client.ts";
+import { fork } from "../../runtime.ts";
+import { notify } from "../notify.ts";
+import { signOutFailure, signOutFlow } from "./sign-out.ts";
 
 /**
- * The sign-in link's search: no `redirect`, so signing in lands on `/`. Shared across renders.
- */
-const signInSearch = { redirect: undefined };
-
-/**
- * The avatar button and its menu, with Sign out.
+ * The account row of the sidebar footer and its menu, with Sign out. The menu opens beside the
+ * sidebar on desktop and above the row inside the mobile sheet.
  *
  * @param props - The menu's props.
  * @param props.user - The profile fields of the browser's session.
@@ -38,45 +39,58 @@ const AccountMenu = ({
   };
 }) => {
   const router = useRouter();
+  const { isMobile } = useSidebar();
 
-  // The root `beforeLoad` re-derives the state after `invalidate`; a failed sign-out leaves the
-  // session in place, so the sign-in screen sends the person back to `/`.
+  // The root `beforeLoad` re-derives the state after `invalidate`. A failed sign-out leaves the
+  // session in place, so the person stays here and sees why.
   const signOut = () => {
-    void authClient
-      .signOut()
-      .catch(() => null)
-      .then(() => router.invalidate())
-      .then(() => router.navigate({ search: { redirect: undefined }, to: "/sign-in" }));
+    fork(
+      signOutFlow({
+        call: () => authClient.signOut(),
+        fail: () => {
+          notify.error(signOutFailure.title, signOutFailure.description);
+        },
+        leave: async () => {
+          await router.invalidate();
+          await router.navigate({ search: { redirect: undefined }, to: "/sign-in" });
+        },
+      }),
+    );
   };
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger aria-label="Account menu">
-        <Avatar>
-          {user.image === null || user.image === undefined ? null : (
-            <AvatarImage alt="" src={user.image} />
-          )}
-          <AvatarFallback>{user.name.slice(0, 1).toUpperCase()}</AvatarFallback>
-        </Avatar>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuGroup>
-          <DropdownMenuLabel>
-            <span className="block truncate">{user.name}</span>
-            <span className="block truncate text-muted-foreground">{user.email}</span>
-          </DropdownMenuLabel>
-        </DropdownMenuGroup>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={signOut}>Sign out</DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <SidebarMenu>
+      <SidebarMenuItem>
+        <DropdownMenu>
+          <DropdownMenuTrigger render={<SidebarMenuButton aria-label="Account menu" size="lg" />}>
+            <Avatar>
+              {user.image === null || user.image === undefined ? null : (
+                <AvatarImage alt="" src={user.image} />
+              )}
+              <AvatarFallback>{user.name.slice(0, 1).toUpperCase()}</AvatarFallback>
+            </Avatar>
+            <span className="grid min-w-0 flex-1 text-left text-sm leading-tight">
+              <span className="truncate font-medium">{user.name}</span>
+              <span className="truncate text-xs text-muted-foreground">{user.email}</span>
+            </span>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align={isMobile ? "center" : "end"}
+            className="min-w-56"
+            side={isMobile ? "top" : "right"}
+          >
+            <DropdownMenuItem onClick={signOut}>Sign out</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    </SidebarMenu>
   );
 };
 
 /**
- * The shell's account control. Signed-in state comes from the route context; `useSession` supplies
- * profile fields only. A signed-in or unknown state paints the skeleton until the browser's
- * session has data, and never "Sign in".
+ * The sidebar footer's account control. The shell only renders for a signed-in route context;
+ * `useSession` supplies profile fields only, so the skeleton paints until the browser's session
+ * has data, and never a sign-in link.
  *
  * @returns The control for the current state.
  */
@@ -84,17 +98,13 @@ export const UserMenu = () => {
   const { session } = useRouteContext({ from: "__root__" });
   const { data } = authClient.useSession();
 
-  if (session._tag === "signedOut") {
-    return (
-      <Link className={buttonVariants({ variant: "outline" })} search={signInSearch} to="/sign-in">
-        Sign in
-      </Link>
-    );
+  if (session._tag !== "signedIn") {
+    return null;
   }
 
   return data === null ? (
     <output aria-label="Loading account" className="block">
-      <Skeleton className="size-8" />
+      <SidebarMenuSkeleton showIcon />
     </output>
   ) : (
     <AccountMenu user={data.user} />

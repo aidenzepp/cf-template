@@ -179,6 +179,13 @@ const status = Effect.fn("knob.status")(function* status(namespace: NamespaceRef
  * @returns Nothing, or the first failure; a failed validation writes nothing.
  */
 export const execute = Effect.fn("knob.execute")(function* execute(request: KnobRequest) {
+  if (request.command === "set" && request.stage === "prod" && request.key === "API_DOCS_ENABLED") {
+    return yield* new KnobRefused({
+      message:
+        "API_DOCS_ENABLED is read at deploy time only on prod. Change it in infra/stages.ts and deploy. Nothing was written.",
+    });
+  }
+
   const namespace = yield* resolveNamespace(request.stage);
   const store = yield* KnobKv;
 

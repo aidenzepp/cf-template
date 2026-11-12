@@ -13,11 +13,12 @@ const roundTrip = <A>(knob: Knob<A>) =>
   );
 
 describe("liveKnobs", () => {
-  it("holds exactly the two live knobs", () => {
+  it("holds exactly the three live knobs", () => {
     assert.deepStrictEqual(
       liveKnobs.map((knob) => knob.key),
       [
         "LOG_LEVEL",
+        "API_DOCS_ENABLED",
         // block:notes start
         "EXAMPLE_FEATURE_ENABLED",
         // block:notes end
@@ -30,8 +31,9 @@ describe("liveKnobs", () => {
       // A tuple, so each entry keeps its own value type; the length above is the exhaustiveness check.
       const results = [
         yield* roundTrip(liveKnobs[0]),
-        // block:notes start
         yield* roundTrip(liveKnobs[1]),
+        // block:notes start
+        yield* roundTrip(liveKnobs[2]),
         // block:notes end
       ];
 

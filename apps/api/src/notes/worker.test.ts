@@ -4,10 +4,79 @@ import { Context, DateTime, Effect, Layer, Option, Schema } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { LiveKnobs, fromSource } from "@workspace/config/knob";
 import { LogLevelKnob } from "@workspace/config/log-level";
+import { DOCS_PATH, LLMS_PATH, OPENAPI_PATH } from "@workspace/contract/api/docs-paths";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { makeHandler } from "../worker.ts";
 import { Notes } from "./notes.ts";
 import type { NotesService } from "./notes.ts";
+
+/**
+ * The status each documentation path answers through `makeHandler`, with the Worker's bindings
+ * set to `env` and the live source holding `live` under `API_DOCS_ENABLED`.
+ */
+const docsStatuses = (
+  env: { readonly API_DOCS_ENABLED?: string; readonly API_DOCS_LIVE_READ?: string },
+  live: Option.Option<string>,
+) =>
+  Effect.gen(function* statuses() {
+    const notes = yield* Notes.pipe(Effect.provide(Notes.layerMemory));
+    const port = fromSource({ name: "test", read: () => Effect.succeed(live) });
+
+    const handler = yield* makeHandler(
+      () => Effect.die("The documentation routes never check a session."),
+      Context.make(Notes, notes),
+      Layer.succeed(LiveKnobs, port),
+    );
+
+    return yield* Effect.forEach([OPENAPI_PATH, DOCS_PATH, LLMS_PATH], (path) =>
+      handler.pipe(
+        Effect.provideService(
+          HttpServerRequest.HttpServerRequest,
+          HttpServerRequest.fromWeb(new Request(`http://api.internal${path}`)),
+        ),
+        Effect.map((response) => HttpServerResponse.toWeb(response).status),
+        // An unrouted path fails the handler; the server turns that into the 404 it sends.
+        Effect.catchTag("HttpServerError", (error) =>
+          error.reason._tag === "RouteNotFound" ? Effect.succeed(404) : Effect.fail(error),
+        ),
+      ),
+    );
+  }).pipe(
+    Effect.scoped,
+    Effect.provideService(Cloudflare.WorkerEnvironment, {
+      EXAMPLE_FEATURE_ENABLED: "true",
+      ...env,
+    }),
+    Effect.orDie,
+  );
+
+describe("the documentation routes of the api Worker", () => {
+  it.effect.each([
+    {
+      env: { API_DOCS_ENABLED: "true" },
+      live: Option.none<string>(),
+      name: "on by the deploy-time value",
+      status: 200,
+    },
+    { env: {}, live: Option.none<string>(), name: "off when nothing sets it", status: 404 },
+    {
+      env: { API_DOCS_ENABLED: "false", API_DOCS_LIVE_READ: "true" },
+      live: Option.some("true"),
+      name: "on by the live value on a stage that reads it",
+      status: 200,
+    },
+    {
+      env: { API_DOCS_ENABLED: "false", API_DOCS_LIVE_READ: "false" },
+      live: Option.some("true"),
+      name: "off on prod although the live value is true",
+      status: 404,
+    },
+  ])("answer $status on all three paths: $name", ({ env, live, status }) =>
+    Effect.gen(function* answers() {
+      assert.deepStrictEqual(yield* docsStatuses(env, live), [status, status, status]);
+    }),
+  );
+});
 
 describe("the notes store of the api Worker", () => {
   const ada = Schema.encodeSync(Session)(

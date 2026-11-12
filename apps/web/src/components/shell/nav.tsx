@@ -1,47 +1,65 @@
-import { Link, useRouter } from "@tanstack/react-router";
-import { Option, Schema } from "effect";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import type { AnyRoute } from "@tanstack/react-router";
-
-declare module "@tanstack/react-router" {
-  interface StaticDataRouteOption {
-    readonly nav?: { readonly label: string; readonly order: number };
-  }
-}
-
-const decodePath = Schema.decodeUnknownOption(Schema.String);
+import {
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  useSidebar,
+} from "@workspace/ui/components/ui/sidebar";
+import { isActivePath, navItemsOf } from "./nav-items.ts";
 
 /**
- * The props a nav link takes while its route is active. Shared across renders.
+ * The `Link` options of the home link: matched exactly, so it is not current on every page.
  */
-const activeProps = { "aria-current": "page" } as const;
+const exactOptions = { exact: true } as const;
 
 /**
- * The shell's navigation, built from the `nav` static data of the router's routes and sorted by
- * `order`. A route without the key has no link.
+ * The sidebar's navigation, built from the `nav` static data of the router's routes. A route
+ * without the key has no link. Following a link closes the mobile sheet.
  *
- * @returns The navigation bar.
+ * @returns The navigation group.
  */
 export const Nav = () => {
   const router = useRouter();
+  const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const { setOpenMobile } = useSidebar();
+  const items = navItemsOf(Object.values<AnyRoute>({ ...router.routesById }));
 
-  const items = Object.values<AnyRoute>({ ...router.routesById })
-    .flatMap((route) => {
-      const nav = route.options.staticData?.nav;
-      const to = decodePath(route.fullPath);
-
-      return nav === undefined || Option.isNone(to)
-        ? []
-        : [{ label: nav.label, order: nav.order, to: to.value }];
-    })
-    .toSorted((a, b) => a.order - b.order);
+  const close = () => {
+    setOpenMobile(false);
+  };
 
   return (
-    <nav aria-label="Main" className="flex items-center gap-4 text-sm">
-      {items.map((item) => (
-        <Link activeProps={activeProps} key={item.to} to={item.to}>
-          {item.label}
-        </Link>
-      ))}
-    </nav>
+    <SidebarGroup>
+      <SidebarGroupContent>
+        <nav aria-label="Main">
+          <SidebarMenu>
+            {items.map((item) => {
+              const active = isActivePath(item.to, pathname);
+
+              return (
+                <SidebarMenuItem key={item.to}>
+                  <SidebarMenuButton
+                    aria-current={active ? "page" : undefined}
+                    isActive={active}
+                    onClick={close}
+                    render={
+                      <Link
+                        activeOptions={item.to === "/" ? exactOptions : undefined}
+                        to={item.to}
+                      />
+                    }
+                  >
+                    {item.label}
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </nav>
+      </SidebarGroupContent>
+    </SidebarGroup>
   );
 };

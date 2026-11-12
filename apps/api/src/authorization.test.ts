@@ -17,6 +17,9 @@ import {
   Ref,
   // block:notes end
   Schema,
+  // block:notes start
+  Tracer,
+  // block:notes end
 } from "effect";
 // block:notes start
 import { TestClock } from "effect/testing";
@@ -64,6 +67,9 @@ const wire = (session: Session) =>
 const stack = (
   checkSession: typeof AuthCheckSession.Service,
   env: Readonly<Record<string, string | number | boolean>>,
+  // block:notes start
+  notes: Layer.Layer<Notes> = Notes.layerMemory,
+  // block:notes end
 ) =>
   HttpApiBuilder.layer(Api).pipe(
     Layer.provide(
@@ -74,7 +80,7 @@ const stack = (
         SystemApiHandlers,
       ).pipe(
         // block:notes start
-        Layer.provide(Notes.layerMemory),
+        Layer.provide(notes),
         // block:notes end
       ),
     ),
@@ -99,6 +105,8 @@ const stack = (
  * @param options - Optional settings.
  * @param options.env - The Worker bindings the knobs are read from; the feature is on by default.
  * @param options.logger - A logger that sees every log line of the requests.
+ * @param options.notes - The notes service behind the handlers; in memory by default.
+ * @param options.tracer - A tracer that sees every span of the requests.
  * @returns A function that sends a request and resolves to its response.
  */
 const serve = (
@@ -106,11 +114,21 @@ const serve = (
   options: {
     readonly env?: Readonly<Record<string, string | number | boolean>>;
     readonly logger?: Logger.Logger<unknown, void>;
+    // block:notes start
+    readonly notes?: Layer.Layer<Notes>;
+    // block:notes end
+    readonly tracer?: Tracer.Tracer;
   } = {},
 ) =>
   Effect.gen(function* serveStack() {
     const { dispose, handler } = HttpRouter.toWebHandler(
-      stack(checkSession, options.env ?? { EXAMPLE_FEATURE_ENABLED: true }),
+      stack(
+        checkSession,
+        options.env ?? { EXAMPLE_FEATURE_ENABLED: true },
+        // block:notes start
+        options.notes,
+        // block:notes end
+      ),
       {
         disableLogger: true,
       },
@@ -118,12 +136,15 @@ const serve = (
 
     yield* Effect.addFinalizer(() => Effect.promise(dispose));
 
-    const context = (yield* Effect.context()).pipe(
+    const base = (yield* Effect.context()).pipe(
       Context.add(
         Logger.CurrentLoggers,
         options.logger === undefined ? new Set() : new Set([options.logger]),
       ),
     );
+
+    const context =
+      options.tracer === undefined ? base : Context.add(base, Tracer.Tracer, options.tracer);
 
     return (request: Request) => Effect.promise(() => handler(request, context));
   });
@@ -142,6 +163,11 @@ const notesRequest = (headers?: Record<string, string>) =>
 const bodyOf = (response: Response) => Effect.promise(() => response.json());
 
 // block:notes start
+/**
+ * A notes operation a test never reaches.
+ */
+const unused = () => Effect.die("unused");
+
 describe("session middleware", () => {
   it.effect("answers 401 SessionRequired when auth returns null", () =>
     Effect.gen(function* signedOut() {
@@ -223,6 +249,50 @@ describe("session middleware", () => {
       const response = yield* send(notesRequest({ cookie: "session=valid" }));
 
       assert.strictEqual(response.status, 503);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("tags the request span and every handler log line with the caller's userId only", () =>
+    Effect.gen(function* tagged() {
+      const annotated = yield* Ref.make<ReadonlyArray<string>>([]);
+      const spans: Array<Tracer.NativeSpan> = [];
+
+      const logger = Logger.make(({ fiber }) => {
+        Effect.runSync(
+          Ref.update(annotated, (all) => [
+            ...all,
+            JSON.stringify(fiber.getRef(References.CurrentLogAnnotations)),
+          ]),
+        );
+      });
+
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options);
+
+          spans.push(span);
+
+          return span;
+        },
+      });
+
+      const notes = Layer.succeed(
+        Notes,
+        Notes.of({
+          create: unused,
+          get: unused,
+          list: () => Effect.logInfo("notes listed").pipe(Effect.as([])),
+          remove: unused,
+          update: unused,
+        }),
+      );
+
+      const send = yield* serve(() => Effect.succeed(wire(ada)), { logger, notes, tracer });
+
+      assert.strictEqual((yield* send(notesRequest())).status, 200);
+      assert.deepStrictEqual(yield* Ref.get(annotated), ['{"userId":"ada"}']);
+      assert.isTrue(spans.some((span) => span.attributes.get("userId") === "ada"));
+      assert.isFalse(spans.some((span) => JSON.stringify([...span.attributes]).includes("@")));
     }).pipe(Effect.scoped),
   );
 });

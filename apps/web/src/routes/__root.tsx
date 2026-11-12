@@ -12,15 +12,14 @@ import {
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
 import { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
-import { Toaster } from "@workspace/ui/components/ui/sonner";
 import { Effect } from "effect";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
 import { RouteError } from "../components/errors/error.tsx";
 import { NotFound } from "../components/errors/not-found.tsx";
 import { isAuthUnavailable, Retry } from "../components/retry.tsx";
-import { Nav } from "../components/shell/nav.tsx";
-import { UserMenu } from "../components/shell/user-menu.tsx";
+import { AppShell } from "../components/shell/app-shell.tsx";
+import { StatusToaster } from "../components/status-toaster.tsx";
 import { validateRedirectSearch } from "../lib/redirect-target.ts";
 import { isAuthScreen, isSessionLess } from "../lib/session-less-paths.ts";
 import { run } from "../runtime.ts";
@@ -89,8 +88,8 @@ const RootDocument = ({ children }: { readonly children: ReactNode }) => (
 );
 
 /**
- * The layout of every page: the header with the nav and the user menu, the page, and the one
- * toaster.
+ * The layout of every page: the page inside the sidebar shell for a signed-in caller, the bare page
+ * for any other state, and the one toaster. `data-session` carries the state for tests.
  *
  * @returns The layout.
  */
@@ -100,15 +99,16 @@ const RootLayout = () => {
 
   return (
     <RegistryProvider>
-      <header
-        className="flex items-center justify-between gap-4 border-b p-4"
-        data-session={session._tag}
-      >
-        {session._tag === "signedOut" ? <span /> : <Nav />}
-        <UserMenu />
-      </header>
-      <Outlet />
-      <Toaster theme={resolvedTheme} />
+      <div className="contents" data-session={session._tag}>
+        {session._tag === "signedIn" ? (
+          <AppShell>
+            <Outlet />
+          </AppShell>
+        ) : (
+          <Outlet />
+        )}
+      </div>
+      <StatusToaster theme={resolvedTheme} />
     </RegistryProvider>
   );
 };
