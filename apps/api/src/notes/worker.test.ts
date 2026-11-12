@@ -6,7 +6,7 @@ import { LiveKnobs, fromSource } from "@workspace/config/knob";
 import { LogLevelKnob } from "@workspace/config/log-level";
 import { DOCS_PATH, LLMS_PATH, OPENAPI_PATH } from "@workspace/contract/api/docs-paths";
 import { Session, UserId } from "@workspace/contract/domain/session";
-import { makeHandler } from "../worker.ts";
+import { makeHandler } from "../http.ts";
 import { Notes } from "./notes.ts";
 import type { NotesService } from "./notes.ts";
 
