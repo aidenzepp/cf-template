@@ -30,6 +30,10 @@ const encodeSession = Schema.encodeEffect(Session);
  * with `null` and `401` are `signedOut`, and anything else is `unknown`. A `503` is not converted.
  * A transport or decode fault is `unknown` and its cause is dropped, so nothing sensitive is
  * logged.
+ *
+ * A signed-in caller's id is set as the `userId` attribute of the current span and annotates the
+ * rest of this read. The router runs each later step on a fiber of its own, so those steps carry
+ * the id only if they read it from the state this returns.
  */
 export const readSession = Effect.gen(function* readSession() {
   const client = yield* ApiClient;
@@ -49,12 +53,16 @@ export const readSession = Effect.gen(function* readSession() {
 
   const session = yield* response.json.pipe(Effect.flatMap(decodeSession));
 
-  return session === null
-    ? ({ _tag: "signedOut" } as const satisfies SessionState)
-    : ({
-        _tag: "signedIn",
-        session: yield* encodeSession(session),
-      } as const satisfies SessionState);
+  if (session === null) {
+    return { _tag: "signedOut" } as const satisfies SessionState;
+  }
+
+  yield* Effect.annotateCurrentSpan("userId", session.userId);
+
+  return {
+    _tag: "signedIn",
+    session: yield* encodeSession(session).pipe(Effect.annotateLogs({ userId: session.userId })),
+  } as const satisfies SessionState;
 }).pipe(
   Effect.catchCause((cause) =>
     Cause.hasInterruptsOnly(cause)
