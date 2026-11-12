@@ -2,7 +2,9 @@ import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { submitForm } from "../form/submit-form.ts";
 import { authOutcome } from "./auth-outcome.ts";
-import { EMAIL_AUTOCOMPLETE, SignInInput, passkeyAutofill } from "./sign-in-form.tsx";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { EMAIL_AUTOCOMPLETE, LastUsed, SignInInput, passkeyAutofill } from "./sign-in-form.tsx";
 
 /**
  * Submits the sign-in form's data through the form pattern with a client call that answers
@@ -73,24 +75,32 @@ describe("sign-in form, end to end", () => {
   );
 });
 
-const run = (available: boolean | undefined, controller = new AbortController()) =>
+const run = (
+  available: boolean | undefined,
+  controller = new AbortController(),
+  error: { readonly status: number } | null = null,
+) =>
   Effect.gen(function* started() {
     const calls: Array<AbortSignal> = [];
+    const saved: Array<true> = [];
 
     yield* passkeyAutofill(
       ({ autoFill, fetchOptions }) => {
         expect(autoFill).toBeTruthy();
         calls.push(fetchOptions.signal);
 
-        return Promise.resolve(calls.length);
+        return Promise.resolve({ error });
       },
       available === undefined
         ? undefined
         : { isConditionalMediationAvailable: () => Promise.resolve(available) },
       controller.signal,
+      () => {
+        saved.push(true);
+      },
     );
 
-    return calls;
+    return { calls, saved };
   });
 
 describe("sign-in passkey autofill", () => {
@@ -100,15 +110,15 @@ describe("sign-in passkey autofill", () => {
 
   it.effect("does not call signIn.passkey without conditional mediation", () =>
     Effect.gen(function* absent() {
-      expect(yield* run(undefined)).toHaveLength(0);
-      expect(yield* run(false)).toHaveLength(0);
+      expect((yield* run(undefined)).calls).toHaveLength(0);
+      expect((yield* run(false)).calls).toHaveLength(0);
     }),
   );
 
   it.effect("calls signIn.passkey once with the abort signal, and unmount aborts it", () =>
     Effect.gen(function* present() {
       const controller = new AbortController();
-      const calls = yield* run(true, controller);
+      const { calls } = yield* run(true, controller);
 
       expect(calls).toStrictEqual([controller.signal]);
       expect(controller.signal.aborted).toBeFalsy();
@@ -119,13 +129,33 @@ describe("sign-in passkey autofill", () => {
     }),
   );
 
+  it.effect("runs onSaved after a successful sign-in and not after a failed one", () =>
+    Effect.gen(function* outcome() {
+      expect((yield* run(true)).saved).toHaveLength(1);
+      expect((yield* run(true, new AbortController(), { status: 400 })).saved).toHaveLength(0);
+      expect((yield* run(false)).saved).toHaveLength(0);
+    }),
+  );
+
   it.effect("does not start once the form has already unmounted", () =>
     Effect.gen(function* unmounted() {
       const controller = new AbortController();
 
       controller.abort();
 
-      expect(yield* run(true, controller)).toHaveLength(0);
+      expect((yield* run(true, controller)).calls).toHaveLength(0);
     }),
   );
+});
+
+describe("sign-in last-used badge", () => {
+  it("shows the tag on the last-used method", () => {
+    expect(renderToStaticMarkup(createElement(LastUsed, { shown: true }))).toBe(
+      '<span data-badge="true">Last used</span>',
+    );
+  });
+
+  it("shows nothing when there is no record or another method was used", () => {
+    expect(renderToStaticMarkup(createElement(LastUsed, { shown: false }))).toBe("");
+  });
 });

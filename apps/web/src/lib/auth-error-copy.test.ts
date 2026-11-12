@@ -36,6 +36,10 @@ describe("authErrorCopy", () => {
     ["USER_ALREADY_EXISTS", "An account with this email already exists. Sign in instead."],
     ["PASSWORD_TOO_SHORT", "Use a longer password."],
     ["INVALID_PASSWORD", "That password is wrong."],
+    [
+      "AUTH_CANCELLED",
+      "The passkey sign-in didn't finish. Try again, or use your email and password.",
+    ],
     ["PASSWORD_TOO_LONG", "Use a shorter password."],
     ["SESSION_EXPIRED", "Your session ended. Sign in again."],
     [

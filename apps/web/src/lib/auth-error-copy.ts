@@ -17,6 +17,9 @@ export interface AuthErrorInput {
  */
 const CODE_COPY = {
   ACCOUNT_NOT_FOUND: "That account isn't linked anymore. Reload the page.",
+  AUTH_CANCELLED: "The passkey sign-in didn't finish. Try again, or use your email and password.",
+  ERROR_CEREMONY_ABORTED:
+    "The passkey sign-in didn't finish. Try again, or use your email and password.",
   FAILED_TO_UNLINK_LAST_ACCOUNT:
     "That is your only way to sign in. Add another one before you remove it.",
   FAILED_TO_UPDATE_PASSKEY: "The passkey couldn't be renamed. Try again.",

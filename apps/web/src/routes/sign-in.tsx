@@ -16,7 +16,7 @@ const SignIn = () => {
 
   return (
     <AuthFormShell
-      description="Use your email and password."
+      description="Use your email and password, or a passkey."
       otherLabel="Create an account"
       otherTo="/sign-up"
       redirect={requested}

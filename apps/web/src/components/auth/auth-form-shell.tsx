@@ -42,7 +42,9 @@ export const AuthFormShell = ({
     <main className="mx-auto flex min-h-svh w-full max-w-sm flex-col justify-center gap-4 p-4">
       <Card>
         <CardHeader>
-          <CardTitle>{title}</CardTitle>
+          <CardTitle>
+            <h1>{title}</h1>
+          </CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>
