@@ -17,7 +17,7 @@ import { notesListAtom } from "./-atoms.ts";
  *
  * @param props - The row's props.
  * @param props.note - The note to show.
- * @param props.note.id - The note's id, the detail route's `note-id`.
+ * @param props.note.id - The note's id, the detail route's `noteId`.
  * @param props.note.title - The note's title.
  * @param props.note.body - The note's body.
  * @returns The list item.
@@ -27,11 +27,11 @@ const NoteRow = ({
 }: {
   readonly note: { readonly id: string; readonly title: string; readonly body: string };
 }) => {
-  const params = useMemo(() => ({ "note-id": note.id }), [note.id]);
+  const params = useMemo(() => ({ noteId: note.id }), [note.id]);
 
   return (
     <li>
-      <Item render={<Link params={params} to="/notes/$note-id" />} variant="outline">
+      <Item render={<Link params={params} to="/notes/$noteId" />} variant="outline">
         <ItemContent>
           <ItemTitle>{note.title}</ItemTitle>
           <ItemDescription>{note.body}</ItemDescription>

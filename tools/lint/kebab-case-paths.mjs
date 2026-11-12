@@ -50,6 +50,13 @@ const isKebabCase = (value) => {
 };
 
 /**
+ * Matches a TanStack route-param segment: `$` and then a camelCase JavaScript identifier. The
+ * router names the param after the segment, so `$noteId` is the one spelling that yields
+ * `params.noteId`.
+ */
+const routeParamSegment = /^\$[a-z][A-Za-z0-9]*$/u;
+
+/**
  * Drops a trailing slash so a cwd prefix comparison does not depend on one.
  *
  * @param {string} value An absolute directory path.
@@ -84,7 +91,8 @@ const relativePath = (cwd, filename) => {
 /**
  * Returns directory names that are not kebab-case.
  * The filename is omitted because `unicorn/filename-case` already checks it.
- * `node_modules` and `dist` are ignored because those trees are not source names.
+ * `node_modules` and `dist` are ignored because those trees are not source names. A TanStack
+ * route-param directory such as `$noteId` is allowed.
  *
  * @param {string} pathFromRoot Repository-relative path. Separators may be `/` or `\`.
  * @returns {string[]} The directory names to rename. An empty array means the directories are
@@ -106,7 +114,7 @@ export const kebabCaseViolations = (pathFromRoot) => {
 
   segments.pop();
 
-  return segments.filter((segment) => !isKebabCase(segment));
+  return segments.filter((segment) => !isKebabCase(segment) && !routeParamSegment.test(segment));
 };
 
 /**

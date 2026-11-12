@@ -447,6 +447,9 @@ export default defineConfig({
         jsPlugins: [
           "oxlint-plugin-react-doctor",
           { name: "react-hooks-js", specifier: "eslint-plugin-react-hooks" },
+          // `@tanstack/eslint-plugin-router` is the only TanStack lint plugin the registry uses;
+          // `route-param-names` rejects a `$param` segment that is not a JavaScript identifier.
+          { name: "tanstack-router", specifier: "@tanstack/eslint-plugin-router" },
         ],
         rules: {
           ...REACT_COMPILER_RULES,
@@ -456,7 +459,12 @@ export default defineConfig({
           // warnings, so they are off until a follow-up fixes the code; then delete these lines.
           "react-doctor/jsx-no-jsx-as-prop": "off",
           "react-doctor/jsx-no-new-function-as-prop": "off",
+          // The two server-data guards `docs/capabilities.md` names. Neither is in a React Doctor
+          // rule set, so each is switched on here.
+          "react-doctor/no-collapse-request-error-to-empty-state": "error",
           "react-doctor/only-export-components": "off",
+          "react-doctor/tanstack-start-no-direct-fetch-in-loader": "error",
+          "tanstack-router/route-param-names": "error",
         },
       },
       {
@@ -648,7 +656,12 @@ export default defineConfig({
       "typescript/array-type": ["error", { default: "generic", readonly: "generic" }],
       // Effect adapters return existing promises without introducing async wrappers.
       "typescript/promise-function-async": "off",
-      "unicorn/filename-case": ["error", { case: "kebabCase" }],
+      // A TanStack route-param file (`$noteId.tsx`) keeps the camelCase the router turns into
+      // `params.noteId`; `workspace/kebab-case-paths` allows the same spelling for directories.
+      "unicorn/filename-case": [
+        "error",
+        { case: "kebabCase", ignore: ["^\\$[a-z][A-Za-z0-9]*\\.tsx?$"] },
+      ],
       // misfires on Schema.TaggedError<X>()(...) calls and takes no options; throw is already banned in source by the Effect-native rule (AGENTS.md)
       "unicorn/throw-new-error": "off",
       "workspace/error-message-grammar": "error",

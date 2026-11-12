@@ -16,7 +16,7 @@ import { Route as SignInRouteImport } from './routes/sign-in'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as UnavailableRouteImport } from './routes/unavailable'
 import { Route as NotesIndexRouteImport } from './routes/notes/index'
-import { Route as NotesNoteIdRouteImport } from './routes/notes/$note-id'
+import { Route as NotesNoteIdRouteImport } from './routes/notes/$noteId'
 import { Route as ProblemsSlugRouteImport } from './routes/problems.$slug'
 
 const IndexRoute = IndexRouteImport.update({
@@ -55,8 +55,8 @@ const NotesIndexRoute = NotesIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const NotesNoteIdRoute = NotesNoteIdRouteImport.update({
-  id: '/notes/$note-id',
-  path: '/notes/$note-id',
+  id: '/notes/$noteId',
+  path: '/notes/$noteId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProblemsSlugRoute = ProblemsSlugRouteImport.update({
@@ -72,7 +72,7 @@ export interface FileRoutesByFullPath {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/unavailable': typeof UnavailableRoute
-  '/notes/$note-id': typeof NotesNoteIdRoute
+  '/notes/$noteId': typeof NotesNoteIdRoute
   '/problems/$slug': typeof ProblemsSlugRoute
   '/notes/': typeof NotesIndexRoute
 }
@@ -83,7 +83,7 @@ export interface FileRoutesByTo {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/unavailable': typeof UnavailableRoute
-  '/notes/$note-id': typeof NotesNoteIdRoute
+  '/notes/$noteId': typeof NotesNoteIdRoute
   '/problems/$slug': typeof ProblemsSlugRoute
   '/notes': typeof NotesIndexRoute
 }
@@ -95,7 +95,7 @@ export interface FileRoutesById {
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/unavailable': typeof UnavailableRoute
-  '/notes/$note-id': typeof NotesNoteIdRoute
+  '/notes/$noteId': typeof NotesNoteIdRoute
   '/problems/$slug': typeof ProblemsSlugRoute
   '/notes/': typeof NotesIndexRoute
 }
@@ -108,7 +108,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/unavailable'
-    | '/notes/$note-id'
+    | '/notes/$noteId'
     | '/problems/$slug'
     | '/notes/'
   fileRoutesByTo: FileRoutesByTo
@@ -119,7 +119,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/unavailable'
-    | '/notes/$note-id'
+    | '/notes/$noteId'
     | '/problems/$slug'
     | '/notes'
   id:
@@ -130,7 +130,7 @@ export interface FileRouteTypes {
     | '/sign-in'
     | '/sign-up'
     | '/unavailable'
-    | '/notes/$note-id'
+    | '/notes/$noteId'
     | '/problems/$slug'
     | '/notes/'
   fileRoutesById: FileRoutesById
@@ -198,10 +198,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof NotesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/notes/$note-id': {
-      id: '/notes/$note-id'
-      path: '/notes/$note-id'
-      fullPath: '/notes/$note-id'
+    '/notes/$noteId': {
+      id: '/notes/$noteId'
+      path: '/notes/$noteId'
+      fullPath: '/notes/$noteId'
       preLoaderRoute: typeof NotesNoteIdRouteImport
       parentRoute: typeof rootRouteImport
     }

@@ -31,7 +31,7 @@ const NoteMissing = () => (
  * @returns The page body.
  */
 const NoteDetail = () => {
-  const { "note-id": noteId } = useParams({ from: "/notes/$note-id" });
+  const { noteId } = useParams({ from: "/notes/$noteId" });
   const id = NoteId.make(noteId);
   const result = useAtomValue(noteAtom(id));
   const failure = noteFailureOf(result);
@@ -67,7 +67,7 @@ const NoteDetail = () => {
  * @returns The page body.
  */
 const NotePage = () => {
-  const state = useLoaderData({ from: "/notes/$note-id" });
+  const state = useLoaderData({ from: "/notes/$noteId" });
 
   return (
     <HydrationBoundary state={state}>
@@ -76,13 +76,13 @@ const NotePage = () => {
   );
 };
 
-export const Route = createFileRoute("/notes/$note-id")({
+export const Route = createFileRoute("/notes/$noteId")({
   beforeLoad: ({ context, location }) =>
     context.session._tag === "signedOut"
       ? redirect<AnyRouter>({ search: { redirect: location.href }, to: "/sign-in" })
       : {},
   component: NotePage,
   loader: ({ abortController, params }) =>
-    run(loadAtoms([noteAtom(NoteId.make(params["note-id"]))]), { signal: abortController.signal }),
+    run(loadAtoms([noteAtom(NoteId.make(params.noteId))]), { signal: abortController.signal }),
   notFoundComponent: NoteMissing,
 });
