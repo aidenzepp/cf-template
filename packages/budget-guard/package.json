@@ -7,6 +7,9 @@
     "./live": "./src/live.ts",
     "./stack": "./src/stack.ts"
   },
+  "scripts": {
+    "reset": "bun scripts/reset.ts"
+  },
   "dependencies": {
     "@alchemy.run/cloudflare": "2.0.0-beta.85",
     "@distilled.cloud/cloudflare": "1.0.0-rc.18",

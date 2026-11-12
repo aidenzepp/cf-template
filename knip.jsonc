@@ -16,7 +16,6 @@
     "apps/auth": { "entry": ["auth.config.ts"] },
     "apps/web": { "entry": ["src/blocks.ts", "src/routes/-harness-*.tsx"] },
     "infra": { "entry": ["scripts/*.ts"] },
-    "packages/budget-guard": { "entry": ["scripts/*.ts", "src/reset-live.ts"] },
     "packages/ui": { "entry": ["src/**/*.{ts,tsx}"], "includeEntryExports": false },
   },
 }
