@@ -768,7 +768,9 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
         'aria-label="Loading account"',
         'aria-label="Main"',
         ">Dashboard</h1>",
+        // block:notes start
         ">Notes<",
+        // block:notes end
         ">Settings<",
       ]) {
         expect(html).toContain(shown);
