@@ -13,9 +13,9 @@ import {
   SidebarMenuSkeleton,
   useSidebar,
 } from "@workspace/ui/components/ui/sidebar";
+import { toast } from "sonner";
 import { authClient } from "../../lib/auth-client.ts";
 import { fork } from "../../runtime.ts";
-import { notify } from "../notify.ts";
 import { signOutFailure, signOutFlow } from "./sign-out.ts";
 
 /**
@@ -48,7 +48,7 @@ const AccountMenu = ({
       signOutFlow({
         call: () => authClient.signOut(),
         fail: () => {
-          notify.error(signOutFailure.title, signOutFailure.description);
+          toast.error(signOutFailure.title, { description: signOutFailure.description });
         },
         leave: async () => {
           await router.invalidate();
