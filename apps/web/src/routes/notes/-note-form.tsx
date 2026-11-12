@@ -1,65 +1,50 @@
-import { useAtom, useAtomRefresh } from "@effect/atom-react";
+import { useAtomRefresh, useAtomSet } from "@effect/atom-react";
 import { Button } from "@workspace/ui/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@workspace/ui/components/ui/field";
 import { Input } from "@workspace/ui/components/ui/input";
 import { Textarea } from "@workspace/ui/components/ui/textarea";
-import { Cause, Option } from "effect";
-import { AsyncResult } from "effect/reactivity";
-import { useEffect, useRef, useState } from "react";
-import type { SyntheticEvent } from "react";
 import type { Note } from "@workspace/contract/domain/note";
+import { useForm } from "../../components/form/use-form.ts";
+import { fork } from "../../runtime.ts";
 import { createNoteAtom, noteAtom, notesListAtom, updateNoteAtom } from "./-atoms.ts";
-import { readNoteCreate, readNotePatch } from "./-note-input.ts";
-
-/**
- * The line shown for the result of the last save call.
- *
- * @param result - The create or update atom's value.
- * @returns The line, or `null` when the call did not fail.
- */
-const failureLine = (
-  result: AsyncResult.AsyncResult<unknown, { readonly _tag: string; readonly limit?: number }>,
-) => {
-  if (!AsyncResult.isFailure(result)) {
-    return null;
-  }
-
-  const error = Cause.findErrorOption(result.cause);
-
-  return Option.isSome(error) && error.value._tag === "NoteQuotaExceeded"
-    ? `You have reached the limit of ${error.value.limit} notes.`
-    : "The note could not be saved.";
-};
+import { NoteInput, noteCreateOf, notePatchOf } from "./-note-input.ts";
+import { saveNote } from "./-note-save.ts";
 
 /**
  * The fields and the submit button shared by both modes.
  *
  * @param props - The fields' props.
- * @param props.message - The line under the fields, or `null`.
+ * @param props.form - The form hook's state for this form.
  * @param props.note - The note being edited; absent when creating.
- * @param props.waiting - Whether a call is in flight.
  * @returns The fields.
  */
 const NoteFields = ({
-  message,
+  form: { error, failure, field, pending },
   note,
-  waiting,
 }: {
-  readonly message: string | null;
+  readonly form: Pick<ReturnType<typeof useForm>, "error" | "failure" | "field" | "pending">;
   readonly note?: Note;
-  readonly waiting: boolean;
 }) => (
   <FieldGroup>
     <Field>
       <FieldLabel htmlFor="title">Title</FieldLabel>
-      <Input defaultValue={note?.title} id="title" name="title" required type="text" />
+      <Input
+        defaultValue={note?.title}
+        id="title"
+        name="title"
+        required
+        type="text"
+        {...field("title")}
+      />
+      <FieldError {...error("title")} />
     </Field>
     <Field>
       <FieldLabel htmlFor="body">Body</FieldLabel>
-      <Textarea defaultValue={note?.body} id="body" name="body" />
+      <Textarea defaultValue={note?.body} id="body" name="body" {...field("body")} />
+      <FieldError {...error("body")} />
     </Field>
-    <FieldError>{message}</FieldError>
-    <Button disabled={waiting} type="submit">
+    <FieldError>{failure}</FieldError>
+    <Button disabled={pending} type="submit">
       {note === undefined ? "Create note" : "Save note"}
     </Button>
   </FieldGroup>
@@ -72,35 +57,19 @@ const NoteFields = ({
  * @returns The form.
  */
 export const NoteForm = () => {
-  const [result, create] = useAtom(createNoteAtom);
+  const create = useAtomSet(createNoteAtom, { mode: "promiseExit" });
   const refreshList = useAtomRefresh(notesListAtom);
-  const form = useRef<HTMLFormElement>(null);
-  const [invalid, setInvalid] = useState(false);
 
-  useEffect(() => {
-    if (AsyncResult.isSuccess(result) && !result.waiting) {
-      form.current?.reset();
-      refreshList();
-    }
-  }, [result, refreshList]);
-
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const payload = readNoteCreate(new FormData(event.currentTarget));
-
-    setInvalid(Option.isNone(payload));
-
-    if (Option.isSome(payload)) {
-      create({ payload: payload.value });
-    }
-  };
-
-  const message = invalid ? "Enter a title and a body." : failureLine(result);
+  const form = useForm(
+    NoteInput,
+    (payload) =>
+      saveNote(() => create({ payload: noteCreateOf(payload) }), "Note created.", refreshList),
+    { fork, resetOnSaved: true },
+  );
 
   return (
-    <form onSubmit={onSubmit} ref={form}>
-      <NoteFields message={message} waiting={result.waiting} />
+    <form {...form.formProps}>
+      <NoteFields form={form} />
     </form>
   );
 };
@@ -114,35 +83,27 @@ export const NoteForm = () => {
  * @returns The form.
  */
 export const EditNoteForm = ({ note }: { readonly note: Note }) => {
-  const [result, update] = useAtom(updateNoteAtom);
+  const update = useAtomSet(updateNoteAtom, { mode: "promiseExit" });
   const refreshList = useAtomRefresh(notesListAtom);
   const refreshNote = useAtomRefresh(noteAtom(note.id));
-  const [invalid, setInvalid] = useState(false);
 
-  useEffect(() => {
-    if (AsyncResult.isSuccess(result) && !result.waiting) {
-      refreshList();
-      refreshNote();
-    }
-  }, [result, refreshList, refreshNote]);
-
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const payload = readNotePatch(new FormData(event.currentTarget));
-
-    setInvalid(Option.isNone(payload));
-
-    if (Option.isSome(payload)) {
-      update({ params: { id: note.id }, payload: payload.value });
-    }
-  };
-
-  const message = invalid ? "Enter a title and a body." : failureLine(result);
+  const form = useForm(
+    NoteInput,
+    (payload) =>
+      saveNote(
+        () => update({ params: { id: note.id }, payload: notePatchOf(payload) }),
+        "Note saved.",
+        () => {
+          refreshList();
+          refreshNote();
+        },
+      ),
+    { fork },
+  );
 
   return (
-    <form key={note.updatedAt.epochMilliseconds} onSubmit={onSubmit}>
-      <NoteFields message={message} note={note} waiting={result.waiting} />
+    <form key={note.updatedAt.epochMilliseconds} {...form.formProps}>
+      <NoteFields form={form} note={note} />
     </form>
   );
 };
