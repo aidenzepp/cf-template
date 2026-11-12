@@ -189,7 +189,7 @@ describe("session middleware", () => {
 
       yield* Deferred.await(called);
       yield* Effect.yieldNow;
-      yield* TestClock.adjust("499 millis");
+      yield* TestClock.adjust("1499 millis");
 
       assert.isUndefined(fiber.pollUnsafe());
 

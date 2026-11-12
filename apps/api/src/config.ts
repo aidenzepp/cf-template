@@ -8,7 +8,7 @@ import { Knob } from "@workspace/config/knob";
 export const AuthCheckSessionTimeoutKnob = Knob.make(
   "AUTH_CHECK_SESSION_TIMEOUT_MS",
   Schema.Int.annotate({
-    default: 500,
+    default: 1500,
     description: "Milliseconds api waits for auth to check a session before it answers 503.",
   }),
 );
