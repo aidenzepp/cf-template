@@ -9,6 +9,12 @@ import { Route as rootRoute } from "./__root.tsx";
  */
 const Protected = () => <main data-testid="harness-protected">protected</main>;
 
+/**
+ * The route the production harness build registers; the router generator reads this file, no
+ * module imports it.
+ *
+ * @public
+ */
 export const harnessProtectedRoute = createRoute({
   component: Protected,
   getParentRoute: () => rootRoute,

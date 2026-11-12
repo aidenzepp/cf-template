@@ -26,7 +26,7 @@ export interface GuardAlertSpec {
  * which is absent while a measured input is unset, and the receiver Worker's name and
  * compatibility.
  */
-export class GuardPlan extends Context.Service<
+class GuardPlan extends Context.Service<
   GuardPlan,
   {
     readonly alert: Option.Option<GuardAlertSpec>;
@@ -84,7 +84,7 @@ export const guardAlertName = (plan: GuardPlanValue) =>
  * @param spec - The alert the plan declares.
  * @returns The properties of the `CustomAlert`.
  */
-export const guardAlertProps = (plan: GuardPlanValue, spec: GuardAlertSpec) =>
+const guardAlertProps = (plan: GuardPlanValue, spec: GuardAlertSpec) =>
   ({
     every: "1h",
     name: guardAlertName(plan),

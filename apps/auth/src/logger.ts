@@ -9,7 +9,7 @@ type BetterAuthLevel = "debug" | "info" | "warn" | "error";
 /**
  * An object argument; any class instance can stand in for it at run time.
  */
-export interface LogObject {
+interface LogObject {
   readonly [key: string]: LogArgument;
 }
 

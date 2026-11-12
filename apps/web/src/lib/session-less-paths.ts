@@ -2,7 +2,7 @@
  * The paths that never read the session: the outage page must not wait on the dependency that
  * failed.
  */
-export const SESSION_LESS_PATHS = ["/unavailable"] as const;
+const SESSION_LESS_PATHS = ["/unavailable"] as const;
 
 /**
  * Whether a path skips the session read. The match is exact: `/unavailable/` and `/unavailable2` do
@@ -18,7 +18,7 @@ export const isSessionLess = (pathname: string): boolean =>
  * The auth screens a signed-out caller must reach. The guard does not redirect them, or `/sign-in`
  * would redirect to itself.
  */
-export const AUTH_SCREEN_PATHS = ["/sign-in", "/sign-up", "/oauth-error"] as const;
+const AUTH_SCREEN_PATHS = ["/sign-in", "/sign-up", "/oauth-error"] as const;
 
 /**
  * Whether a path is an auth screen. The match is exact.

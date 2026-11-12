@@ -43,8 +43,7 @@ export const globalThisFetch = { message: fetchMessage, object: "globalThis", pr
 /**
  * The message every data-access diagnostic carries.
  */
-export const dataMessage =
-  "database writes and raw SQL only in packages/db or the auth promise view";
+const dataMessage = "database writes and raw SQL only in packages/db or the auth promise view";
 
 /**
  * Names banned on any object: today they occur only in `packages/db/src/batch.ts`.

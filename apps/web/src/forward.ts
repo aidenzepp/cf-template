@@ -71,7 +71,7 @@ const wantsHtml = (headers: Headers): boolean =>
  * @param request - The request whose forward failed.
  * @returns The 502 response.
  */
-export const badGateway = (request: Request): Response => {
+const badGateway = (request: Request): Response => {
   const vary = { vary: "Sec-Fetch-Mode, Accept" };
 
   return wantsHtml(request.headers)

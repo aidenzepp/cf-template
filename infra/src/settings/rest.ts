@@ -8,7 +8,7 @@ import type { Capability, Tier } from "./tier.ts";
 /**
  * The counts of one run, in the shape `reportLine` prints (`applied`, `unavailable`).
  */
-export interface RestSummary {
+interface RestSummary {
   readonly applied: number;
   readonly unavailable: number;
   readonly failed: number;
@@ -111,7 +111,7 @@ interface SettleOptions {
  *   `phrases` adds message phrases that count as unavailable for this call alone.
  * @returns The outcome.
  */
-export const settle = Effect.fn("settle")(function* settle(
+const settle = Effect.fn("settle")(function* settle(
   response: HttpClientResponse.HttpClientResponse,
   options: SettleOptions = {},
 ) {

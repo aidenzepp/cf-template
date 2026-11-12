@@ -12,7 +12,7 @@ import { CheckSession } from "./session.ts";
 /**
  * The public origin the test instance signs cookies for.
  */
-export const ORIGIN = "http://localhost:3000";
+const ORIGIN = "http://localhost:3000";
 
 /**
  * The marker `drizzle-kit` writes between the statements of one migration file.
@@ -26,7 +26,7 @@ const STATEMENT_BREAKPOINT = "--> statement-breakpoint";
  * @param overrides - Bindings that replace the defaults.
  * @returns A layer that provides the bindings.
  */
-export const settings = (overrides: Readonly<Record<string, string>> = {}) =>
+const settings = (overrides: Readonly<Record<string, string>> = {}) =>
   Layer.succeed(WorkerEnvironment, {
     AUTH_METHODS: '{"email":false,"providers":[]}',
     BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-0123",

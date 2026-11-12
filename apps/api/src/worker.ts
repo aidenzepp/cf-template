@@ -82,7 +82,7 @@ export const apiTelemetry = Effect.serviceOption(ApiDeployment).pipe(
  * Cloudflare traces for the Worker's spans, and structured JSON logs that reach `console.error`,
  * `console.warn` and the rest at their own level, registered once for every event of the Worker.
  */
-export const apiObservability = Layer.unwrap(
+const apiObservability = Layer.unwrap(
   apiTelemetry.pipe(
     Effect.map((options) =>
       Layer.mergeAll(

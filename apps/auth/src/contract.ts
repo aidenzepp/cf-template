@@ -12,11 +12,7 @@ export type EncodedSession = typeof Session.Encoded;
 
 export { AUTH_BASE_PATH, OAUTH_ERROR_PATH } from "@workspace/contract/domain/auth-paths";
 
-export {
-  CREDENTIAL_PATHS,
-  ENDPOINT_CLASSES,
-  type EndpointClass,
-} from "@workspace/contract/domain/auth-endpoints";
+export { CREDENTIAL_PATHS, ENDPOINT_CLASSES } from "@workspace/contract/domain/auth-endpoints";
 
 /**
  * The internal methods of the `auth` Worker's default entrypoint, called over its service binding

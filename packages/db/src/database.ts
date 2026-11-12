@@ -14,7 +14,7 @@ export type RawDatabase = D1Client.D1ClientConfig["db"];
  * One execution's database: the Drizzle query builder and the `D1Client` it runs on. `client` is
  * what `batch` needs; `db` builds the typed statements.
  */
-export interface Database<TRelations extends AnyRelations = EmptyRelations> {
+interface Database<TRelations extends AnyRelations = EmptyRelations> {
   readonly client: D1Client.D1Client;
   readonly db: EffectSQLiteD1Database<TRelations>;
 }
