@@ -356,8 +356,7 @@ export default defineConfig({
       },
       {
         // `latch.ts` is lifted until #249 removes it: the latch record is written with
-        // `JSON.stringify`. `test-harness.ts` is test support, so it lifts the ban a test lifts:
-        // it builds the JSON request bodies of the auth tests.
+        // `JSON.stringify`. `test-harness.ts` is test support.
         files: ["packages/budget-guard/src/latch.ts", "apps/auth/src/test-harness.ts"],
         rules: {
           "no-restricted-properties": [
@@ -366,6 +365,23 @@ export default defineConfig({
             ...dataAccessMembers,
             ...authFetchMembers,
           ],
+        },
+      },
+      {
+        // Lifted until #244 moves the log to Effect.logError and updates the web.ratelimit.error
+        // alert query with a cloud proof: the alert reads a top-level `event` that the structured
+        // logger would nest (want 3bb9a4ad).
+        files: ["apps/web/src/ratelimit.ts"],
+        rules: {
+          "no-console": "off",
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            ...authFetchMembers,
+            globalThisFetch,
+          ],
+          "promise/prefer-await-to-then": "off",
         },
       },
       {
