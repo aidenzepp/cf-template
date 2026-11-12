@@ -12,7 +12,6 @@ import {
 } from "@tanstack/react-router";
 import type { AnyRouter } from "@tanstack/react-router";
 import { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
-import { Toaster } from "@workspace/ui/components/ui/sonner";
 import { Effect } from "effect";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -20,6 +19,7 @@ import { RouteError } from "../components/errors/error.tsx";
 import { NotFound } from "../components/errors/not-found.tsx";
 import { isAuthUnavailable, Retry } from "../components/retry.tsx";
 import { AppShell } from "../components/shell/app-shell.tsx";
+import { StatusToaster } from "../components/status-toaster.tsx";
 import { validateRedirectSearch } from "../lib/redirect-target.ts";
 import { isAuthScreen, isSessionLess } from "../lib/session-less-paths.ts";
 import { run } from "../runtime.ts";
@@ -108,7 +108,7 @@ const RootLayout = () => {
           <Outlet />
         )}
       </div>
-      <Toaster theme={resolvedTheme} />
+      <StatusToaster theme={resolvedTheme} />
     </RegistryProvider>
   );
 };
