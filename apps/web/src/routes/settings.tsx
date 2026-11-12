@@ -454,6 +454,7 @@ export const Route = createFileRoute("/settings")({
   component: Settings,
   // The same allowlist as `/oauth-error`: only a known code reaches the page or the address bar.
   search: { middlewares: [({ search }) => ({ error: search.error })] },
+  staticData: { nav: { label: "Settings", order: 20 } },
   validateSearch: (search: { readonly error?: unknown }) => ({
     error: oauthErrorCode(search.error),
   }),

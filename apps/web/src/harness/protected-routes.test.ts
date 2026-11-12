@@ -182,7 +182,7 @@ layer(WebProdLive, { timeout: 120_000 })("protected routes", (it) => {
       const { html, response } = yield* (yield* WebProd).get("/", "stub=in");
 
       expect(response.status).toBe(200);
-      expect(html).toContain("<main>web</main>");
+      expect(html).toContain(">Dashboard</h1>");
       expect(response.headers.get("set-cookie")).toBeNull();
 
       const { last } = yield* readsOf;
