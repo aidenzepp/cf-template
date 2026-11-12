@@ -11,7 +11,6 @@ import {
   Schema,
   Stream,
 } from "effect";
-import { Jsonc } from "effect/encoding";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 /**
@@ -189,14 +188,16 @@ const directiveLines = Effect.fn("ratchet.directiveLines")(function* directiveLi
 });
 
 /**
- * Parses JSONC `text` and decodes it with `schema`, naming `file` when it does not.
+ * Parses JSONC `text` and decodes it with `schema`, naming `file` when it does not. `Bun.JSONC`
+ * accepts the trailing commas the formatter writes into `knip.jsonc`; `effect/encoding/Jsonc` does
+ * not.
  */
 const decodeFile = <A, I>(
   file: string,
   text: string,
   schema: Schema.Codec<A, I>,
 ): Effect.Effect<A, CountedFileInvalid> =>
-  Effect.fromResult(Jsonc.parse(text)).pipe(
+  Effect.try(() => Bun.JSONC.parse(text)).pipe(
     Effect.flatMap(Schema.decodeUnknownEffect(schema)),
     Effect.mapError(
       () =>
