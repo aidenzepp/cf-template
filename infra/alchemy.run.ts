@@ -1,5 +1,6 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as Alchemy from "alchemy";
+import { PLACEHOLDER_STAGE } from "alchemy/Alchemist/Operations";
 import { Config, Effect, Layer, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { APP_DB_ID, declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
@@ -83,12 +84,34 @@ export const resolveIdentity = Effect.fn("resolveIdentity")(function* resolveIde
   return { stack, stage };
 });
 
+/**
+ * Choose the Cloudflare state store for a raw stage.
+ *
+ * `alchemy state bootstrap` builds the state layer with Alchemy's placeholder stage and passes no
+ * `--stage`, so the placeholder gets the project store without being decoded as an app stage. Every
+ * other stage keeps strict decoding, and only stages that use project state get the store.
+ *
+ * @param raw - The stage Alchemy resolved, possibly its placeholder.
+ * @returns The state Worker name, or none when the stage uses local state.
+ */
+export const selectStateStore = Effect.fn("selectStateStore")(function* selectStateStore(
+  raw: string,
+) {
+  if (raw === PLACEHOLDER_STAGE) {
+    return Option.some(`${yield* resolveStackName()}-state`);
+  }
+
+  const { stack, stage } = yield* resolveIdentity(raw);
+
+  return usesProjectState(stage) ? Option.some(`${stack}-state`) : Option.none();
+});
+
 const state = Layer.unwrap(
   Effect.gen(function* declareState() {
-    const { stack, stage } = yield* resolveIdentity(yield* Alchemy.Stage);
+    const workerName = yield* selectStateStore(yield* Alchemy.Stage);
 
-    return usesProjectState(stage)
-      ? Cloudflare.state({ workerName: `${stack}-state` })
+    return Option.isSome(workerName)
+      ? Cloudflare.state({ workerName: workerName.value })
       : Alchemy.localState();
   }).pipe(Effect.orDie),
 );
