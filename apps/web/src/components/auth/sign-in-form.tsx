@@ -1,14 +1,24 @@
 import { Button } from "@workspace/ui/components/ui/button";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@workspace/ui/components/ui/field";
 import { Input } from "@workspace/ui/components/ui/input";
-import { Effect } from "effect";
+import { useRouter } from "@tanstack/react-router";
+import { Effect, Schema } from "effect";
 import { useEffect } from "react";
-import type { SyntheticEvent } from "react";
 import { authClient } from "../../lib/auth-client.ts";
 import type { fork as Fork } from "../../runtime.ts";
+import { emailField, required } from "../form/fields.ts";
+import { useForm } from "../form/use-form.ts";
+import { authOutcome } from "./auth-outcome.ts";
 import { PasswordResetNotice } from "./email-off-notices.tsx";
 import { ProviderButtons } from "./provider-buttons.tsx";
-import { readField, useAuthSubmit } from "./use-auth-submit.ts";
+
+/**
+ * The fields of the sign-in form.
+ */
+export const SignInInput = Schema.Struct({
+  email: emailField,
+  password: required("Enter your password."),
+});
 
 /**
  * The email input's `autocomplete` tokens: `webauthn` lets the browser offer saved passkeys in the
@@ -81,7 +91,19 @@ export const SignInForm = ({
   readonly providers: ReadonlyArray<string>;
   readonly redirect: string;
 }) => {
-  const { message, pending, submit } = useAuthSubmit(redirect);
+  const router = useRouter();
+
+  const { error, failure, field, formProps, pending } = useForm(
+    SignInInput,
+    ({ email, password }) =>
+      authOutcome(
+        (signal) => authClient.signIn.email({ email, password }, { signal }),
+        () => {
+          router.history.push(redirect);
+        },
+      ),
+    { fork },
+  );
 
   useEffect(() => {
     const controller = new AbortController();
@@ -96,19 +118,9 @@ export const SignInForm = ({
     };
   }, [fork]);
 
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const form = new FormData(event.currentTarget);
-    const email = readField(form, "email");
-    const password = readField(form, "password");
-
-    submit((signal) => authClient.signIn.email({ email, password }, { signal }));
-  };
-
   return (
     <>
-      <form onSubmit={onSubmit}>
+      <form {...formProps}>
         <FieldGroup>
           <Field>
             <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -118,7 +130,9 @@ export const SignInForm = ({
               name="email"
               required
               type="email"
+              {...field("email")}
             />
+            <FieldError {...error("email")} />
           </Field>
           <Field>
             <FieldLabel htmlFor="password">Password</FieldLabel>
@@ -128,9 +142,11 @@ export const SignInForm = ({
               name="password"
               required
               type="password"
+              {...field("password")}
             />
+            <FieldError {...error("password")} />
           </Field>
-          <FieldError>{message}</FieldError>
+          <FieldError>{failure}</FieldError>
           <Button disabled={pending} type="submit">
             Sign in
           </Button>

@@ -33,12 +33,14 @@ export const needsFreshSession = (error: Settled["error"]): boolean =>
 
 /**
  * Runs an auth client call as an effect that never fails: a call that rejects before any response
- * settles as status 0.
+ * settles as status 0. Interrupting the effect aborts the call's signal.
  *
- * @param call - The client call.
+ * @param call - The client call, given the signal that aborts it.
  * @returns The effect of the call's settled result.
  */
-export const settle = (call: () => PromiseLike<Settled>): Effect.Effect<Settled> =>
+export const settle = (
+  call: (signal: AbortSignal) => PromiseLike<Settled>,
+): Effect.Effect<Settled> =>
   Effect.tryPromise({ catch: (cause) => cause, try: call }).pipe(
     Effect.orElseSucceed((): Settled => ({ error: { status: 0 } })),
   );
