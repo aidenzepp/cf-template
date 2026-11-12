@@ -50,8 +50,9 @@ const toolchain = Effect.gen(function* resolve() {
 });
 
 /**
- * Lints the named files of `tools/lint/fixtures/effect` with that directory's own config under
- * `--deny-warnings` and returns the exit code with the combined output.
+ * Lints the named files of `tools/lint/fixtures/effect` with that directory's own `oxlintrc.json`
+ * under `--deny-warnings` and returns the exit code with the combined output. The config has no
+ * leading dot, so the `fire.ts` and `pass.ts` runner in `fixtures.test.ts` skips this directory.
  */
 const lint = Effect.fnUntraced(function* lint(files: ReadonlyArray<string>) {
   const path = yield* Path.Path;
@@ -67,7 +68,7 @@ const lint = Effect.fnUntraced(function* lint(files: ReadonlyArray<string>) {
             oxlint,
             "--deny-warnings",
             "-c",
-            path.join(dir, ".oxlintrc.json"),
+            path.join(dir, "oxlintrc.json"),
             ...files.map((file) => path.join(dir, file)),
           ],
           {
