@@ -308,7 +308,7 @@ layer(WebProdLive, { timeout: 180_000 })("front-door rate limit", (it) => {
     }),
   );
 
-  it.effect("lets a request through when the limiter rejects, logging one line", () =>
+  it.effect("lets a request through when the limiter rejects, logging one entry", () =>
     Effect.gen(function* failOpen() {
       const web = yield* WebProd;
       const before = web.stderr().length;
@@ -318,10 +318,14 @@ layer(WebProdLive, { timeout: 180_000 })("front-door rate limit", (it) => {
 
       const output = yield* web.awaitStderr(before, "web.ratelimit.error");
 
-      const lines = output.split("\n").filter((line) => line.includes("web.ratelimit.error"));
+      // workerd prints the structured logger's object over several lines, so one entry is one
+      // `message` line.
+      const entries = output.split("\n").filter((line) => line.startsWith("  message:"));
 
-      expect(lines).toHaveLength(1);
-      expect(lines[0]).toContain('{"event":"web.ratelimit.error","ratelimit.class":"credential"}');
+      expect(entries).toStrictEqual(["  message: 'web.ratelimit.error',"]);
+      expect(output).toContain(
+        "annotations: { event: 'web.ratelimit.error', 'ratelimit.class': 'credential' }",
+      );
     }),
   );
 
