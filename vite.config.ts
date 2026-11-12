@@ -1,3 +1,5 @@
+import { recommended as effect } from "@effect/tsgo/oxlint-presets";
+
 import { defineConfig } from "vite-plus";
 
 import core from "ultracite/oxlint/core";
@@ -168,8 +170,10 @@ export default defineConfig({
     // `drizzle` is adopted although it has no oxlint rules today, so a later Drizzle rule arrives
     // with the preset. `react` and `vitest` are scoped in `overrides` below. `tanstack` is not
     // adopted: it turns `sort-keys` off for the whole repository and the kebab-case filename rule
-    // off under `routes/`; two of its decisions are copied as scoped overrides instead.
-    extends: [core, antiSlop, shadcn, drizzle],
+    // off under `routes/`; two of its decisions are copied as scoped overrides instead. `effect` is
+    // the `@effect/tsgo` Effect rule set: it runs in this one `vp check` pass only while
+    // `effect-tsgo patch --oxlint` has patched the toolchain, and the canary test turns red if not.
+    extends: [core, antiSlop, shadcn, drizzle, effect],
     ignorePatterns: [
       ".agents/**",
       ".mirrors/**",
@@ -185,8 +189,18 @@ export default defineConfig({
     jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin"],
     // `vp check` runs type-aware rules and the type check only when both are enabled.
     // https://viteplus.dev/guide/check
-    options: { typeAware: true, typeCheck: true },
+    options: { reportUnusedDisableDirectives: "error", typeAware: true, typeCheck: true },
     overrides: [
+      {
+        // Build and stack configuration reads its host's process.env; Effect Config applies at runtime boundaries.
+        files: [
+          "**/vite.config.ts",
+          "infra/alchemy.run.ts",
+          "infra/stacks/*.ts",
+          "infra/src/**/*.ts",
+        ],
+        rules: { "effecttsgo/process-env": "off" },
+      },
       // The run-family import ban covers every source file; the scoped overrides below repeat it.
       restrictImports(["**/*.ts", "**/*.tsx"], {}),
       // Runtime boundary: tests bridge stubs to Promise APIs.
@@ -460,6 +474,52 @@ export default defineConfig({
       // One source for the blank-line policy: the fixture diff in tools/lint/fixtures.test.ts
       // (blank-lines/cases.ts) shows the stylistic padding rule above reports every line this rule does.
       "anti-slop/require-readable-spacing": "off",
+      // The six deltas on the `effect` preset: `try-catch-in-effect-gen` off (a true subset of
+      // `workspace/no-built-in-try-catch`); `effect-try-without-catch`, `unsafe-effect-type-assertion`,
+      // `process-env-in-effect`, `extends-native-error` and `process-env` at `warn`.
+      //
+      // Every other "off" below is staged off until its follow-up fixes the code (I-29 ruling,
+      // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
+      // schema-class-missing-brand 46, all-of-map-to-for-each 31, prefer-typed-schema-decoder 29,
+      // any-unknown-in-error-context 20, schema-number 19, schema-class-object-literal 19,
+      // multiple-effect-provide 9, prefer-succeed-some-or-none 9, effect-try-without-catch 6 (delta),
+      // run-effect-inside-effect 6, unstable-api-usage 6 (infra/migrations-digest.ts and
+      // infra/stacks/settings.ts sit outside every tsconfig, so the plugin entry does not reach
+      // them), missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
+      // process-env 3 (delta, `test/`), flat-map-conditional-to-filter-or-fail 3,
+      // return-effect-in-gen 3, effect-succeed-with-undefined 3, catch-conditional-refail-to-catch-if
+      // 3, then 2 each: abort-controller-in-effect, provide-layer-succeed-to-provide-service,
+      // unknown-in-effect-catch, unnecessary-typeof-type; then 1 each: catch-die-to-or-die,
+      // schema-sync-in-effect, flat-map-identity-to-flatten, map-some-to-as-some.
+      "effecttsgo/abort-controller-in-effect": "off",
+      "effecttsgo/all-of-map-to-for-each": "off",
+      "effecttsgo/any-unknown-in-error-context": "off",
+      "effecttsgo/catch-conditional-refail-to-catch-if": "off",
+      "effecttsgo/catch-die-to-or-die": "off",
+      "effecttsgo/effect-succeed-with-undefined": "off",
+      "effecttsgo/effect-try-without-catch": "off",
+      "effecttsgo/extends-native-error": "warn",
+      "effecttsgo/flat-map-conditional-to-filter-or-fail": "off",
+      "effecttsgo/flat-map-identity-to-flatten": "off",
+      "effecttsgo/map-some-to-as-some": "off",
+      "effecttsgo/missing-return-yield-star": "off",
+      "effecttsgo/multiple-effect-provide": "off",
+      "effecttsgo/prefer-succeed-some-or-none": "off",
+      "effecttsgo/prefer-typed-schema-decoder": "off",
+      "effecttsgo/process-env": "off",
+      "effecttsgo/process-env-in-effect": "warn",
+      "effecttsgo/provide-layer-succeed-to-provide-service": "off",
+      "effecttsgo/return-effect-in-gen": "off",
+      "effecttsgo/run-effect-inside-effect": "off",
+      "effecttsgo/schema-class-missing-brand": "off",
+      "effecttsgo/schema-class-object-literal": "off",
+      "effecttsgo/schema-number": "off",
+      "effecttsgo/schema-sync-in-effect": "off",
+      "effecttsgo/try-catch-in-effect-gen": "off",
+      "effecttsgo/unknown-in-effect-catch": "off",
+      "effecttsgo/unnecessary-typeof-type": "off",
+      "effecttsgo/unsafe-effect-type-assertion": "warn",
+      "effecttsgo/unstable-api-usage": "off",
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],

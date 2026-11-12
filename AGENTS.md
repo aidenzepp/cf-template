@@ -4,7 +4,7 @@ This repository is an intentionally empty TypeScript project on Bun and Effect. 
 
 ## Policy
 
-`vite.config.ts` (formatting, lint, tests), `tsconfig.json` (types), and `tools/lint/` (repository rules) are the source of truth.
+`vite.config.ts` (formatting, lint, tests), `tsconfig.json` (types), `tools/lint/` (repository rules), and the `@effect/tsgo` Oxlint plugin (the Effect rules that run inside `vp check`) are the source of truth.
 
 - Fix code instead of weakening policy. Do not turn off rules, add broad disable comments, or skip checks without explicit approval.
 - Use Effect error channels; built-in try/catch is prohibited by lint.
