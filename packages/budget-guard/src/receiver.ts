@@ -7,7 +7,7 @@ import type { RuntimeContext } from "alchemy/RuntimeContext";
 import { Context, Effect, Layer, Option, Path } from "effect";
 import * as HttpServerResponse from "effect/http/HttpServerResponse";
 import { makeReceive } from "./latch.ts";
-import { GUARD_ALERT_ID, GUARD_KV_ID, guardAlertProps } from "./resources.ts";
+import { GUARD_ALERT_ID, GUARD_KV_ID, guardReceiverAlert } from "./resources.ts";
 import type { GuardPlanValue } from "./resources.ts";
 
 /**
@@ -45,12 +45,20 @@ const receiverProps = Effect.serviceOption(GuardDeployment).pipe(
 /**
  * The alert properties the deployed bundle registers. Nothing reads them there: the bundle needs
  * the alert's logical id to find its delivery path and its secret, and Alchemy never plans from
- * inside a deployed Worker. They never reach a deploy, which uses {@link guardAlertProps}.
+ * inside a deployed Worker. They never reach a deploy, which uses {@link guardReceiverAlert}.
  */
 const BUNDLE_ALERT = {
   query: "",
   trigger: { operator: ">", type: "threshold", value: 0, window: "1h" },
 } as const satisfies Cloudflare.Alerting.CustomAlertProps;
+
+/**
+ * The alert the receiver registers and the policy name it is bound.
+ */
+interface AlertTarget {
+  readonly policy: string;
+  readonly props: Cloudflare.Alerting.CustomAlertProps;
+}
 
 /**
  * The entrypoint of the receiver Worker: it exposes no RPC method, and its `fetch` answers `404`.
@@ -85,23 +93,21 @@ export const GuardReceiverLive = GuardReceiver.make(
   Effect.gen(function* buildReceiver() {
     const deployment = yield* Effect.serviceOption(GuardDeployment);
 
-    const props = Option.match(deployment, {
-      onNone: () => Option.some<Cloudflare.Alerting.CustomAlertProps>(BUNDLE_ALERT),
-      onSome: ({ plan }) =>
-        plan.alert.pipe(
-          Option.map((spec): Cloudflare.Alerting.CustomAlertProps => guardAlertProps(plan, spec)),
-        ),
+    const target = Option.match(deployment, {
+      onNone: (): Option.Option<AlertTarget> => Option.some({ policy: "", props: BUNDLE_ALERT }),
+      onSome: ({ plan }): Option.Option<AlertTarget> =>
+        plan.alert.pipe(Option.map((spec) => guardReceiverAlert(plan, spec))),
     });
 
-    if (Option.isSome(props)) {
+    if (Option.isSome(target)) {
       const kv = yield* Cloudflare.KV.ReadWriteNamespace(Cloudflare.KV.Namespace(GUARD_KV_ID)).pipe(
         Effect.provide(Cloudflare.KV.ReadWriteNamespaceBinding),
       );
 
-      const alert = yield* Cloudflare.Alerting.CustomAlert(GUARD_ALERT_ID, props.value);
+      const alert = yield* Cloudflare.Alerting.CustomAlert(GUARD_ALERT_ID, target.value.props);
 
       const policy = yield* Output.named(
-        Output.asOutput(props.value.name ?? ""),
+        Output.asOutput(target.value.policy),
         "BUDGET_GUARD_POLICY_NAME",
       );
 

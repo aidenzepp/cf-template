@@ -30,7 +30,8 @@ export interface Delivery {
  * Build the handler of the guard alert's notifications over a KV write.
  *
  * The handler latches only a notification whose `policyName` is `policy`, the name of this stage's
- * guard alert; a notification with no `policyName`, or one of another policy, writes nothing. The
+ * guard alert; a notification with no `policyName`, or one of another policy, writes nothing and
+ * logs `web.guard.policy_mismatch` at Warning with the received and expected names. The
  * name stands in for the policy id: it is known when the alert is declared, so binding it onto the
  * receiver Worker adds no dependency on the alert. The latch holds until {@link periodEnd}. A
  * failed write logs `web.guard.latch_error` and never fails the delivery.
@@ -54,7 +55,15 @@ export const makeReceive =
     Effect.gen(function* receive() {
       const policy = yield* options.policy;
 
-      if (policy === undefined || policy === "" || delivery.policyName !== policy) {
+      if (policy === undefined || policy === "") {
+        return;
+      }
+
+      if (delivery.policyName !== policy) {
+        yield* Effect.logWarning("web.guard.policy_mismatch").pipe(
+          Effect.annotateLogs({ expected: policy, received: delivery.policyName ?? "missing" }),
+        );
+
         return;
       }
 
