@@ -508,18 +508,26 @@ export default defineConfig({
       },
       {
         // Lifted until the TanStack Form migration (#253 and its C2/C3 children) replaces them: each
-        // file submits a `<form onSubmit>` or reads a `FormData`; the notes test feeds one to the
-        // parser the migration removes.
+        // file submits a `<form onSubmit>` or reads a `FormData`.
         files: [
           "apps/web/src/components/auth/reauthenticate.tsx",
           "apps/web/src/components/auth/sign-in-form.tsx",
           "apps/web/src/components/auth/sign-up-form.tsx",
-          "apps/web/src/routes/notes/-note-form.tsx",
-          "apps/web/src/routes/notes/-notes.test.ts",
           "apps/web/src/routes/settings.tsx",
         ],
         rules: { "workspace/no-raw-form-submit": "off" },
       },
+      // block:notes start
+      {
+        // The same lift for the notes form; its test feeds a `FormData` to the parser the migration
+        // removes.
+        files: [
+          "apps/web/src/routes/notes/-note-form.tsx",
+          "apps/web/src/routes/notes/-notes.test.ts",
+        ],
+        rules: { "workspace/no-raw-form-submit": "off" },
+      },
+      // block:notes end
       {
         // Lifted until #238 moves the re-auth account list into a loader or atom.
         files: ["apps/web/src/components/auth/reauthenticate.tsx"],
@@ -535,6 +543,7 @@ export default defineConfig({
         files: ["apps/web/src/routes/settings.tsx"],
         rules: { "workspace/no-effect-data-load": "off" },
       },
+      // block:notes start
       {
         // Lifted until #239 refreshes the notes through `reactivityKeys` instead of these effects.
         files: [
@@ -543,6 +552,7 @@ export default defineConfig({
         ],
         rules: { "workspace/no-effect-on-async-result": "off" },
       },
+      // block:notes end
       {
         // `packages/contract` defines the Problem classes, so it writes the media type. Tests assert
         // it on the wire, and the rule's own file names it to look for it.
