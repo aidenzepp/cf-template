@@ -96,20 +96,20 @@ export const EmailAddress = Schema.String.check(
 );
 
 /**
- * Moves focus to the first field that failed validation, in the order the fields render. TanStack
- * Form has no focus management of its own.
+ * Moves focus to the first field that failed validation, in the order the inputs sit in the page
+ * (not the order of the form's values, which a schema may sort). TanStack Form has no focus
+ * management of its own. Focusing a later field first would blur the earlier one and clear its
+ * submit error.
  *
  * @param props - What `onSubmitInvalid` receives.
  * @param props.formApi - The form that failed to validate.
  */
 export const focusFirstInvalid = ({ formApi }: { readonly formApi: AnyFormApi }): void => {
-  const first = Object.entries(formApi.state.fieldMeta).find(
-    ([, meta]) => (meta?.errors.length ?? 0) > 0,
+  const first = [...document.querySelectorAll<HTMLInputElement>("input[name]")].find(
+    ({ name }) => (formApi.state.fieldMeta[name]?.errors.length ?? 0) > 0,
   );
 
-  if (first !== undefined) {
-    document.querySelector<HTMLElement>(`#${first[0]}`)?.focus();
-  }
+  first?.focus();
 };
 
 /**
