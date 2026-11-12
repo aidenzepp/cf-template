@@ -142,6 +142,30 @@ describe("footprint", () => {
     }),
   );
 
+  it.effect("an owned dependency its manifest does not list fails naming both", () =>
+    Effect.gen(function* unlisted() {
+      const result = yield* footprint({
+        "blocks.json": JSON.stringify({
+          attachFiles: [],
+          blocks: [],
+          slices: [
+            {
+              dependencies: [{ manifest: "package.json", name: "gone" }],
+              keep: [],
+              name: "widgets",
+              paths: ["apps/api/src/widgets/**"],
+            },
+          ],
+        }),
+        "package.json": JSON.stringify({ devDependencies: { effect: "4.1.2" } }),
+      });
+
+      assert.deepStrictEqual(result.failures, [
+        "blocks.json owns dependency gone but package.json lists none",
+      ]);
+    }),
+  );
+
   it.effect("an attach file whose list holds only plain identifiers passes", () =>
     Effect.gen(function* plain() {
       const result = yield* footprint({

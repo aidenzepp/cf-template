@@ -37,7 +37,7 @@ hash = "bdda1772c118ac9bbdeaac9d74d3eff9ab717ce2085dfbec3964acaa8d64966e"
 [[link]]
 source = "AGENTS.md"
 target = ".agents/skills/add-block/SKILL.md"
-hash = "366c093cd35e48ce39ceb74d803a1844db3520b785a18a00bf5d2d6aff628c81"
+hash = "0bdda12710a3cfc4a4bec9f335cf7f61749c5dbc2129fbebfd99bdb146294747"
 
 [[link]]
 source = "AGENTS.md"

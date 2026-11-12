@@ -15,7 +15,7 @@ import { SyntaxKind } from "typescript/unstable/ast";
 import { createScanner } from "typescript/unstable/ast/scanner";
 
 import { attachFormOf, parseAttach, unreadableMessage } from "./grammar.ts";
-import { decodeManifest } from "./manifest.ts";
+import { decodeManifest, decodePackageManifest, missingDependencies } from "./manifest.ts";
 import { markedLines } from "./markers.ts";
 import { parseMeter } from "./meters.ts";
 
@@ -363,6 +363,19 @@ export const footprint = Effect.fn("footprint.footprint")(function* footprint(
   const attach = new Set(manifest.attachFiles);
   const names = units.map((unit) => unit.name);
   const failures = [...(yield* attachFailures(files, manifest.attachFiles, names))];
+  const owned = [...manifest.slices, ...manifest.blocks].flatMap((unit) => unit.dependencies ?? []);
+
+  const listed = yield* Effect.forEach(
+    [...new Set(owned.map(({ manifest: file }) => file))],
+    (file) =>
+      decodePackageManifest(files[file] ?? "").pipe(
+        Effect.map((json) => [file, json] as const),
+        Effect.option,
+      ),
+  );
+
+  failures.push(...missingDependencies(owned, new Map(listed.flatMap(Option.toArray))));
+
   const lines: Array<string> = [];
 
   for (const unit of units) {

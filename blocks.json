@@ -20,7 +20,8 @@
         "apps/api/src/problem-details.test.ts",
         "apps/web/src/routes/notes/"
       ],
-      "keep": ["apps/api/src/notes/table.ts", "apps/api/src/db/schema.ts"]
+      "keep": ["apps/api/src/notes/table.ts", "apps/api/src/db/schema.ts"],
+      "dependencies": [{ "manifest": "apps/api/package.json", "name": "miniflare" }]
     }
   ],
   "blocks": [
@@ -43,7 +44,8 @@
         "tools/knob/alchemy.ts",
         "tools/knob/knob.test.ts",
         "tools/knob/knob.ts"
-      ]
+      ],
+      "dependencies": [{ "manifest": "package.json", "name": "@distilled.cloud/cloudflare" }]
     }
   ]
 }

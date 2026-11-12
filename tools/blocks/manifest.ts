@@ -1,10 +1,20 @@
-import { Effect, FileSystem, Schema } from "effect";
+import { Effect, FileSystem, Predicate, Schema } from "effect";
+
+/**
+ * A dependency a unit owns: the repository-relative path of a `package.json` (`package.json` for
+ * the root) and the dependency's name there. The pull-out deletes it with the unit.
+ */
+const Dependency = Schema.Struct({
+  manifest: Schema.String,
+  name: Schema.String,
+});
 
 /**
  * A removable slice of an app: the `paths` the pull-out deletes, except the `keep` modules that the
  * first of its two removal PRs leaves in place.
  */
 const Slice = Schema.Struct({
+  dependencies: Schema.optional(Schema.Array(Dependency)),
   keep: Schema.Array(Schema.String),
   name: Schema.String,
   paths: Schema.Array(Schema.String),
@@ -15,9 +25,51 @@ const Slice = Schema.Struct({
  * directory.
  */
 const Block = Schema.Struct({
+  dependencies: Schema.optional(Schema.Array(Dependency)),
   name: Schema.String,
   paths: Schema.Array(Schema.String),
 });
+
+/**
+ * The fields of a `package.json`, as JSON values.
+ */
+const PackageManifest = Schema.Record(Schema.String, Schema.Json);
+
+/**
+ * Decodes the contents of a `package.json` into its fields.
+ */
+export const decodePackageManifest = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(PackageManifest),
+);
+
+/**
+ * The `package.json` sections that hold dependency names.
+ */
+const dependencySections = [
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+  "peerDependencies",
+] as const;
+
+/**
+ * The messages for the `owned` dependencies that their manifest does not list. `manifests` maps a
+ * repository-relative `package.json` path to its decoded fields; a manifest missing from it lists
+ * nothing.
+ */
+export const missingDependencies = (
+  owned: ReadonlyArray<typeof Dependency.Type>,
+  manifests: ReadonlyMap<string, typeof PackageManifest.Type>,
+): ReadonlyArray<string> =>
+  owned.flatMap(({ manifest, name }) =>
+    dependencySections.some((section) => {
+      const listed = manifests.get(manifest)?.[section];
+
+      return Predicate.isObject(listed) && name in listed;
+    })
+      ? []
+      : [`blocks.json owns dependency ${name} but ${manifest} lists none`],
+  );
 
 /**
  * The decoded `blocks.json`: the attach files, in which a unit appears only on attach lines, and

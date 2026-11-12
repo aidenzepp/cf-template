@@ -14,7 +14,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { attachFormOf, parseAttach } from "./grammar.ts";
 import type { AttachLine } from "./grammar.ts";
-import { readManifest, withoutUnit } from "./manifest.ts";
+import { missingDependencies, readManifest, withoutUnit } from "./manifest.ts";
 import type { Manifest } from "./manifest.ts";
 import { removeMarked } from "./markers.ts";
 
@@ -34,10 +34,11 @@ const PackageJson = Schema.Record(Schema.String, Schema.Json);
  * What the pull-out knows about the unit it removes. `doomed` tells whether a repository-relative
  * file goes with the unit; `tree` is the throwaway worktree the edits happen in.
  */
-interface Unit {
+export interface Unit {
   readonly doomed: (file: string) => boolean;
   readonly keep: ReadonlyArray<string>;
   readonly name: string;
+  readonly owned: ReadonlyArray<{ readonly manifest: string; readonly name: string }>;
   readonly packageName: string | undefined;
   readonly tree: string;
 }
@@ -45,7 +46,7 @@ interface Unit {
 /**
  * A tracked `package.json`: its directory and its decoded fields.
  */
-interface Pkg {
+export interface Pkg {
   readonly dir: string;
   readonly json: typeof PackageJson.Type;
 }
@@ -254,7 +255,7 @@ const rewrite = Effect.fn("pullout.rewrite")(function* rewrite<E, R>(
  * Drops the unit's `package.json` footprint: `exports` entries whose target lies under a deleted
  * path and the unit's own dependency line. Returns the files it rewrote.
  */
-const trimPackages = Effect.fn("pullout.trimPackages")(function* trimPackages(
+export const trimPackages = Effect.fn("pullout.trimPackages")(function* trimPackages(
   unit: Unit,
   packages: ReadonlyArray<Pkg>,
 ) {
@@ -264,10 +265,18 @@ const trimPackages = Effect.fn("pullout.trimPackages")(function* trimPackages(
 
   const files = [...byFile.keys()].filter((file) => !unit.doomed(file));
 
+  const absent = missingDependencies(
+    unit.owned,
+    new Map([...byFile].map(([file, pkg]) => [file, pkg.json] as const)),
+  );
+
+  yield* refuseIf(absent.length > 0, absent.join("; "));
+
   return yield* rewrite(unit.tree, files, (file, text) =>
     decodePackage(text).pipe(
       Effect.map((json) => {
         const dir = path.dirname(file);
+        const ownedHere = unit.owned.filter((entry) => entry.manifest === file);
 
         const next = Object.fromEntries(
           Object.entries(json).map(([key, value]) => {
@@ -283,7 +292,10 @@ const trimPackages = Effect.fn("pullout.trimPackages")(function* trimPackages(
             }
 
             if (depended !== undefined) {
-              const live = Object.entries(depended).filter(([name]) => name !== unit.packageName);
+              const live = Object.entries(depended).filter(
+                ([name]) =>
+                  name !== unit.packageName && !ownedHere.some((own) => own.name === name),
+              );
 
               return [key, Object.fromEntries(live)];
             }
@@ -475,7 +487,16 @@ export const pullout = Effect.fn("pullout")(function* pullout(root: string, name
 
   const owner = packages.find((pkg) => pkg.dir === `packages/${name}`)?.json.name;
   const tree = path.join(root, ".worktrees", `pullout-${name}`);
-  const unit: Unit = { doomed, keep, name, packageName: isString(owner) ? owner : undefined, tree };
+  const owned = slice?.dependencies ?? block?.dependencies ?? [];
+
+  const unit: Unit = {
+    doomed,
+    keep,
+    name,
+    owned,
+    packageName: isString(owner) ? owner : undefined,
+    tree,
+  };
 
   const [elapsed, left] = yield* Effect.timed(
     Effect.gen(function* removal() {

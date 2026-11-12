@@ -33,6 +33,11 @@ with a real attach file.
    - `Meter: UNKNOWN (<reason>)`, when the provider has not published what the resource bills
 4. A block whose code is not all in `packages/<name>/` gets a `blocks` entry in `blocks.json`:
    `{ "name": "<name>", "paths": [...] }`. A block with no entry is its package directory.
+   A slice or block may add `"dependencies": [{ "manifest": "<repo-relative package.json>",
+   "name": "<dependency>" }]` for a dependency only its own code uses, when that code sits outside
+   the block's package (a root tool, or a test in an app). Use `package.json` for the root. The
+   pull-out deletes the named entry from that manifest, fails when the manifest does not list it,
+   and `bun run footprint` checks the same, so knip stays clean in the pulled tree.
 
 ## Attach
 
