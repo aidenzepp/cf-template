@@ -246,6 +246,20 @@ layer(stack, { excludeTestServices: true })("Notes.layer on local D1", (it) => {
     }),
   );
 
+  it.effect("dies on a blank title and stores nothing", () =>
+    Effect.gen(function* blank() {
+      const notes = yield* Notes;
+      const { ada } = owners("blank");
+
+      const empty = yield* Effect.exit(request(notes.create(ada, { body: "", title: "" })));
+      const spaces = yield* Effect.exit(request(notes.create(ada, { body: "", title: "  " })));
+
+      assert.isTrue(Exit.hasDies(empty));
+      assert.isTrue(Exit.hasDies(spaces));
+      assert.deepStrictEqual(yield* request(notes.list(ada)), []);
+    }),
+  );
+
   it.effect("dies on a title or body over the cap and stores nothing", () =>
     Effect.gen(function* caps() {
       const notes = yield* Notes;

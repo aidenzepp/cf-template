@@ -255,6 +255,30 @@ describe("note size caps", () => {
       }
     }).pipe(Effect.scoped),
   );
+
+  it.effect("answers 400 for an empty or blank title and stores nothing", () =>
+    Effect.gen(function* blank() {
+      const send = yield* serve({ includeDetails: false, notes: Notes.layerMemory });
+
+      for (const title of ["", "   "]) {
+        const created = yield* send(
+          json("/api/notes", "POST", JSON.stringify({ body: "b", title })),
+        );
+
+        const patched = yield* send(json("/api/notes/any", "PATCH", JSON.stringify({ title })));
+
+        for (const response of [created, patched]) {
+          assert.strictEqual(response.status, 400);
+          assert.deepStrictEqual(yield* Effect.promise(() => response.json()), {
+            detail: "Request validation failed",
+            status: 400,
+            title: "Bad Request",
+            type: "about:blank",
+          });
+        }
+      }
+    }).pipe(Effect.scoped),
+  );
 });
 
 describe("PROBLEM_DETAILS_INCLUDE", () => {

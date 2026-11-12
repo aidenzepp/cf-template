@@ -85,8 +85,8 @@ const countOf = (owner: OwnerId) =>
   sql`(SELECT count(*) FROM ${noteRows} WHERE ${noteRows.ownerId} = ${owner})`;
 
 /**
- * Die when a title or body is over the contract's bound. The HTTP payload is already bounded, so
- * only a direct caller of the store reaches this.
+ * Die when a title is blank or a title or body is over the contract's bound. The HTTP payload is
+ * already bounded, so only a direct caller of the store reaches this.
  *
  * @param fields - The title and body that are about to be stored.
  * @param fields.body - The body, when the caller names one.
@@ -100,7 +100,7 @@ const requireWithinBounds = (fields: {
   (fields.title === undefined || Schema.is(NoteTitle)(fields.title)) &&
   (fields.body === undefined || Schema.is(NoteBody)(fields.body))
     ? Effect.void
-    : Effect.die("A note title or body is over its size cap.");
+    : Effect.die("A note title or body is outside the contract's bounds.");
 
 /**
  * Mint the id of a new note.

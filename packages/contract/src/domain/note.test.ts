@@ -14,6 +14,14 @@ describe("note size caps", () => {
     assert.isTrue(decodePatch({ body, title })._tag === "Success");
   });
 
+  it("refuses an empty or blank title and accepts one character", () => {
+    assert.isTrue(decodeCreate({ body: "", title: "" })._tag === "Failure");
+    assert.isTrue(decodeCreate({ body: "", title: " \t" })._tag === "Failure");
+    assert.isTrue(decodePatch({ title: "" })._tag === "Failure");
+    assert.isTrue(decodeCreate({ body: "", title: "a" })._tag === "Success");
+    assert.isTrue(decodePatch({ body: "only the body" })._tag === "Success");
+  });
+
   it("refuses a title or body one character over", () => {
     const body = "b".repeat(NOTE_BODY_MAX_LENGTH + 1);
     const title = "t".repeat(NOTE_TITLE_MAX_LENGTH + 1);

@@ -16,10 +16,14 @@ export const NOTE_TITLE_MAX_LENGTH = 200;
 export const NOTE_BODY_MAX_LENGTH = 10_000;
 
 /**
- * The title of a note, at most {@link NOTE_TITLE_MAX_LENGTH} characters. The check's `message` is
- * the line a form shows under the title.
+ * The title of a note: at least one character besides whitespace, at most
+ * {@link NOTE_TITLE_MAX_LENGTH} characters. Each check's `message` is the line a form shows under
+ * the title.
  */
 export const NoteTitle = Schema.String.check(
+  Schema.makeFilter((title: string) => title.trim().length > 0, {
+    message: "Enter a title.",
+  }),
   Schema.isMaxLength(NOTE_TITLE_MAX_LENGTH, {
     message: `The title is too long: use at most ${NOTE_TITLE_MAX_LENGTH} characters.`,
   }),

@@ -1,4 +1,5 @@
 import { expect, it } from "@effect/vitest";
+import { FormApi } from "@tanstack/react-form";
 import { Cause, Effect } from "effect";
 import { AsyncResult } from "effect/reactivity";
 import {
@@ -9,7 +10,7 @@ import {
   NotePatch,
 } from "@workspace/contract/domain/note";
 import { NoteNotFound, NotesUnavailable } from "@workspace/contract/domain/note-errors";
-import { formValidator } from "../../components/form/form-hook.tsx";
+import { focusFirstInvalid, formValidator } from "../../components/form/form-hook.tsx";
 import { noteFailureOf } from "./-note-failure.ts";
 
 /**
@@ -57,6 +58,51 @@ it.effect("gives an over-long title or body the contract's own line", () =>
     expect(yield* linesOf(formValidator(NoteCreate), values)).toStrictEqual(lines);
     expect(yield* linesOf(formValidator(NotePatch), values)).toStrictEqual(lines);
   }),
+);
+
+it.effect("asks for a title when it is empty or blank, on create and on edit", () =>
+  Effect.gen(function* blank() {
+    for (const title of ["", "   "]) {
+      const lines = [[["title"], "Enter a title."]];
+
+      expect(yield* linesOf(formValidator(NoteCreate), { body: "milk", title })).toStrictEqual(
+        lines,
+      );
+
+      expect(yield* linesOf(formValidator(NotePatch), { body: "milk", title })).toStrictEqual(
+        lines,
+      );
+    }
+  }),
+);
+
+it.effect("shows the title line and focuses the title when an empty title is submitted", () =>
+  Effect.gen(function* submitBlank() {
+    const focused: Array<string> = [];
+
+    yield* Effect.acquireRelease(
+      Effect.sync(() =>
+        Reflect.set(globalThis, "document", {
+          querySelector: (selector: string) => ({ focus: () => focused.push(selector) }),
+        }),
+      ),
+      () => Effect.sync(() => Reflect.deleteProperty(globalThis, "document")),
+    );
+
+    const form = new FormApi({
+      defaultValues: { body: "milk", title: "" },
+      onSubmitInvalid: focusFirstInvalid,
+      validators: { onSubmit: formValidator(NoteCreate) },
+    });
+
+    form.mount();
+    yield* Effect.promise(() => form.handleSubmit());
+
+    const errors: unknown = form.state.fieldMeta.title?.errors;
+
+    expect(errors).toMatchObject([{ message: "Enter a title." }]);
+    expect(focused).toStrictEqual(["#title"]);
+  }).pipe(Effect.scoped),
 );
 
 it.effect("asks to fill in a field the values do not hold", () =>
