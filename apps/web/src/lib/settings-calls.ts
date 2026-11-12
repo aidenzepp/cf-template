@@ -1,36 +1,10 @@
-import { Effect, Option, Schema } from "effect";
+import { Option, Schema } from "effect";
 import type { authClient } from "./auth-client.ts";
-import { FRESH_SESSION_CODE } from "./better-auth-call.ts";
-import type { Settled } from "./better-auth-call.ts";
 
 /**
  * The browser auth client as far as the settings calls use it.
  */
 export type SettingsClient = typeof authClient;
-
-/**
- * Whether a failed call is the server's refusal for a stale session, which opens the
- * re-authentication prompt.
- *
- * @param error - The `error` of a settled call.
- * @returns `true` for the fresh-session refusal.
- */
-export const needsFreshSession = (error: Settled["error"]): boolean =>
-  error?.code === FRESH_SESSION_CODE;
-
-/**
- * Runs an auth client call as an effect that never fails: a call that rejects before any response
- * settles as status 0. Interrupting the effect aborts the signal the call receives.
- *
- * @param call - The client call, given the signal that aborts it.
- * @returns The effect of the call's settled result.
- */
-export const settle = (
-  call: (signal: AbortSignal) => PromiseLike<Settled>,
-): Effect.Effect<Settled> =>
-  Effect.tryPromise({ catch: (cause) => cause, try: call }).pipe(
-    Effect.orElseSucceed((): Settled => ({ error: { status: 0 } })),
-  );
 
 /**
  * The calls of the settings screen, one per action. Each goes through the `/auth/*` forward: the

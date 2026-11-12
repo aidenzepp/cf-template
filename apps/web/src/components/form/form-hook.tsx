@@ -1,6 +1,7 @@
 import { createFormHook, createFormHookContexts } from "@tanstack/react-form";
 import type { AnyFormApi } from "@tanstack/react-form";
 import { Button } from "@workspace/ui/components/ui/button";
+import { Checkbox } from "@workspace/ui/components/ui/checkbox";
 import { Field, FieldError, FieldLabel } from "@workspace/ui/components/ui/field";
 import { Input } from "@workspace/ui/components/ui/input";
 import { Schema, SchemaIssue } from "effect";
@@ -47,6 +48,30 @@ const TextField = ({
         value={field.state.value}
       />
       <FieldError errors={errors} id={errorId} />
+    </Field>
+  );
+};
+
+/**
+ * A labelled checkbox bound to the boolean field it sits under.
+ *
+ * @param props - The checkbox's props.
+ * @param props.label - The label text.
+ * @returns The field.
+ */
+const CheckboxField = ({ label }: { readonly label: string }) => {
+  const field = useFieldContext<boolean>();
+
+  return (
+    <Field orientation="horizontal">
+      <Checkbox
+        checked={field.state.value}
+        id={field.name}
+        name={field.name}
+        onBlur={field.handleBlur}
+        onCheckedChange={field.handleChange}
+      />
+      <FieldLabel htmlFor={field.name}>{label}</FieldLabel>
     </Field>
   );
 };
@@ -118,7 +143,7 @@ export const focusFirstInvalid = ({ formApi }: { readonly formApi: AnyFormApi })
  * through `Schema.toStandardSchemaV1`, as `validators.onSubmit`.
  */
 export const { useAppForm } = createFormHook({
-  fieldComponents: { TextField },
+  fieldComponents: { CheckboxField, TextField },
   fieldContext,
   formComponents: { SubmitButton },
   formContext,

@@ -8,51 +8,60 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/ui/card";
-import { Checkbox } from "@workspace/ui/components/ui/checkbox";
-import {
-  Field,
-  FieldDescription,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-} from "@workspace/ui/components/ui/field";
+import { Field, FieldError, FieldGroup } from "@workspace/ui/components/ui/field";
 import { Input } from "@workspace/ui/components/ui/input";
-import { Effect, Option } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { useEffect, useState } from "react";
-import type { SyntheticEvent } from "react";
 import { Reauthenticate } from "../components/auth/reauthenticate.tsx";
-import { readField } from "../components/auth/use-auth-submit.ts";
+import { focusFirstInvalid, formValidator, useAppForm } from "../components/form/form-hook.tsx";
 import { authClient } from "../lib/auth-client.ts";
 import { authErrorCopy } from "../lib/auth-error-copy.ts";
+import { betterAuthCall } from "../lib/better-auth-call.ts";
+import type { Settled } from "../lib/better-auth-call.ts";
 import { oauthErrorCode, oauthErrorCopy } from "../lib/oauth-error-copy.ts";
 import {
   PASSKEY_FALLBACK_NAME,
   decodeAccounts,
   decodePasskeys,
-  needsFreshSession,
   passkeyHint,
   providerName,
   settingsCalls,
-  settle,
 } from "../lib/settings-calls.ts";
-import type { Settled } from "../lib/better-auth-call.ts";
 import { run as runEffect } from "../runtime.ts";
+import { actionAtom, useAction } from "./-settings-action.ts";
 
 const calls = settingsCalls(authClient);
 
-const passkeysOf = ({ data }: Settled) => decodePasskeys(data);
-
-const accountsOf = ({ data }: Settled) => decodeAccounts(data);
+/**
+ * The fields of the profile form. The image is optional; when it is there it is a web address.
+ */
+const ProfileInput = Schema.Struct({
+  image: Schema.String.check(
+    Schema.isPattern(/^(?:https?:\/\/\S+)?$/u, {
+      message: "Enter a web address that starts with https://.",
+    }),
+  ),
+  name: Schema.String.check(Schema.isNonEmpty({ message: "Enter your name." })),
+});
 
 /**
- * The outcome line of one card.
+ * The fields of the password form. Better Auth owns the rules of the new password.
  */
-interface Outcome {
-  readonly failed: boolean;
-  readonly text: string | null;
-}
+const PasswordInput = Schema.Struct({
+  current: Schema.String.check(Schema.isNonEmpty({ message: "Enter your current password." })),
+  next: Schema.String.check(Schema.isNonEmpty({ message: "Enter a new password." })),
+  revoke: Schema.Boolean,
+});
 
-const NO_OUTCOME: Outcome = { failed: false, text: null };
+const NO_ITEMS: ReadonlyArray<never> = [];
+
+const profileAtom = actionAtom();
+
+const passwordAtom = actionAtom();
+
+const passkeysAtom = actionAtom();
+
+const accountsAtom = actionAtom();
 
 /**
  * Loads a list when the card mounts and again after `reload`. A failed load leaves the list empty
@@ -64,7 +73,7 @@ const NO_OUTCOME: Outcome = { failed: false, text: null };
  */
 const useLoaded = <Item,>(
   call: () => PromiseLike<Settled>,
-  decode: (settled: Settled) => Option.Option<ReadonlyArray<Item>>,
+  decode: (data: Settled["data"]) => Option.Option<ReadonlyArray<Item>>,
 ) => {
   const [items, setItems] = useState<ReadonlyArray<Item>>([]);
   const [failure, setFailure] = useState<string | null>(null);
@@ -74,23 +83,27 @@ const useLoaded = <Item,>(
     let current = true;
 
     void runEffect(
-      settle(call).pipe(
-        Effect.tap((settled) =>
+      betterAuthCall(call).pipe(
+        Effect.map(decode),
+        Effect.match({
+          onFailure: ({ error }) => ({
+            failure: authErrorCopy({ aborted: false, error }),
+            items: NO_ITEMS,
+          }),
+          onSuccess: (list) => ({
+            failure: authErrorCopy({
+              aborted: false,
+              error: Option.isNone(list) ? { status: 500 } : null,
+            }),
+            items: Option.getOrElse(list, (): ReadonlyArray<Item> => []),
+          }),
+        }),
+        Effect.tap((loaded) =>
           Effect.sync(() => {
-            if (!current) {
-              return;
+            if (current) {
+              setItems(loaded.items);
+              setFailure(loaded.failure);
             }
-
-            const { error } = settled;
-            const list = decode(settled);
-
-            setItems(Option.getOrElse(list, () => []));
-            setFailure(
-              authErrorCopy({
-                aborted: false,
-                error: error ?? (Option.isNone(list) ? { status: 500 } : null),
-              }),
-            );
           }),
         ),
       ),
@@ -111,64 +124,6 @@ const useLoaded = <Item,>(
   };
 };
 
-/**
- * Runs a card's calls and keeps its outcome line. A call the server refuses for a stale session
- * asks for the password, then runs again.
- *
- * @param askFresh - Opens the prompt and keeps the call to retry.
- * @returns The outcome line, whether a call is in flight, and `run`.
- */
-const useRun = (askFresh: (retry: () => void) => void) => {
-  const [outcome, setOutcome] = useState<Outcome>(NO_OUTCOME);
-  const [pending, setPending] = useState(false);
-
-  const run = (call: () => PromiseLike<Settled>, done: string, after?: () => void) => {
-    const attempt = () => {
-      setOutcome(NO_OUTCOME);
-      setPending(true);
-      void runEffect(
-        settle(call).pipe(
-          Effect.tap(({ error }) =>
-            Effect.sync(() => {
-              setPending(false);
-
-              if (needsFreshSession(error)) {
-                askFresh(attempt);
-
-                return;
-              }
-
-              setOutcome({
-                failed: error !== null,
-                text: error === null ? done : authErrorCopy({ aborted: false, error }),
-              });
-              after?.();
-            }),
-          ),
-        ),
-      );
-    };
-
-    attempt();
-  };
-
-  return { outcome, pending, run };
-};
-
-/**
- * The line under a card's form.
- *
- * @param props - The line's props.
- * @param props.outcome - The card's outcome.
- * @returns The line, or nothing.
- */
-const OutcomeLine = ({ outcome }: { readonly outcome: Outcome }) =>
-  outcome.failed ? (
-    <FieldError>{outcome.text}</FieldError>
-  ) : (
-    <FieldDescription>{outcome.text}</FieldDescription>
-  );
-
 const ProfileCard = ({
   askFresh,
   image,
@@ -178,15 +133,19 @@ const ProfileCard = ({
   readonly image: string | null;
   readonly name: string;
 }) => {
-  const { outcome, pending, run } = useRun(askFresh);
+  const { act } = useAction(profileAtom, askFresh);
 
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const form = new FormData(event.currentTarget);
-
-    run(() => calls.updateProfile(readField(form, "name"), readField(form, "image")), "Saved.");
-  };
+  const form = useAppForm({
+    defaultValues: { image: image ?? "", name },
+    onSubmit: ({ value }) =>
+      act({
+        call: () => calls.updateProfile(value.name, value.image),
+        done: "Profile saved.",
+        failed: "Could not save your profile.",
+      }),
+    onSubmitInvalid: focusFirstInvalid,
+    validators: { onSubmit: formValidator(ProfileInput) },
+  });
 
   return (
     <Card>
@@ -194,20 +153,23 @@ const ProfileCard = ({
         <CardTitle>Profile</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit}>
+        <form
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+        >
           <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="profile-name">Name</FieldLabel>
-              <Input defaultValue={name} id="profile-name" name="name" required type="text" />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="profile-image">Image URL</FieldLabel>
-              <Input defaultValue={image ?? ""} id="profile-image" name="image" type="url" />
-            </Field>
-            <OutcomeLine outcome={outcome} />
-            <Button disabled={pending} type="submit">
-              Save profile
-            </Button>
+            <form.AppField name="name">
+              {(field) => <field.TextField label="Name" required type="text" />}
+            </form.AppField>
+            <form.AppField name="image">
+              {(field) => <field.TextField label="Image URL" type="url" />}
+            </form.AppField>
+            <form.AppForm>
+              <form.SubmitButton>Save profile</form.SubmitButton>
+            </form.AppForm>
           </FieldGroup>
         </form>
       </CardContent>
@@ -216,18 +178,24 @@ const ProfileCard = ({
 };
 
 const PasswordCard = ({ askFresh }: { readonly askFresh: (retry: () => void) => void }) => {
-  const { outcome, pending, run } = useRun(askFresh);
+  const { act } = useAction(passwordAtom, askFresh);
 
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const form = new FormData(event.currentTarget);
-    const current = readField(form, "current");
-    const next = readField(form, "next");
-    const revoke = form.get("revoke") !== null;
-
-    run(() => calls.changePassword(current, next, revoke), "Password changed.");
-  };
+  const form = useAppForm({
+    defaultValues: { current: "", next: "", revoke: true },
+    onSubmit: ({ formApi, value }) =>
+      act(
+        {
+          call: () => calls.changePassword(value.current, value.next, value.revoke),
+          done: "Password changed.",
+          failed: "Could not change your password.",
+        },
+        () => {
+          formApi.reset();
+        },
+      ),
+    onSubmitInvalid: focusFirstInvalid,
+    validators: { onSubmit: formValidator(PasswordInput) },
+  });
 
   return (
     <Card>
@@ -235,40 +203,118 @@ const PasswordCard = ({ askFresh }: { readonly askFresh: (retry: () => void) => 
         <CardTitle>Password</CardTitle>
       </CardHeader>
       <CardContent>
-        <form onSubmit={onSubmit}>
+        <form
+          noValidate
+          onSubmit={(event) => {
+            event.preventDefault();
+            void form.handleSubmit();
+          }}
+        >
           <FieldGroup>
-            <Field>
-              <FieldLabel htmlFor="password-current">Current password</FieldLabel>
-              <Input
-                autoComplete="current-password"
-                id="password-current"
-                name="current"
-                required
-                type="password"
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="password-next">New password</FieldLabel>
-              <Input
-                autoComplete="new-password"
-                id="password-next"
-                name="next"
-                required
-                type="password"
-              />
-            </Field>
-            <Field orientation="horizontal">
-              <Checkbox defaultChecked id="password-revoke" name="revoke" />
-              <FieldLabel htmlFor="password-revoke">Sign out other devices</FieldLabel>
-            </Field>
-            <OutcomeLine outcome={outcome} />
-            <Button disabled={pending} type="submit">
-              Change password
-            </Button>
+            <form.AppField name="current">
+              {(field) => (
+                <field.TextField
+                  autoComplete="current-password"
+                  label="Current password"
+                  required
+                  type="password"
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="next">
+              {(field) => (
+                <field.TextField
+                  autoComplete="new-password"
+                  label="New password"
+                  required
+                  type="password"
+                />
+              )}
+            </form.AppField>
+            <form.AppField name="revoke">
+              {(field) => <field.CheckboxField label="Sign out other devices" />}
+            </form.AppField>
+            <form.AppForm>
+              <form.SubmitButton>Change password</form.SubmitButton>
+            </form.AppForm>
           </FieldGroup>
         </form>
       </CardContent>
     </Card>
+  );
+};
+
+const PasskeyRow = ({
+  act,
+  id,
+  name,
+  pending,
+  reload,
+}: {
+  readonly act: ReturnType<typeof useAction>["act"];
+  readonly id: string;
+  readonly name: string;
+  readonly pending: boolean;
+  readonly reload: () => void;
+}) => {
+  const form = useAppForm({
+    defaultValues: { name },
+    onSubmit: ({ value }) =>
+      act(
+        {
+          call: () => calls.renamePasskey(id, value.name),
+          done: "Passkey renamed.",
+          failed: "Could not rename the passkey.",
+        },
+        reload,
+      ),
+  });
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.handleSubmit();
+      }}
+    >
+      <Field orientation="horizontal">
+        <form.Field name="name">
+          {(field) => (
+            <Input
+              aria-label="Passkey name"
+              name="name"
+              onBlur={field.handleBlur}
+              onChange={(event) => {
+                field.handleChange(event.target.value);
+              }}
+              required
+              type="text"
+              value={field.state.value}
+            />
+          )}
+        </form.Field>
+        <Button disabled={pending} type="submit" variant="outline">
+          Rename
+        </Button>
+        <Button
+          disabled={pending}
+          onClick={() => {
+            void act(
+              {
+                call: () => calls.deletePasskey(id),
+                done: "Passkey deleted.",
+                failed: "Could not delete the passkey.",
+              },
+              reload,
+            );
+          }}
+          type="button"
+          variant="outline"
+        >
+          Delete
+        </Button>
+      </Field>
+    </form>
   );
 };
 
@@ -279,17 +325,25 @@ const PasskeysCard = ({
   readonly askFresh: (retry: () => void) => void;
   readonly emailLive: boolean;
 }) => {
-  const { outcome, pending, run } = useRun(askFresh);
-  const { failure, items: passkeys, reload } = useLoaded(calls.listPasskeys, passkeysOf);
+  const { act, pending } = useAction(passkeysAtom, askFresh);
+  const { failure, items: passkeys, reload } = useLoaded(calls.listPasskeys, decodePasskeys);
   const hint = passkeyHint(emailLive);
 
-  const onAdd = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const name = readField(new FormData(event.currentTarget), "name");
-
-    run(() => calls.addPasskey(name), "Passkey added.", reload);
-  };
+  const form = useAppForm({
+    defaultValues: { name: "" },
+    onSubmit: ({ formApi, value }) =>
+      act(
+        {
+          call: () => calls.addPasskey(value.name),
+          done: "Passkey added.",
+          failed: "Could not add the passkey.",
+        },
+        () => {
+          formApi.reset();
+          reload();
+        },
+      ),
+  });
 
   return (
     <Card>
@@ -300,50 +354,43 @@ const PasskeysCard = ({
       <CardContent>
         <FieldGroup>
           {passkeys.map((passkey) => (
-            <form
+            <PasskeyRow
+              act={act}
+              id={passkey.id}
               key={passkey.id}
-              onSubmit={(event) => {
-                event.preventDefault();
-
-                const name = readField(new FormData(event.currentTarget), "name");
-
-                run(() => calls.renamePasskey(passkey.id, name), "Passkey renamed.", reload);
-              }}
-            >
-              <Field orientation="horizontal">
-                <Input
-                  aria-label="Passkey name"
-                  defaultValue={passkey.name ?? PASSKEY_FALLBACK_NAME}
-                  name="name"
-                  required
-                  type="text"
-                />
-                <Button disabled={pending} type="submit" variant="outline">
-                  Rename
-                </Button>
-                <Button
-                  disabled={pending}
-                  onClick={() => {
-                    run(() => calls.deletePasskey(passkey.id), "Passkey deleted.", reload);
-                  }}
-                  type="button"
-                  variant="outline"
-                >
-                  Delete
-                </Button>
-              </Field>
-            </form>
+              name={passkey.name ?? PASSKEY_FALLBACK_NAME}
+              pending={pending}
+              reload={reload}
+            />
           ))}
-          <form onSubmit={onAdd}>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void form.handleSubmit();
+            }}
+          >
             <Field orientation="horizontal">
-              <Input aria-label="New passkey name" name="name" placeholder="Name" type="text" />
+              <form.Field name="name">
+                {(field) => (
+                  <Input
+                    aria-label="New passkey name"
+                    name="name"
+                    onBlur={field.handleBlur}
+                    onChange={(event) => {
+                      field.handleChange(event.target.value);
+                    }}
+                    placeholder="Name"
+                    type="text"
+                    value={field.state.value}
+                  />
+                )}
+              </form.Field>
               <Button disabled={pending} type="submit">
                 Add passkey
               </Button>
             </Field>
           </form>
           <FieldError>{failure}</FieldError>
-          <OutcomeLine outcome={outcome} />
         </FieldGroup>
       </CardContent>
     </Card>
@@ -357,8 +404,8 @@ const AccountsCard = ({
   readonly askFresh: (retry: () => void) => void;
   readonly providers: ReadonlyArray<string>;
 }) => {
-  const { outcome, pending, run } = useRun(askFresh);
-  const { failure, items: accounts, reload } = useLoaded(calls.listAccounts, accountsOf);
+  const { act, pending } = useAction(accountsAtom, askFresh);
+  const { failure, items: accounts, reload } = useLoaded(calls.listAccounts, decodeAccounts);
 
   return (
     <Card>
@@ -376,7 +423,11 @@ const AccountsCard = ({
                 disabled={pending}
                 key={provider}
                 onClick={() => {
-                  run(() => calls.linkProvider(provider), "");
+                  void act({
+                    call: () => calls.linkProvider(provider),
+                    done: `Opening ${name}.`,
+                    failed: `Could not link ${name}.`,
+                  });
                 }}
                 type="button"
                 variant="outline"
@@ -388,7 +439,14 @@ const AccountsCard = ({
                 disabled={pending}
                 key={provider}
                 onClick={() => {
-                  run(() => calls.unlinkAccount(account.id), `${name} unlinked.`, reload);
+                  void act(
+                    {
+                      call: () => calls.unlinkAccount(account.id),
+                      done: `${name} unlinked.`,
+                      failed: `Could not unlink ${name}.`,
+                    },
+                    reload,
+                  );
                 }}
                 type="button"
                 variant="outline"
@@ -398,7 +456,6 @@ const AccountsCard = ({
             );
           })}
           <FieldError>{failure}</FieldError>
-          <OutcomeLine outcome={outcome} />
         </FieldGroup>
       </CardContent>
     </Card>

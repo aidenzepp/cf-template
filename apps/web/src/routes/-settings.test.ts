@@ -3,16 +3,14 @@ import { describe, expect, it } from "@effect/vitest";
 import { AUTH_BASE_PATH } from "@workspace/contract/domain/auth-paths";
 import { createAuthClient } from "better-auth/react";
 import { Effect, Option } from "effect";
-import { FRESH_SESSION_CODE } from "../lib/better-auth-call.ts";
+import { FRESH_SESSION_CODE, betterAuthCall } from "../lib/better-auth-call.ts";
 import {
   PASSKEY_FALLBACK_NAME,
   decodeAccounts,
   decodePasskeys,
-  needsFreshSession,
   passkeyHint,
   reauthProviders,
   settingsCalls,
-  settle,
 } from "../lib/settings-calls.ts";
 
 /**
@@ -62,7 +60,7 @@ const CREDENTIAL = {
  * @param effect - The effect to run.
  * @returns The effect, run with the stub in place.
  */
-const withWebAuthn = <A>(effect: Effect.Effect<A>) =>
+const withWebAuthn = <A, E>(effect: Effect.Effect<A, E>) =>
   Effect.acquireUseRelease(
     Effect.sync(() => {
       const saved = {
@@ -102,12 +100,12 @@ describe("settings calls", () => {
     Effect.gen(function* submits() {
       const { calls, paths } = recordingClient(() => Response.json({}));
 
-      yield* settle(() => calls.updateProfile("Ada", ""));
-      yield* settle(() => calls.changePassword("old", "new", true));
-      yield* settle(() => calls.renamePasskey("p1", "phone"));
-      yield* settle(() => calls.deletePasskey("p1"));
-      yield* settle(() => calls.linkProvider("github"));
-      yield* settle(() => calls.unlinkAccount("a1"));
+      yield* betterAuthCall(() => calls.updateProfile("Ada", ""));
+      yield* betterAuthCall(() => calls.changePassword("old", "new", true));
+      yield* betterAuthCall(() => calls.renamePasskey("p1", "phone"));
+      yield* betterAuthCall(() => calls.deletePasskey("p1"));
+      yield* betterAuthCall(() => calls.linkProvider("github"));
+      yield* betterAuthCall(() => calls.unlinkAccount("a1"));
 
       expect(paths).toStrictEqual([
         "/auth/update-user",
@@ -126,7 +124,7 @@ describe("settings calls", () => {
         Response.json(path.endsWith("generate-register-options") ? REGISTER_OPTIONS : {}),
       );
 
-      yield* withWebAuthn(settle(() => calls.addPasskey("laptop")));
+      yield* withWebAuthn(betterAuthCall(() => calls.addPasskey("laptop")));
 
       expect(paths).toStrictEqual([
         "/auth/passkey/generate-register-options",
@@ -135,7 +133,7 @@ describe("settings calls", () => {
     }),
   );
 
-  it.effect("opens the re-authentication prompt on the server's fresh-session refusal", () =>
+  it.effect("fails with SessionNotFresh on the server's fresh-session refusal", () =>
     Effect.gen(function* refused() {
       const { calls } = recordingClient(() =>
         Response.json(
@@ -144,10 +142,11 @@ describe("settings calls", () => {
         ),
       );
 
-      const { error } = yield* settle(() => calls.changePassword("old", "new", true));
+      const failure = yield* Effect.flip(
+        betterAuthCall(() => calls.changePassword("old", "new", true)),
+      );
 
-      expect(needsFreshSession(error)).toBeTruthy();
-      expect(needsFreshSession({ code: "INVALID_PASSWORD", status: 400 })).toBeFalsy();
+      expect(failure._tag).toBe("SessionNotFresh");
     }),
   );
 
