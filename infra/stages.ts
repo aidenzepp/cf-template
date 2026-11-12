@@ -251,7 +251,7 @@ const stageRow = (
   },
   volumeAlert: boolean,
 ): StageValues => ({
-  AUTH_CHECK_SESSION_TIMEOUT_MS: validated(AuthCheckSessionTimeoutKnob, "500"),
+  AUTH_CHECK_SESSION_TIMEOUT_MS: validated(AuthCheckSessionTimeoutKnob, "1500"),
   AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob.default,
   AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
   AUTH_PASSWORD_SCRYPT: AUTH_PASSWORD_SCRYPT.default,
