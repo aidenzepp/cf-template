@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Logger } from "effect";
+import { Effect, Logger, References } from "effect";
 import { TestClock } from "effect/testing";
 import { makeReceive } from "./latch.ts";
 
@@ -30,8 +30,11 @@ const deliver = (
     const puts: Array<Put> = [];
     const logs: Array<string> = [];
 
-    const logger = Logger.make(({ message, logLevel }) => {
-      logs.push(`${logLevel}:${String(message)}`);
+    const logger = Logger.make(({ message, logLevel, fiber }) => {
+      const annotations = fiber.getRef(References.CurrentLogAnnotations);
+      const fields = Object.entries(annotations).map(([key, value]) => `${key}=${String(value)}`);
+
+      logs.push([`${logLevel}:${String(message)}`, ...fields].join(" "));
     });
 
     const receive = makeReceive({
@@ -66,19 +69,27 @@ describe("makeReceive", () => {
     }),
   );
 
-  it.effect("writes nothing for another policy", () =>
+  it.effect("writes nothing and warns for another policy", () =>
     Effect.gen(function* foreign() {
-      const { puts } = yield* deliver({ policyName: "app-guard-test-y", ts: 1 });
+      const { logs, puts } = yield* deliver({ policyName: "app-guard-test-y", ts: 1 });
 
       assert.deepStrictEqual(puts, []);
+
+      assert.deepStrictEqual(logs, [
+        "Warn:web.guard.policy_mismatch expected=app-guard-test-x received=app-guard-test-y",
+      ]);
     }),
   );
 
-  it.effect("writes nothing for a notification without a policy name", () =>
+  it.effect("writes nothing and warns for a notification without a policy name", () =>
     Effect.gen(function* anonymous() {
-      const { puts } = yield* deliver({ policyName: undefined, ts: 1 });
+      const { logs, puts } = yield* deliver({ policyName: undefined, ts: 1 });
 
       assert.deepStrictEqual(puts, []);
+
+      assert.deepStrictEqual(logs, [
+        "Warn:web.guard.policy_mismatch expected=app-guard-test-x received=missing",
+      ]);
     }),
   );
 

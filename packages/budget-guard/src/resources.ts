@@ -67,6 +67,16 @@ export const guardNamespace = (plan: GuardPlanValue) =>
   }).pipe(RemovalPolicy.retain(plan.identity.stage === "prod"));
 
 /**
+ * The name of a stage's guard alert: the alert's `name` and the policy name the receiver Worker is
+ * bound, so the two cannot differ.
+ *
+ * @param plan - The block's plan.
+ * @returns `<stack>-guard-<stage>`.
+ */
+export const guardAlertName = (plan: GuardPlanValue) =>
+  `${plan.identity.stack}-guard-${plan.identity.stage}`;
+
+/**
  * The properties of the guard alert: the plan's query counted per `1 h` window, notifying above
  * the plan's threshold. Its destination is the receiver, so it has no `mechanisms` of its own.
  *
@@ -77,10 +87,23 @@ export const guardNamespace = (plan: GuardPlanValue) =>
 export const guardAlertProps = (plan: GuardPlanValue, spec: GuardAlertSpec) =>
   ({
     every: "1h",
-    name: `${plan.identity.stack}-guard-${plan.identity.stage}`,
+    name: guardAlertName(plan),
     query: spec.query,
     trigger: { operator: ">", type: "threshold", value: spec.threshold, window: "1h" },
   }) as const satisfies Cloudflare.Alerting.CustomAlertProps;
+
+/**
+ * The alert a receiver Worker registers for a plan's alert, with the policy name it is bound: both
+ * come from {@link guardAlertName}, so the bound name is never empty.
+ *
+ * @param plan - The block's plan.
+ * @param spec - The alert the plan declares.
+ * @returns The alert properties and the policy name.
+ */
+export const guardReceiverAlert = (plan: GuardPlanValue, spec: GuardAlertSpec) => ({
+  policy: guardAlertName(plan),
+  props: guardAlertProps(plan, spec),
+});
 
 /**
  * Declare the guard alert.
