@@ -1,5 +1,5 @@
 import { assert, layer } from "@effect/vitest";
-import { ConfigProvider, DateTime, Effect, Exit, Layer, Schema } from "effect";
+import { ConfigProvider, DateTime, Effect, Exit, Layer, Schema, Tracer } from "effect";
 import { Session } from "@workspace/contract/domain/session";
 import { AuthService } from "./auth.ts";
 import { CookieCacheMaxAgeKnob } from "./config.ts";
@@ -38,6 +38,39 @@ layer(LocalAuthD1.layer)("checkSession", (it) => {
 
         assert.isTrue(DateTime.isGreaterThan(decoded.expiresAt, DateTime.nowUnsafe()));
       }).pipe(Effect.provide(authOver(binding)), asExecution);
+    }),
+  );
+
+  it.effect("sets the user's id, and nothing else of the user, on the checkSession span", () =>
+    Effect.gen(function* tagged() {
+      const binding = yield* LocalAuthD1;
+      const spans: Array<Tracer.NativeSpan> = [];
+
+      const tracer = Tracer.make({
+        span: (options) => {
+          const span = new Tracer.NativeSpan(options);
+
+          spans.push(span);
+
+          return span;
+        },
+      });
+
+      return yield* Effect.gen(function* check() {
+        yield* signUp("katherine@example.test");
+
+        const cookie = cookieOf(yield* signIn("katherine@example.test"));
+        const session = yield* (yield* CheckSession)({ cookie });
+        const span = spans.find(({ name }) => name === "auth.checkSession");
+
+        assert.isDefined(session);
+        assert.strictEqual(span?.attributes.get("userId"), session?.userId);
+        assert.isFalse(JSON.stringify([...(span?.attributes ?? [])]).includes("@"));
+      }).pipe(
+        Effect.provide(authOver(binding)),
+        Effect.provideService(Tracer.Tracer, tracer),
+        asExecution,
+      );
     }),
   );
 
