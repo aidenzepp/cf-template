@@ -1,14 +1,47 @@
-import { Button } from "@workspace/ui/components/ui/button";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@workspace/ui/components/ui/field";
-import { Input } from "@workspace/ui/components/ui/input";
-import { Effect } from "effect";
+import { useAtom } from "@effect/atom-react";
+import { useRouter } from "@tanstack/react-router";
+import { FieldError, FieldGroup } from "@workspace/ui/components/ui/field";
+import { Data, Effect, Exit, Option, Schema } from "effect";
+import { AsyncResult, Atom } from "effect/reactivity";
 import { useEffect } from "react";
-import type { SyntheticEvent } from "react";
 import { authClient } from "../../lib/auth-client.ts";
+import { authErrorCopy } from "../../lib/auth-error-copy.ts";
+import type { AuthErrorInput } from "../../lib/auth-error-copy.ts";
+import { settle } from "../../lib/settings-calls.ts";
 import type { fork as Fork } from "../../runtime.ts";
+import { focusFirstInvalid, formValidator, useAppForm } from "../form/form-hook.tsx";
 import { PasswordResetNotice } from "./email-off-notices.tsx";
 import { ProviderButtons } from "./provider-buttons.tsx";
-import { readField, useAuthSubmit } from "./use-auth-submit.ts";
+
+/**
+ * The fields of the sign-in form. Better Auth owns the real check of the credentials; the form
+ * only asks for both before it calls.
+ */
+export const SignInInput = Schema.Struct({
+  email: Schema.String.check(
+    Schema.isPattern(/^[^\s@]+@[^\s@]+$/u, { message: "Enter an email like ada@example.com." }),
+  ),
+  password: Schema.String.check(Schema.isNonEmpty({ message: "Enter your password." })),
+});
+
+/**
+ * The sign-in call was refused or never answered; `error` is what the auth client reported.
+ */
+export class SignInFailed extends Data.TaggedError("SignInFailed")<{
+  readonly error: AuthErrorInput["error"];
+}> {}
+
+/**
+ * The sign-in submit: one call at a time, the previous run interrupted (which aborts its request)
+ * when a new one starts or the form unmounts. A refused call fails with `SignInFailed`.
+ */
+export const signInAtom = Atom.fn((credentials: typeof SignInInput.Type) =>
+  settle((signal) => authClient.signIn.email(credentials, { signal })).pipe(
+    Effect.flatMap(({ error }) =>
+      error === null ? Effect.void : Effect.fail(new SignInFailed({ error })),
+    ),
+  ),
+);
 
 /**
  * The email input's `autocomplete` tokens: `webauthn` lets the browser offer saved passkeys in the
@@ -81,7 +114,20 @@ export const SignInForm = ({
   readonly providers: ReadonlyArray<string>;
   readonly redirect: string;
 }) => {
-  const { message, pending, submit } = useAuthSubmit(redirect);
+  const router = useRouter();
+  const [result, submit] = useAtom(signInAtom, { mode: "promiseExit" });
+  const failure = AsyncResult.error(result);
+
+  const form = useAppForm({
+    defaultValues: { email: "", password: "" },
+    onSubmit: async ({ value }) => {
+      if (Exit.isSuccess(await submit(value))) {
+        router.history.push(redirect);
+      }
+    },
+    onSubmitInvalid: focusFirstInvalid,
+    validators: { onSubmit: formValidator(SignInInput) },
+  });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -96,44 +142,45 @@ export const SignInForm = ({
     };
   }, [fork]);
 
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    const form = new FormData(event.currentTarget);
-    const email = readField(form, "email");
-    const password = readField(form, "password");
-
-    submit((signal) => authClient.signIn.email({ email, password }, { signal }));
-  };
-
   return (
     <>
-      <form onSubmit={onSubmit}>
+      <form
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          void form.handleSubmit();
+        }}
+      >
         <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input
-              autoComplete={EMAIL_AUTOCOMPLETE}
-              id="email"
-              name="email"
-              required
-              type="email"
-            />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
-            <Input
-              autoComplete="current-password"
-              id="password"
-              name="password"
-              required
-              type="password"
-            />
-          </Field>
-          <FieldError>{message}</FieldError>
-          <Button disabled={pending} type="submit">
-            Sign in
-          </Button>
+          <form.AppField name="email">
+            {(field) => (
+              <field.TextField
+                autoComplete={EMAIL_AUTOCOMPLETE}
+                label="Email"
+                required
+                type="email"
+              />
+            )}
+          </form.AppField>
+          <form.AppField name="password">
+            {(field) => (
+              <field.TextField
+                autoComplete="current-password"
+                label="Password"
+                required
+                type="password"
+              />
+            )}
+          </form.AppField>
+          <FieldError>
+            {Option.match(failure, {
+              onNone: () => null,
+              onSome: ({ error }) => authErrorCopy({ aborted: false, error }),
+            })}
+          </FieldError>
+          <form.AppForm>
+            <form.SubmitButton>Sign in</form.SubmitButton>
+          </form.AppForm>
         </FieldGroup>
       </form>
       <PasswordResetNotice email={emailLive} />

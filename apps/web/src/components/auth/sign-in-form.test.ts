@@ -1,6 +1,47 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { EMAIL_AUTOCOMPLETE, passkeyAutofill } from "./sign-in-form.tsx";
+import { formValidator } from "../form/form-hook.tsx";
+import { EMAIL_AUTOCOMPLETE, SignInInput, passkeyAutofill } from "./sign-in-form.tsx";
+
+/**
+ * The lines the sign-in validator gives each field of `values`, keyed by field name.
+ */
+const linesOf = (values: Partial<typeof SignInInput.Encoded>) =>
+  Effect.promise(async () => {
+    const result = await formValidator(SignInInput)["~standard"].validate(values);
+
+    return "issues" in result && result.issues !== undefined
+      ? result.issues.map(({ message, path }) => [path, message])
+      : [];
+  });
+
+describe("sign-in validator", () => {
+  it.effect("gives each empty field one line", () =>
+    Effect.gen(function* empty() {
+      expect(yield* linesOf({ email: "", password: "" })).toStrictEqual([
+        [["email"], "Enter an email like ada@example.com."],
+        [["password"], "Enter your password."],
+      ]);
+    }),
+  );
+
+  it.effect("asks for an address that looks like one", () =>
+    Effect.gen(function* address() {
+      expect(yield* linesOf({ email: "ada", password: "secret" })).toStrictEqual([
+        [["email"], "Enter an email like ada@example.com."],
+      ]);
+    }),
+  );
+
+  it.effect("asks to fill in a field the values do not hold, and accepts a valid pair", () =>
+    Effect.gen(function* rest() {
+      expect(yield* linesOf({ email: "ada@example.com" })).toStrictEqual([
+        [["password"], "Fill in this field."],
+      ]);
+      expect(yield* linesOf({ email: "ada@example.com", password: "secret" })).toStrictEqual([]);
+    }),
+  );
+});
 
 const run = (available: boolean | undefined, controller = new AbortController()) =>
   Effect.gen(function* started() {
