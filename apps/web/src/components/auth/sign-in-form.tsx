@@ -1,15 +1,14 @@
 import { useAtom } from "@effect/atom-react";
 import { useRouter } from "@tanstack/react-router";
 import { FieldError, FieldGroup } from "@workspace/ui/components/ui/field";
-import { Data, Effect, Exit, Option, Schema } from "effect";
+import { Effect, Exit, Option, Schema } from "effect";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { useEffect } from "react";
 import { authClient } from "../../lib/auth-client.ts";
 import { authErrorCopy } from "../../lib/auth-error-copy.ts";
-import type { AuthErrorInput } from "../../lib/auth-error-copy.ts";
-import { settle } from "../../lib/settings-calls.ts";
+import { betterAuthCall } from "../../lib/better-auth-call.ts";
 import type { fork as Fork } from "../../runtime.ts";
-import { focusFirstInvalid, formValidator, useAppForm } from "../form/form-hook.tsx";
+import { EmailAddress, focusFirstInvalid, formValidator, useAppForm } from "../form/form-hook.tsx";
 import { PasswordResetNotice } from "./email-off-notices.tsx";
 import { ProviderButtons } from "./provider-buttons.tsx";
 
@@ -18,29 +17,16 @@ import { ProviderButtons } from "./provider-buttons.tsx";
  * only asks for both before it calls.
  */
 export const SignInInput = Schema.Struct({
-  email: Schema.String.check(
-    Schema.isPattern(/^[^\s@]+@[^\s@]+$/u, { message: "Enter an email like ada@example.com." }),
-  ),
+  email: EmailAddress,
   password: Schema.String.check(Schema.isNonEmpty({ message: "Enter your password." })),
 });
 
 /**
- * The sign-in call was refused or never answered; `error` is what the auth client reported.
- */
-export class SignInFailed extends Data.TaggedError("SignInFailed")<{
-  readonly error: AuthErrorInput["error"];
-}> {}
-
-/**
  * The sign-in submit: one call at a time, the previous run interrupted (which aborts its request)
- * when a new one starts or the form unmounts. A refused call fails with `SignInFailed`.
+ * when a new one starts or the form unmounts. A refused call fails with `AuthCallFailed`.
  */
 export const signInAtom = Atom.fn((credentials: typeof SignInInput.Type) =>
-  settle((signal) => authClient.signIn.email(credentials, { signal })).pipe(
-    Effect.flatMap(({ error }) =>
-      error === null ? Effect.void : Effect.fail(new SignInFailed({ error })),
-    ),
-  ),
+  betterAuthCall((signal) => authClient.signIn.email(credentials, { signal })),
 );
 
 /**

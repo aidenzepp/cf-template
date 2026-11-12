@@ -3,8 +3,8 @@ import { describe, expect, it } from "@effect/vitest";
 import { AUTH_BASE_PATH } from "@workspace/contract/domain/auth-paths";
 import { createAuthClient } from "better-auth/react";
 import { Effect, Option } from "effect";
+import { FRESH_SESSION_CODE } from "../lib/better-auth-call.ts";
 import {
-  FRESH_SESSION_CODE,
   PASSKEY_FALLBACK_NAME,
   decodeAccounts,
   decodePasskeys,

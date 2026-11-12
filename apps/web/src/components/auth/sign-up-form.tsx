@@ -1,12 +1,32 @@
-import { Button } from "@workspace/ui/components/ui/button";
-import { Field, FieldError, FieldGroup, FieldLabel } from "@workspace/ui/components/ui/field";
-import { Input } from "@workspace/ui/components/ui/input";
-import { useState } from "react";
-import type { SyntheticEvent } from "react";
+import { useAtom } from "@effect/atom-react";
+import { useRouter } from "@tanstack/react-router";
+import { FieldError, FieldGroup } from "@workspace/ui/components/ui/field";
+import { Exit, Option, Schema } from "effect";
+import { AsyncResult, Atom } from "effect/reactivity";
 import { authClient } from "../../lib/auth-client.ts";
+import { authErrorCopy } from "../../lib/auth-error-copy.ts";
+import { betterAuthCall } from "../../lib/better-auth-call.ts";
+import { EmailAddress, focusFirstInvalid, formValidator, useAppForm } from "../form/form-hook.tsx";
 import { PasskeyNudge } from "./email-off-notices.tsx";
 import { ProviderButtons } from "./provider-buttons.tsx";
-import { readField, useAuthSubmit } from "./use-auth-submit.ts";
+
+/**
+ * The fields of the sign-up form. Better Auth owns the rules of the password; the form only asks
+ * for all three before it calls.
+ */
+export const SignUpInput = Schema.Struct({
+  email: EmailAddress,
+  name: Schema.String.check(Schema.isNonEmpty({ message: "Enter your name." })),
+  password: Schema.String.check(Schema.isNonEmpty({ message: "Choose a password." })),
+});
+
+/**
+ * The sign-up submit: one call at a time, the previous run interrupted (which aborts its request)
+ * when a new one starts or the form unmounts. A refused call fails with `AuthCallFailed`.
+ */
+export const signUpAtom = Atom.fn((input: typeof SignUpInput.Type) =>
+  betterAuthCall((signal) => authClient.signUp.email(input, { signal })),
+);
 
 /**
  * The line that tells a person how long an abandoned sign-up holds its email, or `null` when the
@@ -55,60 +75,64 @@ export const SignUpForm = ({
   readonly providers: ReadonlyArray<string>;
   readonly redirect: string;
 }) => {
-  const { message, pending, submit } = useAuthSubmit(redirect);
-  const [graceLine, setGraceLine] = useState<string | null>(null);
+  const router = useRouter();
+  const [result, submit] = useAtom(signUpAtom, { mode: "promiseExit" });
+  const failure = AsyncResult.error(result);
 
-  const onSubmit = (event: SyntheticEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const graceLine = failure.pipe(
+    Option.flatMap(({ error }) => Option.fromNullishOr(orphanGraceLine(error, graceSeconds))),
+    Option.getOrNull,
+  );
 
-    const form = new FormData(event.currentTarget);
-    const name = readField(form, "name");
-    const email = readField(form, "email");
-    const password = readField(form, "password");
-
-    setGraceLine(null);
-    submit((signal) =>
-      authClient.signUp.email(
-        { email, name, password },
-        {
-          onError: ({ error }) => {
-            setGraceLine(orphanGraceLine(error, graceSeconds));
-          },
-          signal,
-        },
-      ),
-    );
-  };
+  const form = useAppForm({
+    defaultValues: { email: "", name: "", password: "" },
+    onSubmit: async ({ value }) => {
+      if (Exit.isSuccess(await submit(value))) {
+        router.history.push(redirect);
+      }
+    },
+    onSubmitInvalid: focusFirstInvalid,
+    validators: { onSubmit: formValidator(SignUpInput) },
+  });
 
   return (
     <>
-      <form onSubmit={onSubmit}>
+      <form
+        noValidate
+        onSubmit={(event) => {
+          event.preventDefault();
+          void form.handleSubmit();
+        }}
+      >
         <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="name">Name</FieldLabel>
-            <Input autoComplete="name" id="name" name="name" required type="text" />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="email">Email</FieldLabel>
-            <Input autoComplete="email" id="email" name="email" required type="email" />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="password">Password</FieldLabel>
-            <Input
-              autoComplete="new-password"
-              id="password"
-              name="password"
-              required
-              type="password"
-            />
-          </Field>
-          <FieldError>{message}</FieldError>
-          {message === null || graceLine === null ? null : (
-            <p className="text-muted-foreground text-sm">{graceLine}</p>
-          )}
-          <Button disabled={pending} type="submit">
-            Create account
-          </Button>
+          <form.AppField name="name">
+            {(field) => <field.TextField autoComplete="name" label="Name" required type="text" />}
+          </form.AppField>
+          <form.AppField name="email">
+            {(field) => (
+              <field.TextField autoComplete="email" label="Email" required type="email" />
+            )}
+          </form.AppField>
+          <form.AppField name="password">
+            {(field) => (
+              <field.TextField
+                autoComplete="new-password"
+                label="Password"
+                required
+                type="password"
+              />
+            )}
+          </form.AppField>
+          <FieldError>
+            {Option.match(failure, {
+              onNone: () => null,
+              onSome: ({ error }) => authErrorCopy({ aborted: false, error }),
+            })}
+          </FieldError>
+          {graceLine === null ? null : <p className="text-muted-foreground text-sm">{graceLine}</p>}
+          <form.AppForm>
+            <form.SubmitButton>Create account</form.SubmitButton>
+          </form.AppForm>
         </FieldGroup>
       </form>
       <PasskeyNudge email={emailLive} />

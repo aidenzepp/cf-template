@@ -1,25 +1,12 @@
 import { Effect, Option, Schema } from "effect";
-import type { AuthErrorInput } from "./auth-error-copy.ts";
 import type { authClient } from "./auth-client.ts";
-
-/**
- * The code Better Auth answers with when a sensitive action needs a fresher session. The server
- * decides this; the client never measures the session's age.
- */
-export const FRESH_SESSION_CODE = "SESSION_NOT_FRESH";
+import { FRESH_SESSION_CODE } from "./better-auth-call.ts";
+import type { Settled } from "./better-auth-call.ts";
 
 /**
  * The browser auth client as far as the settings calls use it.
  */
 export type SettingsClient = typeof authClient;
-
-/**
- * What an auth client call settles with: `error` is set when the call failed.
- */
-export interface Settled {
-  readonly data?: unknown;
-  readonly error: AuthErrorInput["error"];
-}
 
 /**
  * Whether a failed call is the server's refusal for a stale session, which opens the

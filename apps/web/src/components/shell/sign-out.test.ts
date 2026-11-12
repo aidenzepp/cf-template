@@ -1,46 +1,16 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { signOutFailure, signOutFlow, signOutOutcome } from "./sign-out.ts";
-
-describe("signOutOutcome", () => {
-  it.effect("reports signedOut when the response carries no error", () =>
-    Effect.gen(function* succeeds() {
-      const outcome = yield* signOutOutcome(() => Promise.resolve({ error: null }));
-
-      expect(outcome).toBe("signedOut");
-    }),
-  );
-
-  it.effect("reports failed when the response carries an error", () =>
-    Effect.gen(function* refused() {
-      const outcome = yield* signOutOutcome(() =>
-        Promise.resolve({ error: { status: 500, statusText: "Internal Server Error" } }),
-      );
-
-      expect(outcome).toBe("failed");
-    }),
-  );
-
-  it.effect("reports failed when the call rejects", () =>
-    Effect.gen(function* rejects() {
-      const outcome = yield* signOutOutcome(() => Promise.reject(new Error("offline")));
-
-      expect(outcome).toBe("failed");
-    }),
-  );
-});
+import { signOutFailure, signOutFlow } from "./sign-out.ts";
 
 /**
- * Runs the flow over a call that answers `error`, and returns which continuations ran.
+ * Runs the flow over a call that answers `answer`, and returns which continuations ran.
  */
-const eventsOf = (refusal: null | { readonly status: number }) => {
-  const answer = Promise.resolve({ error: refusal });
-
-  return Effect.gen(function* record() {
+const eventsOf = (answer: () => Promise<{ readonly error: null | { readonly status: number } }>) =>
+  Effect.gen(function* record() {
     const events: Array<string> = [];
 
     yield* signOutFlow({
-      call: () => answer,
+      call: answer,
       fail: () => {
         events.push("fail");
       },
@@ -53,18 +23,25 @@ const eventsOf = (refusal: null | { readonly status: number }) => {
 
     return events;
   });
-};
 
 describe("signOutFlow", () => {
   it.effect("leaves and never fails after a successful sign-out", () =>
     Effect.gen(function* leaves() {
-      expect(yield* eventsOf(null)).toStrictEqual(["leave"]);
+      expect(yield* eventsOf(() => Promise.resolve({ error: null }))).toStrictEqual(["leave"]);
     }),
   );
 
   it.effect("fails and stays when the call is refused", () =>
     Effect.gen(function* stays() {
-      expect(yield* eventsOf({ status: 500 })).toStrictEqual(["fail"]);
+      expect(yield* eventsOf(() => Promise.resolve({ error: { status: 500 } }))).toStrictEqual([
+        "fail",
+      ]);
+    }),
+  );
+
+  it.effect("fails and stays when the call rejects", () =>
+    Effect.gen(function* rejects() {
+      expect(yield* eventsOf(() => Promise.reject(new Error("offline")))).toStrictEqual(["fail"]);
     }),
   );
 });

@@ -1,9 +1,6 @@
 import { Effect } from "effect";
-
-/**
- * How a sign-out call ended: the session is gone, or it is still there.
- */
-export type SignOutOutcome = "failed" | "signedOut";
+import type { AuthErrorInput } from "../../lib/auth-error-copy.ts";
+import { betterAuthCall } from "../../lib/better-auth-call.ts";
 
 /**
  * The toast shown when sign-out fails. It names what failed, says the session is still active and
@@ -16,25 +13,9 @@ export const signOutFailure = {
 } as const;
 
 /**
- * Runs the auth client's sign-out call and reports how it ended. A call that rejects, and a
- * response that carries an `error`, both mean the session is still in place.
- *
- * @param call - The sign-out call of the auth client.
- * @returns The outcome; the effect never fails.
- */
-export const signOutOutcome = (
-  call: () => PromiseLike<{ readonly error: unknown }>,
-): Effect.Effect<SignOutOutcome> =>
-  Effect.tryPromise(call).pipe(
-    Effect.match({
-      onFailure: (): SignOutOutcome => "failed",
-      onSuccess: ({ error }): SignOutOutcome => (error === null ? "signedOut" : "failed"),
-    }),
-  );
-
-/**
  * The whole sign-out: the call, then either `fail` (the session is still in place) or `leave` (the
- * session is gone, so re-derive the route context and open the sign-in screen).
+ * session is gone, so re-derive the route context and open the sign-in screen). A call that
+ * rejects, and a response that carries an `error`, both mean the session is still in place.
  *
  * @param steps - The call and the two continuations.
  * @param steps.call - The sign-out call of the auth client.
@@ -43,18 +24,13 @@ export const signOutOutcome = (
  * @returns The effect that runs the flow; it never fails.
  */
 export const signOutFlow = (steps: {
-  readonly call: () => PromiseLike<{ readonly error: unknown }>;
+  readonly call: () => PromiseLike<{ readonly error: AuthErrorInput["error"] }>;
   readonly fail: () => void;
   readonly leave: () => PromiseLike<void>;
 }): Effect.Effect<void> =>
-  Effect.gen(function* flow() {
-    const outcome = yield* signOutOutcome(steps.call);
-
-    if (outcome === "failed") {
-      steps.fail();
-
-      return;
-    }
-
-    yield* Effect.promise(steps.leave);
-  });
+  betterAuthCall(steps.call).pipe(
+    Effect.matchEffect({
+      onFailure: () => Effect.sync(steps.fail),
+      onSuccess: () => Effect.promise(steps.leave),
+    }),
+  );

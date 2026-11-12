@@ -1,7 +1,31 @@
 import { describe, expect, it } from "@effect/vitest";
 import { Effect, Layer } from "effect";
 import { OrphanGraceSeconds, makeOrphanGraceLayer } from "../../web-layer.ts";
-import { orphanGraceLine } from "./sign-up-form.tsx";
+import { formValidator } from "../form/form-hook.tsx";
+import { SignUpInput, orphanGraceLine } from "./sign-up-form.tsx";
+
+describe("sign-up validator", () => {
+  it.effect("gives each empty field one line, and accepts a full set", () =>
+    Effect.gen(function* validates() {
+      const { validate } = formValidator(SignUpInput)["~standard"];
+
+      const empty = yield* Effect.promise(
+        async () => await validate({ email: "", name: "", password: "" }),
+      );
+
+      const full = yield* Effect.promise(
+        async () => await validate({ email: "ada@example.com", name: "Ada", password: "secret" }),
+      );
+
+      expect("issues" in empty ? empty.issues?.map(({ message }) => message) : []).toStrictEqual([
+        "Enter an email like ada@example.com.",
+        "Enter your name.",
+        "Choose a password.",
+      ]);
+      expect("issues" in full ? full.issues : undefined).toBeUndefined();
+    }),
+  );
+});
 
 const readGrace = (text: string) =>
   OrphanGraceSeconds.pipe(

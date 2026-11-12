@@ -88,6 +88,14 @@ export const formValidator = <S extends Schema.Decoder<unknown>>(schema: S) =>
   });
 
 /**
+ * An email address as far as a form checks it: something before and after one `@`. The server
+ * decides whether it is real.
+ */
+export const EmailAddress = Schema.String.check(
+  Schema.isPattern(/^[^\s@]+@[^\s@]+$/u, { message: "Enter an email like ada@example.com." }),
+);
+
+/**
  * Moves focus to the first field that failed validation, in the order the fields render. TanStack
  * Form has no focus management of its own.
  *

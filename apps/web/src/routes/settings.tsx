@@ -35,7 +35,7 @@ import {
   settingsCalls,
   settle,
 } from "../lib/settings-calls.ts";
-import type { Settled } from "../lib/settings-calls.ts";
+import type { Settled } from "../lib/better-auth-call.ts";
 import { run as runEffect } from "../runtime.ts";
 
 const calls = settingsCalls(authClient);
