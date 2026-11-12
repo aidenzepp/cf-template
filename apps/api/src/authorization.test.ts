@@ -17,9 +17,7 @@ import {
   Ref,
   // block:notes end
   Schema,
-  // block:notes start
   Tracer,
-  // block:notes end
 } from "effect";
 // block:notes start
 import { TestClock } from "effect/testing";
@@ -75,13 +73,9 @@ const stack = (
     Layer.provide(
       Layer.mergeAll(
         // block:notes start
-        NotesApiHandlersNoDeps,
+        NotesApiHandlersNoDeps.pipe(Layer.provide(notes)),
         // block:notes end
         SystemApiHandlers,
-      ).pipe(
-        // block:notes start
-        Layer.provide(notes),
-        // block:notes end
       ),
     ),
     Layer.provide([
