@@ -169,7 +169,9 @@ export default defineConfig({
       "apps/auth/src/db/schema.ts",
       "**/migrations/**",
       "bun.lock",
+      "oxlint-suppressions.json",
       "tools/lint/fixtures/**",
+      "tools/ratchet/fixtures/**",
       "work/**",
       ...vendored,
     ],
@@ -192,6 +194,7 @@ export default defineConfig({
       "**/migrations/**",
       "dist/**",
       "tools/lint/fixtures/**",
+      "tools/ratchet/fixtures/**",
       "work/**",
       ...vendored,
     ],
@@ -568,7 +571,7 @@ export default defineConfig({
       {
         test: {
           ...noOnly,
-          exclude: ["tools/lint/fixtures/**"],
+          exclude: ["tools/lint/fixtures/**", "tools/ratchet/fixtures/**"],
           include: ["tools/**/*.test.ts"],
           name: "tools",
         },

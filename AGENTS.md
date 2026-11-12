@@ -21,6 +21,8 @@ Run `bun run check`, then `bun run test`, before completing implementation. `bun
 
 A worktree runs its own `bun install` before any package script, binary or patch tool (`typescript` and `@effect/tsgo` included), because package resolution walks up into the main checkout.
 
+`bun run fix` prunes the lint baseline; after moving or renaming a file with baselined violations, re-baseline with `vp lint --suppress-all`; the guard proves the per-rule totals did not rise; a rise is a policy change and follows the explain-and-ask procedure.
+
 A pre-push hook (`.vite-hooks/pre-push`, installed by `bun install`) runs the same checks and blocks the push if any fail. Fix the problems rather than bypassing it with `--no-verify` or `VP_GIT_HOOKS=0`.
 
 ## Effect-native source and tests
