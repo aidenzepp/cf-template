@@ -1,9 +1,17 @@
 import { assert, describe, it } from "@effect/vitest";
-import { inMemoryState } from "alchemy/State";
+import { StateStoreError, inMemoryState } from "alchemy/State";
 import type { ResourceState } from "alchemy/State";
-import { ConfigProvider, Effect, Redacted } from "effect";
+import * as Provisioning from "alchemy/State/Provisioning";
+import { ConfigProvider, Effect, Layer, Redacted, Ref } from "effect";
 import { emailKey } from "../../apps/auth/src/email-key.ts";
-import { LogKeyRefused, keyFor, parseRequest, resolveTarget } from "./log-key.ts";
+import {
+  LogKeyRefused,
+  ciPolicy,
+  keyFor,
+  parseRequest,
+  refuseUnboundStore,
+  resolveTarget,
+} from "./log-key.ts";
 
 /**
  * The secret the fake state records for `test-abc`.
@@ -62,6 +70,33 @@ describe("resolveTarget", () => {
 
       assert.instanceOf(failure, LogKeyRefused);
       assert.include(failure.message, "CI=true");
+    }),
+  );
+});
+
+describe("the state layer's CI policy", () => {
+  it.effect("refuses a missing store before its deploy runs, and names the bootstrap", () =>
+    Effect.gen(function* refusesDeploy() {
+      const deployed = yield* Ref.make(false);
+
+      const store = { backend: "cloudflare", label: "Cloudflare State Store 'x-state'" };
+
+      const refusal = yield* Effect.flip(
+        Provisioning.deployMissing(store, Ref.set(deployed, true)).pipe(
+          Effect.provide(
+            ciPolicy.pipe(Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({})))),
+          ),
+        ),
+      );
+
+      assert.isFalse(yield* Ref.get(deployed));
+      assert.instanceOf(refusal, StateStoreError);
+      assert.isDefined(refusal.requires);
+
+      const refused = yield* Effect.flip(Effect.die(refusal).pipe(refuseUnboundStore));
+
+      assert.instanceOf(refused, LogKeyRefused);
+      assert.include(refused.message, "run the bootstrap first");
     }),
   );
 });
