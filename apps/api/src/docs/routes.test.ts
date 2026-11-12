@@ -112,6 +112,7 @@ describe("the documentation routes with API_DOCS_ENABLED on", () => {
       assert.include(answer.type, "text/html");
       assert.include(answer.body, "createApiReference");
       assert.notMatch(answer.body, /<script[^>]*\ssrc=/u);
+      assert.match(answer.body, /withDefaultFonts(?:&quot;|")?:\s*false/u);
     }).pipe(Effect.scoped),
   );
 
