@@ -439,7 +439,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       });
 
       expect(home.status).toBe(200);
-      expect(yield* text(home)).toContain("<main>web</main>");
+      expect(yield* text(home)).toContain(">Dashboard</h1>");
       expect(missing.status).toBe(404);
     }),
   );
@@ -749,7 +749,9 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
         'data-session="signedIn"',
         'aria-label="Loading account"',
         'aria-label="Main"',
-        ">Home<",
+        ">Dashboard</h1>",
+        ">Notes<",
+        ">Settings<",
       ]) {
         expect(html).toContain(shown);
       }
@@ -760,13 +762,14 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
     }),
   );
 
-  it.effect("shows Sign in in the signedOut shell and sets the theme script", () =>
-    Effect.gen(function* signedOutShell() {
+  it.effect("renders the sign-in page without the sidebar shell and sets the theme script", () =>
+    Effect.gen(function* signedOutPage() {
       const { html } = yield* sessionState("stub=401", "/sign-in");
 
-      expect(html).toContain('href="/sign-in"');
+      expect(html).toContain(">Sign in<");
       expect(html).toContain("prefers-color-scheme: dark");
       expect(html).not.toContain('aria-label="Main"');
+      expect(html).not.toContain('data-slot="sidebar"');
     }),
   );
 
