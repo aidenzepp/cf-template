@@ -13,6 +13,8 @@ import { encodedAuthMethods, encodedOrphanGrace } from "./auth.ts";
 import { compat } from "./compat.ts";
 import { domainFor } from "./domain.ts";
 import type { publicOrigin } from "./origin.ts";
+import { customDomainVariable, guardRateLimitOwner, rateLimitRef } from "./rate-limit-owner.ts";
+import { RateLimitEntrypointLive } from "./rate-limit-owner-live.ts";
 import { webObservability } from "./telemetry.ts";
 
 /**
@@ -31,8 +33,42 @@ interface WebBindings extends Record<Exclude<keyof WebEnv, "KNOBS">, string | ob
 }
 
 /**
+ * The domain of `web` on a stage, after `guardRateLimitOwner` has accepted its zone.
+ *
+ * Only the hostname form reads the zone; the `workers.dev` default reads nothing from Cloudflare.
+ * A refusal fails here, before `declareWeb` declares anything.
+ *
+ * @param identity - The stack name and decoded stage.
+ * @param identity.stack - The stack name from `resolveStackName`.
+ * @param identity.stage - The decoded stage.
+ * @param entrypoint - The layer that reads the zone's rate-limit entrypoint; tests replace it.
+ * @returns The stage's {@link DomainConfig}, or the guard's refusal.
+ */
+export const guardedDomain = Effect.fn("guardedDomain")(function* guardedDomain(
+  identity: { readonly stack: string; readonly stage: StageName },
+  entrypoint: typeof RateLimitEntrypointLive = RateLimitEntrypointLive,
+) {
+  const { stack, stage } = identity;
+  const domain = yield* domainFor(stage);
+
+  if (domain.kind === "hostname") {
+    yield* guardRateLimitOwner(
+      domain.hostname,
+      rateLimitRef(stack, stage, domain.hostname),
+      customDomainVariable(stage),
+    ).pipe(Effect.provide(entrypoint));
+  }
+
+  return domain;
+});
+
+/**
  * Declare the `web` Worker with `Cloudflare.Website.Vite`, and under the `local` stage kind the
  * `WebProd` harness Worker.
+ *
+ * On a stage that attaches a hostname it first runs `guardRateLimitOwner`, so a zone whose
+ * rate-limit entrypoint holds rules this stack did not create is refused before anything is
+ * declared.
  *
  * `web` is the only Worker with an address. It binds `api` as `API` and `auth` as `AUTH`, both as
  * plain service bindings that `apps/web` only ever calls `fetch` on, plus `AUTH_METHODS` and
@@ -50,6 +86,7 @@ interface WebBindings extends Record<Exclude<keyof WebEnv, "KNOBS">, string | ob
  * @param origin - The stage's public origin, the same value `auth` receives.
  * @param blockBindings - The plain bindings the blocks add to `web`'s env, as name and resource
  *   pairs; a block binds its own resource here from the attach file, so this module names none.
+ * @param entrypoint - The layer that reads the zone's rate-limit entrypoint; tests replace it.
  * @returns The `web` Worker resource.
  */
 export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
@@ -60,6 +97,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
   },
   origin: Effect.Success<ReturnType<typeof publicOrigin>>,
   blockBindings: ReadonlyArray<readonly [name: string, binding: object]> = [],
+  entrypoint: typeof RateLimitEntrypointLive = RateLimitEntrypointLive,
 ) {
   const { stack, stage } = identity;
   const path = yield* Path.Path;
@@ -86,7 +124,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
 
   const bindings = { ...env, ...Object.fromEntries(blockBindings) };
 
-  const domain = yield* domainFor(stage);
+  const domain = yield* guardedDomain(identity, entrypoint);
 
   const web = yield* Cloudflare.Website.Vite("Web", {
     assets: { runWorkerFirst: [...FORWARD_PREFIXES] },

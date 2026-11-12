@@ -58,6 +58,8 @@ export const domainFor = Effect.fn("domainFor")(function* domainFor(
  * @param values.requests - The value of `WAF_RATE_LIMIT_REQUESTS`.
  * @param values.periodSeconds - The value of `WAF_RATE_LIMIT_PERIOD_SECONDS`.
  * @param values.mitigationSeconds - The value of `WAF_RATE_LIMIT_MITIGATION_SECONDS`.
+ * @param ref - The rule's `ref`, from `rateLimitRef`; `guardRateLimitOwner` tells this stack's rule
+ *   from a foreign one by it.
  * @returns The `phase`, `rules` and `description` of the ruleset.
  */
 export const wafRateLimitRule = (
@@ -67,6 +69,7 @@ export const wafRateLimitRule = (
     readonly periodSeconds: number;
     readonly mitigationSeconds: number;
   },
+  ref: string,
 ): Omit<Cloudflare.Ruleset.RulesetProps, "zone"> => ({
   description: `Rate limit requests to ${hostname} outside /assets/ before a Worker is invoked`,
   phase: "http_ratelimit",
@@ -82,6 +85,7 @@ export const wafRateLimitRule = (
         period: values.periodSeconds,
         requestsPerPeriod: values.requests,
       },
+      ref,
     },
   ],
 });
