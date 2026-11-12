@@ -50,7 +50,9 @@ export default {
     }
     if (url.pathname === "/api/session-reads") return Response.json({ reads: sessionReads });
     if (url.pathname.endsWith("/throws")) throw new Error("stub failure");
-    if (url.pathname.endsWith("/missing")) return new Response("nope", { status: 404 });
+    if (url.pathname.endsWith("/missing") || url.pathname === "/llms.txt") {
+      return new Response("nope", { status: 404 });
+    }
     if (url.pathname.endsWith("/redirect")) {
       return new Response(null, { status: 302, headers: { location: "/elsewhere?x=1" } });
     }
@@ -424,6 +426,22 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       expect(response.status).toBe(404);
       expect(yield* text(response)).toBe("nope");
     }),
+  );
+
+  it.effect(
+    "answers /llms.txt 404 from api with TanStack's own 404, as for any unrouted path",
+    () =>
+      Effect.gen(function* llms() {
+        const web = yield* WebProd;
+        const headers = { accept: "text/html", cookie: "stub=in" };
+        const off = yield* web.request("/llms.txt", { headers });
+        const unrouted = yield* web.request("/missing", { headers });
+
+        expect(off.status).toBe(unrouted.status);
+        expect(off.status).toBe(404);
+        expect(off.headers.get("content-type")).toBe(unrouted.headers.get("content-type"));
+        expect(yield* text(off)).not.toBe("nope");
+      }),
   );
 
   it.effect("answers GET / from TanStack and GET /missing with TanStack's 404", () =>

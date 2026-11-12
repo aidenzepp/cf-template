@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import handler, { createServerEntry } from "@tanstack/react-start/server-entry";
 import { Effect, Layer, ManagedRuntime } from "effect";
 import { WorkerBindings, isKvReader } from "@workspace/config/web-guard";
+import { LLMS_PATH } from "@workspace/contract/api/docs-paths";
 import { CREDENTIAL_ROUTES } from "@workspace/contract/domain/auth-endpoints";
 import { forward, forwardTarget } from "./forward.ts";
 import { refusal } from "./guard.ts";
@@ -69,6 +70,12 @@ export default createServerEntry({
       ),
     );
 
-    return await run(forward(env[target], request, render), { signal: request.signal });
+    const forwarded = await run(forward(env[target], request, render), { signal: request.signal });
+
+    // `api` answers `/llms.txt` 404 while its docs are off. That path sits outside `/api`, so the
+    // answer is `web`'s own NotFound, as for every other path no one routes.
+    return forwarded.status === 404 && new URL(request.url).pathname === LLMS_PATH
+      ? await handler.fetch(request, options)
+      : forwarded;
   },
 });

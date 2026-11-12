@@ -53,6 +53,10 @@ const faultName = (defect: Parameters<typeof Predicate.isError>[0]): string =>
  * `APIError` Better Auth raised or a defect from the D1 binding or the adapter, fails with
  * {@link AuthUnavailable}, never `null`. Interruption is not a fault and passes through.
  *
+ * A found session sets the user's id as the `userId` attribute of the `auth.checkSession` span and
+ * annotates the rest of the check's log lines with it. Better Auth's own handlers, such as
+ * `/get-session`, read the session without passing through here and are not tagged.
+ *
  * @param instance - Yields the Better Auth instance of the current execution.
  * @returns The `checkSession` method of {@link AuthEntrypoint}.
  */
@@ -71,17 +75,26 @@ export const makeCheckSession = (
         Effect.catchDefect((defect) => unavailable(faultName(defect))),
       );
 
-    return found === null
-      ? null
-      : yield* Schema.encodeEffect(Session)(
-          new Session({
-            email: found.user.email,
-            expiresAt: DateTime.fromDateUnsafe(found.session.expiresAt),
-            image: found.user.image ?? null,
-            name: found.user.name,
-            userId: UserId.make(found.user.id),
-          }),
-        ).pipe(Effect.catch((error) => unavailable(error._tag)));
+    if (found === null) {
+      return null;
+    }
+
+    const userId = UserId.make(found.user.id);
+
+    yield* Effect.annotateCurrentSpan("userId", userId);
+
+    return yield* Schema.encodeEffect(Session)(
+      new Session({
+        email: found.user.email,
+        expiresAt: DateTime.fromDateUnsafe(found.session.expiresAt),
+        image: found.user.image ?? null,
+        name: found.user.name,
+        userId,
+      }),
+    ).pipe(
+      Effect.catch((error) => unavailable(error._tag)),
+      Effect.annotateLogs({ userId }),
+    );
   });
 
 /**

@@ -14,7 +14,8 @@
     "./api/authorization": "./src/api/authorization.ts",
     "./api/notes": "./src/api/notes.ts",
     "./api/system": "./src/api/system.ts",
-    "./api/api": "./src/api/api.ts"
+    "./api/api": "./src/api/api.ts",
+    "./api/docs-paths": "./src/api/docs-paths.ts"
   },
   "dependencies": {
     "effect": "4.1.2"

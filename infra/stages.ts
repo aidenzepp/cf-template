@@ -1,6 +1,7 @@
 import { Config, Effect, Option, Schema, SchemaTransformation } from "effect";
 import type { LogLevel } from "effect";
 import { Digest } from "effect/crypto";
+import { ApiDocsEnabledKnob } from "@workspace/config/api-docs";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { LogLevelKnob } from "@workspace/config/log-level";
 import { HeadSamplingRateKnob } from "@workspace/config/observability";
@@ -214,6 +215,7 @@ const validated = <A>(knob: { readonly decodeSync: (raw: string) => A }, raw: st
  * The knob values of one stage kind.
  */
 export interface StageValues {
+  readonly API_DOCS_ENABLED: typeof ApiDocsEnabledKnob.default;
   readonly AUTH_CHECK_SESSION_TIMEOUT_MS: typeof AuthCheckSessionTimeoutKnob.default;
   readonly AUTH_COOKIE_CACHE_MAX_AGE_S: typeof CookieCacheMaxAgeKnob.default;
   readonly AUTH_COOKIE_CACHE_STRATEGY: typeof CookieCacheStrategyKnob.default;
@@ -235,7 +237,8 @@ export interface StageValues {
  * knob at its default.
  *
  * @param logLevel - The raw `LOG_LEVEL` value of the kind.
- * @param api - The `api` switches of the kind, both off on `prod`.
+ * @param api - The `api` switches of the kind, all off on `prod`.
+ * @param api.docs - Whether `api` serves the OpenAPI document, the reference page and `llms.txt`.
  * @param api.exampleFeature - Whether the example notes feature is on.
  * @param api.problemDetails - Whether a 400 problem body lists the validation issues.
  * @param volumeAlert - Whether the kind declares the volume alert.
@@ -244,6 +247,7 @@ export interface StageValues {
 const stageRow = (
   logLevel: string,
   api: {
+    readonly docs: string;
     // block:notes start
     readonly exampleFeature: string;
     // block:notes end
@@ -251,6 +255,7 @@ const stageRow = (
   },
   volumeAlert: boolean,
 ): StageValues => ({
+  API_DOCS_ENABLED: validated(ApiDocsEnabledKnob, api.docs),
   AUTH_CHECK_SESSION_TIMEOUT_MS: validated(AuthCheckSessionTimeoutKnob, "1500"),
   AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob.default,
   AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
@@ -272,6 +277,7 @@ export const Stages: Record<StageKind, StageValues> = {
   local: stageRow(
     "Debug",
     {
+      docs: "true",
       // block:notes start
       exampleFeature: "true",
       // block:notes end
@@ -282,6 +288,7 @@ export const Stages: Record<StageKind, StageValues> = {
   prod: stageRow(
     "Info",
     {
+      docs: "false",
       // block:notes start
       exampleFeature: "false",
       // block:notes end
@@ -292,6 +299,7 @@ export const Stages: Record<StageKind, StageValues> = {
   staging: stageRow(
     "Debug",
     {
+      docs: "true",
       // block:notes start
       exampleFeature: "true",
       // block:notes end
@@ -302,6 +310,7 @@ export const Stages: Record<StageKind, StageValues> = {
   test: stageRow(
     "Debug",
     {
+      docs: "true",
       // block:notes start
       exampleFeature: "true",
       // block:notes end
