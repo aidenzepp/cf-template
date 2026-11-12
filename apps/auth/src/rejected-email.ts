@@ -23,9 +23,9 @@ export interface RejectedEmailOptions {
    */
   readonly run: RunEffect;
   /**
-   * The secret bound as `EMAIL_KEY_SECRET`.
+   * The secret bound as `EMAIL_KEY_SECRET`. Without it the line carries no key.
    */
-  readonly secret: Redacted.Redacted;
+  readonly secret: Option.Option<Redacted.Redacted>;
 }
 
 /**
@@ -50,15 +50,24 @@ export const logRejectedEmail = (options: RejectedEmailOptions) =>
     }
 
     const code = Predicate.hasProperty(returned.body, "code") ? String(returned.body.code) : "none";
+    const { email } = body.value;
+
+    const rejected = (fields: Record<string, string>) =>
+      Effect.logInfo("auth.email.rejected").pipe(
+        Effect.annotateLogs({ ...fields, code, path: ctx.path }),
+      );
 
     await options.run(
-      emailKey(options.secret, body.value.email).pipe(
-        Effect.flatMap((key) =>
-          Effect.logInfo("auth.email.rejected").pipe(
-            Effect.annotateLogs({ [EMAIL_KEY_FIELD]: key, code, path: ctx.path }),
-          ),
-        ),
-        Effect.catchCause(() => Effect.logWarning("auth.email_key.failed")),
-      ),
+      Option.match(options.secret, {
+        onNone: () => rejected({}),
+        // Only a value that looks like an address is hashed, so a password typed into the field is not.
+        onSome: (secret) =>
+          email.includes("@")
+            ? emailKey(secret, email).pipe(
+                Effect.flatMap((key) => rejected({ [EMAIL_KEY_FIELD]: key })),
+                Effect.catchCause(() => Effect.logWarning("auth.email_key.failed")),
+              )
+            : rejected({}),
+      }),
     );
   });

@@ -15,13 +15,15 @@ export const EMAIL_KEY_SECRET_ID = "EmailKeySecret";
 export const EMAIL_KEY_FIELD = "emailKey";
 
 /**
- * The form of an address that is hashed: trimmed of surrounding whitespace, then lower-cased. It
- * is the one normalization, so `Ada@Example.test ` and `ada@example.test` share a key.
+ * The form of an address that is hashed: Unicode NFC, trimmed of surrounding whitespace, then
+ * lower-cased. It is the one normalization, so `Ada@Example.test ` and `ada@example.test` share a
+ * key, as do composed and decomposed accents.
  *
  * @param email - An address as typed.
  * @returns The normalized address.
  */
-export const normalizeEmail = (email: string): string => email.trim().toLowerCase();
+export const normalizeEmail = (email: string): string =>
+  email.normalize("NFC").trim().toLowerCase();
 
 /**
  * `Mac` on WebCrypto, the layer {@link emailKey} runs on.
