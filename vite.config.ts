@@ -494,22 +494,24 @@ export default defineConfig({
       //
       // Every other "off" below is staged off until its follow-up fixes the code (I-29 ruling,
       // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
-      // schema-class-missing-brand 46, all-of-map-to-for-each 31, prefer-typed-schema-decoder 29,
+      // schema-class-missing-brand 46, all-of-map-to-for-each 31, prefer-typed-schema-decoder 30,
       // any-unknown-in-error-context 20, schema-number 19, schema-class-object-literal 19,
-      // multiple-effect-provide 9, prefer-succeed-some-or-none 9, effect-try-without-catch 6 (delta),
-      // run-effect-inside-effect 6, unstable-api-usage 6 (infra/migrations-digest.ts and
+      // multiple-effect-provide 9, prefer-succeed-some-or-none 9, effect-try-without-catch 7 (delta),
+      // run-effect-inside-effect 7, unstable-api-usage 6 (infra/migrations-digest.ts and
       // infra/stacks/settings.ts sit outside every tsconfig, so the plugin entry does not reach
       // them), missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
       // process-env 3 (delta, `test/`), flat-map-conditional-to-filter-or-fail 3,
       // return-effect-in-gen 3, effect-succeed-with-undefined 3, catch-conditional-refail-to-catch-if
       // 3, then 2 each: abort-controller-in-effect, provide-layer-succeed-to-provide-service,
-      // unknown-in-effect-catch, unnecessary-typeof-type; then 1 each: catch-die-to-or-die,
-      // schema-sync-in-effect, flat-map-identity-to-flatten, map-some-to-as-some.
+      // schema-sync-in-effect, unknown-in-effect-catch, unnecessary-typeof-type; then 1 each:
+      // catch-die-to-or-die, catch-tag-to-catch-reason, flat-map-identity-to-flatten,
+      // map-some-to-as-some.
       "effecttsgo/abort-controller-in-effect": "off",
       "effecttsgo/all-of-map-to-for-each": "off",
       "effecttsgo/any-unknown-in-error-context": "off",
       "effecttsgo/catch-conditional-refail-to-catch-if": "off",
       "effecttsgo/catch-die-to-or-die": "off",
+      "effecttsgo/catch-tag-to-catch-reason": "off",
       "effecttsgo/effect-succeed-with-undefined": "off",
       "effecttsgo/effect-try-without-catch": "off",
       "effecttsgo/extends-native-error": "warn",
