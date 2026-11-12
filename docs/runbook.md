@@ -4,6 +4,8 @@
 
 Stuck sign-up address with the mail add-in on (the reclaim hook is off, so the row stays): delete the abandoned row by hand with `DELETE FROM user WHERE email_verified = 0 AND id NOT IN (SELECT user_id FROM account) AND id NOT IN (SELECT user_id FROM passkey) AND created_at < <now - AUTH_ORPHAN_GRACE_SECONDS in milliseconds>;` (`created_at` is Unix milliseconds in the generated schema).
 
+Rejected sign-in lookup: `bun run log-key --stage <stage> <email>` prints the `emailKey` hash to search for in Workers Logs. It refuses a stage whose state store is missing or outdated and never deploys one. A maintainer runs `prod` locally with `CI=true` on purpose; no workflow may run `log-key`, because this repository is public and an Actions log would show the address and its hash.
+
 ## Limits
 
 CPU: once a `test-<slug>` stage measures p99 CPU per invocation for a Worker, its CPU knob (`WEB_CPU_LIMIT_MS`, `API_CPU_LIMIT_MS`) becomes `max(200, ceil(p99 x 10))`.
