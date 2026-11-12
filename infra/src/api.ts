@@ -12,10 +12,10 @@ import { issuesObservability, telemetryOptions } from "./telemetry.ts";
  *
  * The Worker binds `auth` as `AUTH` through its service binding, the app D1 database that
  * `alchemy.run.ts` declares as `AppDb` with its migrations (the Worker's own program finds it by
- * that id), and the three values
- * `AUTH_CHECK_SESSION_TIMEOUT_MS`, `PROBLEM_DETAILS_INCLUDE` and `EXAMPLE_FEATURE_ENABLED` from the
- * stage's row. It keeps no `workers.dev` address, domain or route: `web` forwards `/api/*` to it.
- * Both bindings are made by the Worker's own program.
+ * that id), and the four values `API_DOCS_ENABLED`, `AUTH_CHECK_SESSION_TIMEOUT_MS`,
+ * `PROBLEM_DETAILS_INCLUDE` and `EXAMPLE_FEATURE_ENABLED` from the stage's row. It keeps no
+ * `workers.dev` address, domain or route: `web` forwards `/api/*` to it. Both bindings are made by
+ * the Worker's own program.
  *
  * @param identity - The stack name and decoded stage.
  * @param identity.stack - The stack name from `resolveStackName`.
@@ -35,6 +35,7 @@ export const declareApi = Effect.fn("declareApi")(function* declareApi(
   const props = {
     compatibility: { date: compat.date, flags: compat.flags.map((flag) => flag.name) },
     env: {
+      API_DOCS_ENABLED: values.API_DOCS_ENABLED,
       AUTH_CHECK_SESSION_TIMEOUT_MS: values.AUTH_CHECK_SESSION_TIMEOUT_MS,
       // block:notes start
       EXAMPLE_FEATURE_ENABLED: values.EXAMPLE_FEATURE_ENABLED,

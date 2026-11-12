@@ -110,6 +110,18 @@ describe("Stages", () => {
     }),
   );
 
+  it("serves the API documentation on every stage kind except prod", () => {
+    assert.deepStrictEqual(
+      Object.entries(Stages).map(([kind, values]) => [kind, values.API_DOCS_ENABLED]),
+      [
+        ["local", true],
+        ["prod", false],
+        ["staging", true],
+        ["test", true],
+      ],
+    );
+  });
+
   it.effect("binds a scrypt cost the Worker's own config reads back for every kind", () =>
     Effect.gen(function* binds() {
       for (const values of Object.values(Stages)) {

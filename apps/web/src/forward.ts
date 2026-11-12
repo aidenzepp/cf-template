@@ -27,7 +27,19 @@ const STRIPPED_HEADERS = [
 const TARGETS: Readonly<Record<(typeof FORWARD_PREFIXES)[number], ForwardTarget>> = {
   "/api/*": "API",
   "/auth/*": "AUTH",
+  "/llms.txt": "API",
 };
+
+/**
+ * Whether a path matches a pattern of {@link FORWARD_PREFIXES}: a pattern ending in `/*` matches
+ * every path under its prefix, any other pattern matches that path alone.
+ *
+ * @param pathname - The path of the request, without its query.
+ * @param pattern - An entry of {@link FORWARD_PREFIXES}.
+ * @returns `true` when the pattern owns the path.
+ */
+const matches = (pathname: string, pattern: string): boolean =>
+  pattern.endsWith("/*") ? pathname.startsWith(pattern.slice(0, -1)) : pathname === pattern;
 
 /**
  * The binding that owns a path, taken from {@link FORWARD_PREFIXES}.
@@ -36,7 +48,7 @@ const TARGETS: Readonly<Record<(typeof FORWARD_PREFIXES)[number], ForwardTarget>
  * @returns The binding name, or `undefined` for a path TanStack handles.
  */
 export const forwardTarget = (pathname: string): ForwardTarget | undefined => {
-  const prefix = FORWARD_PREFIXES.find((pattern) => pathname.startsWith(pattern.slice(0, -1)));
+  const prefix = FORWARD_PREFIXES.find((pattern) => matches(pathname, pattern));
 
   return prefix === undefined ? undefined : TARGETS[prefix];
 };
