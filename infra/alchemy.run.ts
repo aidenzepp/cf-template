@@ -24,7 +24,7 @@ import { guardLocationHints } from "./src/d1-hint-guard.ts";
 import { guardPlan } from "./src/guard-plan.ts";
 // block:budget-guard end
 import { d1LocationHint } from "./src/d1-location.ts";
-import { usesProjectState } from "./src/state-selection.ts";
+import { STATE_STACK, usesProjectState } from "./src/state-selection.ts";
 import { publicOrigin } from "./src/origin.ts";
 import { declareWeb } from "./src/web.ts";
 import { StackNameError, requiresStackNamePin, resolveStackName } from "./src/stack-name.ts";
@@ -134,4 +134,4 @@ const program = Effect.gen(function* declareStack() {
   return {};
 }).pipe(Effect.orDie);
 
-export default Alchemy.Stack("app", { providers: Cloudflare.providers(), state }, program);
+export default Alchemy.Stack(STATE_STACK, { providers: Cloudflare.providers(), state }, program);
