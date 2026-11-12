@@ -1,11 +1,13 @@
 import { assert, layer } from "@effect/vitest";
 import { Effect, Logger, Redacted, Ref, References } from "effect";
 import { emailKey } from "./email-key.ts";
+import { CheckSession } from "./session.ts";
 import {
   LocalAuthD1,
   TEST_EMAIL_KEY_SECRET,
   asExecution,
   authOver,
+  cookieOf,
   handle,
   signIn,
   signUp,
@@ -102,6 +104,59 @@ layer(LocalAuthD1.layer)("the rejected-email log line", (it) => {
       assert.include(rejected[0]?.annotations, `"emailKey":"${yield* keyOf(address)}"`);
       assert.include(rejected[0]?.annotations, '"path":"/sign-in/email"');
       assert.isFalse(JSON.stringify(lines).toLowerCase().includes("hamilton"));
+    }),
+  );
+
+  it.effect("hashes composed and decomposed forms of one address to one key", () =>
+    Effect.gen(function* forms() {
+      assert.strictEqual(yield* keyOf("josé@example.test"), yield* keyOf("josé@example.test"));
+    }),
+  );
+
+  it.effect("hashes no value that is not an address, so a typed password stays unhashed", () =>
+    Effect.gen(function* notAnAddress() {
+      const binding = yield* LocalAuthD1;
+
+      const lines = yield* collected(
+        handle("/auth/sign-in/email", {
+          body: JSON.stringify({ email: "hunter2-hunter2", password: "correct horse battery" }),
+          method: "POST",
+        }).pipe(Effect.provide(authOver(binding)), asExecution),
+      );
+
+      const rejected = lines.filter(({ message }) => message.includes("auth.email.rejected"));
+
+      assert.lengthOf(rejected, 1);
+      assert.notInclude(rejected[0]?.annotations, "emailKey");
+    }),
+  );
+
+  it.effect("without the secret, auth still works and one warning names the missing key", () =>
+    Effect.gen(function* unset() {
+      const binding = yield* LocalAuthD1;
+      const address = "annie.easley@example.test";
+
+      const lines = yield* collected(
+        Effect.gen(function* flow() {
+          assert.isTrue((yield* signUp(address)).ok);
+
+          const cookie = cookieOf(yield* signIn(address));
+
+          assert.isDefined(yield* (yield* CheckSession)({ cookie }));
+          yield* signUp(address);
+          yield* signUp(address);
+        }).pipe(Effect.provide(authOver(binding, { EMAIL_KEY_SECRET: undefined })), asExecution),
+      );
+
+      const rejected = lines.filter(({ message }) => message.includes("auth.email.rejected"));
+
+      assert.lengthOf(rejected, 2);
+      assert.notInclude(rejected[0]?.annotations, "emailKey");
+      assert.include(rejected[0]?.annotations, '"path":"/sign-up/email"');
+      assert.lengthOf(
+        lines.filter(({ message }) => message.includes("auth.email_key.unset")),
+        1,
+      );
     }),
   );
 });

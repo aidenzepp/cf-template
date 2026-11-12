@@ -285,7 +285,7 @@ export const authDatabaseLayer = (
  */
 export const AuthSettings = Config.all({
   baseURL: Config.schema(PublicOrigin, "PUBLIC_ORIGIN"),
-  emailKeySecret: Config.Redacted("EMAIL_KEY_SECRET"),
+  emailKeySecret: Config.option(Config.Redacted("EMAIL_KEY_SECRET")),
   graceSeconds: AUTH_ORPHAN_GRACE_SECONDS.config,
   maxAge: CookieCacheMaxAgeKnob.config,
   methods: AUTH_METHODS,
@@ -306,6 +306,11 @@ const makeInstance = Effect.gen(function* makeInstance() {
   const settings = yield* AuthSettings.pipe(
     Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(env))),
   );
+
+  // The instance is memoized for the execution, so this warns once however many requests follow.
+  if (Option.isNone(settings.emailKeySecret)) {
+    yield* Effect.logWarning("auth.email_key.unset");
+  }
 
   const services = yield* Effect.context();
   const providers = yield* socialProviders(settings.methods, env);
