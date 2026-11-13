@@ -6,8 +6,16 @@
  * read: `ALCHEMY_TEST_DEV`, which `vite.config.ts` sets on the root `test` block. A project that
  * lost the variable fails here, before any test can reach a live stage.
  */
-if (process.env.ALCHEMY_TEST_DEV !== "1") {
-  throw new Error(
-    "ALCHEMY_TEST_DEV is not 1 in the local project. Set it on the root test block of vite.config.ts.",
-  );
-}
+import { beforeAll } from "@effect/vitest";
+import { Config, Effect } from "effect";
+
+beforeAll(() =>
+  Config.String("ALCHEMY_TEST_DEV").pipe(
+    Config.withDefault(""),
+    Effect.filterOrFail(
+      (value) => value === "1",
+      () =>
+        "ALCHEMY_TEST_DEV is not 1 in the local project. Set it on the root test block of vite.config.ts.",
+    ),
+  ),
+);
