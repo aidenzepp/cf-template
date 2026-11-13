@@ -91,6 +91,7 @@
         "@workspace/knobs-kv": "workspace:*",
         "@workspace/ui": "workspace:*",
         "effect": "4.1.2",
+        "ip-address": "10.7.6",
         "react": "19.3.1",
         "react-dom": "19.3.1",
       },

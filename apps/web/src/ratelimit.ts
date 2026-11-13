@@ -1,4 +1,5 @@
 import { Effect, Number as Num, Result, Schema } from "effect";
+import { Address6 } from "ip-address";
 import { HttpServerResponse, ProblemDetails } from "effect/http";
 
 /**
@@ -81,79 +82,6 @@ export const fnv1a32 = (text: string): number => {
 export const namespaceId = (stack: string, stage: string, cls: RateLimitClass): number =>
   1 + (fnv1a32(`${stack}:${stage}:${cls}`) % 2_147_483_646);
 
-const HEX_GROUP = /^[\da-f]{1,4}$/u;
-
-const DOTTED_QUAD = /^\d{1,3}(?:\.\d{1,3}){3}$/u;
-
-/**
- * The two hex groups of a dotted IPv4 address.
- *
- * @param text - The candidate, such as `192.0.2.1`.
- * @returns The two groups, or `undefined` when the text is not an IPv4 address.
- */
-const quadGroups = (text: string): ReadonlyArray<string> | undefined => {
-  const octets = text.split(".").map(Number);
-
-  if (!DOTTED_QUAD.test(text) || octets.some((octet) => octet > 255)) {
-    return undefined;
-  }
-
-  const [a = 0, b = 0, c = 0, d = 0] = octets;
-
-  return [(a * 256 + b).toString(16), (c * 256 + d).toString(16)];
-};
-
-/**
- * The hex groups on one side of `::`.
- *
- * @param side - The colon-separated groups, possibly empty.
- * @param endsAddress - Whether the side ends the address, so a dotted IPv4 tail is allowed.
- * @returns The groups, or `undefined` when one is malformed.
- */
-const sideGroups = (side: string, endsAddress: boolean): ReadonlyArray<string> | undefined => {
-  if (side === "") {
-    return [];
-  }
-
-  const parts = side.split(":");
-  const last = parts.at(-1) ?? "";
-  const tail = endsAddress && last.includes(".") ? quadGroups(last) : [last];
-  const groups = tail === undefined ? undefined : [...parts.slice(0, -1), ...tail];
-
-  return groups?.every((group) => HEX_GROUP.test(group)) === true ? groups : undefined;
-};
-
-/**
- * Expand an IPv6 address to its eight 16-bit groups.
- *
- * @param ip - A lower-case IPv6 address, `::` compressed or not, with an optional IPv4 tail.
- * @returns The eight groups, or `undefined` when the text is not an IPv6 address.
- */
-const expandIpv6 = (ip: string): ReadonlyArray<number> | undefined => {
-  const [head = "", tail, ...extra] = ip.split("::");
-
-  if (extra.length > 0) {
-    return undefined;
-  }
-
-  const front = sideGroups(head, tail === undefined);
-  const back = tail === undefined ? [] : sideGroups(tail, true);
-
-  if (front === undefined || back === undefined) {
-    return undefined;
-  }
-
-  const filler = tail === undefined ? 0 : 8 - front.length - back.length;
-
-  if (tail === undefined ? front.length !== 8 : filler < 1) {
-    return undefined;
-  }
-
-  return [...front, ...Array.from({ length: filler }, () => "0"), ...back].map((group) =>
-    Number.parseInt(group, 16),
-  );
-};
-
 /**
  * The limiter key of a caller: an IPv4 address as is, an IPv4-mapped IPv6 address as its IPv4, and
  * any other IPv6 address as its /64, so one client cannot rotate addresses inside its own prefix.
@@ -162,27 +90,21 @@ const expandIpv6 = (ip: string): ReadonlyArray<number> | undefined => {
  * @returns The key; an address that does not parse is returned as is.
  */
 export const rateLimitKey = (ip: string): string => {
-  const lower = ip.toLowerCase();
-
-  if (!lower.includes(":")) {
+  if (!ip.includes(":") || !Address6.isValid(ip)) {
     return ip;
   }
 
-  const groups = expandIpv6(lower);
+  const address = new Address6(ip);
 
-  if (groups === undefined) {
-    return ip;
+  if (address.isMapped4()) {
+    return address.to4().correctForm();
   }
 
-  if (groups.slice(0, 5).every((group) => group === 0) && groups[5] === 0xff_ff) {
-    const [high = 0, low = 0] = groups.slice(6);
-
-    return `${Math.floor(high / 256)}.${high % 256}.${Math.floor(low / 256)}.${low % 256}`;
-  }
-
-  return `${groups
+  return `${address
+    .canonicalForm()
+    .split(":")
     .slice(0, 4)
-    .map((group) => group.toString(16))
+    .map((group) => Number.parseInt(group, 16).toString(16))
     .join(":")}::/64`;
 };
 
