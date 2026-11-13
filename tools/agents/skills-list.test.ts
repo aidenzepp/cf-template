@@ -8,7 +8,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
  * writing code.
  */
 const LADDER =
-  "Before writing code, walk the ladder: a Cloudflare platform capability, then an Alchemy resource or binding, then an Effect module, service or layer, then code in this repository, and only then an external service.";
+  "Before writing code, walk the ladder: a Cloudflare platform capability, then an Alchemy resource or binding, then an Effect module, service or layer, then an installed dependency or the stack's standard library (check `docs/capabilities.md`), then code in this repository, and only then an external service.";
 
 /**
  * The sentence `AGENTS.md` carries in `## Workflow`: why a worktree installs its own packages.

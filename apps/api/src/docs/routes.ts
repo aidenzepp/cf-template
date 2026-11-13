@@ -1,11 +1,27 @@
 import { Effect, Layer, Result } from "effect";
 import { HttpRouter, HttpServerResponse, Url } from "effect/http";
 import { HttpApiScalar, OpenApi } from "effect/http-api";
-import { ApiDocsEnabledKnob, ApiDocsLiveRead } from "@workspace/config/api-docs";
+import * as DomainHttp from "@alchemy.run/domain/Http";
+import { DocsEnabledKnob, DocsLiveRead } from "@workspace/config/docs";
 import { LiveKnobs } from "@workspace/config/knob";
 import { Api } from "@workspace/contract/api/api";
 import { DOCS_PATH, LLMS_PATH, OPENAPI_PATH } from "@workspace/contract/api/docs-paths";
+import { NotebookApi } from "../notes/notebook.api.ts";
 import { llmsText } from "./llms.ts";
+
+/**
+ * The Notebook Api published as a plain HTTP group: one `POST /<Command>` per command, built by
+ * `toHttpApi` from the Domain Api, so the model is the one source of its paths and errors.
+ */
+export const NotebookHttp = DomainHttp.toHttpApi(NotebookApi);
+
+/**
+ * What the `api` Worker serves and documents: the contract's `Api` with the Notebook group merged
+ * into it under `/api`. The group is added after `Api`'s `ProblemDetails` middleware, which wraps
+ * only the groups added before it, so a Notebook rejection keeps the status its schema declares
+ * (the global problem adapter still turns its body into a bare problem).
+ */
+export const ServedApi = Api.add(NotebookHttp.group.prefix("/api"));
 
 /**
  * The route-scoped gate of the three documentation routes: it answers a bare 404 while `enabled`
@@ -28,12 +44,12 @@ const docsGate = (enabled: Effect.Effect<boolean>) =>
 
 /**
  * `GET /api/openapi.json` and `GET /llms.txt`, both answered from the one document
- * `OpenApi.fromApi(Api)` builds when the layer is built. Nothing is checked in: the document and
- * the text follow the contract.
+ * `OpenApi.fromApi(ServedApi)` builds when the layer is built. Nothing is checked in: the document
+ * and the text follow the contract and the Notebook group.
  */
 const DocumentRoutes = HttpRouter.use((router) =>
   Effect.gen(function* addDocumentRoutes() {
-    const document = OpenApi.fromApi(Api);
+    const document = OpenApi.fromApi(ServedApi);
 
     yield* router.add("GET", OPENAPI_PATH, HttpServerResponse.jsonUnsafe(document));
 
@@ -60,16 +76,16 @@ const DocumentRoutes = HttpRouter.use((router) =>
  * `withDefaultFonts: false` stops Scalar fetching its fonts from `fonts.scalar.com`. The script is
  * a dynamic import, read only when this layer is built.
  */
-export const ScalarPage = HttpApiScalar.layer(Api, {
+export const ScalarPage = HttpApiScalar.layer(ServedApi, {
   path: DOCS_PATH,
   scalar: { withDefaultFonts: false },
 });
 
 /**
- * The routes that document `Api`, behind `API_DOCS_ENABLED`: the OpenAPI document, the Scalar
- * reference page and `llms.txt`.
+ * The routes that document {@link ServedApi}, behind `DOCS_ENABLED`: the OpenAPI document, the
+ * Scalar reference page and `llms.txt`.
  *
- * Where `API_DOCS_LIVE_READ` is on, the gate reads the knob through the `LiveKnobs` port on every
+ * Where `DOCS_LIVE_READ` is on, the gate reads the knob through the `LiveKnobs` port on every
  * request (one cached key read; the KV adapter caches each key for 30 seconds), with the
  * deploy-time value as the fallback. Where it is off, which `infra` sets on `prod` alone, the
  * deploy-time value is final: a live value is never read, and when that value is `false` no route
@@ -77,15 +93,15 @@ export const ScalarPage = HttpApiScalar.layer(Api, {
  */
 export const ApiDocsRoutes = Layer.unwrap(
   Effect.gen(function* buildDocsRoutes() {
-    const live = yield* ApiDocsLiveRead;
-    const deployed = yield* ApiDocsEnabledKnob.config;
+    const live = yield* DocsLiveRead;
+    const deployed = yield* DocsEnabledKnob.config;
 
     if (!live && !deployed) {
       return Layer.empty;
     }
 
     const enabled = live
-      ? yield* (yield* LiveKnobs).bind(ApiDocsEnabledKnob)
+      ? yield* (yield* LiveKnobs).bind(DocsEnabledKnob)
       : Effect.succeed(deployed);
 
     return Layer.mergeAll(DocumentRoutes, ScalarPage).pipe(Layer.provide(docsGate(enabled).layer));

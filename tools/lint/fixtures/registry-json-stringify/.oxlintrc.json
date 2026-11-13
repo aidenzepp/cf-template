@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "no-restricted-properties": [
+      "error",
+      { "object": "JSON", "property": "stringify", "message": "docs/capabilities.md, JSON encoding" }
+    ]
+  }
+}
