@@ -1,0 +1,73 @@
+name: Prod knob
+
+# Sets, unsets or reads one live knob on `prod` (#43 item 8, LQ-1 (b)). The same owner check as
+# prod-destructive.yml refuses an App or agent dispatch. Every input reaches the step only through
+# `env:` and is passed as one quoted argument, so a crafted `reason` or `value` is printed literally
+# and never runs as shell (N-1); the knob's codec validates the value after that. The run log is
+# the record.
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: set, unset or status
+        required: true
+        type: choice
+        options: [status, set, unset]
+      knob:
+        description: The knob key (empty for status)
+        required: false
+        type: string
+      value:
+        description: The new value (set only)
+        required: false
+        type: string
+      reason:
+        description: Why the knob changes (kept in the run log)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+env:
+  ALCHEMY_TELEMETRY_DISABLED: "1"
+
+jobs:
+  write:
+    if: github.actor == github.repository_owner && github.triggering_actor == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: prod-knobs
+      cancel-in-progress: false
+    env:
+      KNOB_ACTION: ${{ inputs.action }}
+      KNOB_KNOB: ${{ inputs.knob }}
+      KNOB_VALUE: ${{ inputs.value }}
+      KNOB_REASON: ${{ inputs.reason }}
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      STACK_NAME: ${{ vars.STACK_NAME }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      # `bun run knob` takes `set --stage <stage> <KEY> <value>`, `unset --stage <stage> <KEY>` or
+      # `status --stage <stage>` and has no `--reason` flag, so the reason is printed here as the
+      # record and only the non-empty knob arguments are passed.
+      - name: Run the knob command
+        run: |
+          # Workflow commands are paused while the inputs print, so a `::` line inside one is text.
+          token="$(openssl rand -hex 16)"
+          echo "::stop-commands::$token"
+          printf 'action: %s\n' "$KNOB_ACTION"
+          printf 'knob: %s\n' "$KNOB_KNOB"
+          printf 'value: %s\n' "$KNOB_VALUE"
+          printf 'reason: %s\n' "$KNOB_REASON"
+          echo "::$token::"
+          args=("$KNOB_ACTION" --stage prod)
+          if [ -n "$KNOB_KNOB" ]; then args+=("$KNOB_KNOB"); fi
+          if [ -n "$KNOB_VALUE" ]; then args+=("$KNOB_VALUE"); fi
+          bun run knob "${args[@]}"

@@ -1,0 +1,188 @@
+name: Prod
+
+# Ships `main` to the `prod` stage (#43 item 6). Every compare that enables a protection is true on
+# an unset variable (`!= 'ruleset' && != 'classic'`); every compare that enables a privilege is false
+# on one (`== 'true'`), so nothing deploys while CLOUDFLARE_DEPLOYS is unset and `deploy-prod` runs
+# only on an explicit `destructive=false` verdict. No `${{ }}` of an event string appears inside a
+# `run:` string; values reach steps through `env:`.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  ALCHEMY_TELEMETRY_DISABLED: "1"
+
+jobs:
+  # The checks and the cloud suite run here only on the unprotected tier; a ruleset or classic
+  # protection already required them on the pull request (C19k).
+  checks:
+    if: vars.BRANCH_PROTECTION != 'ruleset' && vars.BRANCH_PROTECTION != 'classic'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: bun run check
+        env:
+          RATCHET_BASE: ${{ github.event.before }}
+      - run: bun run test
+      - run: bun run build
+
+  cloud:
+    needs: checks
+    if: >-
+      vars.BRANCH_PROTECTION != 'ruleset' && vars.BRANCH_PROTECTION != 'classic' &&
+      vars.CLOUDFLARE_DEPLOYS == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: test-ci
+      cancel-in-progress: false
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+      STACK_NAME: ${{ vars.STACK_NAME }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
+      - run: alchemy provider check-env
+        working-directory: infra
+      - run: bun run test:cloud
+
+  # The prod plan verdict: `destructive=true|false` and `fingerprint=<digest>`, or a non-zero exit
+  # (DC10). I-39 fills the body with `infra/scripts/plan-prod.ts`; until then the placeholder fails,
+  # so `deploy-prod` never runs and `plan-missing` reports the missing verdict.
+  plan-prod:
+    needs: [checks, cloud]
+    if: >-
+      !cancelled() && vars.CLOUDFLARE_DEPLOYS == 'true' &&
+      (needs.checks.result == 'success' || needs.checks.result == 'skipped') &&
+      (needs.cloud.result == 'success' || needs.cloud.result == 'skipped')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      destructive: ${{ steps.plan.outputs.destructive }}
+      fingerprint: ${{ steps.plan.outputs.fingerprint }}
+    steps:
+      - id: plan
+        name: Plan prod (placeholder, I-39)
+        run: |
+          echo '::error::plan-prod is a placeholder: I-39 adds infra/scripts/plan-prod.ts. No verdict, so prod is not deployed.'
+          exit 1
+
+  deploy-prod:
+    needs: plan-prod
+    if: needs.plan-prod.outputs.destructive == 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: ${{ vars.ENVIRONMENTS == 'true' && 'prod' || '' }}
+    concurrency:
+      group: deploy-prod
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+      CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
+      STACK_NAME: ${{ vars.STACK_NAME }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
+      # An unset secret arrives as an empty string, which the deploy would read as a set value, so
+      # only the non-empty provider pairs and the proxy secret reach the later steps.
+      - name: Export the provider credentials and origins
+        env:
+          OAUTH_GITHUB_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          OAUTH_GITHUB_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          OAUTH_GOOGLE_CLIENT_ID: ${{ secrets.OAUTH_GOOGLE_CLIENT_ID }}
+          OAUTH_GOOGLE_CLIENT_SECRET: ${{ secrets.OAUTH_GOOGLE_CLIENT_SECRET }}
+          OAUTH_PROXY_SECRET: ${{ secrets.OAUTH_PROXY_SECRET }}
+        run: |
+          providers=""
+          for prefix in GITHUB GOOGLE; do
+            id_name="OAUTH_${prefix}_CLIENT_ID"
+            secret_name="OAUTH_${prefix}_CLIENT_SECRET"
+            if [ -n "${!id_name}" ]; then echo "${prefix}_CLIENT_ID=${!id_name}" >> "$GITHUB_ENV"; fi
+            if [ -n "${!secret_name}" ]; then echo "${prefix}_CLIENT_SECRET=${!secret_name}" >> "$GITHUB_ENV"; fi
+            if [ -n "${!id_name}" ] && [ -n "${!secret_name}" ]; then
+              providers="${providers:+$providers,}\"$(echo "$prefix" | tr '[:upper:]' '[:lower:]')\""
+            fi
+          done
+          if [ -n "$OAUTH_PROXY_SECRET" ]; then echo "OAUTH_PROXY_SECRET=$OAUTH_PROXY_SECRET" >> "$GITHUB_ENV"; fi
+          if [ -n "$CUSTOM_DOMAIN" ] && [ "$CUSTOM_DOMAIN" != workers-dev ]; then
+            prod_origin="https://$CUSTOM_DOMAIN"
+          else
+            prod_origin="https://$STACK_NAME-web-prod.$CLOUDFLARE_WORKERS_SUBDOMAIN.workers.dev"
+          fi
+          {
+            echo "PROD_ORIGIN=$prod_origin"
+            echo "SMOKE_ORIGIN=$prod_origin"
+            echo "SMOKE_PROVIDERS=[$providers]"
+          } >> "$GITHUB_ENV"
+      - run: alchemy provider check-env
+      - run: alchemy state list
+      # On a push to main the Action resolves the stage to `prod` and deploys it.
+      - uses: alchemy-run/alchemy@d0b4a3326718309793459160e94b35abee517b23 # v2.0.0-beta.85
+        with:
+          working-directory: infra
+      - run: bun scripts/smoke.ts
+
+  # A blocking plan holds prod red and prints the one copyable `gh workflow run prod-destructive.yml`
+  # command (SU13). I-39 fills the body; the placeholder fails so the hold is never silent.
+  hold:
+    needs: plan-prod
+    if: needs.plan-prod.outputs.destructive == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Hold a destructive plan (placeholder, I-39)
+        run: |
+          echo '::error::The prod plan is destructive and held. hold is a placeholder: I-39 prints the prod-destructive.yml dispatch command.'
+          exit 1
+
+  # Fails when plan-prod gave no verdict, so a missing or broken plan never reads as a quiet skip.
+  # I-39 owns the final body.
+  plan-missing:
+    needs: plan-prod
+    if: >-
+      !cancelled() && vars.CLOUDFLARE_DEPLOYS == 'true' &&
+      needs.plan-prod.outputs.destructive != 'true' && needs.plan-prod.outputs.destructive != 'false'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          echo "::error::plan-prod ($PLAN_RESULT) gave no destructive=true|false verdict, so prod was not deployed."
+          exit 1
+        env:
+          PLAN_RESULT: ${{ needs.plan-prod.result }}
+
+  # The release after a deploy (C33l, C41o), on the App token. I-40 fills the body; the placeholder
+  # fails so turning RELEASE_ON on before I-40 lands is visible.
+  release:
+    needs: deploy-prod
+    if: vars.RELEASE_ON == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Release (placeholder, I-40)
+        run: |
+          echo '::error::release is a placeholder: I-40 adds the release-please step on the App token.'
+          exit 1
