@@ -18,7 +18,7 @@ describe("liveKnobs", () => {
       liveKnobs.map((knob) => knob.key),
       [
         "LOG_LEVEL",
-        "API_DOCS_ENABLED",
+        "DOCS_ENABLED",
         // block:notes start
         "EXAMPLE_FEATURE_ENABLED",
         // block:notes end
