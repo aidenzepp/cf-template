@@ -8,6 +8,7 @@ import { SessionLive } from "../session-middleware.ts";
 import { NOTE_TITLE_MAX_LENGTH, NotebookId } from "./note.command.ts";
 import { NoteId } from "./note.event.ts";
 import { NotebookApi } from "./notebook.api.ts";
+import { NoteIndexUnstored } from "./note-index.projection.ts";
 import { NotesModel } from "./notes.model.ts";
 
 /**
@@ -38,7 +39,7 @@ const lookup = Layer.succeed(
  * The notes model hosted in memory with the real `Session` middleware over the stub lookup.
  */
 const World = Layer.mergeAll(
-  NotesModel.layer(Layer.empty).pipe(Layer.provide(Domain.InMemory)),
+  NotesModel.layer(NoteIndexUnstored).pipe(Layer.provide(Domain.InMemory)),
   SessionLive.pipe(Layer.provide(lookup)),
 );
 

@@ -1,0 +1,5 @@
+{
+  "jsPlugins": [{ "name": "shadcn", "specifier": "@shadcn/lint" }],
+  "rules": { "shadcn/no-raw-colors": "error" },
+  "settings": { "shadcn": { "ui": ["@workspace/ui/components", "apps/web/src/styles/app.css"] } }
+}
