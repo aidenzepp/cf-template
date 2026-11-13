@@ -648,15 +648,10 @@ export default defineConfig({
       // One source for the blank-line policy: the fixture diff in tools/lint/fixtures.test.ts
       // (blank-lines/cases.ts) shows the stylistic padding rule above reports every line this rule does.
       "anti-slop/require-readable-spacing": "off",
-      // The six deltas on the `effect` preset: `try-catch-in-effect-gen` off (a true subset of
-      // `workspace/no-built-in-try-catch`); `effect-try-without-catch`, `unsafe-effect-type-assertion`,
-      // `process-env-in-effect`, `extends-native-error` and `process-env` at `warn`.
-      //
-      // Every other "off" below is staged off until its follow-up fixes the code (I-29 ruling,
-      // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
-      // multiple-effect-provide 9, effect-try-without-catch 7 (delta),
-      // run-effect-inside-effect 8,
-      // return-effect-in-gen 3, then 2 each: schema-sync-in-effect, unknown-in-effect-catch.
+      // The seven deltas on the `effect` preset: `try-catch-in-effect-gen` off (a true subset of
+      // `workspace/no-built-in-try-catch`); `any-unknown-in-error-context`, `effect-try-without-catch`,
+      // `unsafe-effect-type-assertion`, `process-env-in-effect`, `extends-native-error` and
+      // `process-env` at `warn`. No rule is staged off: every family #223 split them into is on.
       "effecttsgo/any-unknown-in-error-context": "warn",
       "effecttsgo/effect-try-without-catch": "warn",
       "effecttsgo/extends-native-error": "warn",
