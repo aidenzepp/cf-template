@@ -18,7 +18,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - uses: ./.github/actions/setup
       - run: bun run check
+        env:
+          RATCHET_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
       - run: bun run test
       - run: bun run build
