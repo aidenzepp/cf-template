@@ -157,6 +157,72 @@ export const rateLimitErrorAlert = Effect.fn("rateLimitErrorAlert")(function* ra
 });
 
 /**
+ * The domain consumers the projection failure alert watches, one alert each. Each name is the
+ * `consumer` its handler writes on its `domain.run.failed` line in `api`.
+ */
+export const ProjectionConsumers = ["NoteIndex"] as const;
+
+/**
+ * The failed runs per `15m` window above which a consumer's projection failure alert fires. A
+ * failed run is retried, so a handler that keeps failing passes it within one window.
+ */
+export const PROJECTION_FAILURE_THRESHOLD = 2;
+
+/**
+ * The SQL API query behind the projection failure alert: log rows of `logs.workersLogs` for the
+ * account whose `scriptName` is `script` and whose `attributes` JSON column has `event` equal to
+ * `domain.run.failed` and `consumer` equal to `consumer`. The package's `domain.runs` metric never
+ * reaches Workers Logs, so the alert counts the line the handler writes instead.
+ *
+ * @param accountId - The deploying account's id.
+ * @param script - The `api` Worker script name.
+ * @param consumer - The consumer name, an entry of {@link ProjectionConsumers}.
+ * @returns The query text.
+ */
+export const projectionFailureQuery = (
+  accountId: string,
+  script: string,
+  consumer: string,
+): string =>
+  `SELECT count() AS value FROM logs.workersLogs WHERE accountTag = '${accountId}' AND scriptName = '${script}' AND attributes['event'] = 'domain.run.failed' AND attributes['consumer'] = '${consumer}'`;
+
+/**
+ * Declare one projection failure alert per entry of {@link ProjectionConsumers}, only where the
+ * stage's kind sets `volumeAlert`.
+ *
+ * Each counts {@link projectionFailureQuery} rows per `15m` window, evaluated every `15m`, and
+ * emails `address` above {@link PROJECTION_FAILURE_THRESHOLD}.
+ *
+ * @param stage - The decoded stage.
+ * @param stack - The stack name.
+ * @param address - The `ISSUE_NOTIFICATION_EMAIL` value.
+ * @returns Nothing; a stage that declares no alert declares no resource.
+ */
+export const projectionFailureAlert = Effect.fn("projectionFailureAlert")(
+  function* projectionFailureAlert(stage: StageName, stack: string, address: string) {
+    if (Stages[kindOf(stage)].volumeAlert) {
+      const { accountId } = yield* Cloudflare.CloudflareEnvironment.current;
+      const script = yield* workerName({ stack, stage, worker: "api" });
+
+      for (const consumer of ProjectionConsumers) {
+        yield* Cloudflare.Alerting.CustomAlert(`ProjectionFailureAlert-${consumer}`, {
+          every: "15m",
+          mechanisms: { email: [{ id: address }] },
+          name: `${stack}-projection-failure-${consumer}-${stage}`,
+          query: projectionFailureQuery(accountId, script, consumer),
+          trigger: {
+            operator: ">",
+            type: "threshold",
+            value: PROJECTION_FAILURE_THRESHOLD,
+            window: "15m",
+          },
+        });
+      }
+    }
+  },
+);
+
+/**
  * Declare the Workers Issues notification on `prod` only: one email policy and one automation for
  * each of `web`, `api` and `auth` that notifies at the first occurrence of an issue.
  *
