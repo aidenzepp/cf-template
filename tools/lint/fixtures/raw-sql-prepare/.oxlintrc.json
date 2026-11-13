@@ -1,0 +1,5 @@
+{
+  "rules": {
+    "no-restricted-properties": ["error", { "property": "prepare", "message": "queries go through the Drizzle query builder" }]
+  }
+}
