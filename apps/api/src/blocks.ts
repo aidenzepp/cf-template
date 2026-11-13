@@ -1,50 +1,28 @@
 import { Layer } from "effect";
 import { KnobsKvLive } from "@workspace/knobs-kv/live";
-import { SessionMiddlewareLive } from "./authorization.ts";
 import { SystemApiHandlers } from "./system/http.ts";
 
 /**
- * The attach file of the `api` Worker: the handler groups it serves, the middleware they run
- * under, and the services built once per isolate, one entry per line. A removable unit appears in
- * this app only as an import and an entry here; `worker.ts` provides the layers and nothing else
- * imports this file.
+ * The attach file of the `api` Worker: the handler groups it serves and the services it builds
+ * once, as Layers. `worker.ts` provides them and nothing else imports this file.
  *
- * The lists stay separate because a group requires the middleware and the isolate services, which
- * a sibling in one `Layer.mergeAll` cannot supply. The attach grammar reads the call whether the
- * formatter keeps it on several lines or collapses it onto one.
+ * The lists stay separate because a group requires the isolate services, which a sibling in one
+ * `Layer.mergeAll` cannot supply.
  */
 export const ApiWorkerHandlerGroupLayers = Layer.mergeAll(SystemApiHandlers);
 
 /**
- * The middleware layers of the `api` Worker; see {@link ApiWorkerHandlerGroupLayers}.
+ * The provider layers of the `api` Worker: services the handlers read but never build, such as the
+ * live-knobs adapter. `worker.ts` builds this list once in Worker init, where bindings are
+ * registered, and provides the result beneath the other lists.
+ *
+ * `KnobsKvLive` provides a `Context.Reference` with a default, so dropping it here is not a type
+ * error: the Worker would read the deploy-time knob values. The `knobs-kv` attach test checks it.
  */
-export const ApiWorkerMiddlewareLayers = Layer.mergeAll(SessionMiddlewareLive);
-
-/**
- * No services: the entry that keeps {@link ApiBlockProviders} a valid call when no unit adds one.
- */
-const NoBlockProviders = Layer.empty;
-
-/**
- * The provider layers of the `api` Worker: services the handlers and middleware read but never
- * build, such as the live-knobs adapter. `worker.ts` builds this list once in Worker init, where
- * bindings are registered, and provides the result beneath the other lists.
- */
-export const ApiBlockProviders = Layer.mergeAll(
-  NoBlockProviders,
-  // block:knobs-kv start
-  KnobsKvLive,
-  // block:knobs-kv end
-);
-
-/**
- * No services: the entry that keeps {@link ApiWorkerIsolateLayers} a valid call when no unit adds
- * one.
- */
-const NoIsolateServices = Layer.empty;
+export const ApiBlockProviders = Layer.mergeAll(KnobsKvLive);
 
 /**
  * The services the Worker builds once per isolate and every execution shares, over `AppDatabase`;
- * see {@link ApiWorkerHandlerGroupLayers}.
+ * none today.
  */
-export const ApiWorkerIsolateLayers = Layer.mergeAll(NoIsolateServices);
+export const ApiWorkerIsolateLayers = Layer.empty;

@@ -5,11 +5,6 @@ version = 1
 line-endings = "normalize"
 
 [[link]]
-source = ".agents/skills/add-block/SKILL.md"
-target = ".agents/skills/add-block/references/examples.md"
-hash = "640484d1bbb51b68bd1256f80c32f4cc6a3a3fea9300b3bbd3e9a74d26a3bf0d"
-
-[[link]]
 source = ".agents/skills/add-feature/SKILL.md"
 target = ".agents/skills/add-feature/references/examples.md"
 hash = "32d336a42e7a67ee92100f737fe881c711a86e8795dc9823d6bf830ab05f5ce5"
@@ -160,13 +155,8 @@ hash = "bdda1772c118ac9bbdeaac9d74d3eff9ab717ce2085dfbec3964acaa8d64966e"
 
 [[link]]
 source = "AGENTS.md"
-target = ".agents/skills/add-block/SKILL.md"
-hash = "366c093cd35e48ce39ceb74d803a1844db3520b785a18a00bf5d2d6aff628c81"
-
-[[link]]
-source = "AGENTS.md"
 target = ".agents/skills/add-feature/SKILL.md"
-hash = "7bf0bb97a6f877d2878b96fd0773b7d66b63ecdf39e3abb81fa8534cc4e68d8c"
+hash = "f5b3a3a554290485584509344dbdc70a80546131f6cd686efbe667328cbe2ed9"
 
 [[link]]
 source = "AGENTS.md"
@@ -176,7 +166,7 @@ hash = "89bd96a9c73582e7dcb63e394bc9de533e959201aec6e954b6bba8477925bddc"
 [[link]]
 source = "AGENTS.md"
 target = ".agents/skills/design-review/SKILL.md"
-hash = "a0af32857ad9768527b6251ee7a25cfd21209e223f67682fb9006b1ecf4de926"
+hash = "3df32b630de3f433c443f7e2c9cc23e2dda39fc26ff68059d74f2202e7a107b7"
 
 [[link]]
 source = "AGENTS.md"

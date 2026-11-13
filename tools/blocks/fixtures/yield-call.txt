@@ -1,6 +1,0 @@
-export default Effect.gen(function* () {
-  const stack = yield* Stack;
-
-  yield* knobsNamespace(stack, stage);
-  yield* BudgetGuard.resources(stage);
-});

@@ -18,7 +18,6 @@
     "ui:lock": "bun tools/ui-lock/reinstall.ts",
     "ui:typecheck": "bun run --filter @workspace/ui typecheck",
     "fix": "vp check --fix --deny-warnings",
-    "footprint": "bun tools/blocks/footprint.ts",
     "knob": "bun tools/knob/knob.ts",
     "log-key": "bun tools/log-key/log-key.ts",
     "mirrors": "bun tools/mirrors/mirror.ts",
@@ -29,7 +28,6 @@
     "test:cloud": "ALCHEMY_TEST_STAGE=test-ci vp test --config vite.cloud.config.ts",
     "db:regenerate": "git clean -fdq apps/api/migrations && bun run db:generate",
     "db:generate": "cd apps/api && ../../node_modules/.bin/drizzle-kit generate && bun ./scripts/migrations-digest.ts && cd ../auth && ../../node_modules/.bin/drizzle-kit generate",
-    "pullout": "bun tools/blocks/pullout.ts",
     "ratchet": "bun tools/ratchet/ratchet.ts",
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config --local core.hooksPath .vite-hooks || true; effect-tsgo patch --oxlint",
     "build": "vp run -F '@workspace/*' build && bun tools/bundle/check.ts"
