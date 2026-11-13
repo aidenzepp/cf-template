@@ -30,6 +30,7 @@ declare module "cloudflare:workers" {
     readonly RATELIMIT_PUBLIC: {
       readonly limit: (options: { readonly key: string }) => Promise<{ readonly success: boolean }>;
     };
+    readonly STACK_NAME: string;
   };
 }
 

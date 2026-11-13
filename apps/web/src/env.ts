@@ -30,4 +30,5 @@ export interface WebEnv {
   readonly PUBLIC_ORIGIN: string;
   readonly RATELIMIT_CREDENTIAL: RateLimitBinding;
   readonly RATELIMIT_PUBLIC: RateLimitBinding;
+  readonly STACK_NAME: string;
 }
