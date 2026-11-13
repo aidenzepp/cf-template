@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import handler, { createServerEntry } from "@tanstack/react-start/server-entry";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Layer, ManagedRuntime } from "effect";
 import { WorkerBindings, isKvReader } from "@workspace/config/web-guard";
 import { LLMS_PATH } from "@workspace/contract/api/docs-paths";
 import { CREDENTIAL_ROUTES } from "@workspace/contract/domain/auth-endpoints";
@@ -44,7 +44,7 @@ export default createServerEntry({
       return guarded;
     }
 
-    const refused = await Effect.runPromise(checkRateLimit(request, env, CREDENTIAL_ROUTES));
+    const refused = await blocks.runPromise(checkRateLimit(request, env, CREDENTIAL_ROUTES));
 
     if (refused !== null) {
       return refused;
