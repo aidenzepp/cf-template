@@ -120,7 +120,7 @@ flowchart TB
     db["packages/db · @workspace/db<br/>makeDatabase, batch"]
     config["packages/config · @workspace/config<br/>Knob.make, LiveKnobs port, LogLevelKnob"]
     ui["packages/ui · @workspace/ui<br/>vendored shadcn · never hand-edited"]
-    knobs["packages/knobs-kv · @workspace/knobs-kv<br/>block: ./live, ./contract · the tier (c) adapter"]
+    knobs["packages/knobs-kv · @workspace/knobs-kv<br/>block, exports ./live and ./contract · the tier (c) adapter"]
   end
     infra["infra · @workspace/infra<br/>alchemy.run.ts, stage schema, the web Website declaration"]
   tools["tools/lint, tools/knob, tools/mirrors<br/>repository tooling, not workspaces"]

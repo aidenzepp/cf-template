@@ -89,7 +89,7 @@ export const makeCheck = <E>(store: LatchStore<E>) =>
   });
 
 /**
- * The `web` layer of the block: the {@link RequestGuard} `web` asks about every request.
+ * The `web` layer of the block, the {@link RequestGuard} `web` asks about every request.
  *
  * It reads the latch from the plain KV binding `GUARD_KV` of `web`'s env, never an account token.
  * A missing or unreadable binding fails the read, which serves. The receiver of the guard alert is
