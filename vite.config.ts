@@ -394,6 +394,12 @@ export default defineConfig({
         rules: { "promise/prefer-await-to-then": "off" },
       },
       {
+        // Alchemy Domain Stories assert recorded events with `Story.then(...)`, a step of the
+        // Story DSL, not a promise. Story files are declarative step lists and run no promises.
+        files: ["**/*.story.ts"],
+        rules: { "promise/prefer-await-to-then": "off" },
+      },
+      {
         // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
         // boundaries: Vitest calls a plain async function, so the Effect that validates the stage
         // and runs `alchemy`, or that builds the harness and runs axe-core, runs here. They keep
