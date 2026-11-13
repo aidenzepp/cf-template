@@ -14,6 +14,7 @@ import { Stage, stageValues } from "./stages.ts";
 import {
   issueNotificationAddress,
   prodIssueNotification,
+  projectionFailureAlert,
   rateLimitErrorAlert,
   volumeAlert,
 } from "./src/alerts.ts";
@@ -151,6 +152,7 @@ const program = Effect.gen(function* declareStack() {
   if (Option.isSome(address)) {
     yield* volumeAlert(stage, stack, address.value);
     yield* rateLimitErrorAlert(stage, stack, address.value);
+    yield* projectionFailureAlert(stage, stack, address.value);
     yield* prodIssueNotification(stage, stack, address.value, { api, auth, web });
   }
 

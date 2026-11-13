@@ -3,7 +3,17 @@ import { WorkerEnvironment } from "@alchemy.run/cloudflare";
 import { makeExecutionMemo } from "alchemy/Runtime/ExecutionMemo";
 import { RuntimeContext } from "alchemy";
 import { drizzleAdapter } from "@better-auth/drizzle-adapter/relations-v2";
-import { Config, ConfigProvider, Context, Effect, Layer, Option, Predicate } from "effect";
+import { oAuthProxy } from "better-auth/plugins/oauth-proxy";
+import {
+  Config,
+  ConfigProvider,
+  Context,
+  Effect,
+  Layer,
+  Option,
+  Predicate,
+  Redacted,
+} from "effect";
 import { makeDatabase } from "@workspace/db/database";
 import type { RawDatabase } from "@workspace/db/database";
 import { AUTH_ORPHAN_GRACE_SECONDS } from "@workspace/config/auth-orphan-grace";
@@ -99,6 +109,39 @@ const passwordOptions = (params: ScryptCost, run: RunEffect, origin: string) => 
   },
   plugins: [rehashAfterSignIn(params, run), passkeyPlugin(origin)],
 });
+
+/**
+ * The settings of Better Auth's `oAuthProxy` plugin: `prod`'s public origin, the one callback host
+ * registered with each provider, and the proxy secret every participating stage shares.
+ */
+const OAuthProxySettings = Config.all({
+  productionURL: Config.schema(PublicOrigin, "OAUTH_PROXY_PRODUCTION_URL"),
+  secret: Config.Redacted("OAUTH_PROXY_SECRET"),
+});
+
+/**
+ * The `oAuthProxy` plugin for the bound settings, or no plugin when the stage binds none.
+ *
+ * With the plugin, a preview's sign-in sends the provider to `prod`'s
+ * `/auth/callback/<provider>`; `prod` exchanges the code and redirects to the preview with the
+ * profile encrypted under `secret`, and the preview creates the user and session in its own D1.
+ * `local` and `test-…` stages bind no secret, so they run without it.
+ *
+ * @param settings - The production origin and proxy secret, or `None`.
+ * @returns The plugin, or an empty list.
+ */
+export const oauthProxyPlugins = (
+  settings: Option.Option<{
+    readonly productionURL: string;
+    readonly secret: Redacted.Redacted;
+  }>,
+) =>
+  Option.match(settings, {
+    onNone: () => [],
+    onSome: ({ productionURL, secret }) => [
+      oAuthProxy({ productionURL, secret: Redacted.value(secret) }),
+    ],
+  });
 
 /**
  * The Better Auth options that do not depend on the deployment: the base path, email and password
@@ -288,6 +331,7 @@ const AuthSettings = Config.all({
   graceSeconds: AUTH_ORPHAN_GRACE_SECONDS.config,
   maxAge: CookieCacheMaxAgeKnob.config,
   methods: AUTH_METHODS,
+  oauthProxy: Config.option(OAuthProxySettings),
   scrypt: AUTH_PASSWORD_SCRYPT.config,
   secret: Config.Redacted("BETTER_AUTH_SECRET"),
   strategy: CookieCacheStrategyKnob.config,
@@ -328,9 +372,15 @@ const makeInstance = Effect.gen(function* makeInstance() {
     run: Effect.runPromiseWith(services),
   });
 
+  const password = passwordOptions(
+    settings.scrypt,
+    Effect.runPromiseWith(services),
+    settings.baseURL,
+  );
+
   return yield* BetterAuth({
     ...authOptions,
-    ...passwordOptions(settings.scrypt, Effect.runPromiseWith(services), settings.baseURL),
+    ...password,
     baseURL: settings.baseURL,
     hooks: {
       after: logRejectedEmail({
@@ -347,6 +397,7 @@ const makeInstance = Effect.gen(function* makeInstance() {
       Effect.runForkWith(services)(effect);
     }),
     migrate: false,
+    plugins: [...password.plugins, ...oauthProxyPlugins(settings.oauthProxy)],
     secret: Effect.succeed(settings.secret),
     session: {
       cookieCache: { enabled: true, maxAge: settings.maxAge, strategy: settings.strategy },
