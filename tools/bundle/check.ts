@@ -147,8 +147,71 @@ export const manifestLeak = Effect.fn("bundle.manifestLeak")(function* manifestL
 });
 
 /**
+ * Strings that only appear in a client file when Router devtools code is bundled: the package
+ * names, which survive minification inside dynamic-import and error strings, and the exported
+ * component names, which survive in the devtools' own `displayName` and log text.
+ */
+export const DEVTOOLS_MARKERS: ReadonlyArray<string> = [
+  "@tanstack/react-router-devtools",
+  "@tanstack/router-devtools",
+  "@tanstack/router-devtools-core",
+  "TanStackRouterDevtools",
+];
+
+/**
+ * The marker lines for files whose text holds a devtools marker; no lines when none does.
+ */
+export const devtoolsHits = (
+  files: ReadonlyArray<{ readonly file: string; readonly text: string }>,
+): ReadonlyArray<string> =>
+  files.flatMap(({ file, text }) => {
+    const marker = DEVTOOLS_MARKERS.find((candidate) => text.includes(candidate));
+
+    return marker === undefined ? [] : [`${file}: contains "${marker}"`];
+  });
+
+/**
+ * Raised when a client file holds Router devtools code, which must never ship in production.
+ */
+export class DevtoolsInBundleError extends Schema.TaggedError<DevtoolsInBundleError>()(
+  "DevtoolsInBundleError",
+  { files: Schema.Array(Schema.String), message: Schema.String },
+) {}
+
+/**
+ * Fails with {@link DevtoolsInBundleError} when any JavaScript file under `clientDir` holds Router
+ * devtools code. Reads file content, so it covers lazy chunks as well as the initial graph.
+ */
+export const assertNoDevtools = Effect.fn("bundle.assertNoDevtools")(function* assertNoDevtools(
+  clientDir: string,
+) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const names = yield* fs.readDirectory(clientDir, { recursive: true });
+
+  const files = yield* Effect.all(
+    names
+      .filter((name) => name.endsWith(".js"))
+      .map((name) =>
+        fs
+          .readFileString(path.join(clientDir, name))
+          .pipe(Effect.map((text) => ({ file: name, text }))),
+      ),
+  );
+
+  const hits = devtoolsHits(files);
+
+  if (hits.length > 0) {
+    return yield* new DevtoolsInBundleError({
+      files: hits,
+      message: `Router devtools code in the production client bundle:\n${hits.join("\n")}`,
+    });
+  }
+});
+
+/**
  * Prints the report and appends it to the CI job summary when `GITHUB_STEP_SUMMARY` names a file.
- * Any failure to measure becomes a warning line; this check never fails the build.
+ * Any failure to measure becomes a warning line; the size report never fails the build.
  */
 const main = Effect.gen(function* main() {
   const fs = yield* FileSystem.FileSystem;
@@ -181,13 +244,22 @@ const main = Effect.gen(function* main() {
   }
 });
 
-if (import.meta.main) {
-  BunRuntime.runMain(
-    main.pipe(
-      Effect.catchCause((cause) =>
-        Console.log(`warning: initial JS summary not written: ${Cause.pretty(cause)}`),
-      ),
-      Effect.provide(BunServices.layer),
+/**
+ * The size report, then the devtools assertion, which is the one part of this check that fails
+ * the build.
+ */
+const check = Effect.gen(function* check() {
+  const path = yield* Path.Path;
+  const web = yield* path.fromFileUrl(new URL("../../apps/web/", import.meta.url));
+
+  yield* main.pipe(
+    Effect.catchCause((cause) =>
+      Console.log(`warning: initial JS summary not written: ${Cause.pretty(cause)}`),
     ),
   );
+  yield* assertNoDevtools(path.join(web, "dist/client"));
+});
+
+if (import.meta.main) {
+  BunRuntime.runMain(check.pipe(Effect.provide(BunServices.layer)));
 }
