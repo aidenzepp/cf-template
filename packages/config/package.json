@@ -5,7 +5,7 @@
   "type": "module",
   "exports": {
     "./knob": "./src/knob.ts",
-    "./api-docs": "./src/api-docs.ts",
+    "./docs": "./src/docs.ts",
     "./budget-guard": "./src/budget-guard.ts",
     "./log-level": "./src/log-level.ts",
     "./worker-requirements": "./src/worker-requirements.ts",
