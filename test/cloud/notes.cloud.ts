@@ -49,8 +49,9 @@ describe("the deployed notes flow", () => {
 
       assert.strictEqual(signUp.status, 200);
 
-      const user = (yield* signUp.json.pipe(Effect.flatMap(Schema.decodeUnknownEffect(SignUpReply))))
-        .user;
+      const user = (yield* signUp.json.pipe(
+        Effect.flatMap(Schema.decodeUnknownEffect(SignUpReply)),
+      )).user;
 
       const cookie = Cookies.toCookieHeader(signUp.cookies);
 
