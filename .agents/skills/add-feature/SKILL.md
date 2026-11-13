@@ -1,6 +1,6 @@
 ---
 name: add-feature
-description: Add a feature slice that declares no Cloudflare resource and adds no Worker. Use when adding a contract module, an `api` service with its handlers, and `web` route files for one feature, such as a new list-and-detail screen over the existing app database. A slice that declares a resource or adds a Worker is `add-block`'s.
+description: Add a feature slice that declares no Cloudflare resource and adds no Worker. Use when adding a contract module, an `api` service with its handlers, and `web` route files for one feature, such as a new list-and-detail screen over the existing app database. A unit that declares a resource or adds a Worker is a block, a package that exports a service tag and a Layer, attached in each Worker's `blocks.ts`.
 ---
 
 # Add Feature
@@ -8,8 +8,9 @@ description: Add a feature slice that declares no Cloudflare resource and adds n
 A feature slice is the contract module, the `api` service and the `web` route files for one
 feature, all of them over resources that already exist. The slice owns its own folders and touches
 the shared files in a few single lines, so removing it later is deleting its paths and those lines.
-A unit that declares a resource (a database, a bucket, a queue) or adds a Worker is not a slice; use
-the `add-block` skill for it.
+A unit that declares a resource (a database, a bucket, a queue) or adds a Worker is not a slice. It
+is a block, a package that exports a service tag and a Layer, attached as a `Layer.mergeAll` entry
+in each Worker's `blocks.ts`.
 
 Before writing, read [references/examples.md](references/examples.md). It shows the four attach
 forms as code, one example each, and the `exports` edit as a diff.
@@ -30,9 +31,8 @@ forms as code, one example each, and the `exports` edit as a diff.
    `apps/web/src/route-tree.gen.ts`; never edit that file by hand.
 6. Add the tests beside the code: the contract's Schema tests, the service's `it.effect` cases and
    the route's harness case. Then run `bun run check`, then `bun run test`.
-7. To remove the slice later (the attach lines, the `exports` entries whose target lies under a
-   deleted path, and the leftover scan), follow the `add-block` skill; this skill does not restate
-   it.
+7. To remove the slice later, delete its paths, its attach lines and the `exports` entries whose
+   target lies under a deleted path, then run `bun run check` and `bun run test`.
 
 ## The four attach forms
 
@@ -42,7 +42,8 @@ A slice adds one attach line per attach file, and nothing else in that file.
 - A `.add(...)` line on the `HttpApi` group list in the contract's `api.ts`, for the slice's group.
 - An entry in the multi-line `Layer.mergeAll(` of the services layer, one entry per line, for the
   slice's handler layer.
-- One entry appended to a named core `as const` array, for a registry the attach-file list names.
+- One entry appended to a named core `as const` array, for a registry such as
+  `tools/knob/registry.ts`.
 
 ## Limits to keep
 

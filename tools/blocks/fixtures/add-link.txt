@@ -1,3 +1,0 @@
-export const Api = HttpApi.make("api")
-  .add(SystemApiGroup)
-  .add(NotesApiGroup);

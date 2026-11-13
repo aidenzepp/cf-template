@@ -8,10 +8,10 @@ import { Effect, FileSystem, Path, Schema } from "effect";
 const WORKERS = ["api", "auth", "web"] as const;
 
 /**
- * A `KnobsKvLive` entry of a multi-line `Layer.mergeAll(`: the name alone on a line, an optional
- * comma and an optional trailing comment.
+ * An exported layer whose definition names `KnobsKvLive`, alone or among the entries of a
+ * `Layer.mergeAll`.
  */
-const ENTRY = /^\s*KnobsKvLive,?\s*(?:\/\/.*)?$/mu;
+const ENTRY = /^export const \w+ =[^;]*\bKnobsKvLive\b/mu;
 
 /**
  * The fields of this package's `package.json` the export test reads.
