@@ -156,7 +156,7 @@ const jsoncToJson = (text: string): string =>
  * Parses `bun.lock` (JSONC, with trailing commas) into its `packages` table.
  */
 export const readPackages = Effect.fn("mirrors.readPackages")(function* readPackages(text: string) {
-  return (yield* Schema.decodeUnknownEffect(LockJson)(jsoncToJson(text))).packages;
+  return (yield* Schema.decodeEffect(LockJson)(jsoncToJson(text))).packages;
 });
 
 /**
@@ -328,7 +328,7 @@ const verify = Effect.fn("mirrors.verify")(function* verify(
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const manifest = yield* Schema.decodeUnknownEffect(Manifest)(
+  const manifest = yield* Schema.decodeEffect(Manifest)(
     yield* fs.readFileString(path.join(dir, entry.verify)),
   );
 
@@ -474,7 +474,7 @@ export const program = Effect.fn("mirrors.program")(function* program(
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const entries = yield* Schema.decodeUnknownEffect(Mirrors)(
+  const entries = yield* Schema.decodeEffect(Mirrors)(
     yield* fs.readFileString(path.join(root, "tools/mirrors/mirrors.json")),
   );
 

@@ -85,7 +85,7 @@ export class Knob<A> {
     this.default = defaultValue;
     this.config = Config.schema(schema, key).pipe(Config.withDefault(defaultValue));
     this.override = (prefix) => Config.option(Config.schema(schema, `${prefix}${key}`));
-    this.decode = (raw) => Schema.decodeUnknownEffect(codec)(raw);
+    this.decode = (raw) => Schema.decodeEffect(codec)(raw);
     this.decodeSync = Schema.decodeUnknownSync(codec);
     this.encode = (a) =>
       Schema.encodeEffect(codec)(a).pipe(

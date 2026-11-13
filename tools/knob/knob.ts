@@ -102,7 +102,7 @@ const check = (
 export const resolveNamespace = Effect.fn("knob.resolveNamespace")(function* resolveNamespace(
   rawStage: string,
 ) {
-  const stage = yield* Schema.decodeUnknownEffect(Stage)(rawStage).pipe(
+  const stage = yield* Schema.decodeEffect(Stage)(rawStage).pipe(
     Effect.provide(Digest.layerWebCrypto),
   );
 

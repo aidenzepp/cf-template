@@ -5,7 +5,7 @@ import { CustomDomain, Hostname, PublicOrigin, WEB_DEV_PORT } from "./public-ori
 describe("Hostname", () => {
   it.effect.each(["example.com", "a-b.example.co.uk", "a", "1.example.com"])("accepts %s", (raw) =>
     Effect.gen(function* accepts() {
-      assert.isTrue(Exit.isSuccess(yield* Effect.exit(Schema.decodeUnknownEffect(Hostname)(raw))));
+      assert.isTrue(Exit.isSuccess(yield* Effect.exit(Schema.decodeEffect(Hostname)(raw))));
     }),
   );
 
@@ -21,7 +21,7 @@ describe("Hostname", () => {
     Array.from({ length: 64 }, () => "abc").join("."),
   ])("rejects %s", (raw) =>
     Effect.gen(function* rejects() {
-      assert.isTrue(Exit.isFailure(yield* Effect.exit(Schema.decodeUnknownEffect(Hostname)(raw))));
+      assert.isTrue(Exit.isFailure(yield* Effect.exit(Schema.decodeEffect(Hostname)(raw))));
     }),
   );
 });
@@ -29,14 +29,12 @@ describe("Hostname", () => {
 describe("CustomDomain", () => {
   it.effect.each(["workers-dev", "example.com"])("accepts %s", (raw) =>
     Effect.gen(function* accepts() {
-      assert.isTrue(
-        Exit.isSuccess(yield* Effect.exit(Schema.decodeUnknownEffect(CustomDomain)(raw))),
-      );
+      assert.isTrue(Exit.isSuccess(yield* Effect.exit(Schema.decodeEffect(CustomDomain)(raw))));
     }),
   );
 });
 
-const decode = (raw: string) => Effect.exit(Schema.decodeUnknownEffect(PublicOrigin)(raw));
+const decode = (raw: string) => Effect.exit(Schema.decodeEffect(PublicOrigin)(raw));
 
 describe("PublicOrigin", () => {
   it.effect.each(["https://app.example.test", `http://localhost:${WEB_DEV_PORT}`])(

@@ -91,7 +91,7 @@ const baselined = Effect.fn("oxlint-baseline.test.baselined")(function* baseline
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const baseline = yield* Schema.decodeUnknownEffect(Baseline)(
+  const baseline = yield* Schema.decodeEffect(Baseline)(
     yield* fs.readFileString(path.join(dir, "oxlint-suppressions.json")),
   );
 

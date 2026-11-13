@@ -79,7 +79,7 @@ const lintFixture = Effect.fnUntraced(function* lintFixture(
     ),
   );
 
-  const { diagnostics } = yield* Schema.decodeUnknownEffect(Report)(output);
+  const { diagnostics } = yield* Schema.decodeEffect(Report)(output);
 
   return (file: string) =>
     diagnostics.filter((diagnostic) => path.basename(diagnostic.filename) === file).length;
@@ -138,7 +138,7 @@ const reportedLines = Effect.fnUntraced(function* reportedLines(
     ),
   );
 
-  const { diagnostics } = yield* Schema.decodeUnknownEffect(LineReport)(output);
+  const { diagnostics } = yield* Schema.decodeEffect(LineReport)(output);
 
   return Arr.sort(
     [...new Set(diagnostics.flatMap(({ labels }) => labels.map(({ span }) => span.line)))],
