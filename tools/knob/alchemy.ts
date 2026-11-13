@@ -32,7 +32,7 @@ export interface StoredKey {
 /**
  * The metadata `set` writes beside a value: when it was written.
  */
-export interface StoredMetadata {
+interface StoredMetadata {
   readonly setAt: string;
 }
 

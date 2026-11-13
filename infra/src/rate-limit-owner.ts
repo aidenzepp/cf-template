@@ -111,10 +111,8 @@ export const customDomainVariable = (stage: StageName): string =>
  * @param ref - The `ref` of this stack's own rule.
  * @returns The ids of the foreign rules, in entrypoint order.
  */
-export const foreignRuleIds = (
-  rules: ReadonlyArray<EntrypointRule>,
-  ref: string,
-): ReadonlyArray<string> => rules.flatMap((rule) => (rule.ref === ref ? [] : [rule.id]));
+const foreignRuleIds = (rules: ReadonlyArray<EntrypointRule>, ref: string): ReadonlyArray<string> =>
+  rules.flatMap((rule) => (rule.ref === ref ? [] : [rule.id]));
 
 /**
  * Refuse the zone of `hostname` when its `http_ratelimit` entrypoint holds any rule this stack did

@@ -8,7 +8,9 @@ const NoWebLayers = Layer.empty;
 
 /**
  * The attach file of `web`. `web` has no Worker program, so its runtime provides the layer when
- * one does.
+ * one does. `blocks.json` names this file; no module imports it yet.
+ *
+ * @public
  */
 export const WebLayers = Layer.mergeAll(
   NoWebLayers,

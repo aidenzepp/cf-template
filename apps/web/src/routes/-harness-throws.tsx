@@ -21,7 +21,10 @@ declare module "@tanstack/react-router" {
  * tree; a build with `WEB_HARNESS_ROUTES=1` registers it. Its loader reports its record missing
  * for `?kind=not-found`, fails with a bare string for `?kind=string` or a plain object for
  * `?kind=object` (`run` rejects with a typed failure as it is), and dies with an undeclared defect
- * for anything else; the harness asserts that no page shows the thrown text.
+ * for anything else; the harness asserts that no page shows the thrown text. The router generator
+ * reads this export by name; no module imports it.
+ *
+ * @public
  */
 export const Route = createFileRoute("/-harness-throws")({
   loaderDeps: ({ search }: { readonly search: { readonly kind?: string } }) => ({

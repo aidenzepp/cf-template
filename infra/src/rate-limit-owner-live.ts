@@ -18,7 +18,7 @@ const NEEDS = "The credentials need Zone Read and Zone WAF Read on the zone.";
  * never created reads. `RulesetNotFound` also matches code 10001, which covers internal errors,
  * authentication failures and a token that may not make the call, so only this code means absent.
  */
-export const ABSENT_ENTRYPOINT_CODE = 10_003;
+const ABSENT_ENTRYPOINT_CODE = 10_003;
 
 /**
  * Wrap a failure of `operation` as a {@link RateLimitEntrypointError} naming its tag, code and
