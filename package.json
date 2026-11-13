@@ -10,7 +10,7 @@
   "scripts": {
     "audit": "bun tools/advisories/audit.ts",
     "renovate:validate": "bunx -p renovate@44.222.4 renovate-config-validator renovate.json",
-    "check": "bun tools/hooks/present.ts && vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings && bun run ui:typecheck && bun run db:check && bun tools/docs/runbook-check.ts docs/spin-up.md && knip && bun run ratchet",
+    "check": "bun tools/hooks/present.ts && vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings && bun run ui:typecheck && bun run db:check && bun tools/docs/runbook-check.ts docs/spin-up.md && bun --bun ./node_modules/.bin/design.md lint --format json DESIGN.md | bun tools/design-md/lint.ts DESIGN.md && knip && bun run ratchet",
     "design:md": "bun tools/design-md/generate.ts",
     "db:check": "bun tools/db/check.ts",
     "ui": "cd packages/ui && bunx shadcn@4.23.0",
@@ -44,6 +44,7 @@
     "@effect/platform-node": "4.1.2",
     "@effect/tsgo": "0.67.7",
     "@effect/vitest": "4.1.2",
+    "@google/design.md": "0.4.0",
     "@oxlint/plugins": "1.91.0",
     "@shadcn/lint": "0.2.5",
     "@stylistic/eslint-plugin": "5.10.0",

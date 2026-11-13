@@ -9,7 +9,10 @@ import {
   webObservability,
 } from "./telemetry.ts";
 import {
+  PROJECTION_FAILURE_THRESHOLD,
+  ProjectionConsumers,
   issueNotificationAddress,
+  projectionFailureQuery,
   rateLimitErrorQuery,
   volumeAlertQuery,
   volumeAlertThreshold,
@@ -74,11 +77,35 @@ describe("rateLimitErrorQuery", () => {
 
       assert.include(query, "accountTag = 'acct'");
       assert.include(query, `scriptName = '${script}'`);
-      assert.include(query, "attributes['event'] = 'web.ratelimit.error'");
+      assert.include(query, "attributes['message'] = 'web.ratelimit.error'");
       assert.notInclude(query, "JSONExtract");
       assert.notInclude(query, "-api-");
     }),
   );
+});
+
+describe("projectionFailureQuery", () => {
+  it.effect("scopes to the account and api's script and matches each consumer's failed runs", () =>
+    Effect.gen(function* consumers() {
+      const script = yield* workerName({ stack: "s", stage: "test-abc", worker: "api" });
+
+      for (const consumer of ProjectionConsumers) {
+        const query = projectionFailureQuery("acct", script, consumer);
+
+        assert.include(query, "FROM logs.workersLogs");
+        assert.include(query, "accountTag = 'acct'");
+        assert.include(query, `scriptName = '${script}'`);
+        assert.include(query, "attributes['event'] = 'domain.run.failed'");
+        assert.include(query, `attributes['consumer'] = '${consumer}'`);
+        assert.notInclude(query, "JSONExtract");
+      }
+    }),
+  );
+
+  it("watches the note index and fires above two failed runs", () => {
+    assert.deepStrictEqual([...ProjectionConsumers], ["NoteIndex"]);
+    assert.strictEqual(PROJECTION_FAILURE_THRESHOLD, 2);
+  });
 });
 
 /**

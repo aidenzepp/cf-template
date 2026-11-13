@@ -261,13 +261,13 @@ it.layer(realRepositoryUnchanged)("db:check", () => {
         const root = yield* scratchTree();
         const table = path.join(root, "apps/api/src/notes/table.ts");
         const source = yield* fs.readFileString(table);
+        const anchor = 'kind: text("kind").notNull(),';
+
+        assert.include(source, anchor);
 
         yield* fs.writeFileString(
           table,
-          source.replace(
-            'title: text("title").notNull(),',
-            'title: text("title").notNull(),\n  extra: text("extra"),',
-          ),
+          source.replace(anchor, `${anchor}\n    extra: text("extra"),`),
         );
 
         const lines = yield* findings(root);
