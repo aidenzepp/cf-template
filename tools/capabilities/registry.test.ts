@@ -10,7 +10,10 @@ import config from "../../vite.config.ts";
  * The guards `docs/capabilities.md` marks as pending, as `A<n> <rule key>`. Each lint PR of work
  * order A removes its entries here when it configures the rule and drops the marker from the row.
  */
-const pendingGuards: ReadonlyArray<string> = [];
+const pendingGuards: ReadonlyArray<string> = [
+  "A4 no-restricted-imports",
+  "A4 no-restricted-properties",
+];
 
 /**
  * A guard cell item that names a rule a later PR adds: `pending A<n> \`rule/key\``.

@@ -31,7 +31,6 @@ import {
   authFetchMembers,
   dataAccessMembers,
   globalThisFetch,
-  jsonStringifyMember,
   registryMembers,
   runMembers,
 } from "./tools/lint/rules/restricted-properties.ts";
@@ -342,19 +341,6 @@ export default defineConfig({
         rules: { "no-restricted-properties": ["error", ...runMembers, ...registryMembers] },
       },
       {
-        // Lifted until #237 removes it: three `client.$fetch` calls to the passkey endpoints.
-        files: ["apps/web/src/lib/settings-calls.ts"],
-        rules: {
-          "no-restricted-properties": [
-            "error",
-            ...runMembers,
-            ...dataAccessMembers,
-            jsonStringifyMember,
-            globalThisFetch,
-          ],
-        },
-      },
-      {
         // `latch.ts` is lifted until #249 removes it: the latch record is written with
         // `JSON.stringify`. `test-harness.ts` is test support.
         files: ["packages/budget-guard/src/latch.ts", "apps/auth/src/test-harness.ts"],
@@ -383,21 +369,6 @@ export default defineConfig({
           ],
           "promise/prefer-await-to-then": "off",
         },
-      },
-      {
-        // Lifted until the TanStack Form migration (#227) removes them: both files abort a
-        // submission with an `AbortController`, and the hook still chains a `Promise`.
-        files: [
-          "apps/web/src/components/auth/sign-in-form.tsx",
-          "apps/web/src/components/auth/sign-in-form.test.ts",
-          "apps/web/src/components/auth/use-auth-submit.ts",
-        ],
-        rules: { "no-restricted-globals": ["error", ...platformGlobals, webFetch] },
-      },
-      {
-        // Lifted until the TanStack Form migration (#227) removes it: a `.catch().then()` chain.
-        files: ["apps/web/src/components/auth/use-auth-submit.ts"],
-        rules: { "promise/prefer-await-to-then": "off" },
       },
       {
         // `auth.ts` is the documented Effect-to-Promise seam: Better Auth takes a promise view
@@ -447,9 +418,6 @@ export default defineConfig({
         jsPlugins: [
           "oxlint-plugin-react-doctor",
           { name: "react-hooks-js", specifier: "eslint-plugin-react-hooks" },
-          // `@tanstack/eslint-plugin-router` is the only TanStack lint plugin the registry uses;
-          // `route-param-names` rejects a `$param` segment that is not a JavaScript identifier.
-          { name: "tanstack-router", specifier: "@tanstack/eslint-plugin-router" },
         ],
         rules: {
           ...REACT_COMPILER_RULES,
@@ -464,7 +432,6 @@ export default defineConfig({
           "react-doctor/no-collapse-request-error-to-empty-state": "error",
           "react-doctor/only-export-components": "off",
           "react-doctor/tanstack-start-no-direct-fetch-in-loader": "error",
-          "tanstack-router/route-param-names": "error",
         },
       },
       {
@@ -500,48 +467,6 @@ export default defineConfig({
         // browser-only hydrated copies are the module state that boundary owns (Mind ruling, I-28f).
         files: ["apps/web/src/runtime.ts"],
         rules: { "workspace/no-mutable-module-state": "off" },
-      },
-      {
-        // The capability registry's form row allows the form hook's own directory to read a submit.
-        files: ["apps/web/src/components/form/**"],
-        rules: { "workspace/no-raw-form-submit": "off" },
-      },
-      {
-        // Lifted until the TanStack Form migration (#253 and its C2/C3 children) replaces them: each
-        // file submits a `<form onSubmit>` or reads a `FormData`; the notes test feeds one to the
-        // parser the migration removes.
-        files: [
-          "apps/web/src/components/auth/reauthenticate.tsx",
-          "apps/web/src/components/auth/sign-in-form.tsx",
-          "apps/web/src/components/auth/sign-up-form.tsx",
-          "apps/web/src/routes/notes/-note-form.tsx",
-          "apps/web/src/routes/notes/-notes.test.ts",
-          "apps/web/src/routes/settings.tsx",
-        ],
-        rules: { "workspace/no-raw-form-submit": "off" },
-      },
-      {
-        // Lifted until #238 moves the re-auth account list into a loader or atom.
-        files: ["apps/web/src/components/auth/reauthenticate.tsx"],
-        rules: { "workspace/no-effect-data-load": "off" },
-      },
-      {
-        // Passkey autofill effect: a WebAuthn conditional-mediation call, not a data load.
-        files: ["apps/web/src/components/auth/sign-in-form.tsx"],
-        rules: { "workspace/no-effect-data-load": "off" },
-      },
-      {
-        // Lifted until #235 loads the settings accounts in the route loader.
-        files: ["apps/web/src/routes/settings.tsx"],
-        rules: { "workspace/no-effect-data-load": "off" },
-      },
-      {
-        // Lifted until #239 refreshes the notes through `reactivityKeys` instead of these effects.
-        files: [
-          "apps/web/src/routes/notes/-delete-note-button.tsx",
-          "apps/web/src/routes/notes/-note-form.tsx",
-        ],
-        rules: { "workspace/no-effect-on-async-result": "off" },
       },
       {
         // `packages/contract` defines the Problem classes, so it writes the media type. Tests assert
@@ -661,12 +586,7 @@ export default defineConfig({
       "typescript/array-type": ["error", { default: "generic", readonly: "generic" }],
       // Effect adapters return existing promises without introducing async wrappers.
       "typescript/promise-function-async": "off",
-      // A TanStack route-param file (`$noteId.tsx`) keeps the camelCase the router turns into
-      // `params.noteId`; `workspace/kebab-case-paths` allows the same spelling for directories.
-      "unicorn/filename-case": [
-        "error",
-        { case: "kebabCase", ignore: ["^\\$[a-z][A-Za-z0-9]*\\.tsx?$"] },
-      ],
+      "unicorn/filename-case": ["error", { case: "kebabCase" }],
       // misfires on Schema.TaggedError<X>()(...) calls and takes no options; throw is already banned in source by the Effect-native rule (AGENTS.md)
       "unicorn/throw-new-error": "off",
       "workspace/error-message-grammar": "error",
