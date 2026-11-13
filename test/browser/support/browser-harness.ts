@@ -13,7 +13,7 @@ const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 /**
  * True once React has hydrated a node of the page: hydrated nodes carry a `__reactFiber` key.
  */
-const HYDRATED = `[...document.querySelectorAll("*")].some((element) =>
+export const HYDRATED = `[...document.querySelectorAll("*")].some((element) =>
   Object.keys(element).some((key) => key.startsWith("__reactFiber")),
 )`;
 
@@ -66,7 +66,7 @@ const hasMiniflare = (module: unknown): module is MiniflareModule =>
  * @param step - The step.
  * @returns The step's result, or a {@link BrowserTierFailed}.
  */
-const promised = <A>(what: string, step: () => Promise<A>) =>
+export const promised = <A>(what: string, step: () => Promise<A>) =>
   Effect.tryPromise({
     catch: (cause) => new BrowserTierFailed({ message: `${what} failed: ${String(cause)}.` }),
     try: step,
@@ -75,7 +75,7 @@ const promised = <A>(what: string, step: () => Promise<A>) =>
 /**
  * The origin of the production build of `web`, served on Miniflare.
  */
-class Harness extends Context.Service<Harness, { readonly origin: string }>()(
+export class Harness extends Context.Service<Harness, { readonly origin: string }>()(
   "@workspace/test/BrowserHarness",
 ) {}
 
@@ -263,6 +263,18 @@ export const scanPage = (
   cookie: string | undefined,
   colorScheme: "light" | "dark",
 ) => runtime.runPromise(scan(context, target, cookie, colorScheme));
+
+/**
+ * Run a browser command of the harness at the Vitest boundary: Vitest calls a plain function and
+ * awaits its Promise. The `audit` command of `test/browser/support/style-audit.ts` runs here, so it
+ * shares the harness this module builds.
+ *
+ * @param effect - The command, needing the harness or the Bun services.
+ * @returns A promise of the command's result.
+ */
+export const runInHarness = <A, E>(
+  effect: Effect.Effect<A, E, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>,
+) => runtime.runPromise(effect);
 
 /**
  * Stop the harness, if a scan started it.

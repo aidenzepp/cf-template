@@ -1,25 +1,25 @@
+import * as Domain from "@alchemy.run/domain";
 import { assert, describe, it } from "@effect/vitest";
+import * as Http from "alchemy/Http";
+import { ByteSize, Context, DateTime, Effect, ErrorReporter, Layer, Ref, Schema } from "effect";
+import { HttpRouter, HttpServerRequest } from "effect/http";
 import {
-  ByteSize,
-  ConfigProvider,
-  Context,
-  DateTime,
-  Effect,
-  ErrorReporter,
-  Layer,
-  Ref,
-  Schema,
-} from "effect";
-import { HttpRouter, HttpServer, HttpServerRequest } from "effect/http";
-import { HttpApiBuilder, HttpApiError } from "effect/http-api";
-import { Api } from "@workspace/contract/api/api";
-import { NOTE_TITLE_MAX_LENGTH } from "@workspace/contract/domain/note";
+  HttpApi,
+  HttpApiBuilder,
+  HttpApiEndpoint,
+  HttpApiError,
+  HttpApiGroup,
+  HttpApiMiddleware,
+} from "effect/http-api";
+import { SystemApi } from "@workspace/contract/api/system";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
-import { ExampleFeatureGateLive } from "./notes/gate.ts";
-import { NotesApiHandlersNoDeps } from "./notes/http.ts";
-import { Notes } from "./notes/notes.ts";
+import { NotebookGroup, NotebookHttp } from "./docs/routes.ts";
+import { NOTES_MAX_PER_OWNER } from "./notes/notebook.aggregate.ts";
+import { NOTE_TITLE_MAX_LENGTH } from "./notes/note.command.ts";
+import { NotesModel } from "./notes/notes.model.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
+import { SessionLive } from "./session-middleware.ts";
 import { SystemApiHandlers } from "./system/http.ts";
 
 const ada = new Session({
@@ -43,53 +43,78 @@ const wire = (session: Session) =>
   );
 
 /**
- * A `Notes` whose `list` dies with `defect`, so a test can make the handler fault.
- *
- * @param defect - The value `list` dies with.
- * @returns The layer.
+ * Test-local endpoints: two whose handlers fault, since no served route can be made to fault on
+ * demand, and one that decodes a payload, the control for the Notebook commands.
  */
-const dyingNotes = (defect: Error) =>
-  Layer.succeed(
-    Notes,
-    Notes.of({
-      create: () => Effect.die(defect),
-      get: () => Effect.die(defect),
-      list: () => Effect.die(defect),
-      remove: () => Effect.die(defect),
-      update: () => Effect.die(defect),
+const ProbeGroup = HttpApiGroup.make("probe")
+  .add(HttpApiEndpoint.get("defect", "/api/probe/defect"))
+  .add(HttpApiEndpoint.get("conflict", "/api/probe/conflict"))
+  .add(
+    HttpApiEndpoint.post("echo", "/api/probe/echo", {
+      payload: Schema.Struct({ body: Schema.String, title: Schema.String }),
     }),
   );
 
 /**
- * Serve the whole router stack of the Worker with a `1 kB` body limit and the given error reporter.
+ * The served Api's shape with the probe group among the groups `ProblemDetails` wraps: the
+ * contract's groups, then the middleware, then the Notebook group as `ServedApi` hosts it.
+ */
+const ProbedApi = HttpApi.make("Api")
+  .add(SystemApi)
+  .add(ProbeGroup)
+  .middleware(HttpApiMiddleware.ProblemDetails)
+  .add(NotebookGroup);
+
+/**
+ * The probe handlers: `defect` dies with `defect`, `conflict` dies with a raw built-in error and
+ * `echo` answers nothing.
+ *
+ * @param defect - The value the `defect` endpoint dies with.
+ * @returns The handler layer.
+ */
+const probeHandlers = (defect: Error) =>
+  HttpApiBuilder.group(ProbedApi, "probe", (handlers) =>
+    handlers
+      .handle("defect", () => Effect.die(defect))
+      .handle("conflict", () => Effect.die(new HttpApiError.Conflict()))
+      .handle("echo", () => Effect.void),
+  );
+
+/**
+ * Serve the router stack of the Worker, the Notebook group hosted in memory beside the probe
+ * group, signed in as Ada, with a `1 kB` body limit and the given error reporter.
  *
  * @param options - The stack's settings.
  * @param options.includeDetails - The `PROBLEM_DETAILS_INCLUDE` value.
- * @param options.notes - The `Notes` implementation.
  * @param options.reporter - The error reporter that observes the stack.
+ * @param options.signedIn - Whether `auth` answers with Ada's session or with `null`.
  * @returns A function that sends a request and resolves to its response.
  */
 const serve = (options: {
   readonly includeDetails: boolean;
-  readonly notes: Layer.Layer<Notes>;
   readonly reporter?: ErrorReporter.ErrorReporter;
+  readonly signedIn?: boolean;
 }) =>
   Effect.gen(function* serveStack() {
-    const layer = HttpApiBuilder.layer(Api).pipe(
+    const notebook = NotebookHttp.layerFor(ProbedApi).pipe(
+      Layer.provide(SessionLive),
+      Layer.provide(NotesModel.layer(Layer.empty).pipe(Layer.provide(Domain.InMemory))),
+    );
+
+    const layer = HttpApiBuilder.layer(ProbedApi).pipe(
       Layer.provide(
-        Layer.mergeAll(NotesApiHandlersNoDeps, SystemApiHandlers).pipe(
-          Layer.provide(options.notes),
+        Layer.mergeAll(SystemApiHandlers, notebook, probeHandlers(new Error("kaboom"))),
+      ),
+      Layer.provide(SessionMiddlewareLive),
+      Layer.provide(SessionLookup.layer),
+      Layer.provide(
+        Layer.succeed(AuthCheckSession, () =>
+          Effect.succeed(options.signedIn === false ? null : wire(ada)),
         ),
       ),
-      Layer.provide([SessionMiddlewareLive, ExampleFeatureGateLive]),
-      Layer.provide(SessionLookup.layer),
-      Layer.provide(Layer.succeed(AuthCheckSession, () => Effect.succeed(wire(ada)))),
       Layer.provide(layerProblemDetails({ includeDetails: options.includeDetails })),
-      Layer.provide(HttpServer.layerServices),
+      Layer.provide(Http.Platform),
       Layer.merge(ProblemAdapter),
-      Layer.provide(
-        ConfigProvider.layer(ConfigProvider.fromUnknown({ EXAMPLE_FEATURE_ENABLED: "true" })),
-      ),
     );
 
     const { dispose, handler } = HttpRouter.toWebHandler(layer, { disableLogger: true });
@@ -114,6 +139,26 @@ const json = (path: string, method: string, body: string, contentType = "applica
   });
 
 /**
+ * A JSON value: what a test may put in a request body, well formed or not.
+ */
+type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | ReadonlyArray<Json>
+  | { readonly [key: string]: Json };
+
+/**
+ * A `CreateNote` command body for Ada's notebook.
+ *
+ * @param input - The note fields, any JSON value so a test can send a malformed one.
+ * @returns The JSON body.
+ */
+const createNote = (input: Json, commandId = "c-1", target = "ada") =>
+  JSON.stringify({ commandId, input, target });
+
+/**
  * Assert a response is a bare `about:blank` problem with the given status and phrase.
  *
  * @param response - The response to check.
@@ -132,8 +177,22 @@ const assertBlank = (response: Response, status: number, title: string) =>
     });
   });
 
+/**
+ * Assert a response is the typed problem of a Rejection.
+ *
+ * @param response - The response to check.
+ * @param expected - The expected body.
+ * @returns An effect that asserts.
+ */
+const assertRejection = (response: Response, expected: Record<string, Json>) =>
+  Effect.gen(function* rejection() {
+    assert.strictEqual(response.status, expected.status);
+    assert.match(response.headers.get("content-type") ?? "", /^application\/problem\+json/u);
+    assert.deepStrictEqual(yield* Effect.promise(() => response.json()), expected);
+  });
+
 describe("the adapter", () => {
-  const defaults = { includeDetails: false, notes: Notes.layerMemory };
+  const defaults = { includeDetails: false };
 
   it.effect("turns an unrouted path into a problem", () =>
     Effect.gen(function* unrouted() {
@@ -156,9 +215,13 @@ describe("the adapter", () => {
   it.effect("turns a body over the limit into a 413 problem", () =>
     Effect.gen(function* tooLarge() {
       const send = yield* serve(defaults);
-      const body = JSON.stringify({ body: "x".repeat(2048), title: "big" });
+      const body = createNote({ body: "x".repeat(2048), id: "n-1", title: "big" });
 
-      yield* assertBlank(yield* send(json("/api/notes", "POST", body)), 413, "Content Too Large");
+      yield* assertBlank(
+        yield* send(json("/api/CreateNote", "POST", body)),
+        413,
+        "Content Too Large",
+      );
     }).pipe(Effect.scoped),
   );
 
@@ -167,7 +230,7 @@ describe("the adapter", () => {
       const send = yield* serve(defaults);
 
       yield* assertBlank(
-        yield* send(json("/api/notes", "POST", "title=x", "text/plain")),
+        yield* send(json("/api/CreateNote", "POST", "title=x", "text/plain")),
         415,
         "Unsupported Media Type",
       );
@@ -182,14 +245,10 @@ describe("the adapter", () => {
         Effect.runSync(Ref.update(reports, (all) => [...all, error.message]));
       });
 
-      const send = yield* serve({
-        ...defaults,
-        notes: dyingNotes(new Error("kaboom")),
-        reporter,
-      });
+      const send = yield* serve({ ...defaults, reporter });
 
       yield* assertBlank(
-        yield* send(new Request("http://api.test/api/notes")),
+        yield* send(new Request("http://api.test/api/probe/defect")),
         500,
         "Internal Server Error",
       );
@@ -199,60 +258,61 @@ describe("the adapter", () => {
 
   it.effect("turns a raw built-in error into a problem", () =>
     Effect.gen(function* builtIn() {
-      const send = yield* serve({ ...defaults, notes: dyingNotes(new HttpApiError.Conflict()) });
+      const send = yield* serve(defaults);
 
-      yield* assertBlank(yield* send(new Request("http://api.test/api/notes")), 409, "Conflict");
+      yield* assertBlank(
+        yield* send(new Request("http://api.test/api/probe/conflict")),
+        409,
+        "Conflict",
+      );
     }).pipe(Effect.scoped),
   );
 
   it.effect("passes a declared Problem through unchanged", () =>
     Effect.gen(function* declared() {
-      const send = yield* serve(defaults);
-      const response = yield* send(new Request("http://api.test/api/notes/missing"));
+      const send = yield* serve({ ...defaults, signedIn: false });
 
-      assert.strictEqual(response.status, 404);
+      const response = yield* send(
+        json("/api/CreateNote", "POST", createNote({ body: "", id: "n-1", title: "t" })),
+      );
+
+      assert.strictEqual(response.status, 401);
       assert.isNull(response.headers.get("retry-after"));
       assert.deepStrictEqual(yield* Effect.promise(() => response.json()), {
-        id: "missing",
-        status: 404,
-        title: "Note not found",
-        type: "/problems/note-not-found",
+        status: 401,
+        title: "Sign-in required",
+        type: "/problems/session-required",
       });
     }).pipe(Effect.scoped),
   );
 });
 
 describe("note size caps", () => {
-  it.effect("answers 400 for a title or body over its cap and stores nothing", () =>
+  it.effect("answers 400 for a title over its cap and stores nothing", () =>
     Effect.gen(function* oversized() {
-      const send = yield* serve({ includeDetails: false, notes: Notes.layerMemory });
+      const send = yield* serve({ includeDetails: false });
 
-      const title = yield* send(
+      const rejected = yield* send(
         json(
-          "/api/notes",
+          "/api/CreateNote",
           "POST",
-          JSON.stringify({ body: "b", title: "t".repeat(NOTE_TITLE_MAX_LENGTH + 1) }),
+          createNote({ body: "b", id: "n-1", title: "t".repeat(NOTE_TITLE_MAX_LENGTH + 1) }),
         ),
       );
 
-      const patch = yield* send(
-        json(
-          "/api/notes/any",
-          "PATCH",
-          JSON.stringify({ title: "t".repeat(NOTE_TITLE_MAX_LENGTH + 1) }),
-        ),
+      assert.strictEqual(rejected.status, 400);
+      assert.deepStrictEqual(yield* Effect.promise(() => rejected.json()), {
+        detail: "Request validation failed",
+        status: 400,
+        title: "Bad Request",
+        type: "about:blank",
+      });
+
+      const created = yield* send(
+        json("/api/CreateNote", "POST", createNote({ body: "b", id: "n-1", title: "t" })),
       );
 
-      for (const response of [title, patch]) {
-        assert.strictEqual(response.status, 400);
-        assert.match(response.headers.get("content-type") ?? "", /^application\/problem\+json/u);
-        assert.deepStrictEqual(yield* Effect.promise(() => response.json()), {
-          detail: "Request validation failed",
-          status: 400,
-          title: "Bad Request",
-          type: "about:blank",
-        });
-      }
+      assert.isBelow(created.status, 300);
     }).pipe(Effect.scoped),
   );
 });
@@ -261,19 +321,16 @@ describe("PROBLEM_DETAILS_INCLUDE", () => {
   const secret = "hunter2-SECRET-VALUE";
 
   const decodeFailures = [
-    [
-      "a wrong type with an unexpected key",
-      JSON.stringify({ body: "b", password: secret, title: 5 }),
-    ],
-    ["a body of the wrong kind", JSON.stringify([secret])],
-    ["a nested value", JSON.stringify({ body: { token: secret }, title: { token: secret } })],
+    ["a wrong type with an unexpected key", { body: "b", id: "n-1", password: secret, title: 5 }],
+    ["a body of the wrong kind", [secret]],
+    ["a nested value", { body: { token: secret }, id: "n-1", title: { token: secret } }],
   ] as const;
 
-  it.effect.each(decodeFailures)("answers 400 and echoes no request value for %s", ([, body]) =>
+  it.effect.each(decodeFailures)("answers 400 and echoes no request value for %s", ([, value]) =>
     Effect.gen(function* decodeFailure() {
       for (const includeDetails of [false, true]) {
-        const send = yield* serve({ includeDetails, notes: Notes.layerMemory });
-        const response = yield* send(json("/api/notes", "POST", body));
+        const send = yield* serve({ includeDetails });
+        const response = yield* send(json("/api/probe/echo", "POST", JSON.stringify(value)));
         const text = yield* Effect.promise(() => response.text());
 
         assert.strictEqual(response.status, 400);
@@ -281,6 +338,91 @@ describe("PROBLEM_DETAILS_INCLUDE", () => {
         assert.notInclude(text, secret);
         assert.strictEqual(text.includes('"errors"'), includeDetails);
       }
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect.each(decodeFailures)(
+    "answers a Notebook command 400 and echoes no request value for %s",
+    ([, value]) =>
+      Effect.gen(function* notebookDecodeFailure() {
+        for (const includeDetails of [false, true]) {
+          const send = yield* serve({ includeDetails });
+          const body = Array.isArray(value) ? JSON.stringify(value) : createNote(value);
+          const response = yield* send(json("/api/CreateNote", "POST", body));
+          const text = yield* Effect.promise(() => response.text());
+
+          assert.strictEqual(response.status, 400);
+          assert.match(response.headers.get("content-type") ?? "", /^application\/problem\+json/u);
+          assert.include(text, '"detail":"Request validation failed"');
+          assert.notInclude(text, secret);
+          assert.strictEqual(text.includes('"errors"'), includeDetails);
+        }
+      }).pipe(Effect.scoped),
+  );
+});
+
+describe("Notebook rejections", () => {
+  const note = { body: "b", id: "n-1", title: "t" };
+
+  it.effect("answers a duplicate create with note-already-exists", () =>
+    Effect.gen(function* duplicate() {
+      const send = yield* serve({ includeDetails: false });
+
+      yield* send(json("/api/CreateNote", "POST", createNote(note)));
+
+      yield* assertRejection(
+        yield* send(json("/api/CreateNote", "POST", createNote(note, "c-2"))),
+        {
+          id: "n-1",
+          status: 409,
+          title: "Conflict",
+          type: "/problems/note-already-exists",
+        },
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("answers a create in another owner's notebook with not-notebook-owner", () =>
+    Effect.gen(function* nonOwner() {
+      const send = yield* serve({ includeDetails: false });
+
+      yield* assertRejection(
+        yield* send(json("/api/CreateNote", "POST", createNote(note, "c-1", "bob"))),
+        { status: 403, title: "Forbidden", type: "/problems/not-notebook-owner" },
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("answers a create past the limit with note-quota-exceeded", () =>
+    Effect.gen(function* overQuota() {
+      const send = yield* serve({ includeDetails: false });
+
+      for (let index = 0; index < NOTES_MAX_PER_OWNER; index += 1) {
+        const id = `n-${index}`;
+
+        yield* send(json("/api/CreateNote", "POST", createNote({ ...note, id }, `c-${index}`)));
+      }
+
+      yield* assertRejection(
+        yield* send(json("/api/CreateNote", "POST", createNote({ ...note, id: "n-x" }, "c-x"))),
+        {
+          limit: NOTES_MAX_PER_OWNER,
+          status: 409,
+          title: "Conflict",
+          type: "/problems/note-quota-exceeded",
+        },
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("answers a delete of a missing note with note-not-found", () =>
+    Effect.gen(function* missing() {
+      const send = yield* serve({ includeDetails: false });
+
+      yield* assertRejection(
+        yield* send(json("/api/DeleteNote", "POST", createNote({ id: "n-9" }))),
+        { id: "n-9", status: 404, title: "Not Found", type: "/problems/note-not-found" },
+      );
     }).pipe(Effect.scoped),
   );
 });

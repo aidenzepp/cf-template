@@ -91,7 +91,13 @@ export default {
     if (mode !== null) headers.set("sec-fetch-mode", mode);
     const which = headers.get("x-test-web");
     const target =
-      which === "bad-auth-methods" ? env.WEB_BAD : which === "github" ? env.WEB_GITHUB : env.WEB;
+      which === "bad-auth-methods"
+        ? env.WEB_BAD
+        : which === "github"
+          ? env.WEB_GITHUB
+          : which === "live"
+            ? env.WEB_LIVE
+            : env.WEB;
     headers.delete("x-test-web");
     return target.fetch(new Request(request, { headers, redirect: "manual" }));
   },
@@ -114,6 +120,7 @@ class WebProd extends Context.Service<
         readonly method?: string;
       },
     ) => Effect.Effect<HarnessResponse, HarnessError>;
+    readonly setLiveDocs: (value: string) => Effect.Effect<void, HarnessError>;
   }
 >()("@workspace/web/WebProd") {}
 
@@ -166,6 +173,7 @@ const WebProdLive = Layer.effect(WebProd)(
                   WEB: "web",
                   WEB_BAD: "web-bad-auth-methods",
                   WEB_GITHUB: "web-github",
+                  WEB_LIVE: "web-live",
                 },
               },
               {
@@ -197,6 +205,7 @@ const WebProdLive = Layer.effect(WebProd)(
                 },
                 bindings: {
                   AUTH_METHODS: '{"email":false,"providers":[]}',
+                  DOCS_ENABLED: true,
                   PUBLIC_ORIGIN: "http://x",
                 },
                 compatibilityDate: COMPAT_DATE,
@@ -226,6 +235,28 @@ const WebProdLive = Layer.effect(WebProd)(
                 serviceBindings: { API: "api", AUTH: "auth" },
               },
               {
+                assets: {
+                  directory: client,
+                  routerConfig: {
+                    has_user_worker: true,
+                    static_routing: { user_worker: [...FORWARD_PREFIXES] },
+                  },
+                },
+                bindings: {
+                  AUTH_METHODS: '{"email":false,"providers":[]}',
+                  DOCS_ENABLED: false,
+                  DOCS_LIVE_READ: true,
+                  PUBLIC_ORIGIN: "http://x",
+                },
+                compatibilityDate: COMPAT_DATE,
+                kvNamespaces: { KNOBS: "web-live-knobs" },
+
+                modules: files.map((file) => ({ path: path.join(server, file), type: "ESModule" })),
+                modulesRoot: server,
+                name: "web-live",
+                serviceBindings: { API: "api", AUTH: "auth" },
+              },
+              {
                 compatibilityDate: COMPAT_DATE,
                 modules: true,
                 name: "api",
@@ -249,6 +280,15 @@ const WebProdLive = Layer.effect(WebProd)(
     );
 
     return WebProd.of({
+      setLiveDocs: (value) =>
+        Effect.tryPromise({
+          catch: (cause) =>
+            new HarnessError({ message: `the live knob could not be written: ${String(cause)}` }),
+          try: async () => {
+            const kv = await mf.getKVNamespace("KNOBS", "web-live");
+            await kv.put("DOCS_ENABLED", value);
+          },
+        }),
       request: (target, init) =>
         Effect.tryPromise({
           catch: (cause) =>
@@ -444,6 +484,55 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
         expect(off.headers.get("content-type")).toBe(unrouted.headers.get("content-type"));
         expect(yield* text(off)).not.toBe("nope");
       }),
+  );
+
+  it.effect("serves the committed DESIGN.md at /design.md while DOCS_ENABLED is on", () =>
+    Effect.gen(function* design() {
+      const web = yield* WebProd;
+      const on = yield* web.request("/design.md", { headers: { accept: "text/html" } });
+
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+
+      const committed = yield* path
+        .fromFileUrl(new URL("../../../DESIGN.md", import.meta.url))
+        .pipe(
+          Effect.flatMap((file) => fs.readFileString(file)),
+          Effect.mapError(
+            (cause) =>
+              new HarnessError({ message: `DESIGN.md could not be read: ${String(cause)}` }),
+          ),
+        );
+
+      expect(on.status).toBe(200);
+      expect(on.headers.get("content-type")).toBe("text/markdown; charset=utf-8");
+      expect(yield* text(on)).toBe(committed);
+    }).pipe(Effect.provide(NodeServices.layer)),
+  );
+
+  it.effect("answers /design.md as an unrouted path while DOCS_ENABLED is off", () =>
+    Effect.gen(function* designOff() {
+      const web = yield* WebProd;
+      const headers = { accept: "text/html", "x-test-web": "github" };
+      const off = yield* web.request("/design.md", { headers });
+      const unrouted = yield* web.request("/missing", { headers });
+
+      expect(off.status).toBe(404);
+      expect(off.status).toBe(unrouted.status);
+      expect(off.headers.get("content-type")).toBe(unrouted.headers.get("content-type"));
+    }),
+  );
+
+  it.effect("follows the live DOCS_ENABLED value per request where live reads are on", () =>
+    Effect.gen(function* live() {
+      const web = yield* WebProd;
+      const headers = { accept: "text/html", "x-test-web": "live" };
+
+      yield* web.setLiveDocs("true");
+      expect((yield* web.request("/design.md", { headers })).status).toBe(200);
+      yield* web.setLiveDocs("false");
+      expect((yield* web.request("/design.md", { headers })).status).toBe(404);
+    }),
   );
 
   it.effect("answers GET / from TanStack and GET /missing with TanStack's 404", () =>

@@ -1,11 +1,12 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
+import * as Domain from "@alchemy.run/domain";
 import { assert, describe, it } from "@effect/vitest";
 import { Context, Effect, Layer, Schema } from "effect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { OpenApi } from "effect/http-api";
 import { ServedApi } from "../docs/routes.ts";
 import { makeHandler } from "../worker.ts";
-import { Notes } from "./notes.ts";
+import { NotesModel } from "./notes.model.ts";
 
 /**
  * One operation of the generated document: its method, its path and its `operationId`.
@@ -133,12 +134,15 @@ const operations: ReadonlyArray<Operation> = Object.entries(
  */
 const statusWithoutCookie = (operation: Operation) =>
   Effect.gen(function* call() {
-    const notes = yield* Notes.pipe(Effect.provide(Notes.layerMemory));
+    const hosted = yield* Layer.build(
+      NotesModel.layer(Layer.empty).pipe(Layer.provide(Domain.InMemory)),
+    );
 
     const handler = yield* makeHandler(
       () => Effect.succeed(null),
-      Context.make(Notes, notes),
+      Context.empty(),
       Layer.empty,
+      hosted,
     );
 
     const init: RequestInit = { method: operation.method };
@@ -157,11 +161,7 @@ const statusWithoutCookie = (operation: Operation) =>
     );
 
     return HttpServerResponse.toWeb(response).status;
-  }).pipe(
-    Effect.scoped,
-    Effect.provideService(Cloudflare.WorkerEnvironment, { EXAMPLE_FEATURE_ENABLED: "true" }),
-    Effect.orDie,
-  );
+  }).pipe(Effect.scoped, Effect.provideService(Cloudflare.WorkerEnvironment, {}), Effect.orDie);
 
 describe("the generated OpenAPI document with no cookie", () => {
   it.effect("lists a Notebook operation and answers 401 to every operation not allowlisted", () =>

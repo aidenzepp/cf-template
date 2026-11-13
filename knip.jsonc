@@ -8,6 +8,7 @@
       "project": [
         "**/*.{ts,tsx,mjs}",
         "!tools/lint/fixtures/**",
+        "!.agents/**",
         "!tools/ratchet/fixtures/**",
         "!tools/knob/alchemy.fixture.ts",
         "!test/browser/fixtures/**",
