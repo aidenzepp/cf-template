@@ -19,7 +19,7 @@ const NAMESPACE = { id: "ns-1", title: TITLE } as const;
  * A fake namespace client: it records every call as one line and answers from `namespaces` and
  * `rows`.
  */
-const storeOf = (namespaces: ReadonlyArray<NamespaceRef>, rows: ReadonlyArray<StoredKey> = []) => {
+const storeOf = (namespaces: ReadonlyArray<NamespaceRef>, rows: Array<StoredKey> = []) => {
   const calls: Array<string> = [];
 
   const layer = Layer.succeed(
@@ -38,6 +38,12 @@ const storeOf = (namespaces: ReadonlyArray<NamespaceRef>, rows: ReadonlyArray<St
       remove: (namespaceId, key) =>
         Effect.sync(() => {
           calls.push(`remove ${namespaceId} ${key}`);
+
+          const at = rows.findIndex((row) => row.key === key);
+
+          if (at !== -1) {
+            rows.splice(at, 1);
+          }
         }),
       stored: (namespaceId) =>
         Effect.sync(() => {
@@ -96,12 +102,12 @@ describe("knob command", () => {
     }),
   );
 
-  it.effect("refuses API_DOCS_ENABLED on prod even under CI, and writes it on a test stage", () =>
+  it.effect("refuses DOCS_ENABLED on prod even under CI, and writes it on a test stage", () =>
     Effect.gen(function* docs() {
       const store = storeOf([NAMESPACE]);
 
       const failure = yield* Effect.flip(
-        run({ command: "set", key: "API_DOCS_ENABLED", stage: "prod", value: "true" }, store, {
+        run({ command: "set", key: "DOCS_ENABLED", stage: "prod", value: "true" }, store, {
           CI: "true",
         }),
       );
@@ -110,11 +116,8 @@ describe("knob command", () => {
       assert.include(failure.message, "deploy time only on prod");
       assert.deepStrictEqual(store.calls, []);
 
-      yield* run(
-        { command: "set", key: "API_DOCS_ENABLED", stage: "test-abc", value: "false" },
-        store,
-      );
-      assert.deepStrictEqual(store.calls, [`find ${TITLE}`, "put ns-1 API_DOCS_ENABLED false"]);
+      yield* run({ command: "set", key: "DOCS_ENABLED", stage: "test-abc", value: "false" }, store);
+      assert.deepStrictEqual(store.calls, [`find ${TITLE}`, "put ns-1 DOCS_ENABLED false"]);
     }),
   );
 
@@ -169,6 +172,21 @@ describe("knob command", () => {
         KnobStatusFailed,
       );
       yield* run({ command: "status", stage: "test-abc" }, clean);
+    }),
+  );
+});
+
+describe("a key stored under the retired name", () => {
+  it.effect("is an ORPHAN that fails status until it is unset", () =>
+    Effect.gen(function* retired() {
+      const store = storeOf([NAMESPACE], [{ key: "API_DOCS_ENABLED", value: "true" }]);
+
+      assert.instanceOf(
+        yield* Effect.flip(run({ command: "status", stage: "test-abc" }, store)),
+        KnobStatusFailed,
+      );
+      yield* run({ command: "unset", key: "API_DOCS_ENABLED", stage: "test-abc" }, store);
+      yield* run({ command: "status", stage: "test-abc" }, store);
     }),
   );
 });
