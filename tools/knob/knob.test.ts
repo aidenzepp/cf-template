@@ -115,10 +115,7 @@ describe("knob command", () => {
       assert.include(failure.message, "deploy time only on prod");
       assert.deepStrictEqual(store.calls, []);
 
-      yield* run(
-        { command: "set", key: "DOCS_ENABLED", stage: "test-abc", value: "false" },
-        store,
-      );
+      yield* run({ command: "set", key: "DOCS_ENABLED", stage: "test-abc", value: "false" }, store);
       assert.deepStrictEqual(store.calls, [`find ${TITLE}`, "put ns-1 DOCS_ENABLED false"]);
     }),
   );
