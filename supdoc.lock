@@ -20,6 +20,11 @@ target = ".agents/skills/conventional-commits/references/examples.md"
 hash = "0f73e9184754db4a70255f998f965ac063d421251ed16ae9da05bacd90aafeda"
 
 [[link]]
+source = ".agents/skills/design-review/SKILL.md"
+target = ".agents/skills/design-review/rubric.md"
+hash = "0731a741dd949fdf81146648dcd8ecbf4b9bb9e4b571bd55da1beb51b0b183c5"
+
+[[link]]
 source = ".agents/skills/document-code/SKILL.md"
 target = ".agents/skills/document-code/references/examples.md"
 hash = "49c615d7cb85a7a91224f316ecbd5e4f2b2d0955d7a21003565e7be3d2da7058"
@@ -167,6 +172,11 @@ hash = "7bf0bb97a6f877d2878b96fd0773b7d66b63ecdf39e3abb81fa8534cc4e68d8c"
 source = "AGENTS.md"
 target = ".agents/skills/conventional-commits/SKILL.md"
 hash = "89bd96a9c73582e7dcb63e394bc9de533e959201aec6e954b6bba8477925bddc"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/design-review/SKILL.md"
+hash = "a0af32857ad9768527b6251ee7a25cfd21209e223f67682fb9006b1ecf4de926"
 
 [[link]]
 source = "AGENTS.md"
