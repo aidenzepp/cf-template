@@ -176,8 +176,10 @@ const status = Effect.fn("knob.status")(function* status(namespace: NamespaceRef
   const bad = lines.filter((entry) => entry.bad).length;
 
   if (bad > 0) {
-    yield* new KnobStatusFailed({ message: `${bad} stored key(s) are REJECTED or ORPHAN.` });
+    return yield* new KnobStatusFailed({ message: `${bad} stored key(s) are REJECTED or ORPHAN.` });
   }
+
+  return yield* Effect.void;
 });
 
 /**

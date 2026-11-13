@@ -656,12 +656,10 @@ export default defineConfig({
       // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
       // any-unknown-in-error-context 20, multiple-effect-provide 9, effect-try-without-catch 7 (delta),
       // run-effect-inside-effect 8,
-      // missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
       // return-effect-in-gen 3, then 2 each: schema-sync-in-effect, unknown-in-effect-catch.
       "effecttsgo/any-unknown-in-error-context": "off",
       "effecttsgo/effect-try-without-catch": "warn",
       "effecttsgo/extends-native-error": "warn",
-      "effecttsgo/missing-return-yield-star": "off",
       "effecttsgo/process-env": "warn",
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/try-catch-in-effect-gen": "off",
