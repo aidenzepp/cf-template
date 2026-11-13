@@ -654,33 +654,17 @@ export default defineConfig({
       //
       // Every other "off" below is staged off until its follow-up fixes the code (I-29 ruling,
       // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
-      // all-of-map-to-for-each 31, any-unknown-in-error-context 20,
-      // multiple-effect-provide 9, prefer-succeed-some-or-none 9, effect-try-without-catch 7 (delta),
+      // any-unknown-in-error-context 20, multiple-effect-provide 9, effect-try-without-catch 7 (delta),
       // run-effect-inside-effect 8, unstable-api-usage 11 (apps/auth/src/email-key.ts 5, unlisted in allowedUnstableApis; infra/migrations-digest.ts and
       // infra/stacks/settings.ts sit outside every tsconfig, so the plugin entry does not reach
       // them), missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
-      // flat-map-conditional-to-filter-or-fail 3,
-      // return-effect-in-gen 3, effect-succeed-with-undefined 3, catch-conditional-refail-to-catch-if
-      // 3, then 2 each: provide-layer-succeed-to-provide-service,
-      // schema-sync-in-effect, unknown-in-effect-catch; then 1 each:
-      // catch-die-to-or-die, catch-tag-to-catch-reason, flat-map-identity-to-flatten,
-      // map-some-to-as-some.
-      "effecttsgo/all-of-map-to-for-each": "off",
+      // return-effect-in-gen 3, then 2 each: schema-sync-in-effect, unknown-in-effect-catch.
       "effecttsgo/any-unknown-in-error-context": "off",
-      "effecttsgo/catch-conditional-refail-to-catch-if": "off",
-      "effecttsgo/catch-die-to-or-die": "off",
-      "effecttsgo/catch-tag-to-catch-reason": "off",
-      "effecttsgo/effect-succeed-with-undefined": "off",
       "effecttsgo/effect-try-without-catch": "warn",
       "effecttsgo/extends-native-error": "warn",
-      "effecttsgo/flat-map-conditional-to-filter-or-fail": "off",
-      "effecttsgo/flat-map-identity-to-flatten": "off",
-      "effecttsgo/map-some-to-as-some": "off",
       "effecttsgo/missing-return-yield-star": "off",
-      "effecttsgo/prefer-succeed-some-or-none": "off",
       "effecttsgo/process-env": "warn",
       "effecttsgo/process-env-in-effect": "warn",
-      "effecttsgo/provide-layer-succeed-to-provide-service": "off",
       "effecttsgo/try-catch-in-effect-gen": "off",
       "effecttsgo/unsafe-effect-type-assertion": "warn",
       "effecttsgo/unstable-api-usage": "off",

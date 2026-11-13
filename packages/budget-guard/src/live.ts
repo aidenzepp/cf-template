@@ -75,7 +75,7 @@ export const makeCheck = <E>(store: LatchStore<E>) =>
 
     return (request: Request): Effect.Effect<Response | undefined> =>
       new URL(request.url).pathname.startsWith(ASSET_PREFIX)
-        ? Effect.succeed(undefined)
+        ? Effect.undefined
         : latched.pipe(
             Effect.map((isLatched) =>
               isLatched

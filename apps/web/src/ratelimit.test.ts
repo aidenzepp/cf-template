@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Logger, References, Schema } from "effect";
+import { Effect, Logger, Predicate, References, Schema } from "effect";
 import { RateLimited } from "@workspace/contract/domain/rate-limited";
 import { checkRateLimit, classify, fnv1a32, namespaceId, rateLimitKey } from "./ratelimit.ts";
 import type { RateLimitBinding } from "./ratelimit.ts";
@@ -64,11 +64,7 @@ const withLogs = <A>(check: Effect.Effect<A>) =>
  * @returns The 429 response; a defect when the check allowed the request.
  */
 const refusal = (check: Effect.Effect<Response | null>) =>
-  check.pipe(
-    Effect.flatMap((response) =>
-      response === null ? Effect.die("expected a 429") : Effect.succeed(response),
-    ),
-  );
+  check.pipe(Effect.filterOrElse(Predicate.isNotNull, () => Effect.die("expected a 429")));
 
 describe("fnv1a32", () => {
   it("matches the recorded vectors", () => {

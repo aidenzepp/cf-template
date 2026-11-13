@@ -159,8 +159,9 @@ const rulesetLines = Effect.fn("rulesetLines")(function* rulesetLines(
     names,
   );
 
-  const detailed = yield* Effect.all(
-    plan.ruleset.map((declared) =>
+  const detailed = yield* Effect.forEach(
+    plan.ruleset,
+    (declared) =>
       Effect.gen(function* compareRuleset() {
         const found = live.find((ruleset) => ruleset.name === declared.name);
 
@@ -190,7 +191,7 @@ const rulesetLines = Effect.fn("rulesetLines")(function* rulesetLines(
           ),
         ];
       }),
-    ),
+    { concurrency: 1 },
   );
 
   return [...lines, ...detailed.flat()];

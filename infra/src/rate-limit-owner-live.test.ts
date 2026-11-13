@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Option } from "effect";
+import { Effect } from "effect";
 import { RateLimitEntrypointError } from "./rate-limit-owner.ts";
 import { readZoneEntrypoint } from "./rate-limit-owner-live.ts";
 
@@ -11,7 +11,7 @@ describe("readZoneEntrypoint", () => {
       const failure = yield* Effect.flip(
         readZoneEntrypoint(
           {
-            findZone: () => Effect.succeed(Option.none()),
+            findZone: () => Effect.succeedNone,
             readRules: () => Effect.succeed([]),
           },
           "app.other.test",
@@ -30,7 +30,7 @@ describe("readZoneEntrypoint", () => {
     Effect.gen(function* found() {
       const entrypoint = yield* readZoneEntrypoint(
         {
-          findZone: () => Effect.succeed(Option.some(zone)),
+          findZone: () => Effect.succeedSome(zone),
           readRules: () => Effect.succeed([{ id: "r1", ref: undefined }]),
         },
         "app.example.test",
