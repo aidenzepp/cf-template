@@ -21,6 +21,7 @@ describe("design-md generator", () => {
   it.effect("fails a stylesheet that does not parse, naming the file and line", () =>
     Effect.gen(function* test() {
       const fs = yield* FileSystem.FileSystem;
+
       const error = yield* Effect.flip(
         generate(
           "broken.stylesheet",
