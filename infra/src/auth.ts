@@ -9,7 +9,7 @@ import { Auth } from "../../apps/auth/src/contract.ts";
 import { declareDatabase } from "../../apps/auth/src/db/database.ts";
 import { EMAIL_KEY_SECRET_ID } from "../../apps/auth/src/email-key.ts";
 import AuthWorker, { AuthDeployment } from "../../apps/auth/src/worker.ts";
-import { workerName } from "../stages.ts";
+import { kindOf, workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
 import { compat } from "./compat.ts";
 import type { publicOrigin } from "./origin.ts";
@@ -108,12 +108,41 @@ export const encodedOrphanGrace = AUTH_ORPHAN_GRACE_SECONDS.encode(
 );
 
 /**
+ * The `oAuthProxy` bindings of one stage: `OAUTH_PROXY_SECRET` and `OAUTH_PROXY_PRODUCTION_URL`,
+ * the stage's own origin, on `prod` when the deployer sets `OAUTH_PROXY_SECRET`; nothing elsewhere.
+ *
+ * `prod` runs the plugin before any preview: it is the one callback host each provider registers.
+ * A `staging-<N>` preview needs `prod`'s origin as its production URL, and no stage reads that
+ * origin outside a `prod` deploy yet, so previews bind nothing until one does. `local` and
+ * `test-…` stages never receive the secret.
+ *
+ * @param stage - The decoded stage.
+ * @param origin - The stage's public origin.
+ * @returns The bindings to merge into the Worker's `env`.
+ */
+const oauthProxyBindings = Effect.fn("oauthProxyBindings")(function* oauthProxyBindings(
+  stage: StageName,
+  origin: string,
+) {
+  if (kindOf(stage) !== "prod") {
+    return {};
+  }
+
+  const secret = yield* Config.option(Config.Redacted("OAUTH_PROXY_SECRET"));
+
+  return Option.match(secret, {
+    onNone: () => ({}),
+    onSome: (value) => ({ OAUTH_PROXY_PRODUCTION_URL: origin, OAUTH_PROXY_SECRET: value }),
+  });
+});
+
+/**
  * Declare the auth D1 database and the `auth` Worker with its bindings.
  *
  * The Worker binds `PUBLIC_ORIGIN`, `AUTH_METHODS`, the two cookie-cache values and the scrypt cost
  * from the stage's row, and `BETTER_AUTH_SECRET` and `EMAIL_KEY_SECRET`, each an `Alchemy.Random`
- * per stage that only `auth` reads. It keeps no `workers.dev` address, domain or route. The D1
- * binding is made by the Worker's own program.
+ * per stage that only `auth` reads, and the {@link oauthProxyBindings} of the stage. It keeps no
+ * `workers.dev` address, domain or route. The D1 binding is made by the Worker's own program.
  *
  * @param identity - The stack name and decoded stage.
  * @param identity.stack - The stack name from `resolveStackName`.
@@ -141,6 +170,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
   const scrypt = yield* AUTH_PASSWORD_SCRYPT.encode(values.AUTH_PASSWORD_SCRYPT);
   const grace = yield* encodedOrphanGrace;
   const knobs = yield* limitKnobs;
+  const proxy = yield* oauthProxyBindings(stage, origin);
   const main = yield* path.fromFileUrl(new URL("../../apps/auth/src/worker.ts", import.meta.url));
 
   const props = {
@@ -155,6 +185,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
       EMAIL_KEY_SECRET: emailKeySecret.text,
       LOG_LEVEL: values.LOG_LEVEL,
       PUBLIC_ORIGIN: origin,
+      ...proxy,
       ...secrets,
     },
     limits: limitsFor("auth", { ...knobs, scrypt: values.AUTH_PASSWORD_SCRYPT }),
