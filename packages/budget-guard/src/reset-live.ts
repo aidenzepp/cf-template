@@ -30,7 +30,7 @@ const failed =
  * @returns `call`, which runs `run` with the account id and maps any failure to a
  *   {@link GuardKvError} that names `operation`.
  */
-export const accountClient = Effect.gen(function* buildAccountClient() {
+const accountClient = Effect.gen(function* buildAccountClient() {
   const context = yield* Layer.build(
     Layer.provide(
       CloudflareApiLive(),

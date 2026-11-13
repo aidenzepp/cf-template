@@ -67,7 +67,7 @@ export const decodeStage = Effect.fn("decodeStage")(function* decodeStage(raw: s
  * @param raw - The stage the CLI passed.
  * @returns The decoded stage and the stack name.
  */
-export const resolveIdentity = Effect.fn("resolveIdentity")(function* resolveIdentity(raw: string) {
+const resolveIdentity = Effect.fn("resolveIdentity")(function* resolveIdentity(raw: string) {
   const stage = yield* decodeStage(raw);
 
   const stack = requiresStackNamePin(stage)
@@ -157,4 +157,10 @@ const program = Effect.gen(function* declareStack() {
   return {};
 }).pipe(Effect.orDie);
 
+/**
+ * The stack `alchemy` deploys. The Alchemy CLI loads this module's default export; no module
+ * imports it.
+ *
+ * @public
+ */
 export default Alchemy.Stack(STATE_STACK, { providers: Cloudflare.providers(), state }, program);
