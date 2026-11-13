@@ -1,6 +1,6 @@
 import { scryptSync } from "node:crypto";
 import { assert, describe, it } from "@effect/vitest";
-import { Config, ConfigProvider, Effect, Exit, Option } from "effect";
+import { Config, ConfigProvider, Effect, Exit, Option, Schema } from "effect";
 import { AUTH_PASSWORD_SCRYPT, scryptMaxmem } from "./auth-password.ts";
 import type { ScryptCost } from "./auth-password.ts";
 
@@ -22,6 +22,13 @@ const read = (raw?: string) => {
 };
 
 /**
+ * A scrypt call node:crypto rejected.
+ */
+class DeriveFailed extends Schema.TaggedError<DeriveFailed>()("DeriveFailed", {
+  cause: Schema.Defect(),
+}) {}
+
+/**
  * Run one scrypt call with the `maxmem` this project derives, so a rejected parameter set fails.
  *
  * @param params - The cost parameters.
@@ -29,14 +36,16 @@ const read = (raw?: string) => {
  */
 const derive = (params: ScryptCost) =>
   // The one node:crypto call in this file, to prove Node accepts the derived `maxmem`.
-  Effect.try(() =>
-    scryptSync("password", "salt", 8, {
-      N: 2 ** params.ln,
-      maxmem: scryptMaxmem(params),
-      p: params.p,
-      r: params.r,
-    }),
-  );
+  Effect.try({
+    catch: (cause) => new DeriveFailed({ cause }),
+    try: () =>
+      scryptSync("password", "salt", 8, {
+        N: 2 ** params.ln,
+        maxmem: scryptMaxmem(params),
+        p: params.p,
+        r: params.r,
+      }),
+  });
 
 describe("AUTH_PASSWORD_SCRYPT", () => {
   it.effect("is the default when unset", () =>

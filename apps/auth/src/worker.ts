@@ -76,7 +76,10 @@ export const makeAtLevel = Effect.fn("makeAtLevel")(function* makeAtLevel(
     Effect.gen(function* bindLevel() {
       const env = yield* Cloudflare.WorkerEnvironment;
       const provider = ConfigProvider.layer(ConfigProvider.fromUnknown(env));
-      const level = yield* liveLogLevel.pipe(Effect.provide(providers), Effect.provide(provider));
+
+      const level = yield* liveLogLevel.pipe(
+        Effect.provide(providers.pipe(Layer.provideMerge(provider))),
+      );
 
       return atLogLevel(level);
     }).pipe(Effect.provideContext(context), Effect.orDie),

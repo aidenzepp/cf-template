@@ -38,9 +38,12 @@ const clientOf = (namespaces: ReadonlyArray<NamespaceRef>) => {
  */
 const run = (stage: string, client: ReturnType<typeof clientOf>, env = {}) =>
   resetGuard(stage).pipe(
-    Effect.provide(client.layer),
     Effect.provide(
-      ConfigProvider.layer(ConfigProvider.fromUnknown({ STACK_NAME: "demo", ...env })),
+      client.layer.pipe(
+        Layer.provideMerge(
+          ConfigProvider.layer(ConfigProvider.fromUnknown({ STACK_NAME: "demo", ...env })),
+        ),
+      ),
     ),
   );
 

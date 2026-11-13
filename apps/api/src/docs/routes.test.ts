@@ -95,8 +95,11 @@ describe("the documentation routes with DOCS_ENABLED on", () => {
         paths: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
       });
 
-      const served = Schema.decodeUnknownSync(Schema.fromJsonString(Paths))(answer.body).paths;
-      const group = Schema.decodeUnknownSync(Paths)(OpenApi.fromApi(NotebookHttp.api)).paths;
+      const served = (yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Paths))(answer.body))
+        .paths;
+
+      const group = (yield* Schema.decodeUnknownEffect(Paths)(OpenApi.fromApi(NotebookHttp.api)))
+        .paths;
 
       const operations = Object.entries(group).flatMap(([path, methods]) =>
         Object.keys(methods).map((method) => `${method} /api${path}`),
@@ -121,7 +124,7 @@ describe("the documentation routes with DOCS_ENABLED on", () => {
       const get = yield* serve("true");
       const answer = yield* get(`${ORIGIN}${OPENAPI_PATH}`);
 
-      const served = Schema.decodeUnknownSync(
+      const served = yield* Schema.decodeUnknownEffect(
         Schema.fromJsonString(
           Schema.Struct({ paths: Schema.Record(Schema.String, Schema.Unknown) }),
         ),
