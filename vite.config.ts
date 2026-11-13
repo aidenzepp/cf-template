@@ -465,19 +465,6 @@ export default defineConfig({
         rules: { "workspace/no-mutable-module-state": "off" },
       },
       {
-        // Lifted until #235 loads the settings accounts in the route loader.
-        files: ["apps/web/src/routes/settings.tsx"],
-        rules: { "workspace/no-effect-data-load": "off" },
-      },
-      {
-        // Lifted until #239 refreshes the notes through `reactivityKeys` instead of these effects.
-        files: [
-          "apps/web/src/routes/notes/-delete-note-button.tsx",
-          "apps/web/src/routes/notes/-note-form.tsx",
-        ],
-        rules: { "workspace/no-effect-on-async-result": "off" },
-      },
-      {
         // `packages/contract` defines the Problem classes, so it writes the media type. Tests assert
         // it on the wire, and the rule's own file names it to look for it.
         files: [
