@@ -19,14 +19,20 @@ const USAGE =
  * `prod` outside CI, the lookup did not find exactly one namespace, or its key or value is one the
  * registry and the knob's schema refuse.
  */
-export class KnobRefused extends Schema.TaggedError<KnobRefused>()("KnobRefused", {
+export class KnobRefused extends Schema.TaggedError<
+  KnobRefused,
+  { readonly brand: unique symbol }
+>()("KnobRefused", {
   message: Schema.String,
 }) {}
 
 /**
  * The failure of `status` when any stored key is `REJECTED` or `ORPHAN`.
  */
-export class KnobStatusFailed extends Schema.TaggedError<KnobStatusFailed>()("KnobStatusFailed", {
+export class KnobStatusFailed extends Schema.TaggedError<
+  KnobStatusFailed,
+  { readonly brand: unique symbol }
+>()("KnobStatusFailed", {
   message: Schema.String,
 }) {}
 

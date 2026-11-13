@@ -90,24 +90,30 @@ export const Baseline = Schema.Record(
  * ratchet reads as an answer, or printed a count that is not a non-negative integer. The message
  * keeps git's own stderr.
  */
-export class GitFailed extends Schema.TaggedError<GitFailed>()("GitFailed", {
-  message: Schema.String,
-}) {}
+export class GitFailed extends Schema.TaggedError<GitFailed, { readonly brand: unique symbol }>()(
+  "GitFailed",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The failure of `RATCHET_BASE`: it is set but names no commit.
  */
-export class BaseNotCommit extends Schema.TaggedError<BaseNotCommit>()("BaseNotCommit", {
+export class BaseNotCommit extends Schema.TaggedError<
+  BaseNotCommit,
+  { readonly brand: unique symbol }
+>()("BaseNotCommit", {
   message: Schema.String,
 }) {}
 
 /**
  * The failure of a counted file: it does not parse, or it has not the expected shape.
  */
-export class CountedFileInvalid extends Schema.TaggedError<CountedFileInvalid>()(
-  "CountedFileInvalid",
-  { message: Schema.String },
-) {}
+export class CountedFileInvalid extends Schema.TaggedError<
+  CountedFileInvalid,
+  { readonly brand: unique symbol }
+>()("CountedFileInvalid", { message: Schema.String }) {}
 
 /**
  * The counts of one tree. A missing baseline counts as zero (#16: absent equals zero). Only the

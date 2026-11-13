@@ -26,7 +26,10 @@ export interface ParsedHash {
 /**
  * The failure of one scrypt derivation.
  */
-export class ScryptError extends Schema.TaggedError<ScryptError>()("ScryptError", {
+export class ScryptError extends Schema.TaggedError<
+  ScryptError,
+  { readonly brand: unique symbol }
+>()("ScryptError", {
   cause: Schema.Unknown,
   keyLength: Schema.Int,
 }) {
@@ -38,7 +41,10 @@ export class ScryptError extends Schema.TaggedError<ScryptError>()("ScryptError"
 /**
  * The failure of one call to the Better Auth adapter while rehashing a password.
  */
-class RehashAdapterError extends Schema.TaggedError<RehashAdapterError>()("RehashAdapterError", {
+class RehashAdapterError extends Schema.TaggedError<
+  RehashAdapterError,
+  { readonly brand: unique symbol }
+>()("RehashAdapterError", {
   cause: Schema.Defect(),
 }) {}
 

@@ -143,7 +143,10 @@ export const classify = (
 /**
  * A rejected `limit` call of a rate-limit binding.
  */
-class RateLimitCallFailed extends Schema.TaggedError<RateLimitCallFailed>()("RateLimitCallFailed", {
+class RateLimitCallFailed extends Schema.TaggedError<
+  RateLimitCallFailed,
+  { readonly brand: unique symbol }
+>()("RateLimitCallFailed", {
   cause: Schema.Defect(),
 }) {}
 

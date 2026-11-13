@@ -19,7 +19,10 @@ export const ABSENT_PROVIDER = "smoke-absent";
  * A failed smoke check. `worker` names the Worker that misbehaved, so the failure line says where
  * to look.
  */
-export class SmokeFailed extends Schema.TaggedError<SmokeFailed>()("SmokeFailed", {
+export class SmokeFailed extends Schema.TaggedError<
+  SmokeFailed,
+  { readonly brand: unique symbol }
+>()("SmokeFailed", {
   message: Schema.String,
   worker: Schema.String,
 }) {}

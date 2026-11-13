@@ -10,9 +10,12 @@ const items = sqliteTable("items", { id: text().primaryKey(), n: integer().notNu
 /**
  * A statement D1 rejected on its raw `exec`.
  */
-class ExecRejected extends Schema.TaggedError<ExecRejected>()("ExecRejected", {
-  cause: Schema.Defect(),
-}) {}
+class ExecRejected extends Schema.TaggedError<ExecRejected, { readonly brand: unique symbol }>()(
+  "ExecRejected",
+  {
+    cause: Schema.Defect(),
+  },
+) {}
 
 const execution = Effect.gen(function* openExecution() {
   const raw = yield* LocalD1;

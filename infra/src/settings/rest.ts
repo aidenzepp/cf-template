@@ -17,15 +17,15 @@ interface RestSummary {
 /**
  * The failure at the end of a run in which at least one call failed. Every other call still ran.
  */
-export class RestSettingsError extends Schema.TaggedError<RestSettingsError>()(
-  "RestSettingsError",
-  {
-    applied: Schema.Number,
-    failed: Schema.Number,
-    message: Schema.String,
-    unavailable: Schema.Number,
-  },
-) {}
+export class RestSettingsError extends Schema.TaggedError<
+  RestSettingsError,
+  { readonly brand: unique symbol }
+>()("RestSettingsError", {
+  applied: Schema.Finite,
+  failed: Schema.Finite,
+  message: Schema.String,
+  unavailable: Schema.Finite,
+}) {}
 
 /**
  * The outcome of one call: the {@link RestSummary} counter it adds to.

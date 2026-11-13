@@ -23,7 +23,10 @@ import { parseMeter } from "./meters.ts";
  * Raised by `bun run footprint` when a core file references a unit outside an attach line; the
  * message names every `file:line`.
  */
-export class FootprintError extends Schema.TaggedError<FootprintError>()("FootprintError", {
+export class FootprintError extends Schema.TaggedError<
+  FootprintError,
+  { readonly brand: unique symbol }
+>()("FootprintError", {
   message: Schema.String,
 }) {}
 

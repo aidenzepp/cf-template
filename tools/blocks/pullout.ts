@@ -21,7 +21,10 @@ import { removeMarked } from "./markers.ts";
 /**
  * Raised when the pull-out refuses to start or a step finds a problem the caller must fix.
  */
-export class PulloutError extends Schema.TaggedError<PulloutError>()("PulloutError", {
+export class PulloutError extends Schema.TaggedError<
+  PulloutError,
+  { readonly brand: unique symbol }
+>()("PulloutError", {
   message: Schema.String,
 }) {}
 

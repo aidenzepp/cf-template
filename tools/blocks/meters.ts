@@ -26,9 +26,12 @@ export type Meter =
 /**
  * Raised when the first line of a block README is not a valid `Meter:` line.
  */
-export class MeterError extends Schema.TaggedError<MeterError>()("MeterError", {
-  message: Schema.String,
-}) {}
+export class MeterError extends Schema.TaggedError<MeterError, { readonly brand: unique symbol }>()(
+  "MeterError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * Reads the `Meter:` line, the first line of a block package's `README.md`: exactly one of

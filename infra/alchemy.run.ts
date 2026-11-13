@@ -37,7 +37,10 @@ import { StackNameError, requiresStackNamePin, resolveStackName } from "./src/st
  * A stack file cannot tell the phases apart, so the refusal covers every phase and `phase` names
  * them all.
  */
-export class ProdStageRefused extends Schema.TaggedError<ProdStageRefused>()("ProdStageRefused", {
+export class ProdStageRefused extends Schema.TaggedError<
+  ProdStageRefused,
+  { readonly brand: unique symbol }
+>()("ProdStageRefused", {
   phase: Schema.String,
   stage: Schema.String,
 }) {

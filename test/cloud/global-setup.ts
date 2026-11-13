@@ -12,17 +12,23 @@ const CLOUD_STAGE = "test-ci";
 /**
  * The refusal to start the cloud suite, raised before any `alchemy` command runs.
  */
-class CloudStageRefused extends Schema.TaggedError<CloudStageRefused>()("CloudStageRefused", {
+class CloudStageRefused extends Schema.TaggedError<
+  CloudStageRefused,
+  { readonly brand: unique symbol }
+>()("CloudStageRefused", {
   message: Schema.String,
 }) {}
 
 /**
  * The failure of an `alchemy` child process that ran and exited non-zero.
  */
-class AlchemyExited extends Schema.TaggedError<AlchemyExited>()("AlchemyExited", {
-  code: Schema.Number,
-  message: Schema.String,
-}) {}
+class AlchemyExited extends Schema.TaggedError<AlchemyExited, { readonly brand: unique symbol }>()(
+  "AlchemyExited",
+  {
+    code: Schema.Finite,
+    message: Schema.String,
+  },
+) {}
 
 /**
  * Decode `ALCHEMY_TEST_STAGE` with the stack's stage Schema and require exactly `test-ci`.

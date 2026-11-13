@@ -15,7 +15,10 @@ const Reply = Schema.Struct({
 /**
  * The failure of a D1 REST call, carrying the status and the D1 error text only.
  */
-class D1RequestFailed extends Schema.TaggedError<D1RequestFailed>()("D1RequestFailed", {
+class D1RequestFailed extends Schema.TaggedError<
+  D1RequestFailed,
+  { readonly brand: unique symbol }
+>()("D1RequestFailed", {
   message: Schema.String,
 }) {}
 

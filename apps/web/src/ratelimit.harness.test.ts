@@ -9,9 +9,12 @@ import { FORWARD_PREFIXES } from "./forward-prefixes.ts";
 /**
  * The failure of the harness itself: the build or the workerd runtime did not start.
  */
-class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessError", {
-  message: Schema.String,
-}) {}
+class HarnessError extends Schema.TaggedError<HarnessError, { readonly brand: unique symbol }>()(
+  "HarnessError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The part of the runtime's stderr stream the harness reads.
@@ -234,7 +237,7 @@ const WebProdLive = Layer.effect(WebProd)(
           },
         }).pipe(
           Effect.flatMap((body) =>
-            Schema.decodeUnknownEffect(Schema.Struct({ calls: Schema.Number }))(body).pipe(
+            Schema.decodeUnknownEffect(Schema.Struct({ calls: Schema.Finite }))(body).pipe(
               Effect.mapError(unreadable),
             ),
           ),
