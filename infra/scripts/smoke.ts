@@ -8,7 +8,7 @@ import { ProviderId } from "../../packages/config/src/auth-methods.ts";
  * The most requests one smoke run may send to routes of the `credential` rate-limit class, so the
  * smoke never trips the strict limiter on the deployment it checks.
  */
-export const CREDENTIAL_REQUEST_LIMIT = 4;
+const CREDENTIAL_REQUEST_LIMIT = 4;
 
 /**
  * The provider id no deployment registers; Better Auth must answer 404 `PROVIDER_NOT_FOUND`.

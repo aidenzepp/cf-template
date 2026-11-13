@@ -76,7 +76,7 @@ const DocumentRoutes = HttpRouter.use((router) =>
  * `withDefaultFonts: false` stops Scalar fetching its fonts from `fonts.scalar.com`. The script is
  * a dynamic import, read only when this layer is built.
  */
-export const ScalarPage = HttpApiScalar.layer(ServedApi, {
+const ScalarPage = HttpApiScalar.layer(ServedApi, {
   path: DOCS_PATH,
   scalar: { withDefaultFonts: false },
 });

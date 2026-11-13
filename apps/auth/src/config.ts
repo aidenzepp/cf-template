@@ -5,7 +5,7 @@ import { Knob } from "@workspace/config/knob";
  * The longest a signed cookie-cache entry may be trusted, in seconds. Better Auth's database
  * session lasts longer; the cache only decides how often `checkSession` re-reads it.
  */
-export const COOKIE_CACHE_MAX_AGE_CEILING_S = 900;
+const COOKIE_CACHE_MAX_AGE_CEILING_S = 900;
 
 /**
  * How long, in seconds, the signed `session_data` cookie answers `checkSession` without a database

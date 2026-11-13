@@ -15,10 +15,11 @@ export class RepositoryError extends Schema.TaggedError<RepositoryError>()("Repo
  * The failure of a GitHub read: the transport failed, the status was not 200, or the body did not
  * decode. Carries no token.
  */
-export class GitHubRequestError extends Schema.TaggedError<GitHubRequestError>()(
-  "GitHubRequestError",
-  { cause: Schema.optional(Schema.Defect()), message: Schema.String, path: Schema.String },
-) {}
+class GitHubRequestError extends Schema.TaggedError<GitHubRequestError>()("GitHubRequestError", {
+  cause: Schema.optional(Schema.Defect()),
+  message: Schema.String,
+  path: Schema.String,
+}) {}
 
 /**
  * The refusal of the admin guard: the repository is unreadable or the token lacks

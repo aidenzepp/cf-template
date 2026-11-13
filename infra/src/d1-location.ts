@@ -11,7 +11,7 @@ import { Knob } from "@workspace/config/knob";
  * The knob stays a leaf schema because `Schema.Option` decodes nothing from a `Config` string and
  * would silently ignore a supplied hint; {@link d1LocationHint} turns the unset value into `none`.
  */
-export const D1LocationHintKnob = Knob.make(
+const D1LocationHintKnob = Knob.make(
   "D1_PROD_LOCATION_HINT",
   Schema.Literals(["", "wnam", "enam", "weur", "eeur", "apac", "oc"]).annotate({
     default: "",

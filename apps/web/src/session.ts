@@ -1,7 +1,6 @@
 import { Cause, Effect, Schema } from "effect";
 import { Session } from "@workspace/contract/domain/session";
 import { ApiClient } from "./api-client.ts";
-import { AuthMethods } from "./web-layer.ts";
 
 /**
  * What the root route knows about the caller. `unknown` means the session could not be read, never
@@ -62,13 +61,3 @@ export const readSession = Effect.gen(function* readSession() {
       : Effect.succeed({ _tag: "unknown" } as const satisfies SessionState),
   ),
 );
-
-/**
- * The root route's read: the decoded sign-in methods and the session state, in one effect.
- */
-export const readRootContext = Effect.gen(function* readRootContext() {
-  const authMethods = yield* AuthMethods;
-  const session = yield* readSession;
-
-  return { authMethods, session } as const;
-});
