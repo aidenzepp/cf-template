@@ -1,0 +1,8 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      { "patterns": [{ "group": ["node:*"], "message": "docs/capabilities.md, Platform APIs" }] }
+    ]
+  }
+}

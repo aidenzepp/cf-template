@@ -1,0 +1,4 @@
+{
+  "jsPlugins": ["../../plugin.mjs"],
+  "rules": { "workspace/no-raw-form-submit": "error" }
+}

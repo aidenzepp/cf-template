@@ -192,10 +192,14 @@ describe("lint fixtures", () => {
           const dir = path.join(fixtures, name);
 
           if (yield* fs.exists(path.join(dir, ".oxlintrc.json"))) {
-            const count = yield* lintFixture(dir, ["fire.ts", "pass.ts"]);
+            // A JSX fixture is `fire.tsx` and `pass.tsx`; every other fixture is `.ts`.
+            const extension = (yield* fs.exists(path.join(dir, "fire.tsx"))) ? "tsx" : "ts";
+            const fire = `fire.${extension}`;
+            const pass = `pass.${extension}`;
+            const count = yield* lintFixture(dir, [fire, pass]);
 
-            assert.strictEqual(count("fire.ts"), 1, `${name}/fire.ts`);
-            assert.strictEqual(count("pass.ts"), 0, `${name}/pass.ts`);
+            assert.strictEqual(count(fire), 1, `${name}/${fire}`);
+            assert.strictEqual(count(pass), 0, `${name}/${pass}`);
           }
         }
       }).pipe(Effect.provide(BunServices.layer)),

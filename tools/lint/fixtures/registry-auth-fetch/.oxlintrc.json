@@ -1,0 +1,9 @@
+{
+  "rules": {
+    "no-restricted-properties": [
+      "error",
+      { "object": "client", "property": "$fetch", "message": "docs/capabilities.md, Auth client" },
+      { "object": "authClient", "property": "$fetch", "message": "docs/capabilities.md, Auth client" }
+    ]
+  }
+}
