@@ -511,8 +511,9 @@ export default defineConfig({
         rules: { "workspace/no-hand-built-problem": "off" },
       },
       {
-        // Lifted until #247 replaces the `Map` with `Cache.makeWith`.
-        files: ["packages/knobs-kv/src/live.ts"],
+        // `fromSource`'s per-isolate knob cache stays a `Map` (#248, #247): Effect `Cache` shares
+        // in-flight lookups, which the Workers request boundary forbids.
+        files: ["packages/config/src/knob.ts"],
         rules: { "workspace/no-keyed-ttl-map": "off" },
       },
       {
