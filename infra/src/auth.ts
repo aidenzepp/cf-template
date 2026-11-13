@@ -5,11 +5,12 @@ import { AUTH_ORPHAN_GRACE_SECONDS } from "@workspace/config/auth-orphan-grace";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { AuthMethods } from "@workspace/config/auth-methods";
 import { limitKnobs, limitsFor } from "@workspace/config/limits";
+import { PublicOrigin } from "@workspace/config/public-origin";
 import { Auth } from "../../apps/auth/src/contract.ts";
 import { declareDatabase } from "../../apps/auth/src/db/database.ts";
 import { EMAIL_KEY_SECRET_ID } from "../../apps/auth/src/email-key.ts";
 import AuthWorker, { AuthDeployment } from "../../apps/auth/src/worker.ts";
-import { workerName } from "../stages.ts";
+import { kindOf, workerName } from "../stages.ts";
 import type { StageName, StageValues } from "../stages.ts";
 import { compat } from "./compat.ts";
 import type { publicOrigin } from "./origin.ts";
@@ -108,12 +109,52 @@ export const encodedOrphanGrace = AUTH_ORPHAN_GRACE_SECONDS.encode(
 );
 
 /**
+ * The `oAuthProxy` bindings of one stage, `OAUTH_PROXY_PRODUCTION_URL` and `OAUTH_PROXY_SECRET`.
+ *
+ * `prod` binds its own origin when the deployer sets `OAUTH_PROXY_SECRET`: it runs the plugin
+ * before any preview, as the one callback host each provider registers. A `staging-<N>` preview
+ * binds the deployer's `PROD_ORIGIN`, decoded as a `PublicOrigin`, when both `PROD_ORIGIN` and
+ * `OAUTH_PROXY_SECRET` are set; a malformed `PROD_ORIGIN` fails the deploy through the `Config`
+ * error channel. Either one absent binds nothing. `local` and `test-…` stages bind nothing,
+ * whatever the deployer sets.
+ *
+ * @param stage - The decoded stage.
+ * @param origin - The stage's public origin.
+ * @returns The bindings to merge into the Worker's `env`.
+ */
+export const oauthProxyBindings = Effect.fn("oauthProxyBindings")(function* oauthProxyBindings(
+  stage: StageName,
+  origin: string,
+) {
+  const kind = kindOf(stage);
+
+  if (kind !== "prod" && kind !== "staging") {
+    return {};
+  }
+
+  const secret = yield* Config.option(Config.Redacted("OAUTH_PROXY_SECRET"));
+
+  const productionURL =
+    kind === "prod"
+      ? Option.some(origin)
+      : yield* Config.option(Config.schema(PublicOrigin, "PROD_ORIGIN"));
+
+  return Option.match(Option.all({ productionURL, secret }), {
+    onNone: () => ({}),
+    onSome: (value) => ({
+      OAUTH_PROXY_PRODUCTION_URL: value.productionURL,
+      OAUTH_PROXY_SECRET: value.secret,
+    }),
+  });
+});
+
+/**
  * Declare the auth D1 database and the `auth` Worker with its bindings.
  *
  * The Worker binds `PUBLIC_ORIGIN`, `AUTH_METHODS`, the two cookie-cache values and the scrypt cost
  * from the stage's row, and `BETTER_AUTH_SECRET` and `EMAIL_KEY_SECRET`, each an `Alchemy.Random`
- * per stage that only `auth` reads. It keeps no `workers.dev` address, domain or route. The D1
- * binding is made by the Worker's own program.
+ * per stage that only `auth` reads, and the {@link oauthProxyBindings} of the stage. It keeps no
+ * `workers.dev` address, domain or route. The D1 binding is made by the Worker's own program.
  *
  * @param identity - The stack name and decoded stage.
  * @param identity.stack - The stack name from `resolveStackName`.
@@ -141,6 +182,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
   const scrypt = yield* AUTH_PASSWORD_SCRYPT.encode(values.AUTH_PASSWORD_SCRYPT);
   const grace = yield* encodedOrphanGrace;
   const knobs = yield* limitKnobs;
+  const proxy = yield* oauthProxyBindings(stage, origin);
   const main = yield* path.fromFileUrl(new URL("../../apps/auth/src/worker.ts", import.meta.url));
 
   const props = {
@@ -155,6 +197,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
       EMAIL_KEY_SECRET: emailKeySecret.text,
       LOG_LEVEL: values.LOG_LEVEL,
       PUBLIC_ORIGIN: origin,
+      ...proxy,
       ...secrets,
     },
     limits: limitsFor("auth", { ...knobs, scrypt: values.AUTH_PASSWORD_SCRYPT }),

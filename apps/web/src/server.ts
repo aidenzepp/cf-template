@@ -62,7 +62,7 @@ export default createServerEntry({
       return guarded;
     }
 
-    const refused = await Effect.runPromise(checkRateLimit(request, env, CREDENTIAL_ROUTES));
+    const refused = await blocks.runPromise(checkRateLimit(request, env, CREDENTIAL_ROUTES));
 
     if (refused !== null) {
       return refused;

@@ -63,6 +63,8 @@ A projection, such as `NoteIndex` in `apps/api/src/notes/note-index.projection.t
 
 `bun run build` ends with `initial JS: <n> / 300 KiB gzipped`, the web entry chunk plus its static imports. It only reports: it warns when over the target and never fails. CI repeats the line in the job summary.
 
+A Better Auth bump reaches `prod` before its previews sign in with a provider: `oAuthProxy`'s encrypted packages do not cross versions when its key derivation changes, so `prod` and every participating preview move in one cutover.
+
 ## State store
 
 Create the project state store once, from a laptop, before the first deploy: `bun run alchemy state bootstrap --profile admin --config infra/alchemy.run.ts`. It creates the `<stack>-state` Worker and its two Secrets Store entries in the `admin` profile's account, with `STACK_NAME` when set and the derived name otherwise. The command passes no stage, so Alchemy builds the state layer with its placeholder stage (`PLACEHOLDER_STAGE`, `alchemy/src/Alchemist/Operations.ts`); `infra/alchemy.run.ts` builds the project store for that stage without decoding it as an app stage. Every deploy stage still decodes strictly.
