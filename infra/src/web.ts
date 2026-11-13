@@ -7,7 +7,7 @@ import type { ApiWorker } from "../../apps/api/src/worker.ts";
 import type { WebEnv } from "../../apps/web/src/env.ts";
 import { FORWARD_PREFIXES } from "../../apps/web/src/forward-prefixes.ts";
 import { namespaceId } from "../../apps/web/src/ratelimit.ts";
-import { kindOf, workerName } from "../stages.ts";
+import { Stages, kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 import { encodedAuthMethods, encodedOrphanGrace } from "./auth.ts";
 import { compat } from "./compat.ts";
@@ -22,11 +22,13 @@ import { webObservability } from "./telemetry.ts";
  * `apps/web` reads. Every key is a key of `WebEnv`, the type `apps/web` reads its bindings by,
  * except `KNOBS`, which a block adds through `blockBindings` and `WebEnv` declares optional.
  */
-interface WebBindings extends Record<Exclude<keyof WebEnv, "KNOBS">, string | object> {
+interface WebBindings extends Record<Exclude<keyof WebEnv, "KNOBS">, boolean | string | object> {
   readonly API: Effect.Success<typeof ApiWorker>;
   readonly AUTH: Effect.Success<typeof Auth>;
   readonly AUTH_METHODS: string;
   readonly AUTH_ORPHAN_GRACE_SECONDS: string;
+  readonly DOCS_ENABLED: boolean;
+  readonly DOCS_LIVE_READ: boolean;
   readonly PUBLIC_ORIGIN: string;
   readonly RATELIMIT_CREDENTIAL: object;
   readonly RATELIMIT_PUBLIC: object;
@@ -111,6 +113,8 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     AUTH: workers.auth,
     AUTH_METHODS: methods,
     AUTH_ORPHAN_GRACE_SECONDS: grace,
+    DOCS_ENABLED: Stages[kindOf(stage)].DOCS_ENABLED,
+    DOCS_LIVE_READ: kindOf(stage) !== "prod",
     PUBLIC_ORIGIN: origin,
     RATELIMIT_CREDENTIAL: Cloudflare.RateLimit("RATELIMIT_CREDENTIAL", {
       namespaceId: namespaceId(stack, stage, "credential"),

@@ -12,7 +12,7 @@ hash = "640484d1bbb51b68bd1256f80c32f4cc6a3a3fea9300b3bbd3e9a74d26a3bf0d"
 [[link]]
 source = ".agents/skills/add-feature/SKILL.md"
 target = ".agents/skills/add-feature/references/examples.md"
-hash = "5553c58823a6c5e49835aa657607480cc8ff1cbec8b58224b44d4fdefa9b8594"
+hash = "32d336a42e7a67ee92100f737fe881c711a86e8795dc9823d6bf830ab05f5ce5"
 
 [[link]]
 source = ".agents/skills/conventional-commits/SKILL.md"
@@ -23,6 +23,125 @@ hash = "0f73e9184754db4a70255f998f965ac063d421251ed16ae9da05bacd90aafeda"
 source = ".agents/skills/document-code/SKILL.md"
 target = ".agents/skills/document-code/references/examples.md"
 hash = "49c615d7cb85a7a91224f316ecbd5e4f2b2d0955d7a21003565e7be3d2da7058"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/cli.md"
+hash = "a381e35bf36fe7bb851952c13707e01e82434fd7a4a4e53f6df26c6370838904"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/customization.md"
+hash = "a19e81c78843df255e85755e52659268d793845add845b34ad8091f62bff3af9"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/design-system-page.md"
+hash = "c541d661af159548744be3e27f79e7da710ab83f9afd448a4346f7ff1531d328"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/design-system.md"
+hash = "9ed11e93e7e80e34c8795d5ba82e5420ca905e8e9949fef79cbe9239184fd06b"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/registry.md"
+hash = "4f239be36bd2b58e17047db1ca80ab7da00e15a8b73242e5e4d50d113c4caa05"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/rules/base-vs-radix.md"
+hash = "2b2deb47d004285220c1fc6b38bb2edc2d0ccbcdafd031b0b189d5d8ed0d1ba8"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/rules/chat.md"
+hash = "4b4610d487ddc9751f3cfe0c554a06560ac723fcc2460abad77a1d3c7c9a4b95"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/rules/composition.md"
+hash = "f282df828d83a91132a846ddb62eea149a7c7c94822e9ca88cfddf85af01aa41"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/rules/forms.md"
+hash = "29593e14381e34626f8e0e9c15c59f3394b92a0623af6a6ec94585400123853c"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/rules/icons.md"
+hash = "d4a58266648872d9ee07d0c2368843a1cb88b8253b7f528dd7bda9d68b6c2535"
+
+[[link]]
+source = ".agents/skills/shadcn/SKILL.md"
+target = ".agents/skills/shadcn/rules/styling.md"
+hash = "f88fbd72dff862805b786dc7d7e4c74c83030fc278c5b97c993e4e665001798c"
+
+[[link]]
+source = ".agents/skills/shadcn/cli.md"
+target = ".agents/skills/shadcn/SKILL.md"
+symbol = "updating-components"
+hash = "bf5a4c8484bd881757b255a09af22c867fa95a1f1f24b9d96cccb85640719eeb"
+
+[[link]]
+source = ".agents/skills/shadcn/cli.md"
+target = ".agents/skills/shadcn/registry.md"
+hash = "4f239be36bd2b58e17047db1ca80ab7da00e15a8b73242e5e4d50d113c4caa05"
+
+[[link]]
+source = ".agents/skills/shadcn/customization.md"
+target = ".agents/skills/shadcn/SKILL.md"
+symbol = "updating-components"
+hash = "bf5a4c8484bd881757b255a09af22c867fa95a1f1f24b9d96cccb85640719eeb"
+
+[[link]]
+source = ".agents/skills/shadcn/customization.md"
+target = ".agents/skills/shadcn/design-system.md"
+symbol = "radius"
+hash = "754e8544b2a4d7829a06b43c6740c67ebbd4c4de93269f55323b35f46b5eaeff"
+
+[[link]]
+source = ".agents/skills/shadcn/customization.md"
+target = ".agents/skills/shadcn/rules/styling.md"
+hash = "f88fbd72dff862805b786dc7d7e4c74c83030fc278c5b97c993e4e665001798c"
+
+[[link]]
+source = ".agents/skills/shadcn/design-system-page.md"
+target = ".agents/skills/shadcn/rules/chat.md"
+hash = "4b4610d487ddc9751f3cfe0c554a06560ac723fcc2460abad77a1d3c7c9a4b95"
+
+[[link]]
+source = ".agents/skills/shadcn/design-system.md"
+target = ".agents/skills/shadcn/design-system-page.md"
+hash = "c541d661af159548744be3e27f79e7da710ab83f9afd448a4346f7ff1531d328"
+
+[[link]]
+source = ".agents/skills/shadcn/rules/chat.md"
+target = ".agents/skills/shadcn/rules/base-vs-radix.md"
+hash = "2b2deb47d004285220c1fc6b38bb2edc2d0ccbcdafd031b0b189d5d8ed0d1ba8"
+
+[[link]]
+source = ".agents/skills/shadcn/rules/chat.md"
+target = ".agents/skills/shadcn/rules/styling.md"
+hash = "f88fbd72dff862805b786dc7d7e4c74c83030fc278c5b97c993e4e665001798c"
+
+[[link]]
+source = ".agents/skills/shadcn/rules/composition.md"
+target = ".agents/skills/shadcn/rules/chat.md"
+hash = "4b4610d487ddc9751f3cfe0c554a06560ac723fcc2460abad77a1d3c7c9a4b95"
+
+[[link]]
+source = ".agents/skills/shadcn/rules/forms.md"
+target = ".agents/skills/shadcn/rules/base-vs-radix.md"
+symbol = "togglegroup"
+hash = "3215581a9fe8eb4f4b0062d2cffe6b6e203f41051e6797aa8291cf9bdc1131ec"
+
+[[link]]
+source = ".agents/skills/shadcn/rules/styling.md"
+target = ".agents/skills/shadcn/customization.md"
+hash = "a19e81c78843df255e85755e52659268d793845add845b34ad8091f62bff3af9"
 
 [[link]]
 source = ".agents/skills/trace-effect/SKILL.md"
@@ -63,6 +182,11 @@ hash = "41f6b8d5c77d289c48b41751747e1da6c0e4f10cf923db7d2827ab91c1c04e6c"
 source = "AGENTS.md"
 target = ".agents/skills/error-messages/SKILL.md"
 hash = "cc9ac835bc5e19430e5f1709f46e626bd8b6580894f54e856abc0f756dc02678"
+
+[[link]]
+source = "AGENTS.md"
+target = ".agents/skills/shadcn/SKILL.md"
+hash = "aba5579bf8f9c64cc51a794a441774acba561ab0b2f4924a1d583561d491ada8"
 
 [[link]]
 source = "AGENTS.md"

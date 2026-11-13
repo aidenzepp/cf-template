@@ -45,13 +45,12 @@ Every step carries exactly one tag, and `bun run check` fails a row that breaks 
 
 ## The first deploy
 
-| Step | Command                                                                                                                                                         | Signal                                                                         | Tag      | Rests on |
-| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------- | -------- |
-| 9    | Push to `main`                                                                                                                                                  | `prod.yml` holds on the all-`create` plan and prints a fingerprint             | unproven | I-39     |
-| 10   | Paste the one command from the hold's summary: `gh workflow run prod-destructive.yml -f sha=<sha> -f fingerprint=<digest> -f reason="first deploy"`             | the `prod-destructive.yml` run starts and applies the plan                     | unproven | I-38     |
-| 11   | Read the deploy log                                                                                                                                             | migrations run before Workers, the `web` URL is printed and the smoke is green | unproven | I-38     |
-| 12   | Open the URL, sign up with email and password, add a passkey, sign out, then sign in with the passkey                                                           | the signed-in app shows after the passkey sign-in                              | unproven | I-18     |
-| 13   | Turn the example feature on where wanted: `bun run knob set EXAMPLE_FEATURE_ENABLED true --stage <stage>` for non-prod, the `prod-knob.yml` dispatch for `prod` | the feature is on in that stage                                                | unproven | I-34     |
+| Step | Command                                                                                                                                             | Signal                                                                         | Tag      | Rests on |
+| ---- | --------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ | -------- | -------- |
+| 9    | Push to `main`                                                                                                                                      | `prod.yml` holds on the all-`create` plan and prints a fingerprint             | unproven | I-39     |
+| 10   | Paste the one command from the hold's summary: `gh workflow run prod-destructive.yml -f sha=<sha> -f fingerprint=<digest> -f reason="first deploy"` | the `prod-destructive.yml` run starts and applies the plan                     | unproven | I-38     |
+| 11   | Read the deploy log                                                                                                                                 | migrations run before Workers, the `web` URL is printed and the smoke is green | unproven | I-38     |
+| 12   | Open the URL, sign up with email and password, add a passkey, sign out, then sign in with the passkey                                               | the signed-in app shows after the passkey sign-in                              | unproven | I-18     |
 
 ## Operate
 
