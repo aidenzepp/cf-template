@@ -85,7 +85,7 @@ describe("initial JavaScript report", () => {
     Effect.gen(function* devtoolsBuild() {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const fixtures = yield* path.fromFileUrl(new URL("./fixtures/", import.meta.url));
+      const fixtures = yield* path.fromFileUrl(new URL("fixtures/", import.meta.url));
 
       yield* assertNoDevtools(path.join(fixtures, "client-clean"));
 

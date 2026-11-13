@@ -201,12 +201,12 @@ export const assertNoDevtools = Effect.fn("bundle.assertNoDevtools")(function* a
 
   const hits = devtoolsHits(files);
 
-  if (hits.length > 0) {
-    return yield* new DevtoolsInBundleError({
-      files: hits,
-      message: `Router devtools code in the production client bundle:\n${hits.join("\n")}`,
-    });
-  }
+  return yield* hits.length > 0
+    ? new DevtoolsInBundleError({
+        files: hits,
+        message: `Router devtools code in the production client bundle:\n${hits.join("\n")}`,
+      })
+    : Effect.void;
 });
 
 /**

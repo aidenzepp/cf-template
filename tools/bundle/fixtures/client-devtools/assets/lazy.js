@@ -1,1 +1,3 @@
-import("@tanstack/react-router-devtools").then((m) => m.TanStackRouterDevtools);
+export const NAME = "TanStackRouterDevtools";
+
+export const load = () => import("@tanstack/react-router-devtools");
