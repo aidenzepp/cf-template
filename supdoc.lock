@@ -176,7 +176,7 @@ hash = "89bd96a9c73582e7dcb63e394bc9de533e959201aec6e954b6bba8477925bddc"
 [[link]]
 source = "AGENTS.md"
 target = ".agents/skills/design-review/SKILL.md"
-hash = "a0af32857ad9768527b6251ee7a25cfd21209e223f67682fb9006b1ecf4de926"
+hash = "3df32b630de3f433c443f7e2c9cc23e2dda39fc26ff68059d74f2202e7a107b7"
 
 [[link]]
 source = "AGENTS.md"
