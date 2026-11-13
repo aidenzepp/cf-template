@@ -180,4 +180,25 @@ describe("the documentation routes with DOCS_ENABLED off", () => {
       }
     }).pipe(Effect.scoped),
   );
+
+  it.effect("answer 404 when only the retired API_DOCS_ENABLED is set to true", () =>
+    Effect.gen(function* retired() {
+      const web = HttpRouter.toWebHandler(
+        ApiDocsRoutes.pipe(
+          Layer.merge(ProblemAdapter),
+          Layer.provide(
+            ConfigProvider.layer(ConfigProvider.fromUnknown({ API_DOCS_ENABLED: "true" })),
+          ),
+        ),
+        { disableLogger: true },
+      );
+
+      for (const path of [OPENAPI_PATH, DOCS_PATH, LLMS_PATH]) {
+        const response = yield* Effect.promise(() => web.handler(new Request(`${ORIGIN}${path}`)));
+
+        assert.strictEqual(response.status, 404);
+      }
+      yield* Effect.promise(web.dispose);
+    }),
+  );
 });
