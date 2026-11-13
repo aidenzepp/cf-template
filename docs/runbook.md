@@ -63,6 +63,8 @@ A projection, such as `NoteIndex` in `apps/api/src/notes/note-index.projection.t
 
 `bun run build` ends with `initial JS: <n> / 300 KiB gzipped`, the web entry chunk plus its static imports. It only reports: it warns when over the target and never fails. CI repeats the line in the job summary.
 
+`merge-gate` in `ci.yml` is the required check. It covers `checks`, `browser` and `design-record` and fails unless each one succeeded; on a push to `main`, where `design-record` does not run, it accepts that job as skipped. The settings program applies the ruleset that requires it at stop point S-19, after the account holder's go, so until S-19 runs the job reports but nothing requires it. DEP-5 replaces the job and keeps the name (#43).
+
 A Better Auth bump reaches `prod` before its previews sign in with a provider: `oAuthProxy`'s encrypted packages do not cross versions when its key derivation changes, so `prod` and every participating preview move in one cutover.
 
 ## State store

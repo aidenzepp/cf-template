@@ -23,7 +23,7 @@ export const ACTIONS_INTEGRATION_ID = 15_368;
  * `pr-body` and `convention-guard` with the pull-request workflows of #43. `reviewer-agent` is
  * stamped by an app, not a workflow, and is declared only when `GITHUB_REVIEWER_APP_ID` is set.
  */
-export const REQUIRED_CHECKS = ["checks", "browser", "reviewer-agent"] as const;
+export const REQUIRED_CHECKS = ["checks", "browser", "merge-gate", "reviewer-agent"] as const;
 
 /**
  * The labels the declaration names; every other label is a deletion candidate for part 3.
