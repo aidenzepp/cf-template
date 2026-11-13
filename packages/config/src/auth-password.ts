@@ -4,26 +4,26 @@ import { Knob } from "@workspace/config/knob";
 /**
  * The least memory, in bytes, one scrypt call may use: `128 x 2^ln x r` of 32 MiB.
  */
-export const SCRYPT_MEMORY_FLOOR_BYTES = 33_554_432;
+const SCRYPT_MEMORY_FLOOR_BYTES = 33_554_432;
 
 /**
  * The most memory, in bytes, one scrypt call may use: 64 MiB. Two hashes in flight must still fit
  * the 128 MB Workers isolate.
  */
-export const SCRYPT_MEMORY_CEILING_BYTES = 67_108_864;
+const SCRYPT_MEMORY_CEILING_BYTES = 67_108_864;
 
 /**
  * The least work one scrypt call may do, `2^ln x r x p` of `2^18`. Every parameter set OWASP lists
  * clears it, and the default of `2^15 x 8 x 3` does too.
  */
-export const SCRYPT_WORK_FLOOR = 262_144;
+const SCRYPT_WORK_FLOOR = 262_144;
 
 /**
  * The most work one scrypt call may do, `2^ln x r x p` of `2^22`: four times the heaviest OWASP set
  * (`2^20`) and over five times the default. Memory alone does not bound CPU, since `p` multiplies
  * the time without adding memory: `ln=19, r=1, p=16` fits 64 MiB yet does `2^23` work.
  */
-export const SCRYPT_WORK_CEILING = 4_194_304;
+const SCRYPT_WORK_CEILING = 4_194_304;
 
 /**
  * The scrypt work `2^ln x r x p` of `params`.
@@ -76,7 +76,7 @@ export type ScryptCost = typeof ScryptParams.Type;
  * The parameters a new hash must use: {@link ScryptParams} plus the two floors, memory and work
  * apart, so a large `p` cannot buy back memory.
  */
-export const ScryptKnobParams = ScryptParams.check(
+const ScryptKnobParams = ScryptParams.check(
   Schema.makeFilter(
     (params) =>
       memoryOf(params) >= SCRYPT_MEMORY_FLOOR_BYTES ||

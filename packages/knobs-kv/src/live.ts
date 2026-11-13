@@ -14,7 +14,7 @@ export const KNOB_REFRESH_MS = 30_000;
  * The `cacheTtl` of each KV read, in seconds: the shortest Workers KV accepts below a minute is 30.
  * A constant, not a knob.
  */
-export const KV_CACHE_TTL_S = 30;
+const KV_CACHE_TTL_S = 30;
 
 /**
  * The logical id of the namespace resource, the key of its Alchemy state. `infra` declares it under

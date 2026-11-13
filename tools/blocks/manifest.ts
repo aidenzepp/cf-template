@@ -4,7 +4,7 @@ import { Effect, FileSystem, Schema } from "effect";
  * A removable slice of an app: the `paths` the pull-out deletes, except the `keep` modules that the
  * first of its two removal PRs leaves in place.
  */
-export const Slice = Schema.Struct({
+const Slice = Schema.Struct({
   keep: Schema.Array(Schema.String),
   name: Schema.String,
   paths: Schema.Array(Schema.String),
@@ -14,7 +14,7 @@ export const Slice = Schema.Struct({
  * A block whose code does not live in one package directory. A block with no entry is its package
  * directory.
  */
-export const Block = Schema.Struct({
+const Block = Schema.Struct({
   name: Schema.String,
   paths: Schema.Array(Schema.String),
 });

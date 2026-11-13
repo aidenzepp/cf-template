@@ -3,7 +3,7 @@ import { declareReceiver } from "./receiver.ts";
 import { guardAlert, guardNamespace } from "./resources.ts";
 import type { GuardPlanValue } from "./resources.ts";
 
-export { GuardPlan, guardNamespace } from "./resources.ts";
+export { guardNamespace } from "./resources.ts";
 
 export type { GuardPlanValue } from "./resources.ts";
 

@@ -22,7 +22,7 @@ export const NOTE_TITLE_MAX_LENGTH = 200;
 /**
  * The most characters a note body may hold.
  */
-export const NOTE_BODY_MAX_LENGTH = 10_000;
+const NOTE_BODY_MAX_LENGTH = 10_000;
 
 /**
  * The title a command may set, at most {@link NOTE_TITLE_MAX_LENGTH} characters.
