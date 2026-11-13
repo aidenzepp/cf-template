@@ -83,3 +83,8 @@ hash = "851afb5a7b76cf227e7e9e209a19463861a15b27e65f6cfa3927699d10938a1e"
 source = "AGENTS.md"
 target = ".agents/skills/write-migration/SKILL.md"
 hash = "492e7a95f6851bc252f41a233e3b1426e37808c5e365bf28f182154ada931c13"
+
+[[link]]
+source = "docs/decisions/c46-capability-registry.md"
+target = "docs/capabilities.md"
+hash = "b218567a9471febcdcf6a87701f74b73d3ce3de20328f81f2b9f548be416a9b1"
