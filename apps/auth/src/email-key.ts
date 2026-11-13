@@ -22,8 +22,7 @@ export const EMAIL_KEY_FIELD = "emailKey";
  * @param email - An address as typed.
  * @returns The normalized address.
  */
-const normalizeEmail = (email: string): string =>
-  email.normalize("NFC").trim().toLowerCase();
+const normalizeEmail = (email: string): string => email.normalize("NFC").trim().toLowerCase();
 
 /**
  * `Mac` on WebCrypto, the layer {@link emailKey} runs on.
