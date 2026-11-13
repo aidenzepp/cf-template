@@ -11,6 +11,14 @@ import type { AxeResults } from "axe-core";
 const WCAG_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 /**
+ * The viewport widths a scan screenshots the page at, and the viewport height it sets for them. The
+ * screenshot covers the full page, so the height only decides what is above the fold.
+ */
+const SCREENSHOT_WIDTHS = [390, 1280] as const;
+
+const SCREENSHOT_HEIGHT = 900;
+
+/**
  * True once React has hydrated a node of the page: hydrated nodes carry a `__reactFiber` key.
  */
 export const HYDRATED = `[...document.querySelectorAll("*")].some((element) =>
@@ -179,7 +187,9 @@ const runtime = ManagedRuntime.make(Layer.mergeAll(HarnessLive, BunServices.laye
  * @param target - A path on the harness, or a full URL.
  * @param cookie - A `name=value` cookie to send to the harness.
  * @param colorScheme - The `prefers-color-scheme` to emulate.
- * @returns The count of passed rules, the violations and the visible text of the page.
+ * @returns The count of passed rules, the violations, the visible text of the page and, on Linux, a
+ *   full-page PNG at each of {@link SCREENSHOT_WIDTHS}. The baselines are Linux screenshots, so no
+ *   other platform takes one.
  */
 const scan = Effect.fn("scan")(function* scan(
   context: BrowserContext,
@@ -234,9 +244,29 @@ const scan = Effect.fn("scan")(function* scan(
       page.evaluate<boolean>(`document.documentElement.classList.contains("dark")`),
     );
 
+    // Screenshots last: resizing the viewport must not change what axe-core and the text read saw.
+    const widths = process.platform === "linux" ? SCREENSHOT_WIDTHS : [];
+
+    const screenshots = yield* Effect.all(
+      widths.map((width) =>
+        Effect.gen(function* screenshotAt() {
+          yield* promised(`Resizing to ${width}px`, () =>
+            page.setViewportSize({ height: SCREENSHOT_HEIGHT, width }),
+          );
+
+          const png = yield* promised(`Screenshotting at ${width}px`, () =>
+            page.screenshot({ animations: "disabled", caret: "hide", fullPage: true }),
+          );
+
+          return { png: png.toString("base64"), width };
+        }),
+      ),
+    );
+
     return {
       dark,
       passes: passes.length,
+      screenshots,
       text: texts.join("\n"),
       violations: violations.map(({ id, impact, nodes }) => ({
         id,
