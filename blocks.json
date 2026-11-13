@@ -17,8 +17,7 @@
         "packages/contract/src/domain/note-errors.ts",
         "packages/contract/src/api/notes.ts",
         "apps/api/src/notes/**",
-        "apps/api/src/problem-details.test.ts",
-        "apps/web/src/routes/notes/"
+        "apps/api/src/problem-details.test.ts"
       ],
       "keep": ["apps/api/src/notes/table.ts", "apps/api/src/db/schema.ts"]
     }

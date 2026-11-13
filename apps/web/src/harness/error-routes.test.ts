@@ -43,9 +43,6 @@ export default {
 };
 `;
 
-// The router stamps each match with the time it rendered; nothing else differs between renders.
-const withoutClock = (html: string) => html.replaceAll(/u:\d+/gu, "u:0");
-
 const HTML_ACCEPT = { accept: "text/html" } satisfies Record<string, string>;
 
 /**
@@ -181,40 +178,47 @@ const WebProdLive = Layer.effect(WebProd)(
  */
 const HARNESS_DEFECT = "harness-defect-secret";
 
-const NOT_FOUND_HEADING = "This page doesn&#x27;t exist.";
+/**
+ * TanStack Router's default not-found body, which the root falls back to.
+ */
+const NOT_FOUND_BODY = "<p>Not Found</p>";
 
-const ERROR_HEADING = "Something went wrong and the page couldn&#x27;t load.";
+/**
+ * The heading of TanStack Router's default error body, which the root falls back to.
+ */
+const ERROR_HEADING = "Something went wrong!";
+
+/**
+ * The minimal HTML `badGateway` answers to a navigation whose forward failed.
+ */
+const BAD_GATEWAY_BODY =
+  "<h1>Bad Gateway</h1><p>The service did not answer. Try again shortly.</p>";
 
 layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
-  it.effect("answers 404 with the not-found page for a path no route matches", () =>
+  it.effect("answers 404 with TanStack's default body for a path no route matches", () =>
     Effect.gen(function* missing() {
       const { html, response } = yield* (yield* WebProd).get("/missing");
 
       expect(response.status).toBe(404);
-      expect(html).toContain(NOT_FOUND_HEADING);
-      expect(html).toContain('href="/"');
-      expect(html).toContain("Go to the home page");
+      expect(html).toContain(NOT_FOUND_BODY);
     }),
   );
 
-  it.effect("answers 404 with the same page when a loader reports its record missing", () =>
+  it.effect("answers 404 with the same body when a loader reports its record missing", () =>
     Effect.gen(function* loaderNotFound() {
       const { html, response } = yield* (yield* WebProd).get("/-harness-throws?kind=not-found");
 
       expect(response.status).toBe(404);
-      expect(html).toContain(NOT_FOUND_HEADING);
-      expect(html).toContain('href="/"');
+      expect(html).toContain(NOT_FOUND_BODY);
     }),
   );
 
-  it.effect("answers 500 with the error page and none of the thrown text", () =>
+  it.effect("answers 500 with TanStack's default error body and none of the thrown text", () =>
     Effect.gen(function* loaderDefect() {
       const { html, response } = yield* (yield* WebProd).get("/-harness-throws");
 
       expect(response.status).toBe(500);
       expect(html).toContain(ERROR_HEADING);
-      expect(html).toContain("Try again");
-      expect(html).toContain("Go to the home page");
       // The whole document, the router's dehydrated state in `<script>` included.
       expect(html).not.toContain(HARNESS_DEFECT);
     }),
@@ -243,16 +247,14 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
 
   const callback = "/auth/callback/github";
 
-  const OUTAGE_HEADING = "Sign-in is unavailable right now.";
-
-  it.effect("answers a failed forward to a navigation with the /unavailable body", () =>
+  it.effect("answers a failed forward to a navigation with badGateway's HTML", () =>
     Effect.gen(function* navigation() {
       const web = yield* WebProd;
-      const page = yield* web.get("/unavailable");
 
       const navigations: ReadonlyArray<Record<string, string>> = [
         { "x-test-sec-fetch-mode": "navigate" },
         { accept: "text/html" },
+        { accept: "text/html", cookie: "theme=dark" },
       ];
 
       for (const headers of navigations) {
@@ -261,8 +263,7 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
         expect(response.status).toBe(502);
         expect(response.headers.get("content-type")).toContain("text/html");
         expect(response.headers.get("vary")).toBe("Sec-Fetch-Mode, Accept");
-        expect(html).toContain(OUTAGE_HEADING);
-        expect(withoutClock(html)).toBe(withoutClock(page.html));
+        expect(html).toBe(BAD_GATEWAY_BODY);
       }
     }),
   );
@@ -280,19 +281,6 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
         title: "Bad Gateway",
         type: "about:blank",
       });
-    }),
-  );
-
-  it.effect("renders the failed forward with the markup /unavailable renders for the cookie", () =>
-    Effect.gen(function* themed() {
-      const web = yield* WebProd;
-      const headers = { accept: "text/html", cookie: "theme=dark" };
-      const page = yield* web.get("/unavailable", headers);
-      const failed = yield* web.get(callback, headers);
-
-      expect(failed.response.status).toBe(502);
-      expect(withoutClock(failed.html)).toBe(withoutClock(page.html));
-      expect(failed.html).toContain(OUTAGE_HEADING);
     }),
   );
 });

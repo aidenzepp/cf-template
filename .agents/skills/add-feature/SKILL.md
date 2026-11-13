@@ -16,9 +16,9 @@ forms as code, one example each, and the `exports` edit as a diff.
 
 ## Procedure
 
-1. Name the slice and its paths: the contract module under `packages/contract/src/domain/<slice>/`,
-   the `api` feature folder `apps/api/src/<slice>/`, and the `web` route files under
-   `apps/web/src/routes/<slice>/` with their colocated `-atoms.ts`.
+1. Name the slice and its paths: the contract module under `packages/contract/src/domain/<slice>/`
+   and the `api` feature folder `apps/api/src/<slice>/`. A slice adds no `web` screens until the
+   next UI.
 2. Write the contract first: the request and response Schemas, and the Problem classes the slice
    returns. The `api` and `web` code both import these; neither redefines a shape.
 3. Write the `api` service and its layer, then attach it with one of the four attach forms below.
