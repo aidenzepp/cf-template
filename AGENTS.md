@@ -74,6 +74,7 @@ Do not introduce nullable fields, legacy repair paths, transitional models, or c
 - [.agents/skills/document-code/SKILL.md](.agents/skills/document-code/SKILL.md): JSDoc for every program unit and the constraints it must preserve.
 - [.agents/skills/effect-design/SKILL.md](.agents/skills/effect-design/SKILL.md): the native-capability review and local Effect rulings.
 - [.agents/skills/error-messages/SKILL.md](.agents/skills/error-messages/SKILL.md): caller-facing and developer-facing errors.
+- [.agents/skills/shadcn/SKILL.md](.agents/skills/shadcn/SKILL.md): the official shadcn skill for `packages/ui`. Patched from upstream in two places: its load-time command and `allowed-tools` use the pinned runner `bun run ui` (shadcn 4.23.0) instead of `@latest`, and the "check community registries" sentence is removed because the repository uses the stock registry only.
 - [.agents/skills/supdoc/SKILL.md](.agents/skills/supdoc/SKILL.md): keeping linked docs in step with the code they point at.
 - [.agents/skills/trace-effect/SKILL.md](.agents/skills/trace-effect/SKILL.md): spans and logs for effectful operations.
 - [.agents/skills/work-with-stacks/SKILL.md](.agents/skills/work-with-stacks/SKILL.md): deploying and destroying stages on local state, the orphan count, and what never runs from a laptop.
