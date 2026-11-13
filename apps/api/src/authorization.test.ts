@@ -21,7 +21,7 @@ import { Rpc, RpcGroup, RpcTest } from "effect/rpc";
 import { HttpApiBuilder } from "effect/http-api";
 import { RpcCallError } from "alchemy/Rpc";
 import { Session, UserId } from "@workspace/contract/domain/session";
-import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
+import { AuthCheckSession, SessionLookup } from "./authorization.ts";
 import { NotebookHttp, ServedApi } from "./docs/routes.ts";
 import { NoteIndexUnstored } from "./notes/note-index.projection.ts";
 import { NotesModel } from "./notes/notes.model.ts";
@@ -70,7 +70,6 @@ const stack = (
         ),
       ),
     ),
-    Layer.provide(SessionMiddlewareLive),
     Layer.provide(SessionLookup.layer),
     Layer.provide(Layer.succeed(AuthCheckSession, checkSession)),
     Layer.provide(layerProblemDetails({ includeDetails: false })),
