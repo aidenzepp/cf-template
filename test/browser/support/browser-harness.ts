@@ -3,6 +3,7 @@ import { Context, Effect, FileSystem, Layer, ManagedRuntime, Path, Schema } from
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { BrowserContext } from "playwright";
 import type { AxeResults } from "axe-core";
+import { resolveStackName } from "../../../infra/src/stack-name.ts";
 
 /**
  * The WCAG 2.2 A and AA rules of axe-core. Its best-practice rules (a page needs an `h1`, say) are
@@ -81,11 +82,13 @@ export const promised = <A>(what: string, step: () => Promise<A>) =>
   });
 
 /**
- * The origin of the production build of `web`, served on Miniflare.
+ * The origin of the production build of `web`, served on Miniflare, and the stack name it binds as
+ * `STACK_NAME`: the one `resolveStackName` derives for a deploy of this checkout.
  */
-export class Harness extends Context.Service<Harness, { readonly origin: string }>()(
-  "@workspace/test/BrowserHarness",
-) {}
+export class Harness extends Context.Service<
+  Harness,
+  { readonly origin: string; readonly stackName: string }
+>()("@workspace/test/BrowserHarness") {}
 
 const MiniflarePackage = Schema.fromJsonString(Schema.Struct({ main: Schema.String }));
 
@@ -101,6 +104,7 @@ const HarnessLive = Layer.effect(Harness)(
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const root = yield* path.fromFileUrl(new URL("../../../", import.meta.url));
     const web = path.join(root, "apps", "web");
+    const stackName = yield* resolveStackName();
     const outDir = path.join(web, "node_modules", ".cache", "browser-harness");
 
     const code = yield* spawner.exitCode(
@@ -154,6 +158,7 @@ const HarnessLive = Layer.effect(Harness)(
                   AUTH_METHODS: '{"email":true,"providers":[]}',
                   AUTH_ORPHAN_GRACE_SECONDS: "600",
                   PUBLIC_ORIGIN: "http://x",
+                  STACK_NAME: stackName,
                 },
                 compatibilityDate: "2026-10-26",
                 modules: files.map((file) => ({
@@ -174,7 +179,7 @@ const HarnessLive = Layer.effect(Harness)(
 
     const { origin } = yield* promised("Starting Miniflare", () => instance.ready);
 
-    return Harness.of({ origin });
+    return Harness.of({ origin, stackName });
   }),
 ).pipe(Layer.provide(BunServices.layer));
 
@@ -187,7 +192,8 @@ const runtime = ManagedRuntime.make(Layer.mergeAll(HarnessLive, BunServices.laye
  * @param target - A path on the harness, or a full URL.
  * @param cookie - A `name=value` cookie to send to the harness.
  * @param colorScheme - The `prefers-color-scheme` to emulate.
- * @returns The count of passed rules, the violations, the visible text of the page and, on Linux, a
+ * @returns The count of passed rules, the violations, the visible text of the page, the stack name
+ *   the harness binds (empty for a full URL) and, on Linux, a
  *   full-page PNG at each of {@link SCREENSHOT_WIDTHS}. The baselines are Linux screenshots, so no
  *   other platform takes one.
  */
@@ -199,7 +205,7 @@ const scan = Effect.fn("scan")(function* scan(
 ) {
   const path = yield* Path.Path;
   const isPath = target.startsWith("/");
-  const { origin } = isPath ? yield* Harness : { origin: "" };
+  const { origin, stackName } = isPath ? yield* Harness : { origin: "", stackName: "" };
   const axeSource = yield* path.fromFileUrl(new URL(import.meta.resolve("axe-core/axe.min.js")));
 
   return yield* Effect.gen(function* inPage() {
@@ -267,6 +273,7 @@ const scan = Effect.fn("scan")(function* scan(
       dark,
       passes: passes.length,
       screenshots,
+      stackName,
       text: texts.join("\n"),
       violations: violations.map(({ id, impact, nodes }) => ({
         id,

@@ -1,4 +1,4 @@
-import { Config, Context, Effect, Option, Predicate, Result, Schema } from "effect";
+import { Clock, Config, Context, Effect, Option, Predicate, Result, Schema } from "effect";
 
 /**
  * The defect that `Knob.make` raises at construction when the schema lacks a required annotation.
@@ -200,18 +200,79 @@ export const LiveKnobs = Context.Reference<LiveKnobsPort>("@workspace/config/Liv
 });
 
 /**
+ * The options of {@link fromSource}.
+ */
+export interface FromSourceOptions {
+  /**
+   * Reuse each key's read result, success or failure, for this many milliseconds before the next
+   * request reads the key again. Absent, every request reads the source.
+   */
+  readonly refreshMs?: number;
+}
+
+/**
+ * One cached read of a key: when it ran and what it yielded, a failed read being `Option.none()`.
+ */
+interface CachedRead {
+  readonly at: number;
+  readonly value: Option.Option<string>;
+}
+
+/**
  * Construct a {@link LiveKnobsPort} that reads tier (c) from `source`.
  *
- * An absent or empty live value, a failed read, and a value the knob's schema rejects all yield
- * the tier (b) value. A rejected value logs once at `Error`, annotated `knob.<KEY>.reason` as
- * `schema_rejected`, per distinct value. The set of rejected values belongs to the returned value,
- * so it lasts as long as the isolate that built it.
+ * `bind` resolves only tier (b); the source is read on demand, by the returned reader, never at
+ * construction, so a source that needs a request's context can back it. An absent or empty live
+ * value, a failed read, and a value the knob's schema rejects all yield the tier (b) value. A
+ * failed read logs at `Warning`. A rejected value logs once at `Error`, annotated
+ * `knob.<KEY>.reason` as `schema_rejected`, per distinct value.
+ *
+ * With `refreshMs`, each key's read result, success or failure, is reused for that long, so a
+ * failing source is retried after the same interval as a healthy one. An in-flight read is never
+ * shared: two requests that both miss the cache both read. The cache and the set of rejected
+ * values belong to the returned value, so they last as long as the isolate that built it.
  *
  * @param source - The live store to read.
+ * @param options - The optional per-isolate cache.
  * @returns The port value that provides {@link LiveKnobs}.
  */
-export const fromSource = (source: LiveSource): LiveKnobsPort => {
+export const fromSource = (source: LiveSource, options: FromSourceOptions = {}): LiveKnobsPort => {
+  const cache = new Map<string, CachedRead>();
   const rejected = new Set<string>();
+
+  const readSource = (key: string): Effect.Effect<Option.Option<string>> =>
+    source
+      .read(key)
+      .pipe(
+        Effect.catchTag("LiveSourceError", (failure) =>
+          Effect.logWarning(`Live source ${source.name} failed reading ${key}.`, failure).pipe(
+            Effect.as(Option.none<string>()),
+          ),
+        ),
+      );
+
+  const readLive = (key: string): Effect.Effect<Option.Option<string>> => {
+    const { refreshMs } = options;
+
+    if (refreshMs === undefined) {
+      return readSource(key);
+    }
+
+    return Effect.gen(function* cachedRead() {
+      const now = yield* Clock.currentTimeMillis;
+      const hit = cache.get(key);
+
+      if (hit !== undefined && now - hit.at < refreshMs) {
+        return hit.value;
+      }
+
+      const value = yield* readSource(key);
+
+      cache.set(key, { at: now, value });
+
+      return value;
+    });
+  };
 
   return {
     bind: <A>(knob: Knob<A>) =>
@@ -219,16 +280,7 @@ export const fromSource = (source: LiveSource): LiveKnobsPort => {
         const base = yield* knob.config;
 
         const read: Effect.Effect<A> = Effect.gen(function* read() {
-          const raw = yield* source
-            .read(knob.key)
-            .pipe(
-              Effect.catchTag("LiveSourceError", (error) =>
-                Effect.logWarning(
-                  `Live source ${source.name} failed reading ${knob.key}.`,
-                  error,
-                ).pipe(Effect.as(Option.none<string>())),
-              ),
-            );
+          const raw = yield* readLive(knob.key);
 
           if (Option.isNone(raw) || raw.value === "") {
             return base;
@@ -254,8 +306,6 @@ export const fromSource = (source: LiveSource): LiveKnobsPort => {
             }),
           );
         });
-
-        yield* read;
 
         return read;
       }),

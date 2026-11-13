@@ -114,3 +114,7 @@ Shadows the theme declares.
 Corner radius steps the theme declares.
 
 - `--radius` (:root): `0.625rem`
+
+## Components
+
+## Do's and Don'ts

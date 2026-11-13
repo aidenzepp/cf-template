@@ -32,6 +32,7 @@ interface WebBindings extends Record<Exclude<keyof WebEnv, "KNOBS">, boolean | s
   readonly PUBLIC_ORIGIN: string;
   readonly RATELIMIT_CREDENTIAL: object;
   readonly RATELIMIT_PUBLIC: object;
+  readonly STACK_NAME: string;
 }
 
 /**
@@ -74,7 +75,8 @@ export const guardedDomain = Effect.fn("guardedDomain")(function* guardedDomain(
  *
  * `web` is the only Worker with an address. It binds `api` as `API` and `auth` as `AUTH`, both as
  * plain service bindings that `apps/web` only ever calls `fetch` on, plus `AUTH_METHODS` and
- * `PUBLIC_ORIGIN` from the values `auth` already receives. `runWorkerFirst` is the same
+ * `PUBLIC_ORIGIN` from the values `auth` already receives, and `STACK_NAME`, the stack name the
+ * placeholder page shows as the project's title. `runWorkerFirst` is the same
  * {@link FORWARD_PREFIXES} constant the server entry forwards by, so a static asset never shadows
  * `/api/*` or `/auth/*`. `WebProd` serves the production bundle that `build:prod-harness` writes to
  * `apps/web/dist` and is never declared on any other stage kind.
@@ -124,6 +126,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
       namespaceId: namespaceId(stack, stage, "public"),
       simple: { limit: 100, period: 10 },
     }),
+    STACK_NAME: stack,
   } satisfies WebBindings;
 
   const bindings = { ...env, ...Object.fromEntries(blockBindings) };
