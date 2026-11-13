@@ -614,13 +614,12 @@ export default defineConfig({
       // run-effect-inside-effect 8, unstable-api-usage 11 (apps/auth/src/email-key.ts 5, unlisted in allowedUnstableApis; infra/migrations-digest.ts and
       // infra/stacks/settings.ts sit outside every tsconfig, so the plugin entry does not reach
       // them), missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
-      // process-env 3 (delta, `test/`), flat-map-conditional-to-filter-or-fail 3,
+      // flat-map-conditional-to-filter-or-fail 3,
       // return-effect-in-gen 3, effect-succeed-with-undefined 3, catch-conditional-refail-to-catch-if
-      // 3, then 2 each: abort-controller-in-effect, provide-layer-succeed-to-provide-service,
+      // 3, then 2 each: provide-layer-succeed-to-provide-service,
       // schema-sync-in-effect, unknown-in-effect-catch, unnecessary-typeof-type; then 1 each:
       // catch-die-to-or-die, catch-tag-to-catch-reason, flat-map-identity-to-flatten,
       // map-some-to-as-some.
-      "effecttsgo/abort-controller-in-effect": "off",
       "effecttsgo/all-of-map-to-for-each": "off",
       "effecttsgo/any-unknown-in-error-context": "off",
       "effecttsgo/catch-conditional-refail-to-catch-if": "off",
@@ -636,7 +635,7 @@ export default defineConfig({
       "effecttsgo/multiple-effect-provide": "off",
       "effecttsgo/prefer-succeed-some-or-none": "off",
       "effecttsgo/prefer-typed-schema-decoder": "off",
-      "effecttsgo/process-env": "off",
+      "effecttsgo/process-env": "warn",
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/provide-layer-succeed-to-provide-service": "off",
       "effecttsgo/return-effect-in-gen": "off",
