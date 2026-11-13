@@ -3,5 +3,5 @@
   "compilerOptions": {
     "rootDir": ".."
   },
-  "include": ["alchemy.run.ts", "stages.ts", "src", "scripts"]
+  "include": ["alchemy.run.ts", "stages.ts", "migrations-digest.ts", "stacks", "src", "scripts"]
 }

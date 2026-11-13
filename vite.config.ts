@@ -655,9 +655,8 @@ export default defineConfig({
       // Every other "off" below is staged off until its follow-up fixes the code (I-29 ruling,
       // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
       // any-unknown-in-error-context 20, multiple-effect-provide 9, effect-try-without-catch 7 (delta),
-      // run-effect-inside-effect 8, unstable-api-usage 11 (apps/auth/src/email-key.ts 5, unlisted in allowedUnstableApis; infra/migrations-digest.ts and
-      // infra/stacks/settings.ts sit outside every tsconfig, so the plugin entry does not reach
-      // them), missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
+      // run-effect-inside-effect 8,
+      // missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
       // return-effect-in-gen 3, then 2 each: schema-sync-in-effect, unknown-in-effect-catch.
       "effecttsgo/any-unknown-in-error-context": "off",
       "effecttsgo/effect-try-without-catch": "warn",
@@ -667,7 +666,6 @@ export default defineConfig({
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/try-catch-in-effect-gen": "off",
       "effecttsgo/unsafe-effect-type-assertion": "warn",
-      "effecttsgo/unstable-api-usage": "off",
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],

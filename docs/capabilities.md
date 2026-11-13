@@ -2,6 +2,8 @@
 
 Each concern has one mechanism. A change that adds a second mechanism, or a helper that wraps the first, names the registry row it extends or the API it checked and the requirement that API fails (`.agents/skills/effect-design/SKILL.md`, step 5). The ruling is C46 (`docs/decisions/c46-capability-registry.md`).
 
+Unstable APIs are an expected cost here, not an exception: this template builds on Effect v4, the new Alchemy and other pre-1.0 or unstable APIs on purpose, so the modules a source file uses are listed in `allowedUnstableApis` in `tsconfig.base.json`, `effecttsgo/unstable-api-usage` reports any module that is not listed, and a Renovate upgrade that breaks one shows up in its pull request.
+
 ## How to read a row
 
 - **Mechanism**: the one way this repository does the concern.
