@@ -4,6 +4,9 @@ import { Effect, FileSystem, Path, Schema } from "effect";
 
 import {
   Chunks,
+  DevtoolsInBundleError,
+  assertNoDevtools,
+  devtoolsHits,
   TARGET_KIB,
   initialFiles,
   initialGzipBytes,
@@ -66,5 +69,35 @@ describe("initial JavaScript report", () => {
         "warning: Vite manifest found in the Worker asset directory (served publicly at /.vite/manifest.json)",
       ]);
     }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+  );
+
+  it("names the files that hold a devtools marker", () => {
+    assert.deepStrictEqual(
+      devtoolsHits([
+        { file: "assets/a.js", text: "const x = 1" },
+        { file: "assets/b.js", text: 'import("@tanstack/react-router-devtools")' },
+      ]),
+      ['assets/b.js: contains "@tanstack/react-router-devtools"'],
+    );
+  });
+
+  it.effect("fails on a build whose client files import devtools and passes on a clean one", () =>
+    Effect.gen(function* devtoolsBuild() {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const fixtures = yield* path.fromFileUrl(new URL("fixtures/", import.meta.url));
+
+      yield* assertNoDevtools(path.join(fixtures, "client-clean"));
+
+      const error = yield* assertNoDevtools(path.join(fixtures, "client-devtools")).pipe(
+        Effect.flip,
+      );
+
+      assert.instanceOf(error, DevtoolsInBundleError);
+      assert.deepStrictEqual(error.files, [
+        'assets/lazy.js: contains "@tanstack/react-router-devtools"',
+      ]);
+      assert.isTrue(yield* fs.exists(fixtures));
+    }).pipe(Effect.provide(BunServices.layer)),
   );
 });

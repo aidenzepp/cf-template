@@ -28,32 +28,27 @@ function ItemSeparator({
     <Separator
       data-slot="item-separator"
       orientation="horizontal"
-      className={cn("mt-2 mb-[7px]", className)}
+      className={cn("my-2", className)}
       {...props}
     />
   )
 }
 
 const itemVariants = cva(
-  "group/item flex w-full flex-wrap items-center rounded-2xl border text-sm transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 [a]:hover:bg-fill-1",
+  "group/item flex w-full flex-wrap items-center rounded-lg border text-sm transition-colors duration-100 outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 [a]:transition-colors [a]:hover:bg-muted",
   {
     variants: {
       variant: {
         default: "border-transparent",
         outline: "border-border",
-        muted: "border-transparent bg-fill-1 [a]:hover:bg-fill-2",
+        muted: "border-transparent bg-muted/50",
       },
       size: {
-        default: "gap-3.5 px-4 py-3.5",
-        sm: "gap-3.5 px-3.5 py-3",
-        xs: "gap-2 px-3 py-2 in-data-[slot=dropdown-menu-content]:p-0",
+        default: "gap-2.5 px-3 py-2.5",
+        sm: "gap-2.5 px-3 py-2.5",
+        xs: "gap-2 px-2.5 py-2 in-data-[slot=dropdown-menu-content]:p-0",
       },
     },
-    compoundVariants: [
-      { variant: ["default", "muted"], size: "default", class: "px-3.75 py-3.25" },
-      { variant: ["default", "muted"], size: "sm", class: "px-3.25 py-2.75" },
-      { variant: ["default", "muted"], size: "xs", class: "px-2.75 py-1.75" },
-    ],
     defaultVariants: {
       variant: "default",
       size: "default",
@@ -93,7 +88,7 @@ const itemMediaVariants = cva(
         default: "bg-transparent",
         icon: "[&_svg:not([class*='size-'])]:size-4",
         image:
-          "size-10 overflow-hidden rounded-lg bg-fill-2 text-muted-foreground [&_img]:size-full [&_img]:object-cover [&_svg:not([class*='size-'])]:size-4",
+          "size-10 overflow-hidden rounded-sm group-data-[size=sm]/item:size-8 group-data-[size=xs]/item:size-6 [&_img]:size-full [&_img]:object-cover",
       },
     },
     defaultVariants: {
@@ -122,7 +117,7 @@ function ItemContent({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="item-content"
       className={cn(
-        "flex flex-1 flex-col gap-1 [&+[data-slot=item-content]]:flex-none",
+        "flex flex-1 flex-col gap-1 group-data-[size=xs]/item:gap-0 [&+[data-slot=item-content]]:flex-none",
         className
       )}
       {...props}
@@ -135,7 +130,7 @@ function ItemTitle({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="item-title"
       className={cn(
-        "line-clamp-1 flex w-fit items-center gap-2 text-sm font-medium underline-offset-4",
+        "line-clamp-1 flex w-fit items-center gap-2 text-sm leading-snug font-medium underline-offset-4",
         className
       )}
       {...props}
@@ -148,7 +143,7 @@ function ItemDescription({ className, ...props }: React.ComponentProps<"p">) {
     <p
       data-slot="item-description"
       className={cn(
-        "line-clamp-2 text-start text-sm font-normal text-muted-foreground [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
+        "line-clamp-2 text-left text-sm leading-normal font-normal text-muted-foreground group-data-[size=xs]/item:text-xs [&>a]:underline [&>a]:underline-offset-4 [&>a:hover]:text-primary",
         className
       )}
       {...props}

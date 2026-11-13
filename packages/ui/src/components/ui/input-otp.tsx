@@ -29,7 +29,7 @@ function InputOTPGroup({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="input-otp-group"
       className={cn(
-        "flex items-center rounded-lg outline-1 -outline-offset-1 outline-field-border outline-solid has-aria-invalid:ring-2 has-aria-invalid:ring-destructive/20 has-aria-invalid:outline-destructive dark:has-aria-invalid:ring-destructive/40 dark:has-aria-invalid:outline-destructive/50",
+        "flex items-center rounded-lg has-aria-invalid:border-destructive has-aria-invalid:ring-3 has-aria-invalid:ring-destructive/20 dark:has-aria-invalid:ring-destructive/40",
         className
       )}
       {...props}
@@ -52,7 +52,7 @@ function InputOTPSlot({
       data-slot="input-otp-slot"
       data-active={isActive}
       className={cn(
-        "relative flex size-8 items-center justify-center border-field-border bg-field text-xs outline-1 -outline-offset-1 outline-transparent transition-[color,box-shadow,outline-color] duration-200 outline-solid first:rounded-l-lg last:rounded-r-lg data-[active=true]:z-10 data-[active=true]:ring-2 data-[active=true]:ring-ring/30 data-[active=true]:outline-ring data-[active=true]:aria-invalid:ring-destructive/20 data-[active=true]:aria-invalid:outline-destructive dark:data-[active=true]:aria-invalid:ring-destructive/40 dark:data-[active=true]:aria-invalid:outline-destructive/50 [&:not(:last-child)]:border-r",
+        "relative flex size-8 items-center justify-center border-y border-r border-input text-sm transition-all outline-none first:rounded-l-lg first:border-l last:rounded-r-lg aria-invalid:border-destructive data-[active=true]:z-10 data-[active=true]:border-ring data-[active=true]:ring-3 data-[active=true]:ring-ring/50 data-[active=true]:aria-invalid:border-destructive data-[active=true]:aria-invalid:ring-destructive/20 dark:bg-input/30 dark:data-[active=true]:aria-invalid:ring-destructive/40",
         className
       )}
       {...props}
@@ -75,7 +75,8 @@ function InputOTPSeparator({ ...props }: React.ComponentProps<"div">) {
       role="separator"
       {...props}
     >
-      <MinusIcon />
+      <MinusIcon
+      />
     </div>
   )
 }

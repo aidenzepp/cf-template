@@ -18,8 +18,5 @@
     "lib": "@workspace/ui/lib",
     "hooks": "@workspace/ui/hooks"
   },
-  "registries": {
-    "@dithercn": "https://dithercn.dev/r/{name}.json",
-    "@sortui": "https://sortui.dev/r/{name}.json"
-  }
+  "registries": {}
 }

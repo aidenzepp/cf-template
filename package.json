@@ -10,11 +10,12 @@
   "scripts": {
     "audit": "bun tools/advisories/audit.ts",
     "renovate:validate": "bunx --package renovate@44.222.4 renovate-config-validator renovate.json",
-    "check": "bun tools/hooks/present.ts && vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings && bun run ui:typecheck && bun run db:check && bun tools/docs/runbook-check.ts docs/spin-up.md",
+    "check": "bun tools/hooks/present.ts && vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings && bun run ui:typecheck && bun run db:check && bun tools/docs/runbook-check.ts docs/spin-up.md && bun run ratchet",
     "db:check": "bun tools/db/check.ts",
     "ui": "cd packages/ui && bunx shadcn@4.23.0",
+    "ui:lock": "bun tools/ui-lock/reinstall.ts",
     "ui:typecheck": "bun run --filter @workspace/ui typecheck",
-    "fix": "vp check --fix",
+    "fix": "vp check --fix --deny-warnings",
     "footprint": "bun tools/blocks/footprint.ts",
     "knob": "bun tools/knob/knob.ts",
     "log-key": "bun tools/log-key/log-key.ts",
@@ -27,7 +28,8 @@
     "db:regenerate": "git clean -fdq apps/api/migrations && bun run db:generate",
     "db:generate": "cd apps/api && ../../node_modules/.bin/drizzle-kit generate && bun ./scripts/migrations-digest.ts && cd ../auth && ../../node_modules/.bin/drizzle-kit generate",
     "pullout": "bun tools/blocks/pullout.ts",
-    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config --local core.hooksPath .vite-hooks || true",
+    "ratchet": "bun tools/ratchet/ratchet.ts",
+    "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config --local core.hooksPath .vite-hooks || true; effect-tsgo patch --oxlint",
     "build": "vp run -F '@workspace/*' build && bun tools/bundle/check.ts"
   },
   "dependencies": {
@@ -39,6 +41,7 @@
     "@distilled.cloud/cloudflare": "1.0.0-rc.18",
     "@effect/platform-bun": "4.1.2",
     "@effect/platform-node": "4.1.2",
+    "@effect/tsgo": "0.67.7",
     "@effect/vitest": "4.1.2",
     "@oxlint/plugins": "1.91.0",
     "@shadcn/lint": "0.2.5",

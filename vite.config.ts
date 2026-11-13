@@ -1,3 +1,5 @@
+import { recommended as effect } from "@effect/tsgo/oxlint-presets";
+
 import { defineConfig } from "vite-plus";
 
 import core from "ultracite/oxlint/core";
@@ -18,12 +20,20 @@ import {
   TANSTACK_START_RULES,
 } from "oxlint-plugin-react-doctor";
 
-import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
+import {
+  abortGlobal,
+  platformGlobals,
+  sourceFetch,
+  webFetch,
+} from "./tools/lint/rules/restricted-globals.ts";
+
+import { nodeBuiltins, restrictImports } from "./tools/lint/rules/restrict-imports.ts";
 
 import {
+  authFetchMembers,
   dataAccessMembers,
-  fetchMessage,
   globalThisFetch,
+  registryMembers,
   runMembers,
 } from "./tools/lint/rules/restricted-properties.ts";
 
@@ -58,10 +68,15 @@ const effectLogStatement = {
 const vendored = ["packages/ui/src/**", "packages/ui/components.json"];
 
 /**
- * R1: an app imports another app only through its contract, and never imports infra. Web overrides
- * repeat it because an override replaces the options of every earlier matching override.
+ * The source of every app and package: the files the capability registry guards
+ * (`docs/capabilities.md`). Tests lift the properties ban and `packages` tests lift the rest.
  */
-const appImports = [
+const sourceFiles = ["apps/*/src/**", "packages/*/src/**"];
+
+/**
+ * R1: an app imports another app only through its contract, and never imports infra.
+ */
+const appRules = [
   {
     group: [
       "@workspace/web",
@@ -76,6 +91,12 @@ const appImports = [
   },
   { group: ["@workspace/infra", "@workspace/infra/*"], message: "an app never imports infra" },
 ];
+
+/**
+ * Everything an app source file may not import by pattern: R1, and `node:*`. Web overrides repeat
+ * it because an override replaces the options of every earlier matching override.
+ */
+const appImports = [...appRules, nodeBuiltins];
 
 /**
  * R5: browser code imports no app contract; the server entry is the exception (ST10).
@@ -158,7 +179,9 @@ export default defineConfig({
       "apps/auth/src/db/schema.ts",
       "**/migrations/**",
       "bun.lock",
+      "oxlint-suppressions.json",
       "tools/lint/fixtures/**",
+      "tools/ratchet/fixtures/**",
       "work/**",
       ...vendored,
     ],
@@ -168,8 +191,10 @@ export default defineConfig({
     // `drizzle` is adopted although it has no oxlint rules today, so a later Drizzle rule arrives
     // with the preset. `react` and `vitest` are scoped in `overrides` below. `tanstack` is not
     // adopted: it turns `sort-keys` off for the whole repository and the kebab-case filename rule
-    // off under `routes/`; two of its decisions are copied as scoped overrides instead.
-    extends: [core, antiSlop, shadcn, drizzle],
+    // off under `routes/`; two of its decisions are copied as scoped overrides instead. `effect` is
+    // the `@effect/tsgo` Effect rule set: it runs in this one `vp check` pass only while
+    // `effect-tsgo patch --oxlint` has patched the toolchain, and the canary test turns red if not.
+    extends: [core, antiSlop, shadcn, drizzle, effect],
     ignorePatterns: [
       ".agents/**",
       ".mirrors/**",
@@ -179,21 +204,36 @@ export default defineConfig({
       "**/migrations/**",
       "dist/**",
       "tools/lint/fixtures/**",
+      "tools/ratchet/fixtures/**",
       "work/**",
       ...vendored,
     ],
     jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin"],
     // `vp check` runs type-aware rules and the type check only when both are enabled.
     // https://viteplus.dev/guide/check
-    options: { typeAware: true, typeCheck: true },
+    options: { reportUnusedDisableDirectives: "error", typeAware: true, typeCheck: true },
     overrides: [
+      {
+        // Build and stack configuration reads its host's process.env; Effect Config applies at runtime boundaries.
+        files: [
+          "**/vite.config.ts",
+          "infra/alchemy.run.ts",
+          "infra/stacks/*.ts",
+          "infra/src/**/*.ts",
+        ],
+        rules: { "effecttsgo/process-env": "off" },
+      },
       // The run-family import ban covers every source file; the scoped overrides below repeat it.
       restrictImports(["**/*.ts", "**/*.tsx"], {}),
       // Runtime boundary: tests bridge stubs to Promise APIs.
       restrictImports(["**/*.test.ts"], { base: false }),
       restrictImports(["apps/*/src/**"], { patterns: appImports }),
+      // Package source imports no `node:*` module; its tests lift that ban and the run-family ban.
+      restrictImports(["packages/*/src/**"], { patterns: [nodeBuiltins] }),
+      restrictImports(["packages/*/src/**/*.test.ts"], { base: false }),
       restrictImports(["packages/contract/src/domain/**"], {
         patterns: [
+          nodeBuiltins,
           {
             group: ["effect/http", "effect/http/*", "@alchemy.run/*", "../api/*", "**/api/*"],
             message:
@@ -240,6 +280,13 @@ export default defineConfig({
         paths: [noHttpBuilder],
         patterns: [...appImports, httpModules],
       }),
+      // `password.ts` is the project's one scrypt call: Effect has no scrypt (its `Kdf` is PBKDF2
+      // only) and Workers serve it only through `node:crypto` (the file's own comment). It lifts
+      // only `node:*`.
+      restrictImports(["apps/auth/src/password.ts"], {
+        paths: [noHttpBuilder],
+        patterns: [...appRules, httpModules],
+      }),
       // `worker.ts` composes `HttpApiBuilder` layers from the http modules; it keeps R1.
       restrictImports(["apps/api/src/worker.ts", "apps/auth/src/worker.ts"], {
         patterns: appImports,
@@ -254,36 +301,97 @@ export default defineConfig({
         patterns: [...appImports, dbModules],
       }),
       {
-        // The data modules lift the data-access bans and keep the run-family ban. Overrides replace
-        // options, so each list below is exact.
-        files: ["packages/db/src/**"],
-        rules: { "no-restricted-properties": ["error", ...runMembers] },
-      },
-      {
-        // `web` reaches `auth` only through `env.AUTH.fetch(...)` (C34). Bare `fetch` is banned by
-        // `no-restricted-globals` below; `globalThis.fetch` joins the member lists, which every
-        // override under apps/web/src repeats because overrides replace options.
-        files: ["apps/web/src/**"],
+        // The capability registry's built-in guards (`docs/capabilities.md`, work order A2) on all
+        // source. Overrides replace options, so each list below and in the overrides after this one
+        // is exact. `no-console` takes no options: logs go through `Effect.log*`.
+        files: sourceFiles,
         rules: {
-          "no-restricted-globals": ["error", { message: fetchMessage, name: "fetch" }],
+          "no-console": "error",
+          "no-restricted-globals": ["error", abortGlobal, ...platformGlobals, sourceFetch],
           "no-restricted-properties": [
             "error",
             ...runMembers,
             ...dataAccessMembers,
+            ...registryMembers,
+          ],
+          "promise/prefer-await-to-then": "error",
+        },
+      },
+      {
+        // The data modules lift the data-access bans and keep the run-family and registry bans.
+        files: ["packages/db/src/**"],
+        rules: { "no-restricted-properties": ["error", ...runMembers, ...registryMembers] },
+      },
+      {
+        // `web` reaches `auth` only through `env.AUTH.fetch(...)` (C34), so its bare `fetch` ban
+        // carries that message. `globalThis.fetch` joins the member lists, which every override
+        // under apps/web/src repeats because overrides replace options.
+        files: ["apps/web/src/**"],
+        rules: {
+          "no-restricted-globals": ["error", abortGlobal, ...platformGlobals, webFetch],
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            ...registryMembers,
             globalThisFetch,
           ],
         },
       },
       {
-        // The web run boundaries lift the run-family ban and keep the data-access and fetch bans.
+        // The web run boundaries lift the run-family ban and keep the data-access, registry and
+        // fetch bans.
         files: ["apps/web/src/runtime.ts", "apps/web/src/server.ts"],
-        rules: { "no-restricted-properties": ["error", ...dataAccessMembers, globalThisFetch] },
+        rules: {
+          "no-restricted-properties": [
+            "error",
+            ...dataAccessMembers,
+            ...registryMembers,
+            globalThisFetch,
+          ],
+        },
       },
       {
         // The auth reclaim statement is one guarded compare-and-delete: a named data module that
-        // keeps the run-family ban.
+        // keeps the run-family and registry bans.
         files: ["apps/auth/src/reclaim.ts"],
-        rules: { "no-restricted-properties": ["error", ...runMembers] },
+        rules: { "no-restricted-properties": ["error", ...runMembers, ...registryMembers] },
+      },
+      {
+        // `latch.ts` is lifted until #249 removes it: the latch record is written with
+        // `JSON.stringify`. `test-harness.ts` is test support.
+        files: ["packages/budget-guard/src/latch.ts", "apps/auth/src/test-harness.ts"],
+        rules: {
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            ...authFetchMembers,
+          ],
+        },
+      },
+      {
+        // Lifted until #244 moves the log to Effect.logError and updates the web.ratelimit.error
+        // alert query with a cloud proof: the alert reads a top-level `event` that the structured
+        // logger would nest (want 3bb9a4ad).
+        files: ["apps/web/src/ratelimit.ts"],
+        rules: {
+          "no-console": "off",
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            ...authFetchMembers,
+            globalThisFetch,
+          ],
+          "promise/prefer-await-to-then": "off",
+        },
+      },
+      {
+        // `auth.ts` is the documented Effect-to-Promise seam: Better Auth takes a promise view
+        // of the Effect, which `.then(onFulfilled, onRejected)` consumes.
+        files: ["apps/auth/src/auth.ts"],
+        rules: { "promise/prefer-await-to-then": "off" },
       },
       {
         // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
@@ -336,7 +444,11 @@ export default defineConfig({
           // warnings, so they are off until a follow-up fixes the code; then delete these lines.
           "react-doctor/jsx-no-jsx-as-prop": "off",
           "react-doctor/jsx-no-new-function-as-prop": "off",
+          // The two server-data guards `docs/capabilities.md` names. Neither is in a React Doctor
+          // rule set, so each is switched on here.
+          "react-doctor/no-collapse-request-error-to-empty-state": "error",
           "react-doctor/only-export-components": "off",
+          "react-doctor/tanstack-start-no-direct-fetch-in-loader": "error",
         },
       },
       {
@@ -372,6 +484,30 @@ export default defineConfig({
         // browser-only hydrated copies are the module state that boundary owns (Mind ruling, I-28f).
         files: ["apps/web/src/runtime.ts"],
         rules: { "workspace/no-mutable-module-state": "off" },
+      },
+      {
+        // `packages/contract` defines the Problem classes, so it writes the media type. Tests assert
+        // it on the wire, and the rule's own file names it to look for it.
+        files: [
+          "packages/contract/**",
+          "**/*.test.ts",
+          "tools/lint/rules/no-hand-built-problem.ts",
+        ],
+        rules: { "workspace/no-hand-built-problem": "off" },
+      },
+      {
+        // Lifted until #245 builds these problem responses with `ProblemDetails`.
+        files: [
+          "apps/web/src/forward.ts",
+          "apps/web/src/ratelimit.ts",
+          "packages/budget-guard/src/live.ts",
+        ],
+        rules: { "workspace/no-hand-built-problem": "off" },
+      },
+      {
+        // Lifted until #247 replaces the `Map` with `Cache.makeWith`.
+        files: ["packages/knobs-kv/src/live.ts"],
+        rules: { "workspace/no-keyed-ttl-map": "off" },
       },
       {
         // The Ultracite `vitest` preset, scoped to the repository's own test files. The preset's own
@@ -460,6 +596,54 @@ export default defineConfig({
       // One source for the blank-line policy: the fixture diff in tools/lint/fixtures.test.ts
       // (blank-lines/cases.ts) shows the stylistic padding rule above reports every line this rule does.
       "anti-slop/require-readable-spacing": "off",
+      // The six deltas on the `effect` preset: `try-catch-in-effect-gen` off (a true subset of
+      // `workspace/no-built-in-try-catch`); `effect-try-without-catch`, `unsafe-effect-type-assertion`,
+      // `process-env-in-effect`, `extends-native-error` and `process-env` at `warn`.
+      //
+      // Every other "off" below is staged off until its follow-up fixes the code (I-29 ruling,
+      // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
+      // schema-class-missing-brand 47, all-of-map-to-for-each 31, prefer-typed-schema-decoder 31,
+      // any-unknown-in-error-context 20, schema-number 19, schema-class-object-literal 19,
+      // multiple-effect-provide 9, prefer-succeed-some-or-none 9, effect-try-without-catch 7 (delta),
+      // run-effect-inside-effect 8, unstable-api-usage 11 (apps/auth/src/email-key.ts 5, unlisted in allowedUnstableApis; infra/migrations-digest.ts and
+      // infra/stacks/settings.ts sit outside every tsconfig, so the plugin entry does not reach
+      // them), missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
+      // process-env 3 (delta, `test/`), flat-map-conditional-to-filter-or-fail 3,
+      // return-effect-in-gen 3, effect-succeed-with-undefined 3, catch-conditional-refail-to-catch-if
+      // 3, then 2 each: abort-controller-in-effect, provide-layer-succeed-to-provide-service,
+      // schema-sync-in-effect, unknown-in-effect-catch, unnecessary-typeof-type; then 1 each:
+      // catch-die-to-or-die, catch-tag-to-catch-reason, flat-map-identity-to-flatten,
+      // map-some-to-as-some.
+      "effecttsgo/abort-controller-in-effect": "off",
+      "effecttsgo/all-of-map-to-for-each": "off",
+      "effecttsgo/any-unknown-in-error-context": "off",
+      "effecttsgo/catch-conditional-refail-to-catch-if": "off",
+      "effecttsgo/catch-die-to-or-die": "off",
+      "effecttsgo/catch-tag-to-catch-reason": "off",
+      "effecttsgo/effect-succeed-with-undefined": "off",
+      "effecttsgo/effect-try-without-catch": "off",
+      "effecttsgo/extends-native-error": "warn",
+      "effecttsgo/flat-map-conditional-to-filter-or-fail": "off",
+      "effecttsgo/flat-map-identity-to-flatten": "off",
+      "effecttsgo/map-some-to-as-some": "off",
+      "effecttsgo/missing-return-yield-star": "off",
+      "effecttsgo/multiple-effect-provide": "off",
+      "effecttsgo/prefer-succeed-some-or-none": "off",
+      "effecttsgo/prefer-typed-schema-decoder": "off",
+      "effecttsgo/process-env": "off",
+      "effecttsgo/process-env-in-effect": "warn",
+      "effecttsgo/provide-layer-succeed-to-provide-service": "off",
+      "effecttsgo/return-effect-in-gen": "off",
+      "effecttsgo/run-effect-inside-effect": "off",
+      "effecttsgo/schema-class-missing-brand": "off",
+      "effecttsgo/schema-class-object-literal": "off",
+      "effecttsgo/schema-number": "off",
+      "effecttsgo/schema-sync-in-effect": "off",
+      "effecttsgo/try-catch-in-effect-gen": "off",
+      "effecttsgo/unknown-in-effect-catch": "off",
+      "effecttsgo/unnecessary-typeof-type": "off",
+      "effecttsgo/unsafe-effect-type-assertion": "warn",
+      "effecttsgo/unstable-api-usage": "off",
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],
@@ -473,7 +657,13 @@ export default defineConfig({
       "workspace/error-message-grammar": "error",
       "workspace/kebab-case-paths": "error",
       "workspace/no-built-in-try-catch": "error",
+      "workspace/no-effect-data-load": "error",
+      "workspace/no-effect-on-async-result": "error",
+      "workspace/no-hand-built-problem": "error",
+      "workspace/no-hand-rolled-retry": "error",
+      "workspace/no-keyed-ttl-map": "error",
       "workspace/no-mutable-module-state": "error",
+      "workspace/no-raw-form-submit": "error",
     },
     // The shadcn preset finds the components and the theme through these two entries.
     settings: { shadcn: { ui: ["@workspace/ui/components", "apps/web/src/styles/app.css"] } },
@@ -492,7 +682,7 @@ export default defineConfig({
       {
         test: {
           ...noOnly,
-          exclude: ["tools/lint/fixtures/**"],
+          exclude: ["tools/lint/fixtures/**", "tools/ratchet/fixtures/**"],
           include: ["tools/**/*.test.ts"],
           name: "tools",
         },
