@@ -77,7 +77,9 @@ interface Check {
     database: (typeof databases)[number],
   ) => Effect.Effect<
     ReadonlyArray<Finding>,
-    unknown,
+    | Config.ConfigError
+    | Effect.Error<ReturnType<FileSystem.FileSystem["stat"]>>
+    | Schema.SchemaError,
     FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
   >;
 }
