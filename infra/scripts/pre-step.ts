@@ -153,7 +153,7 @@ export class AccountCounts extends Context.Service<
  * Read the counts through the Cloudflare route the rate-limit guard uses: `CloudflareApiLive`
  * resolves the credentials and the account, and this reads no profile, token or id source.
  */
-export const AccountCountsLive = Layer.effect(
+const AccountCountsLive = Layer.effect(
   AccountCounts,
   Effect.gen(function* buildAccountCounts() {
     const context = yield* Layer.build(

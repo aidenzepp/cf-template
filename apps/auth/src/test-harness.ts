@@ -12,7 +12,7 @@ import { CheckSession } from "./session.ts";
 /**
  * The public origin the test instance signs cookies for.
  */
-export const ORIGIN = "http://localhost:3000";
+const ORIGIN = "http://localhost:3000";
 
 /**
  * The `EMAIL_KEY_SECRET` the test instance binds.
@@ -31,7 +31,7 @@ const STATEMENT_BREAKPOINT = "--> statement-breakpoint";
  * @param overrides - Bindings that replace the defaults.
  * @returns A layer that provides the bindings.
  */
-export const settings = (overrides: Readonly<Record<string, string | undefined>> = {}) =>
+const settings = (overrides: Readonly<Record<string, string | undefined>> = {}) =>
   Layer.succeed(WorkerEnvironment, {
     AUTH_METHODS: '{"email":false,"providers":[]}',
     BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-0123",

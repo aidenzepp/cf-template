@@ -15,7 +15,7 @@ export const FOREIGN_ORIGIN_TYPE = "/problems/foreign-origin";
  * @param request - The request about to be routed.
  * @returns `true` when the request is same-origin or names no origin.
  */
-export const isSameOrigin = (request: HttpServerRequest.HttpServerRequest): boolean => {
+const isSameOrigin = (request: HttpServerRequest.HttpServerRequest): boolean => {
   const { origin } = request.headers;
 
   if (origin === undefined) {

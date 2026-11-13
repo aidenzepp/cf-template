@@ -4,7 +4,7 @@ import { usesProjectState } from "./state-selection.ts";
 /**
  * The phases the guarded script may run with `--yes`.
  */
-export const TEST_STAGE_PHASES = ["deploy", "destroy"] as const;
+const TEST_STAGE_PHASES = ["deploy", "destroy"] as const;
 
 /**
  * One of {@link TEST_STAGE_PHASES}.
@@ -14,7 +14,7 @@ export type TestStagePhase = (typeof TEST_STAGE_PHASES)[number];
 /**
  * The shape of a throwaway stage: `test-` and a lower case alphanumeric slug.
  */
-export const TEST_STAGE_PATTERN = /^test-[a-z0-9-]+$/u;
+const TEST_STAGE_PATTERN = /^test-[a-z0-9-]+$/u;
 
 /**
  * The refusal of a stage or phase the guarded script does not run with `--yes`, raised before any

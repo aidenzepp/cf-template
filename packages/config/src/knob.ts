@@ -19,7 +19,7 @@ export class MissingKnobAnnotationError extends Schema.TaggedError<MissingKnobAn
  * The defect that `Knob.encode` raises when a knob's schema is not a leaf and so has no one-string
  * form.
  */
-export class KnobNotLeafError extends Schema.TaggedError<KnobNotLeafError>()("KnobNotLeafError", {
+class KnobNotLeafError extends Schema.TaggedError<KnobNotLeafError>()("KnobNotLeafError", {
   key: Schema.String,
 }) {
   override get message(): string {

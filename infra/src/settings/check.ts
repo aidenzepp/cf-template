@@ -21,7 +21,7 @@ export class DriftError extends Schema.TaggedError<DriftError>()("DriftError", {
  * `CLOUDFLARE_API_TOKEN` is settled; the second name, `CLOUDFLARE_ACCOUNT_ID`, is provisional
  * until I-42 defines the secrets in `docs/architecture.md`, and changes here when it does.
  */
-export const CLOUDFLARE_SECRETS = ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"] as const;
+const CLOUDFLARE_SECRETS = ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"] as const;
 
 /**
  * GitHub's page size and the page cap of {@link listAll}; the cap stops a server that ignores
