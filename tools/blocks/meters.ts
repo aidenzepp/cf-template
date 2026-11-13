@@ -3,7 +3,7 @@ import { Effect, Schema } from "effect";
 /**
  * The meters a block may bill, the only tokens a `Meter:` list accepts.
  */
-export const meters = [
+const meters = [
   "Workers requests",
   "CPU ms",
   "KV",

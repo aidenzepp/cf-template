@@ -4,7 +4,7 @@ import { Array as Arr, Effect, FileSystem, Order, Path, Schema } from "effect";
  * The lock: each file name under `packages/ui/src/components/ui/` mapped to the SHA-256 of its
  * bytes.
  */
-export const LockSchema = Schema.Record(Schema.String, Schema.String);
+const LockSchema = Schema.Record(Schema.String, Schema.String);
 
 /**
  * A lock as decoded from `components.lock.json`.
@@ -25,24 +25,23 @@ export const lockFile = "packages/ui/components.lock.json";
  * Raised when the component tree and the committed lock disagree. The message names every added,
  * removed and edited file and the command that rewrites the lock.
  */
-export class LockMismatchError extends Schema.TaggedError<LockMismatchError>()(
-  "LockMismatchError",
-  { message: Schema.String },
-) {}
+class LockMismatchError extends Schema.TaggedError<LockMismatchError>()("LockMismatchError", {
+  message: Schema.String,
+}) {}
 
 const decodeLock = Schema.decodeUnknownEffect(Schema.fromJsonString(LockSchema));
 
 /**
  * Raised when the Web Crypto digest of a file fails.
  */
-export class HashError extends Schema.TaggedError<HashError>()("HashError", {
+class HashError extends Schema.TaggedError<HashError>()("HashError", {
   message: Schema.String,
 }) {}
 
 /**
  * The lowercase hex SHA-256 of `bytes`.
  */
-export const hashBytes = Effect.fn("ui-lock.hashBytes")(function* hashBytes(bytes: Uint8Array) {
+const hashBytes = Effect.fn("ui-lock.hashBytes")(function* hashBytes(bytes: Uint8Array) {
   const digest = yield* Effect.tryPromise({
     catch: () => new HashError({ message: "Web Crypto could not compute a SHA-256 digest" }),
     try: () => crypto.subtle.digest("SHA-256", new Uint8Array(bytes)),
@@ -101,9 +100,7 @@ export const diffLock = (expected: Lock, actual: Lock): ReadonlyArray<string> =>
 /**
  * Hashes the tree at `directory`.
  */
-export const computeLock = Effect.fn("ui-lock.computeLock")(function* computeLock(
-  directory: string,
-) {
+const computeLock = Effect.fn("ui-lock.computeLock")(function* computeLock(directory: string) {
   return yield* hashFiles(yield* readTree(directory));
 });
 

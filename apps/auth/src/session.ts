@@ -60,7 +60,7 @@ const faultName = (defect: Parameters<typeof Predicate.isError>[0]): string =>
  * @param instance - Yields the Better Auth instance of the current execution.
  * @returns The `checkSession` method of {@link AuthEntrypoint}.
  */
-export const makeCheckSession = (
+const makeCheckSession = (
   instance: Effect.Effect<Pick<AuthInstance, "api">>,
 ): AuthEntrypoint["checkSession"] =>
   Effect.fn("auth.checkSession")(function* checkSession({ cookie }) {

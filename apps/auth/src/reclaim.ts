@@ -73,7 +73,7 @@ export const deleteOrphan = (
  * @param graceSeconds - The minimum age of a reclaimable row, in seconds.
  * @returns An effect that deletes at most that one row.
  */
-export const reclaimOrphan = (db: EffectSQLiteD1Database, email: string, graceSeconds: number) =>
+const reclaimOrphan = (db: EffectSQLiteD1Database, email: string, graceSeconds: number) =>
   Effect.gen(function* reclaim() {
     const address = email.toLowerCase();
 
