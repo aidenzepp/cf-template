@@ -32,6 +32,7 @@ import { nodeBuiltins, restrictImports } from "./tools/lint/rules/restrict-impor
 import {
   authFetchMembers,
   dataAccessMembers,
+  dataAccessMembersWithoutPrepare,
   globalThisFetch,
   registryMembers,
   runMembers,
@@ -208,7 +209,7 @@ export default defineConfig({
       "work/**",
       ...vendored,
     ],
-    jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin"],
+    jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin", ...shadcn.jsPlugins],
     // `vp check` runs type-aware rules and the type check only when both are enabled.
     // https://viteplus.dev/guide/check
     options: { reportUnusedDisableDirectives: "error", typeAware: true, typeCheck: true },
@@ -226,11 +227,17 @@ export default defineConfig({
       // The run-family import ban covers every source file; the scoped overrides below repeat it.
       restrictImports(["**/*.ts", "**/*.tsx"], {}),
       // Runtime boundary: tests bridge stubs to Promise APIs.
-      restrictImports(["**/*.test.ts"], { base: false }),
+      restrictImports(["**/*.test.ts"], { base: false, sql: false }),
       restrictImports(["apps/*/src/**"], { patterns: appImports }),
       // Package source imports no `node:*` module; its tests lift that ban and the run-family ban.
       restrictImports(["packages/*/src/**"], { patterns: [nodeBuiltins] }),
-      restrictImports(["packages/*/src/**/*.test.ts"], { base: false }),
+      // `packages/db` and every `table.ts` under `packages` build SQL on purpose (schema DDL, the
+      // database module itself), so they lift the raw-SQL import ban.
+      restrictImports(["packages/db/src/**", "packages/*/src/**/table.ts"], {
+        patterns: [nodeBuiltins],
+        sql: false,
+      }),
+      restrictImports(["packages/*/src/**/*.test.ts"], { base: false, sql: false }),
       restrictImports(["packages/contract/src/domain/**"], {
         patterns: [
           nodeBuiltins,
@@ -269,6 +276,7 @@ export default defineConfig({
         base: false,
         paths: [noServerFunctions],
         patterns: [...appImports, webContracts],
+        sql: false,
       }),
       restrictImports(["apps/api/src/**", "apps/auth/src/**"], {
         paths: [noHttpBuilder],
@@ -295,10 +303,24 @@ export default defineConfig({
       restrictImports(["apps/api/src/**/*.test.ts", "apps/auth/src/**/*.test.ts"], {
         base: false,
         patterns: appImports,
+        sql: false,
       }),
       // Handlers may use `HttpApiBuilder`; they keep R1 and import no database module.
       restrictImports(["apps/api/src/**/http.ts", "apps/auth/src/**/http.ts"], {
         patterns: [...appImports, dbModules],
+      }),
+      // Raw-SQL exceptions, each with its reason. `table.ts` is schema DDL (a `check(...)`
+      // constraint is SQL text); `reclaim.ts` is the guarded `DELETE ... NOT EXISTS`, a named data
+      // module; `test-harness.ts` is test support that seeds the D1 binding.
+      restrictImports(["apps/api/src/**/table.ts", "apps/auth/src/**/table.ts"], {
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+        sql: false,
+      }),
+      restrictImports(["apps/auth/src/reclaim.ts", "apps/auth/src/test-harness.ts"], {
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+        sql: false,
       }),
       {
         // The capability registry's built-in guards (`docs/capabilities.md`, work order A2) on all
@@ -360,12 +382,24 @@ export default defineConfig({
       {
         // `latch.ts` is lifted until #249 removes it: the latch record is written with
         // `JSON.stringify`. `test-harness.ts` is test support.
-        files: ["packages/budget-guard/src/latch.ts", "apps/auth/src/test-harness.ts"],
+        files: ["packages/budget-guard/src/latch.ts"],
         rules: {
           "no-restricted-properties": [
             "error",
             ...runMembers,
             ...dataAccessMembers,
+            ...authFetchMembers,
+          ],
+        },
+      },
+      {
+        // `test-harness.ts` applies the migrations through the D1 binding's `prepare`.
+        files: ["apps/auth/src/test-harness.ts"],
+        rules: {
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembersWithoutPrepare,
             ...authFetchMembers,
           ],
         },
@@ -615,13 +649,12 @@ export default defineConfig({
       // run-effect-inside-effect 8, unstable-api-usage 11 (apps/auth/src/email-key.ts 5, unlisted in allowedUnstableApis; infra/migrations-digest.ts and
       // infra/stacks/settings.ts sit outside every tsconfig, so the plugin entry does not reach
       // them), missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
-      // process-env 3 (delta, `test/`), flat-map-conditional-to-filter-or-fail 3,
+      // flat-map-conditional-to-filter-or-fail 3,
       // return-effect-in-gen 3, effect-succeed-with-undefined 3, catch-conditional-refail-to-catch-if
-      // 3, then 2 each: abort-controller-in-effect, provide-layer-succeed-to-provide-service,
+      // 3, then 2 each: provide-layer-succeed-to-provide-service,
       // schema-sync-in-effect, unknown-in-effect-catch, unnecessary-typeof-type; then 1 each:
       // catch-die-to-or-die, catch-tag-to-catch-reason, flat-map-identity-to-flatten,
       // map-some-to-as-some.
-      "effecttsgo/abort-controller-in-effect": "off",
       "effecttsgo/all-of-map-to-for-each": "off",
       "effecttsgo/any-unknown-in-error-context": "off",
       "effecttsgo/catch-conditional-refail-to-catch-if": "off",
@@ -637,7 +670,7 @@ export default defineConfig({
       "effecttsgo/multiple-effect-provide": "off",
       "effecttsgo/prefer-succeed-some-or-none": "off",
       "effecttsgo/prefer-typed-schema-decoder": "off",
-      "effecttsgo/process-env": "off",
+      "effecttsgo/process-env": "warn",
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/provide-layer-succeed-to-provide-service": "off",
       "effecttsgo/return-effect-in-gen": "off",

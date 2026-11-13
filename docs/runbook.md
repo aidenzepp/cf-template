@@ -49,6 +49,16 @@ Observed consequence (test-i26 run, 2026-11-13): after an attach, requests to th
 
 **Do not resolve the new hostname before attaching.** Resolvers cache the NXDOMAIN answer for up to 30 minutes (the zone's negative TTL was 1800 s in the run), so a lookup made before the deploy can leave the hostname unreachable from that resolver until the cache expires.
 
+## Projections
+
+A projection, such as `NoteIndex` in `apps/api/src/notes/note-index.projection.ts`, consumes the domain event log into a store the app owns. Delivery is at least once per input, so every handler write is an idempotent upsert keyed by the event's `stream` and `seq`.
+
+**Rebuild.** The pinned `@alchemy.run/domain` (beta.85) rebuilds a projection only when its declared version rises. Pass a higher `version` in the options of its `toLayer` call (`NoteIndex.toLayer(noteIndexHandler, { version: 1 })`; it is `0` when omitted) and deploy. The projection, and every view or projection that reads it, then replays the whole history. Clear or migrate the store first when a replayed write would not overwrite the old row; the `NoteIndex` upsert does overwrite it. Use it after the store was lost or emptied, or when the handler writes a new row shape.
+
+**Position.** The package has no public call that reads a projection's position or starts a rebuild from outside the Worker: the per-key cursors live in the Durable Objects that host the model, and a script cannot read them. Inside the Worker, `NoteIndex.caughtUp(receipt)` waits until one command's events are handled, and the projection's `Progress.history` reports whether the history has reached it.
+
+**Health.** The package records `domain.runs` (a counter by `domain.kind`, `domain.consumer` and `domain.outcome`) and `domain.lag` (a histogram of milliseconds from commit to handling, by `domain.consumer`) as Effect metrics inside the Worker. Nothing exports them, and the `Domain.projection <name>` span of each run goes to Workers Traces, not `logs.workersLogs`, so neither can back an alert. Instead a failed run of the `NoteIndex` handler writes one `console.error` line, `{"consumer":"NoteIndex","event":"domain.run.failed","kind":"projection","outcome":"failed"}`, and the projection failure alert (`projectionFailureAlert` in `infra/src/alerts.ts`, named `<stack>-projection-failure-NoteIndex-<stage>`, on the stages that set `volumeAlert`) emails `ISSUE_NOTIFICATION_EMAIL` when more than 2 such lines from `api` land in a 15 minute window. A failed run is retried, so a handler that keeps failing crosses it quickly. A new projection adds the same line to its handler and its name to `ProjectionConsumers`. There is no lag alert: `domain.lag` has no log form yet. To see what failed, find the errored `Domain.projection <name>` span (attributes `domain.projection`, `domain.key`, `domain.batch`) in the `api` Worker's traces.
+
 ## Build and gates
 
 `bun run build` ends with `initial JS: <n> / 300 KiB gzipped`, the web entry chunk plus its static imports. It only reports: it warns when over the target and never fails. CI repeats the line in the job summary.

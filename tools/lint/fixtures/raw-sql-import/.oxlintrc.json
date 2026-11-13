@@ -1,0 +1,22 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "drizzle-orm",
+            "importNames": ["sql"],
+            "message": "write the query with the Drizzle query builder"
+          }
+        ],
+        "patterns": [
+          {
+            "group": ["drizzle-orm/sql", "drizzle-orm/sql/*"],
+            "message": "write the query with the Drizzle query builder"
+          }
+        ]
+      }
+    ]
+  }
+}

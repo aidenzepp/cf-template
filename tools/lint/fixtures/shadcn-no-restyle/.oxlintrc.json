@@ -1,0 +1,5 @@
+{
+  "jsPlugins": [{ "name": "shadcn", "specifier": "@shadcn/lint" }],
+  "rules": { "shadcn/no-restyle": ["error", { "allow": ["layout"] }] },
+  "settings": { "shadcn": { "ui": ["@workspace/ui/components", "apps/web/src/styles/app.css"] } }
+}

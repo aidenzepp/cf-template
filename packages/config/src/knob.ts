@@ -65,6 +65,12 @@ export class Knob<A> {
    * Encode a knob value into its string form, as written to a live source.
    */
   readonly encode: (a: A) => Effect.Effect<string, Schema.SchemaError>;
+  /**
+   * Read an override of the knob from `<prefix><key>`, decoded by the knob's own schema: the value,
+   * or `Option.none()` when the variable is absent. An invalid supplied value fails through the
+   * error channel.
+   */
+  readonly override: (prefix: string) => Config.Config<Option.Option<A>>;
 
   private constructor(key: string, defaultValue: A, schema: Schema.Codec<A, unknown>) {
     const codec = Schema.toCodecStringTree(schema);
@@ -72,6 +78,7 @@ export class Knob<A> {
     this.key = key;
     this.default = defaultValue;
     this.config = Config.schema(schema, key).pipe(Config.withDefault(defaultValue));
+    this.override = (prefix) => Config.option(Config.schema(schema, `${prefix}${key}`));
     this.decode = (raw) => Schema.decodeUnknownEffect(codec)(raw);
     this.decodeSync = Schema.decodeUnknownSync(codec);
     this.encode = (a) =>
