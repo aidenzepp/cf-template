@@ -382,7 +382,9 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       expect(response.status).toBe(502);
       expect(response.headers.get("content-type")).toContain("text/html");
       expect(response.headers.get("vary")).toBe("Sec-Fetch-Mode, Accept");
-      expect(yield* text(response)).toContain("Sign-in is unavailable right now.");
+      expect(yield* text(response)).toBe(
+        "<h1>Bad Gateway</h1><p>The service did not answer. Try again shortly.</p>",
+      );
     }),
   );
 
@@ -457,8 +459,9 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       });
 
       expect(home.status).toBe(200);
-      expect(yield* text(home)).toContain(">Dashboard</h1>");
+      expect(yield* text(home)).toContain('data-slot="empty-title"');
       expect(missing.status).toBe(404);
+      expect(yield* text(missing)).toContain("<p>Not Found</p>");
     }),
   );
 
@@ -580,28 +583,23 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
   it.effect("derives signedOut from a 401 and from a null session", () =>
     Effect.gen(function* signedOut() {
       for (const cookie of ["stub=401", "stub=none"]) {
-        expect((yield* sessionState(cookie, "/sign-in")).html).toContain(
-          'data-session="signedOut"',
-        );
+        expect((yield* sessionState(cookie)).html).toContain('data-session="signedOut"');
       }
     }),
   );
 
-  it.effect("answers a 503 session read with 503 and the retry screen", () =>
+  it.effect("answers a 503 session read with 503", () =>
     Effect.gen(function* unavailable() {
-      const { html, status } = yield* sessionState("stub=503");
+      const { status } = yield* sessionState("stub=503");
 
       expect(status).toBe(503);
-      expect(html).toContain("We could not check your sign-in.");
     }),
   );
 
-  it.effect("shows the retry screen, never a redirect, on a transport or decode fault", () =>
+  it.effect("answers 503, never a redirect, on a transport or decode fault", () =>
     Effect.gen(function* faults() {
-      expect((yield* sessionState("stub=throw")).html).toContain(
-        "We could not check your sign-in.",
-      );
-      expect((yield* sessionState("stub=bad")).html).toContain("We could not check your sign-in.");
+      expect((yield* sessionState("stub=throw")).status).toBe(503);
+      expect((yield* sessionState("stub=bad")).status).toBe(503);
     }),
   );
 
@@ -620,185 +618,13 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
     }),
   );
 
-  it.effect("renders the sign-in and sign-up forms with zero provider buttons", () =>
-    Effect.gen(function* screens() {
-      const web = yield* WebProd;
-
-      for (const path of ["/sign-in", "/sign-up?redirect=%2Fnotes"]) {
-        const response = yield* web.request(path, { headers: { accept: "text/html" } });
-        const html = yield* text(response);
-
-        expect(response.status).toBe(200);
-        expect(html).toContain('type="email"');
-        expect(html).toContain('type="password"');
-        expect(html).not.toContain("Continue with");
-      }
-    }),
-  );
-
-  it.effect("shows the no-email copy on sign-in and sign-up when email is off", () =>
-    Effect.gen(function* copy() {
-      const web = yield* WebProd;
-
-      const read = (path: string) =>
-        web.request(path, { headers: { accept: "text/html" } }).pipe(
-          Effect.flatMap(text),
-          Effect.map((html) => html.replaceAll("&#x27;", "'")),
-        );
-
-      expect(yield* read("/sign-in")).toContain(
-        "Forgot your password? It can't be reset on this site yet. If you added a passkey or linked an account, sign in with that.",
-      );
-      expect(yield* read("/sign-up")).toContain(
-        "Add a passkey in Settings after you sign up. Without email it is your way back in if you forget your password.",
-      );
-    }),
-  );
-
-  it.effect("renders one GitHub button for providers [github]", () =>
-    Effect.gen(function* github() {
-      const web = yield* WebProd;
-
-      const response = yield* web.request("/sign-in", {
-        headers: { accept: "text/html", "x-test-web": "github" },
-      });
-
-      const html = yield* text(response);
-
-      expect(html.match(/Continue with/gu)).toHaveLength(1);
-      expect(html).toContain("Continue with GitHub");
-    }),
-  );
-
-  it.effect("renders /oauth-error with fixed copy for an allowlisted code", () =>
-    Effect.gen(function* known() {
-      const web = yield* WebProd;
-
-      const response = yield* web.request("/oauth-error?error=access_denied", {
-        headers: { accept: "text/html" },
-      });
-
-      expect(response.status).toBe(200);
-      expect(yield* text(response)).toContain("Sign-in was cancelled.");
-    }),
-  );
-
-  it.effect("renders only the generic copy for a crafted /oauth-error query", () =>
-    Effect.gen(function* crafted() {
-      const web = yield* WebProd;
-
-      const query = new URLSearchParams({
-        error: "<script>alert(1)</script>",
-        error_description: "<img src=x onerror=alert(1)> leak-token-0a1b2c3d4e5f",
-        extra: "leak-extra-6a7b8c9d0e1f",
-      });
-
-      const first = yield* web.request(`/oauth-error?${query.toString()}`, {
-        headers: { accept: "text/html" },
-      });
-
-      const firstHtml = yield* text(first);
-      const location = first.headers.get("location") ?? "";
-
-      // The router canonicalizes the URL: the crafted values leave the address bar and the page.
-      expect(first.status).toBe(307);
-      expect(location).not.toMatch(/alert|leak-/u);
-      expect(firstHtml).not.toContain("leak-");
-
-      const response = yield* web.request(location, { headers: { accept: "text/html" } });
-      const html = (yield* text(response)).replaceAll("&#x27;", "'");
-
-      expect(response.status).toBe(200);
-      expect(html).toContain("Sign-in didn't finish. Try again.");
-
-      for (const leaked of ["alert(1)", "onerror", "leak-", "script>alert"]) {
-        expect(html).not.toContain(leaked);
-      }
-    }),
-  );
-
-  it.effect("redirects a signed-in visit to /sign-in or /sign-up to /", () =>
-    Effect.gen(function* signedIn() {
-      const web = yield* WebProd;
-
-      for (const path of ["/sign-in", "/sign-up"]) {
-        const response = yield* web.request(path, {
-          headers: { accept: "text/html", cookie: "stub=in" },
-        });
-
-        expect(response.status).toBe(307);
-        expect(response.headers.get("location")).toBe("/");
-      }
-    }),
-  );
-
-  it.effect("redirects a signedOut / root-relative to /sign-in?redirect=%2F", () =>
-    Effect.gen(function* signedOutHome() {
-      const web = yield* WebProd;
-
-      for (const cookie of ["stub=401", "stub=none"]) {
-        const response = yield* web.request("/", { headers: { accept: "text/html", cookie } });
-
-        expect(response.status).toBe(307);
-        expect(response.headers.get("location")).toBe("/sign-in?redirect=%2F");
-      }
-    }),
-  );
-
-  it.effect(
-    "renders / with the retry screen for unknown, never redirecting or showing Sign in",
-    () =>
-      Effect.gen(function* unknownHome() {
-        const { html, status } = yield* sessionState("stub=503");
-
-        expect(status).toBe(503);
-        expect(html).toContain("We could not check your sign-in.");
-        expect(html).not.toContain("Sign in");
-      }),
-  );
-
-  it.effect("paints the skeleton, not the menu or Sign in, on a signedIn full load", () =>
-    Effect.gen(function* signedInHome() {
-      const { html, status } = yield* sessionState("stub=in");
-
-      expect(status).toBe(200);
-
-      for (const shown of [
-        'data-session="signedIn"',
-        'aria-label="Loading account"',
-        'aria-label="Main"',
-        ">Dashboard</h1>",
-        ">Notes<",
-        ">Settings<",
-      ]) {
-        expect(html).toContain(shown);
-      }
-
-      for (const hidden of ["Account menu", "Sign in"]) {
-        expect(html).not.toContain(hidden);
-      }
-    }),
-  );
-
-  it.effect("renders the sign-in page without the sidebar shell and sets the theme script", () =>
-    Effect.gen(function* signedOutPage() {
-      const { html } = yield* sessionState("stub=401", "/sign-in");
-
-      expect(html).toContain(">Sign in<");
-      expect(html).toContain("prefers-color-scheme: dark");
-      expect(html).not.toContain('aria-label="Main"');
-      expect(html).not.toContain('data-slot="sidebar"');
-    }),
-  );
-
   it.effect("sets Cache-Control: private, no-store on every HTML response", () =>
     Effect.gen(function* noStore() {
       const web = yield* WebProd;
 
       for (const [path, cookie] of [
         ["/", "stub=in"],
-        ["/sign-in", "stub=401"],
-        ["/sign-up", "stub=401"],
+        ["/", "stub=401"],
         ["/missing", "stub=in"],
       ] as const) {
         const response = yield* web.request(path, { headers: { accept: "text/html", cookie } });

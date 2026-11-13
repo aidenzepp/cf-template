@@ -30,8 +30,7 @@ const blocks = ManagedRuntime.make(
 
 /**
  * The server entry of `web`: a path under {@link FORWARD_PREFIXES} goes to its service binding
- * before TanStack sees it, and everything else is TanStack's. A failed forward renders
- * `/unavailable` through the same handler, carrying only the inbound `Cookie` header.
+ * before TanStack sees it, and everything else is TanStack's. A failed forward answers 502.
  *
  * A block's request guard runs first, so a latched request costs one memoized read; the rate-limit
  * check follows, before the forward and before the tracing layer: a refused request is answered
@@ -57,23 +56,10 @@ export default createServerEntry({
       return await handler.fetch(request, options);
     }
 
-    const cookie = request.headers.get("cookie");
-
-    const render = Effect.promise(() =>
-      Promise.resolve(
-        handler.fetch(
-          new Request(new URL("/unavailable", request.url), {
-            headers: cookie === null ? {} : { cookie },
-          }),
-          options,
-        ),
-      ),
-    );
-
-    const forwarded = await run(forward(env[target], request, render), { signal: request.signal });
+    const forwarded = await run(forward(env[target], request), { signal: request.signal });
 
     // `api` answers `/llms.txt` 404 while its docs are off. That path sits outside `/api`, so the
-    // answer is `web`'s own NotFound, as for every other path no one routes.
+    // answer is `web`'s own not-found, as for every other path no one routes.
     return forwarded.status === 404 && new URL(request.url).pathname === LLMS_PATH
       ? await handler.fetch(request, options)
       : forwarded;

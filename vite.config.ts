@@ -103,15 +103,6 @@ const noServerFunctions = {
 };
 
 /**
- * Status toasts: screens raise them through `notify`, which is the one module that imports
- * `sonner`.
- */
-const noSonner = {
-  message: "raise toasts through notify in apps/web/src/components/notify.ts, not sonner directly",
-  name: "sonner",
-};
-
-/**
  * R7: services build no HTTP; handlers live in `**\/http.ts`. `worker.ts` composes the
  * `HttpApiBuilder` layers and lifts this ban.
  */
@@ -228,11 +219,6 @@ export default defineConfig({
         ],
       }),
       restrictImports(["apps/web/src/**"], {
-        paths: [noServerFunctions, noSonner],
-        patterns: [...appImports, webContracts, workersModule],
-      }),
-      // `notify` is the one module that imports `sonner`; it keeps every other web ban.
-      restrictImports(["apps/web/src/components/notify.ts"], {
         paths: [noServerFunctions],
         patterns: [...appImports, webContracts, workersModule],
       }),

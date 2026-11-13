@@ -10,8 +10,8 @@ This repository is an intentionally empty TypeScript project on Bun and Effect. 
 - Use Effect error channels; built-in try/catch is prohibited by lint.
 - Name files and directories in kebab-case. `unicorn/filename-case` and `workspace/kebab-case-paths` enforce it.
 - Do not add function-decomposition, type-design, or require-doc-comment lint policies.
-- Preserve the pinned dependency versions. Add a dependency only with a stated reason.
-- Before writing code, walk the ladder: a Cloudflare platform capability, then an Alchemy resource or binding, then an Effect module, service or layer, then code in this repository, and only then an external service.
+- Preserve the pinned dependency versions. Add a dependency only with a stated reason; a library that `docs/capabilities.md` lists needs only the name of its registry row.
+- Before writing code, walk the ladder: a Cloudflare platform capability, then an Alchemy resource or binding, then an Effect module, service or layer, then an installed dependency or the stack's standard library (check `docs/capabilities.md`), then code in this repository, and only then an external service.
 
 If a rule appears inappropriate, explain the failing rule, why changing the code would be worse, the smallest policy change, and its consequences. Change the policy only after approval.
 

@@ -14,7 +14,7 @@ import { Mailer } from "@workspace/config/mailer";
 import type { Mail } from "@workspace/config/mailer";
 import { PublicOrigin, WEB_DEV_PORT } from "@workspace/config/public-origin";
 import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "./config.ts";
-import { AUTH_BASE_PATH, OAUTH_ERROR_PATH } from "./contract.ts";
+import { AUTH_BASE_PATH } from "./contract.ts";
 import * as schema from "./db/schema.ts";
 import { authRelations } from "./db/schema.ts";
 import { createAuthMiddleware } from "better-auth/api";
@@ -112,7 +112,6 @@ export const authOptions = {
   // Only the edge-set client address is trusted; `web` strips the client-suppliable headers.
   advanced: { ipAddress: { ipAddressHeaders: Array.of("cf-connecting-ip") } },
   basePath: AUTH_BASE_PATH,
-  onAPIError: { errorURL: OAUTH_ERROR_PATH },
   ...passwordOptions(AUTH_PASSWORD_SCRYPT.default, Effect.runPromise, DEV_ORIGIN),
   session: {
     cookieCache: {

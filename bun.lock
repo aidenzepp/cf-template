@@ -81,8 +81,6 @@
     "apps/web": {
       "name": "@workspace/web",
       "dependencies": {
-        "@better-auth/passkey": "1.7.19",
-        "@effect/atom-react": "4.1.2",
         "@tanstack/react-router": "1.170.46",
         "@tanstack/react-start": "1.169.5",
         "@workspace/budget-guard": "workspace:*",
@@ -90,11 +88,10 @@
         "@workspace/contract": "workspace:*",
         "@workspace/knobs-kv": "workspace:*",
         "@workspace/ui": "workspace:*",
-        "better-auth": "1.7.19",
         "effect": "4.1.2",
         "react": "19.3.1",
         "react-dom": "19.3.1",
-        "sonner": "2.0.8",
+        "tailwindcss": "4.3.5",
       },
       "devDependencies": {
         "@babel/core": "7.29.13",
@@ -383,8 +380,6 @@
     "@dotenvx/dotenvx": ["@dotenvx/dotenvx@1.75.1", "", { "dependencies": { "@dotenvx/primitives": "^0.8.0", "commander": "^11.1.0", "conf": "^10.2.0", "dotenv": "^17.2.1", "enquirer": "^2.4.1", "env-paths": "^2.2.1", "execa": "^5.1.1", "fdir": "^6.2.0", "ignore": "^5.3.0", "object-treeify": "1.1.33", "open": "^8.4.2", "picomatch": "^4.0.4", "systeminformation": "^5.22.11", "undici": "^7.11.0", "which": "^4.0.0", "yocto-spinner": "^1.1.0" }, "bin": { "dotenvx": "src/cli/dotenvx.js" } }, "sha512-/BITOC9dmS/edY2zQwZNicQ059O6RKabtQfyEafV0nGtfYRNHYy1DIPiYVcov40+tob9hfmBnbR963dS+EQ1DQ=="],
 
     "@dotenvx/primitives": ["@dotenvx/primitives@0.8.0", "", {}, "sha512-VYJy0uhFm9zTJ1TxBaW/pA8bjbOM/OttaNMwZ1RHG4JKyRG7DhSdiqD1ipQoAyoD22olUtxbP78W9xY3Wd11bg=="],
-
-    "@effect/atom-react": ["@effect/atom-react@4.1.2", "", { "peerDependencies": { "effect": "^4.1.2", "react": ">=19.0.0 <20.0.0", "scheduler": ">=0.25.0 <0.29.0" } }, "sha512-XRAm4lks2kzNFQIz9QTGKR02CaDTR9VJNRXDjDAR8OzM15ybrK4YkB7OlFZ9U+hxXe3DXJZx7RU1/xI2Em2PGQ=="],
 
     "@effect/language-service": ["@effect/language-service@0.87.5", "", { "bin": { "effect-language-service": "cli.js" } }, "sha512-np/zJgk71/PyHxtoqyUKLYcpQhoRBI+L6+1Z0ILk35JSQ/lvXzwlwOwddYZLDkeC4bdF2ukKekqKlla/F88R5w=="],
 

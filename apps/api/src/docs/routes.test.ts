@@ -23,10 +23,10 @@ interface Answer {
 }
 
 /**
- * Build the documentation routes under the problem adapter, with `API_DOCS_ENABLED` set to `docs`
+ * Build the documentation routes under the problem adapter, with `DOCS_ENABLED` set to `docs`
  * in the config provider, and return a function that calls them.
  *
- * @param docs - The raw `API_DOCS_ENABLED` value, or `undefined` to leave it unset.
+ * @param docs - The raw `DOCS_ENABLED` value, or `undefined` to leave it unset.
  * @returns A scoped effect of the function that answers a path.
  */
 const serve = (docs: string | undefined) =>
@@ -37,7 +37,7 @@ const serve = (docs: string | undefined) =>
           Layer.merge(ProblemAdapter),
           Layer.provide(
             ConfigProvider.layer(
-              ConfigProvider.fromUnknown(docs === undefined ? {} : { API_DOCS_ENABLED: docs }),
+              ConfigProvider.fromUnknown(docs === undefined ? {} : { DOCS_ENABLED: docs }),
             ),
           ),
         ),
@@ -70,7 +70,7 @@ const serve = (docs: string | undefined) =>
 const linksOf = (text: string): ReadonlyArray<string> =>
   [...text.matchAll(/\]\((?<url>[^)]+)\)/gu)].map((match) => match.groups?.url ?? "");
 
-describe("the documentation routes with API_DOCS_ENABLED on", () => {
+describe("the documentation routes with DOCS_ENABLED on", () => {
   it.effect("serve a document equal to OpenApi.fromApi(Api)", () =>
     Effect.gen(function* document() {
       const get = yield* serve("true");
@@ -156,7 +156,7 @@ describe("the documentation routes with API_DOCS_ENABLED on", () => {
   );
 });
 
-describe("the documentation routes with API_DOCS_ENABLED off", () => {
+describe("the documentation routes with DOCS_ENABLED off", () => {
   it.effect.each([OPENAPI_PATH, DOCS_PATH, LLMS_PATH])(
     "answer %s as an unrouted path does",
     (path) =>
@@ -179,5 +179,27 @@ describe("the documentation routes with API_DOCS_ENABLED off", () => {
         assert.strictEqual((yield* get(`${ORIGIN}${path}`)).status, 404);
       }
     }).pipe(Effect.scoped),
+  );
+
+  it.effect("answer 404 when only the retired API_DOCS_ENABLED is set to true", () =>
+    Effect.gen(function* retired() {
+      const web = HttpRouter.toWebHandler(
+        ApiDocsRoutes.pipe(
+          Layer.merge(ProblemAdapter),
+          Layer.provide(
+            ConfigProvider.layer(ConfigProvider.fromUnknown({ API_DOCS_ENABLED: "true" })),
+          ),
+        ),
+        { disableLogger: true },
+      );
+
+      for (const path of [OPENAPI_PATH, DOCS_PATH, LLMS_PATH]) {
+        const response = yield* Effect.promise(() => web.handler(new Request(`${ORIGIN}${path}`)));
+
+        assert.strictEqual(response.status, 404);
+      }
+
+      yield* Effect.promise(web.dispose);
+    }),
   );
 });

@@ -40,30 +40,16 @@ const scan = Effect.fn("scan")(function* scan(path: string, cookie: string | und
 });
 
 /**
- * The first screens. The stub `API` of the harness answers a signed-out caller on the `stub=401`
- * cookie and a signed-in caller otherwise, so the notes list needs no cookie.
+ * The first screens: the placeholder index. The stub `API` of the harness answers a signed-in
+ * caller without the `stub=401` cookie.
  */
 const SCREENS = [
   {
-    cookie: "stub=401",
-    name: "sign-in",
-    path: "/sign-in",
-    shows: "Use your email and password.",
-  },
-  {
-    cookie: "stub=401",
-    name: "sign-up",
-    path: "/sign-up",
-    shows: "Choose a name, an email",
-  },
-  // block:notes start
-  {
     cookie: undefined,
-    name: "notes list",
-    path: "/notes",
-    shows: "First note",
+    name: "placeholder index",
+    path: "/",
+    shows: "typescript-template",
   },
-  // block:notes end
 ] as const;
 
 describe("the first screens", () => {
