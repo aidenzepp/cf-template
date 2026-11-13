@@ -19,23 +19,23 @@ import { isStatefulType } from "../src/stateful-types.ts";
  * The failure of the prod plan, with the message the workflow log shows. A failed run writes
  * neither `destructive` nor `fingerprint`.
  */
-export class PlanProdError extends Schema.TaggedError<
-  PlanProdError,
-  { readonly brand: unique symbol }
->()("PlanProdError", {
-  message: Schema.String,
-}) {}
+class PlanProdError extends Schema.TaggedError<PlanProdError, { readonly brand: unique symbol }>()(
+  "PlanProdError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The resource rows of a plan, decoded with Alchemy's own `PlannedResource` schema, so an action
  * outside the schema fails decoding rather than reaching the classifier.
  */
-export const PlanRows = Schema.Array(PlannedResource);
+const PlanRows = Schema.Array(PlannedResource);
 
 /**
  * How one planned row weighs on the `prod` deploy (#44 items 3 and 9).
  */
-export type RowClass = "blocking" | "notice" | "info" | "noop";
+type RowClass = "blocking" | "notice" | "info" | "noop";
 
 /**
  * One planned row with its class and, where the classifier has one, the line the summary prints.
@@ -109,7 +109,7 @@ const classifyRow = (row: PlannedResource): ClassifiedRow => {
  * @param rows - The decoded plan rows.
  * @returns One classified row per planned resource, in plan order.
  */
-export const classify = (rows: ReadonlyArray<PlannedResource>): ReadonlyArray<ClassifiedRow> =>
+const classify = (rows: ReadonlyArray<PlannedResource>): ReadonlyArray<ClassifiedRow> =>
   rows.length > 0 && rows.every((row) => row.action === "create")
     ? rows.map((row) => ({ class: "blocking", note: Option.some(ALL_CREATE_NOTE), row }))
     : rows.map(classifyRow);
@@ -121,7 +121,7 @@ export const classify = (rows: ReadonlyArray<PlannedResource>): ReadonlyArray<Cl
  * @param rows - The classified rows.
  * @returns The lowercase hex digest.
  */
-export const fingerprint = Effect.fn("planProd.fingerprint")(function* fingerprint(
+const fingerprint = Effect.fn("planProd.fingerprint")(function* fingerprint(
   rows: ReadonlyArray<ClassifiedRow>,
 ) {
   const digest = yield* Digest.Digest;
@@ -148,7 +148,7 @@ const undecodable = (error: Schema.SchemaError) =>
  * Decode the `resources` of a computed plan again with Alchemy's schema, so a change in the
  * programmatic API fails here rather than in the classifier.
  */
-export const rowsOfPlan = (resources: ReadonlyArray<PlannedResource>) =>
+const rowsOfPlan = (resources: ReadonlyArray<PlannedResource>) =>
   Schema.decodeEffect(PlanRows)(resources).pipe(Effect.mapError(undecodable));
 
 /**
@@ -218,7 +218,7 @@ export const renderSummary = (verdict: Verdict): string => {
  * @param args - The process arguments after the script path.
  * @returns The expected digest when the flag is given, or a failure on any other argument.
  */
-export const parseArgs = (args: ReadonlyArray<string>) => {
+const parseArgs = (args: ReadonlyArray<string>) => {
   if (args.length === 0) {
     return Effect.succeed(Option.none<string>());
   }
@@ -258,7 +258,7 @@ export const checkFingerprint = (verdict: Verdict, expected: Option.Option<strin
  * @param verdict - The checked verdict.
  * @returns Nothing; fails when a file cannot be written.
  */
-export const report = Effect.fn("planProd.report")(function* report(verdict: Verdict) {
+const report = Effect.fn("planProd.report")(function* report(verdict: Verdict) {
   const fs = yield* FileSystem.FileSystem;
   const summaryPath = yield* Config.option(Config.String("GITHUB_STEP_SUMMARY"));
   const outputPath = yield* Config.option(Config.String("GITHUB_OUTPUT"));

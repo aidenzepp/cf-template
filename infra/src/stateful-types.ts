@@ -6,19 +6,18 @@ import { Schema } from "effect";
  * reads the same list. A block that declares another stateful type (a Durable Object namespace,
  * for one) adds it here as part of its acceptance; nothing else extends it.
  */
-export const StatefulType = Schema.Literals([
+const StatefulType = Schema.Literals([
   "Cloudflare.D1Database",
   "Cloudflare.KV.Namespace",
   "Cloudflare.R2.Bucket",
   "Cloudflare.Queues.Queue",
   "Cloudflare.SecretsStore",
   "Cloudflare.SecretsStore.Secret",
+  // Pre-rename types (each provider's `aliases`): state persisted under an old name still plans under it.
+  "Cloudflare.KVNamespace",
+  "Cloudflare.R2Bucket",
+  "Cloudflare.Queue",
 ]);
-
-/**
- * One stateful resource type.
- */
-export type StatefulResourceType = typeof StatefulType.Type;
 
 /**
  * Whether a planned resource's `resourceType` is on the stateful list.

@@ -75,6 +75,28 @@ describe("plan-prod classifier", () => {
     }),
   );
 
+  it.effect("blocks an orphaned row persisted under a pre-rename stateful type", () =>
+    Effect.gen(function* legacyNames() {
+      const verdict = yield* verdictOf(
+        ["Cloudflare.KVNamespace", "Cloudflare.R2Bucket", "Cloudflare.Queue"].map(
+          (resourceType) => ({
+            action: "orphaned" as const,
+            bindings: [],
+            fqn: resourceType,
+            logicalId: resourceType,
+            resourceType,
+          }),
+        ),
+      );
+
+      assert.isTrue(verdict.destructive);
+      assert.deepStrictEqual(
+        verdict.rows.map((entry) => entry.class),
+        ["blocking", "blocking", "blocking"],
+      );
+    }),
+  );
+
   it.effect("reads a replace of an unlisted type and an adoption as notices", () =>
     Effect.gen(function* notices() {
       const verdict = yield* verdictOf([
