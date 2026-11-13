@@ -539,7 +539,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
     }),
   );
 
-  it.effect("answers GET / from TanStack and GET /missing with TanStack's 404", () =>
+  it.effect("answers GET / from TanStack and GET /missing with the not-found page", () =>
     Effect.gen(function* pages() {
       const web = yield* WebProd;
 
@@ -554,7 +554,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
       expect(home.status).toBe(200);
       expect(yield* text(home)).toContain('data-slot="empty-title"');
       expect(missing.status).toBe(404);
-      expect(yield* text(missing)).toContain("<p>Not Found</p>");
+      expect(yield* text(missing)).toContain("Page not found");
     }),
   );
 
