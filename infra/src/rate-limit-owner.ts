@@ -34,15 +34,15 @@ export interface ZoneEntrypoint {
  * Cloudflare keeps one such entrypoint per zone, and the stack's `Cloudflare.Ruleset` writes the
  * whole of it, so deploying over foreign rules would overwrite them.
  */
-export class ForeignRateLimitRules extends Schema.TaggedError<ForeignRateLimitRules>()(
-  "ForeignRateLimitRules",
-  {
-    ownRef: Schema.String,
-    ruleIds: Schema.Array(Schema.String),
-    variable: Schema.String,
-    zone: Schema.String,
-  },
-) {
+export class ForeignRateLimitRules extends Schema.TaggedError<
+  ForeignRateLimitRules,
+  { readonly brand: unique symbol }
+>()("ForeignRateLimitRules", {
+  ownRef: Schema.String,
+  ruleIds: Schema.Array(Schema.String),
+  variable: Schema.String,
+  zone: Schema.String,
+}) {
   override get message(): string {
     return `Refusing to deploy: the rate-limit entrypoint of zone ${this.zone} holds ${this.ruleIds.length} rule(s) whose ref is not ${this.ownRef} (${this.ruleIds.join(", ")}). A zone has one rate-limit entrypoint with one owner, and deploying would overwrite those rules. Remove or move them in the Cloudflare dashboard, or set ${this.variable} to a hostname on a zone with no rate-limit rules. If this stack was renamed, its earlier rule carries the old ref and counts as foreign.`;
   }
@@ -52,10 +52,10 @@ export class ForeignRateLimitRules extends Schema.TaggedError<ForeignRateLimitRu
  * The failure of a Cloudflare call the guard made, or of a zone it could not find. Its message says
  * the deploy was refused and what the credentials need.
  */
-export class RateLimitEntrypointError extends Schema.TaggedError<RateLimitEntrypointError>()(
-  "RateLimitEntrypointError",
-  { message: Schema.String },
-) {}
+export class RateLimitEntrypointError extends Schema.TaggedError<
+  RateLimitEntrypointError,
+  { readonly brand: unique symbol }
+>()("RateLimitEntrypointError", { message: Schema.String }) {}
 
 /**
  * The one read the guard makes. Tests provide a fake; `RateLimitEntrypointLive` provides the real

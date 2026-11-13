@@ -643,8 +643,7 @@ export default defineConfig({
       //
       // Every other "off" below is staged off until its follow-up fixes the code (I-29 ruling,
       // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
-      // schema-class-missing-brand 47, all-of-map-to-for-each 31, prefer-typed-schema-decoder 31,
-      // any-unknown-in-error-context 20, schema-number 19, schema-class-object-literal 19,
+      // all-of-map-to-for-each 31, prefer-typed-schema-decoder 31, any-unknown-in-error-context 20,
       // multiple-effect-provide 9, prefer-succeed-some-or-none 9, effect-try-without-catch 7 (delta),
       // run-effect-inside-effect 8, unstable-api-usage 11 (apps/auth/src/email-key.ts 5, unlisted in allowedUnstableApis; infra/migrations-digest.ts and
       // infra/stacks/settings.ts sit outside every tsconfig, so the plugin entry does not reach
@@ -672,9 +671,6 @@ export default defineConfig({
       "effecttsgo/process-env": "warn",
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/provide-layer-succeed-to-provide-service": "off",
-      "effecttsgo/schema-class-missing-brand": "off",
-      "effecttsgo/schema-class-object-literal": "off",
-      "effecttsgo/schema-number": "off",
       "effecttsgo/try-catch-in-effect-gen": "off",
       "effecttsgo/unnecessary-typeof-type": "off",
       "effecttsgo/unsafe-effect-type-assertion": "warn",

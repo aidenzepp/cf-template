@@ -6,18 +6,18 @@ import type { AnyNode } from "postcss";
 /**
  * The stylesheet does not parse. The message names the file and the line.
  */
-export class DesignMdParseError extends Schema.TaggedError<DesignMdParseError>()(
-  "DesignMdParseError",
-  { message: Schema.String },
-) {}
+export class DesignMdParseError extends Schema.TaggedError<
+  DesignMdParseError,
+  { readonly brand: unique symbol }
+>()("DesignMdParseError", { message: Schema.String }) {}
 
 /**
  * The guidance file repeats a heading the generator writes. The message names the heading.
  */
-export class DesignMdGuidanceError extends Schema.TaggedError<DesignMdGuidanceError>()(
-  "DesignMdGuidanceError",
-  { message: Schema.String },
-) {}
+export class DesignMdGuidanceError extends Schema.TaggedError<
+  DesignMdGuidanceError,
+  { readonly brand: unique symbol }
+>()("DesignMdGuidanceError", { message: Schema.String }) {}
 
 /**
  * The custom properties of the blocks the generator reads: `@theme`, `:root` and `.dark`.

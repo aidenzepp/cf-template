@@ -14,15 +14,18 @@ const USAGE = "Usage: bun packages/budget-guard/scripts/reset.ts --stage <stage>
  * The refusal of a request before any write: the arguments are not `--stage <stage>`, the stage is
  * `prod` outside CI, or the lookup did not find exactly one namespace.
  */
-export class GuardResetRefused extends Schema.TaggedError<GuardResetRefused>()(
-  "GuardResetRefused",
-  { message: Schema.String },
-) {}
+export class GuardResetRefused extends Schema.TaggedError<
+  GuardResetRefused,
+  { readonly brand: unique symbol }
+>()("GuardResetRefused", { message: Schema.String }) {}
 
 /**
  * The failure of a Cloudflare call the command made, with the operation that failed.
  */
-export class GuardKvError extends Schema.TaggedError<GuardKvError>()("GuardKvError", {
+export class GuardKvError extends Schema.TaggedError<
+  GuardKvError,
+  { readonly brand: unique symbol }
+>()("GuardKvError", {
   message: Schema.String,
 }) {}
 

@@ -10,9 +10,10 @@ import type { session, user } from "./schema.ts";
 type Stored<T> = T extends DateTime.Utc ? number : T extends string ? string : T;
 
 /**
- * The contract's `Session` as the Better Auth tables hold it.
+ * The contract's `Session` as the Better Auth tables hold it. The class's nominal `brand` is a
+ * type-only key with no stored value, so it has no column.
  */
-type SessionRow = { readonly [K in keyof Session]: Stored<Session[K]> };
+type SessionRow = { readonly [K in Exclude<keyof Session, "brand">]: Stored<Session[K]> };
 
 /**
  * The columns `Session` reads: display fields from `user`, expiry and user id from `session`.

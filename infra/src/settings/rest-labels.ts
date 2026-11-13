@@ -46,7 +46,7 @@ export const CODE_SCANNING_RULESET = {
 
 const RULESET = "code-scanning-ruleset";
 
-const Rulesets = Schema.Array(Schema.Struct({ id: Schema.Number, name: Schema.String }));
+const Rulesets = Schema.Array(Schema.Struct({ id: Schema.Finite, name: Schema.String }));
 
 /**
  * The most pages {@link ownRulesets} reads. GitHub allows 75 rulesets per repository, so one page

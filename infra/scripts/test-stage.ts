@@ -6,9 +6,12 @@ import { decideTestStage } from "../src/test-stage.ts";
 /**
  * The failure of the alchemy child process: it ran and exited non-zero.
  */
-class AlchemyExited extends Schema.TaggedError<AlchemyExited>()("AlchemyExited", {
-  code: Schema.Number,
-}) {}
+class AlchemyExited extends Schema.TaggedError<AlchemyExited, { readonly brand: unique symbol }>()(
+  "AlchemyExited",
+  {
+    code: Schema.Finite,
+  },
+) {}
 
 /**
  * Run `bun run alchemy <phase> infra/alchemy.run.ts --stage <stage> --yes` for a throwaway

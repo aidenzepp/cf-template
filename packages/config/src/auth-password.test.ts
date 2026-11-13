@@ -24,9 +24,12 @@ const read = (raw?: string) => {
 /**
  * A scrypt call node:crypto rejected.
  */
-class DeriveFailed extends Schema.TaggedError<DeriveFailed>()("DeriveFailed", {
-  cause: Schema.Defect(),
-}) {}
+class DeriveFailed extends Schema.TaggedError<DeriveFailed, { readonly brand: unique symbol }>()(
+  "DeriveFailed",
+  {
+    cause: Schema.Defect(),
+  },
+) {}
 
 /**
  * Run one scrypt call with the `maxmem` this project derives, so a rejected parameter set fails.

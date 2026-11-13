@@ -9,7 +9,10 @@ import type { StageName } from "../stages.ts";
  * The failure of stack-name derivation: every source is absent, or the derived name is not a
  * valid stack name.
  */
-export class StackNameError extends Schema.TaggedError<StackNameError>()("StackNameError", {
+export class StackNameError extends Schema.TaggedError<
+  StackNameError,
+  { readonly brand: unique symbol }
+>()("StackNameError", {
   message: Schema.String,
 }) {}
 

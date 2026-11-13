@@ -11,10 +11,13 @@ import { detectTier } from "./tier.ts";
  * The failure of a `--check` that found at least one difference. It carries the count, never the
  * lines, which were already printed.
  */
-export class DriftError extends Schema.TaggedError<DriftError>()("DriftError", {
-  differences: Schema.Number,
-  message: Schema.String,
-}) {}
+export class DriftError extends Schema.TaggedError<DriftError, { readonly brand: unique symbol }>()(
+  "DriftError",
+  {
+    differences: Schema.Finite,
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The secrets whose presence gates `CLOUDFLARE_DEPLOYS`: the two Cloudflare repository secrets.
@@ -143,7 +146,7 @@ const rulesetLines = Effect.fn("rulesetLines")(function* rulesetLines(
   const live = yield* listAll((page) =>
     getJson(
       `${path}/rulesets?includes_parents=false&per_page=${PER_PAGE}&page=${page}`,
-      Schema.Array(Schema.Struct({ id: Schema.Number, name: Schema.String })),
+      Schema.Array(Schema.Struct({ id: Schema.Finite, name: Schema.String })),
     ),
   );
 

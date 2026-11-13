@@ -13,7 +13,10 @@ export const Mail = Schema.Struct({
  * The failure of one send: the provider refused the message or could not be reached. The `message`
  * must not carry the recipient address or the mail body; the add-in that raises it keeps both out.
  */
-export class MailerError extends Schema.TaggedError<MailerError>()("MailerError", {
+export class MailerError extends Schema.TaggedError<
+  MailerError,
+  { readonly brand: unique symbol }
+>()("MailerError", {
   cause: Schema.Unknown,
   message: Schema.String,
 }) {}
