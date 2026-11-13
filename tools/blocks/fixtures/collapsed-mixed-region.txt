@@ -1,6 +1,0 @@
-import { KnobsKvLive } from "@workspace/knobs-kv/live";
-import { NotesLive } from "./notes/notes.ts";
-
-// block:NotesLive start
-export const BlocksLive = Layer.mergeAll(KnobsKvLive, NotesLive);
-// block:NotesLive end

@@ -5,11 +5,6 @@ version = 1
 line-endings = "normalize"
 
 [[link]]
-source = ".agents/skills/add-block/SKILL.md"
-target = ".agents/skills/add-block/references/examples.md"
-hash = "640484d1bbb51b68bd1256f80c32f4cc6a3a3fea9300b3bbd3e9a74d26a3bf0d"
-
-[[link]]
 source = ".agents/skills/add-feature/SKILL.md"
 target = ".agents/skills/add-feature/references/examples.md"
 hash = "32d336a42e7a67ee92100f737fe881c711a86e8795dc9823d6bf830ab05f5ce5"
@@ -157,11 +152,6 @@ hash = "abb8725cb1c585dccb23d0501a55f957e7b63b41c166947fd58cc76d5ba25476"
 source = ".agents/skills/write-migration/SKILL.md"
 target = ".agents/skills/write-migration/references/examples.md"
 hash = "bdda1772c118ac9bbdeaac9d74d3eff9ab717ce2085dfbec3964acaa8d64966e"
-
-[[link]]
-source = "AGENTS.md"
-target = ".agents/skills/add-block/SKILL.md"
-hash = "366c093cd35e48ce39ceb74d803a1844db3520b785a18a00bf5d2d6aff628c81"
 
 [[link]]
 source = "AGENTS.md"

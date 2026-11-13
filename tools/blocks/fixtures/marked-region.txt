@@ -1,6 +1,0 @@
-before
-// block:fixture-unit start
-inside one
-inside two
-// block:fixture-unit end
-after
