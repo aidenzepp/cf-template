@@ -3,7 +3,6 @@ import { ConfigProvider, Effect, Layer, Schema } from "effect";
 import { HttpRouter } from "effect/http";
 import { OpenApi } from "effect/http-api";
 import { AUTH_BASE_PATH } from "@workspace/auth/contract";
-import { Api } from "@workspace/contract/api/api";
 import {
   DESIGN_PATH,
   DOCS_PATH,
@@ -11,7 +10,7 @@ import {
   OPENAPI_PATH,
 } from "@workspace/contract/api/docs-paths";
 import { ProblemAdapter } from "../problem-details.ts";
-import { ApiDocsRoutes } from "./routes.ts";
+import { ApiDocsRoutes, NotebookHttp, ServedApi } from "./routes.ts";
 
 /**
  * The origin the tests call `api` on.
@@ -76,14 +75,44 @@ const linksOf = (text: string): ReadonlyArray<string> =>
   [...text.matchAll(/\]\((?<url>[^)]+)\)/gu)].map((match) => match.groups?.url ?? "");
 
 describe("the documentation routes with DOCS_ENABLED on", () => {
-  it.effect("serve a document equal to OpenApi.fromApi(Api)", () =>
+  it.effect("serve a document equal to OpenApi.fromApi(ServedApi)", () =>
     Effect.gen(function* document() {
       const get = yield* serve("true");
       const answer = yield* get(`${ORIGIN}${OPENAPI_PATH}`);
 
       assert.strictEqual(answer.status, 200);
       assert.include(answer.type, "application/json");
-      assert.strictEqual(answer.body, JSON.stringify(OpenApi.fromApi(Api)));
+      assert.strictEqual(answer.body, JSON.stringify(OpenApi.fromApi(ServedApi)));
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("list every operation of the Notebook group under /api", () =>
+    Effect.gen(function* notebook() {
+      const get = yield* serve("true");
+      const answer = yield* get(`${ORIGIN}${OPENAPI_PATH}`);
+
+      const Paths = Schema.Struct({
+        paths: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Unknown)),
+      });
+
+      const served = Schema.decodeUnknownSync(Schema.fromJsonString(Paths))(answer.body).paths;
+      const group = Schema.decodeUnknownSync(Paths)(OpenApi.fromApi(NotebookHttp.api)).paths;
+
+      const operations = Object.entries(group).flatMap(([path, methods]) =>
+        Object.keys(methods).map((method) => `${method} /api${path}`),
+      );
+
+      assert.includeMembers(operations, [
+        "post /api/CreateNote",
+        "post /api/UpdateNote",
+        "post /api/DeleteNote",
+      ]);
+
+      for (const operation of operations) {
+        const [method = "", path = ""] = operation.split(" ");
+
+        assert.property(served[path] ?? {}, method, operation);
+      }
     }).pipe(Effect.scoped),
   );
 
@@ -147,7 +176,7 @@ describe("the documentation routes with DOCS_ENABLED on", () => {
       const get = yield* serve("true");
       const answer = yield* get(`${ORIGIN}${LLMS_PATH}`);
 
-      const listed = Object.entries(OpenApi.fromApi(Api).paths).flatMap(([path, item]) =>
+      const listed = Object.entries(OpenApi.fromApi(ServedApi).paths).flatMap(([path, item]) =>
         (["get", "post", "put", "patch", "delete"] as const).flatMap((method) => {
           const operation = item[method];
 

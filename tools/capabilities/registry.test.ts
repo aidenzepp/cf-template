@@ -11,20 +11,8 @@ import config from "../../vite.config.ts";
  * order A removes its entries here when it configures the rule and drops the marker from the row.
  */
 const pendingGuards: ReadonlyArray<string> = [
-  "A2 no-console",
-  "A2 no-restricted-globals",
-  "A2 no-restricted-imports",
-  "A2 no-restricted-properties",
-  "A3 workspace/no-effect-data-load",
-  "A3 workspace/no-effect-on-async-result",
-  "A3 workspace/no-hand-built-problem",
-  "A3 workspace/no-hand-rolled-retry",
-  "A3 workspace/no-keyed-ttl-map",
-  "A3 workspace/no-raw-form-submit",
   "A4 no-restricted-imports",
   "A4 no-restricted-properties",
-  "A4 react-doctor/no-collapse-request-error-to-empty-state",
-  "A4 react-doctor/tanstack-start-no-direct-fetch-in-loader",
 ];
 
 /**

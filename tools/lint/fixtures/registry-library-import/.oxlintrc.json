@@ -1,0 +1,11 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [{ "name": "react-hook-form", "message": "docs/capabilities.md, Forms" }],
+        "patterns": [{ "group": ["@hookform/*"], "message": "docs/capabilities.md, Forms" }]
+      }
+    ]
+  }
+}
