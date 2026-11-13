@@ -208,7 +208,7 @@ export default defineConfig({
       "work/**",
       ...vendored,
     ],
-    jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin"],
+    jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin", ...shadcn.jsPlugins],
     // `vp check` runs type-aware rules and the type check only when both are enabled.
     // https://viteplus.dev/guide/check
     options: { reportUnusedDisableDirectives: "error", typeAware: true, typeCheck: true },
