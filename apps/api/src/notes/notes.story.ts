@@ -1,17 +1,17 @@
 import { Story } from "@alchemy.run/domain/Story";
-import { Layer } from "effect";
 import { UserId } from "@workspace/contract/domain/session";
 import { CurrentActor } from "../session-middleware.ts";
 import { CreateNote, DeleteNote, NotebookId, UpdateNote } from "./note.command.ts";
 import { NoteCreated, NoteDeleted, NoteId, NoteUpdated } from "./note.event.ts";
 import { NoteAlreadyExists, NoteNotFound, NoteQuotaExceeded } from "./note.rejection.ts";
 import { NOTES_MAX_PER_OWNER, Notebook } from "./notebook.aggregate.ts";
+import { NoteIndexUnstored } from "./note-index.projection.ts";
 import { NotesModel } from "./notes.model.ts";
 
 /**
  * Runs a sequence of steps against the notes model in memory.
  */
-const story = Story.make(NotesModel, { layer: Layer.empty });
+const story = Story.make(NotesModel, { layer: NoteIndexUnstored });
 
 /**
  * The notebook every story writes to.
