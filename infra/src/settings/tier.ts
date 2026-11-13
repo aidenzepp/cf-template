@@ -43,7 +43,7 @@ export interface Tier {
 /**
  * The tier detection failed to read a plan.
  */
-export class TierError extends Schema.TaggedError<TierError>()("TierError", {
+class TierError extends Schema.TaggedError<TierError>()("TierError", {
   cause: Schema.Defect(),
   message: Schema.String,
 }) {}

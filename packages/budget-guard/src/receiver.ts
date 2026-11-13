@@ -15,7 +15,7 @@ import type { GuardPlanValue } from "./resources.ts";
  * Worker's own module. The deployed bundle evaluates this module with no provider, so the service
  * is optional there and every property it would carry is ignored: the Worker is already deployed.
  */
-export class GuardDeployment extends Context.Service<
+class GuardDeployment extends Context.Service<
   GuardDeployment,
   { readonly main: string; readonly plan: GuardPlanValue }
 >()("@workspace/budget-guard/GuardDeployment") {}
@@ -63,7 +63,7 @@ interface AlertTarget {
 /**
  * The entrypoint of the receiver Worker: it exposes no RPC method, and its `fetch` answers `404`.
  */
-export interface ReceiverEntrypoint extends MainRpc<RuntimeContext> {
+interface ReceiverEntrypoint extends MainRpc<RuntimeContext> {
   readonly fetch: Http.HttpEffect;
 }
 
@@ -71,7 +71,7 @@ export interface ReceiverEntrypoint extends MainRpc<RuntimeContext> {
  * The tag of the receiver Worker, whose only job is to latch the guard alert's notifications into
  * the guard namespace.
  */
-export class GuardReceiver extends Cloudflare.Worker<GuardReceiver, ReceiverEntrypoint>()(
+class GuardReceiver extends Cloudflare.Worker<GuardReceiver, ReceiverEntrypoint>()(
   "GuardReceiver",
 ) {}
 
@@ -88,7 +88,7 @@ export class GuardReceiver extends Cloudflare.Worker<GuardReceiver, ReceiverEntr
  * has no plan to read, registers the route, and a delivery then finds no secret bound and is
  * answered `500`, so it latches nothing.
  */
-export const GuardReceiverLive = GuardReceiver.make(
+const GuardReceiverLive = GuardReceiver.make(
   receiverProps,
   Effect.gen(function* buildReceiver() {
     const deployment = yield* Effect.serviceOption(GuardDeployment);
@@ -121,6 +121,11 @@ export const GuardReceiverLive = GuardReceiver.make(
   }).pipe(Effect.provide(Cloudflare.Alerting.NotificationEventSourceLive)),
 );
 
+/**
+ * The module's entry: the deployed bundle evaluates this default export as the Worker.
+ *
+ * @public
+ */
 export default GuardReceiverLive;
 
 /**

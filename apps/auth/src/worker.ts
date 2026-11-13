@@ -46,7 +46,7 @@ export const authTelemetry = Effect.serviceOption(AuthDeployment).pipe(
  * Cloudflare traces for the Worker's spans, and structured JSON logs that reach `console.error`,
  * `console.warn` and the rest at their own level, registered once for every event of the Worker.
  */
-export const authObservability = Layer.unwrap(
+const authObservability = Layer.unwrap(
   authTelemetry.pipe(
     Effect.map((options) =>
       Layer.mergeAll(

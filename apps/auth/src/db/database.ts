@@ -29,7 +29,7 @@ export const migrationsDir = Path.Path.use((path) => path.fromFileUrl(MIGRATIONS
  * @param stage - The decoded stage name.
  * @returns `true` for `prod`.
  */
-export const retainsD1 = (stage: string): boolean => stage === "prod";
+const retainsD1 = (stage: string): boolean => stage === "prod";
 
 /**
  * The properties of the auth D1 database for a stage.

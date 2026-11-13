@@ -282,7 +282,7 @@ export const authDatabaseLayer = (
  * against the deployer's environment and binds that value over the one `infra` binds per stage. An
  * unset value therefore fails that execution's requests and nothing else.
  */
-export const AuthSettings = Config.all({
+const AuthSettings = Config.all({
   baseURL: Config.schema(PublicOrigin, "PUBLIC_ORIGIN"),
   emailKeySecret: Config.option(Config.Redacted("EMAIL_KEY_SECRET")),
   graceSeconds: AUTH_ORPHAN_GRACE_SECONDS.config,

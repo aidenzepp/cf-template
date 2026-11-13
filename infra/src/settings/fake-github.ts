@@ -6,7 +6,7 @@ import type { Capability } from "./tier.ts";
 /**
  * The repository every fake run targets.
  */
-export const repository: GuardedRepository = {
+const repository: GuardedRepository = {
   name: "widget",
   owner: "acme",
   ownerType: "User",
