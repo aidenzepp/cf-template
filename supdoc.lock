@@ -156,7 +156,7 @@ hash = "bdda1772c118ac9bbdeaac9d74d3eff9ab717ce2085dfbec3964acaa8d64966e"
 [[link]]
 source = "AGENTS.md"
 target = ".agents/skills/add-feature/SKILL.md"
-hash = "7bf0bb97a6f877d2878b96fd0773b7d66b63ecdf39e3abb81fa8534cc4e68d8c"
+hash = "f5b3a3a554290485584509344dbdc70a80546131f6cd686efbe667328cbe2ed9"
 
 [[link]]
 source = "AGENTS.md"
