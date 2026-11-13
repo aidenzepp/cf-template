@@ -71,7 +71,7 @@ export const checkRecord = Effect.fn("designReview.checkRecord")(function* check
   equivalent: (sha: string) => Effect.Effect<boolean, never, R>,
 ) {
   if (!changed.some(isReviewed)) {
-    return;
+    return yield* Effect.void;
   }
 
   const shas = body.split(/\r?\n/u).flatMap((line) => {
@@ -81,16 +81,16 @@ export const checkRecord = Effect.fn("designReview.checkRecord")(function* check
   });
 
   if (shas.includes(head)) {
-    return;
+    return yield* Effect.void;
   }
 
   for (const sha of shas) {
     if (yield* equivalent(sha)) {
-      return;
+      return yield* Effect.void;
     }
   }
 
-  yield* new RecordError({
+  return yield* new RecordError({
     message: `The pull request changes apps/web or packages/ui and its body has no line \`design-review: ${head} <pass|concerns|fail> <reason>\`. Run the design-review skill on this head and paste the line it prints.`,
   });
 });
