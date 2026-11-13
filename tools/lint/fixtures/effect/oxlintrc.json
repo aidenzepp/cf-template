@@ -1,0 +1,12 @@
+{
+  "extends": ["../../../../node_modules/@effect/tsgo/oxlint-presets/recommended.json"],
+  "options": { "reportUnusedDisableDirectives": "error", "typeAware": true },
+  "rules": {
+    "effecttsgo/effect-try-without-catch": "warn",
+    "effecttsgo/extends-native-error": "warn",
+    "effecttsgo/process-env": "warn",
+    "effecttsgo/process-env-in-effect": "warn",
+    "effecttsgo/try-catch-in-effect-gen": "off",
+    "effecttsgo/unsafe-effect-type-assertion": "warn"
+  }
+}

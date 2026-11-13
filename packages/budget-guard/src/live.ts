@@ -52,14 +52,14 @@ export const makeCheck = <E>(store: LatchStore<E>) =>
     const logged = yield* Ref.make(false);
 
     const read = store.isLatched.pipe(
-      Effect.catch(() =>
+      Effect.tapError(() =>
         Ref.getAndSet(logged, true).pipe(
           Effect.flatMap((already) =>
             already ? Effect.void : Effect.logError("web.guard.read_error"),
           ),
-          Effect.as(false),
         ),
       ),
+      Effect.orElseSucceed(() => false),
     );
 
     const latched = yield* Effect.cachedWithTTL(read, READ_TTL);

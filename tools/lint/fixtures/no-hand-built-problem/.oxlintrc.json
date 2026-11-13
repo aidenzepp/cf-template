@@ -1,0 +1,4 @@
+{
+  "jsPlugins": ["../../plugin.mjs"],
+  "rules": { "workspace/no-hand-built-problem": "error" }
+}

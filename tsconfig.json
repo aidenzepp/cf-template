@@ -1,5 +1,5 @@
 {
   "extends": "./tsconfig.base.json",
   "include": ["test", "tools", "vite.config.ts"],
-  "exclude": ["tools/lint/fixtures"]
+  "exclude": ["tools/lint/fixtures", "tools/ratchet/fixtures"]
 }
