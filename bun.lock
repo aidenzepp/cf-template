@@ -54,7 +54,6 @@
       "devDependencies": {
         "@effect/platform-bun": "4.1.2",
         "@effect/vitest": "4.1.2",
-        "miniflare": "4.20260730.0",
       },
     },
     "apps/auth": {

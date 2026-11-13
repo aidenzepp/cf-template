@@ -218,8 +218,8 @@ export const classify = (
 };
 
 /**
- * Ask one binding whether the caller may proceed. A rejected `limit` fails open: it emits one
- * `web.ratelimit.error` line naming the class and answers allowed.
+ * Ask one binding whether the caller may proceed. A rejected `limit` fails open: it logs one
+ * `web.ratelimit.error` error naming the class and answers allowed.
  *
  * @param binding - The binding of the class.
  * @param cls - The class the binding serves.
@@ -230,11 +230,10 @@ const allowed = (binding: RateLimitBinding, cls: RateLimitClass, key: string) =>
   Effect.tryPromise(() => binding.limit({ key })).pipe(
     Effect.map((outcome) => outcome.success),
     Effect.catch(() =>
-      Effect.sync(() => {
-        console.error(JSON.stringify({ event: "web.ratelimit.error", "ratelimit.class": cls }));
-
-        return true;
-      }),
+      Effect.logError("web.ratelimit.error").pipe(
+        Effect.annotateLogs("ratelimit.class", cls),
+        Effect.as(true),
+      ),
     ),
   );
 

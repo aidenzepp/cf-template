@@ -14,18 +14,9 @@ const operations = Object.entries(spec.paths).flatMap(([path, item]) =>
   })),
 );
 
-// block:notes start
-const notesOperations = operations.filter(({ operation }) =>
-  operation.operationId.startsWith("notes."),
-);
-// block:notes end
-
 describe("Api OpenAPI document", () => {
   it("declares operations", () => {
     expect(operations.length).toBeGreaterThan(0);
-    // block:notes start
-    expect(notesOperations).toHaveLength(5);
-    // block:notes end
   });
 
   it("lists a 400 problem+json response on every operation", () => {
@@ -35,16 +26,6 @@ describe("Api OpenAPI document", () => {
       expect(response?.content?.["application/problem+json"]).toBeDefined();
     }
   });
-
-  // block:notes start
-  it("lists the gate and session problems on every notes operation", () => {
-    for (const { operation } of notesOperations) {
-      expect(operation.responses["404"], `${operation.operationId} 404`).toBeDefined();
-      expect(operation.responses["401"], `${operation.operationId} 401`).toBeDefined();
-      expect(operation.responses["503"], `${operation.operationId} 503`).toBeDefined();
-    }
-  });
-  // block:notes end
 
   it("lists the 503 problem+json response of GET /api/session", () => {
     const response = spec.paths["/api/session"]?.get?.responses["503"];
