@@ -1,7 +1,9 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
-import { Config, Effect, FileSystem, Path, Stream } from "effect";
+import { Config, Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+
+import { Baseline, ignoreEntries, sumCounts } from "./ratchet.ts";
 
 /**
  * The timeout of each case, which spawns git and `bun` several times.
@@ -101,14 +103,25 @@ const guard = Effect.fn("ratchet.test.guard")(function* guard(
 });
 
 /**
+ * How a case differs from the default repository: the fixture the base commit holds (`base`, or
+ * `bare`, which has no baseline and no knip file) and the files the head commit removes.
+ */
+interface Variation {
+  readonly drop?: ReadonlyArray<string>;
+  readonly from?: "bare" | "base";
+}
+
+/**
  * Builds a repository in a scratch directory under `work/`: the base fixture committed, then the
- * case's fixture laid over it and committed, with `origin/main` set per `origin`. Hands the
- * repository and both commits to `assertions`; the scope that owns the directory closes after them.
+ * case's fixture laid over it, the `variation.drop` files removed, and committed, with
+ * `origin/main` set per `origin`. Hands the repository and both commits to `assertions`; the scope
+ * that owns the directory closes after them.
  */
 const inRepository = <A, E, R>(
   fixture: string,
   origin: Origin,
   assertions: (built: { base: string; head: string; repo: string }) => Effect.Effect<A, E, R>,
+  variation: Variation = {},
 ) =>
   Effect.scoped(
     Effect.gen(function* scoped() {
@@ -124,13 +137,18 @@ const inRepository = <A, E, R>(
       });
 
       yield* git(repo, ["init", "--quiet", "--initial-branch=main"]);
-      yield* overlay(repo, "base");
+      yield* overlay(repo, variation.from ?? "base");
       yield* git(repo, ["add", "--all"]);
       yield* git(repo, ["commit", "--quiet", "--message", "base"]);
 
       const base = yield* git(repo, ["rev-parse", "HEAD"]);
 
       yield* overlay(repo, fixture);
+
+      for (const file of variation.drop ?? []) {
+        yield* fs.remove(path.join(repo, file));
+      }
+
       yield* git(repo, ["add", "--all"]);
       yield* git(repo, ["commit", "--quiet", "--allow-empty", "--message", "head"]);
 
@@ -147,6 +165,68 @@ const inRepository = <A, E, R>(
       return yield* assertions({ base, head, repo });
     }),
   );
+
+/**
+ * What a guard case expects: the exit code, text the output holds, text it lacks and whether it is
+ * a single line.
+ */
+interface Expected {
+  readonly code: number;
+  readonly excludes?: ReadonlyArray<string>;
+  readonly includes?: ReadonlyArray<string>;
+  readonly oneLine?: boolean;
+}
+
+/**
+ * The Oxlint disable directive, assembled so the guard does not count this file's own text.
+ */
+const DISABLE = ["oxlint", "-disable"].join("");
+
+/**
+ * A baseline file with one rule counted `count` times.
+ */
+const counted = (count: number) => ({ "a.ts": { rule: { count } } });
+
+/**
+ * Registers one case: builds `fixture` per `variation`, runs the guard with `env` and checks
+ * `expected`.
+ */
+const guardCase = (
+  title: string,
+  fixture: string,
+  origin: Origin,
+  expected: Expected,
+  options: { readonly env?: Readonly<Record<string, string>>; readonly variation?: Variation } = {},
+): void => {
+  it.effect(
+    title,
+    () =>
+      inRepository(
+        fixture,
+        origin,
+        ({ repo }) =>
+          Effect.gen(function* checked() {
+            const { code, output } = yield* guard(repo, options.env);
+
+            assert.strictEqual(code, expected.code, output);
+
+            for (const text of expected.includes ?? []) {
+              assert.include(output, text);
+            }
+
+            for (const text of expected.excludes ?? []) {
+              assert.notInclude(output, text);
+            }
+
+            if (expected.oneLine === true) {
+              assert.strictEqual(output.trim().split("\n").length, 1, output);
+            }
+          }),
+        options.variation,
+      ).pipe(Effect.provide(BunServices.layer)),
+    SPAWN_TIMEOUT_MS,
+  );
+};
 
 describe("the debt ratchet", () => {
   it.effect(
@@ -252,5 +332,106 @@ describe("the debt ratchet", () => {
         }),
       ).pipe(Effect.provide(BunServices.layer)),
     SPAWN_TIMEOUT_MS,
+  );
+
+  guardCase(
+    "8 forced git colour still counts and fails the ceiling",
+    "directive-added",
+    "head",
+    { code: 1, includes: ["the ceiling is zero"] },
+    {
+      env: {
+        GIT_CONFIG_COUNT: "1",
+        GIT_CONFIG_KEY_0: "color.ui",
+        GIT_CONFIG_VALUE_0: "always",
+      },
+    },
+  );
+
+  guardCase("9 an added counted directive line exits 1", "disable-added", "base", {
+    code: 1,
+    includes: [`${DISABLE} lines rose from 0 to 1`],
+  });
+
+  guardCase(
+    "10 a baseline the base lacks is compared with zero",
+    "first-baseline",
+    "base",
+    {
+      code: 1,
+      excludes: ["knip"],
+      includes: ["no-debugger baselined violations rose from 0 to 1"],
+    },
+    { variation: { from: "bare" } },
+  );
+
+  guardCase("11 a second knip configuration file exits 1", "knip-moved", "base", {
+    code: 1,
+    includes: ["knip.json configures knip; keep the knip configuration in knip.jsonc"],
+  });
+
+  guardCase(
+    "12 a renamed knip configuration exits 1",
+    "knip-moved",
+    "base",
+    { code: 1, includes: ["knip.jsonc is gone from the head"] },
+    { variation: { drop: ["knip.jsonc"] } },
+  );
+
+  guardCase("13 a knip key in package.json exits 1", "package-knip", "base", {
+    code: 1,
+    includes: ["package.json#knip configures knip"],
+  });
+
+  guardCase("14 a non-integer count exits 2 on one line", "baseline-invalid", "base", {
+    code: 2,
+    includes: ["oxlint-suppressions.json is not valid"],
+    oneLine: true,
+  });
+
+  guardCase(
+    "15 a RATCHET_BASE that is not a commit exits 2 on one line",
+    "equal",
+    "base",
+    { code: 2, includes: ["RATCHET_BASE nope is not a commit"], oneLine: true },
+    { env: { RATCHET_BASE: "nope" } },
+  );
+
+  guardCase(
+    "16 an all-zero RATCHET_BASE falls back to the merge base",
+    "rule-rises",
+    "base",
+    { code: 1, includes: ["no-debugger baselined violations rose from 2 to 3"] },
+    { env: { RATCHET_BASE: "0".repeat(40) } },
+  );
+
+  it.effect("17 a count that is not an integer fails the sum", () =>
+    Effect.gen(function* sums() {
+      assert.strictEqual(yield* sumCounts("a.ts:1\nb.ts:2\n"), 3);
+
+      const colored = yield* Effect.flip(sumCounts("\u001B[35ma.ts\u001B[m\u001B[36m:\u001B[m1\n"));
+
+      assert.strictEqual(colored._tag, "GitFailed");
+    }),
+  );
+
+  it("18 every ignore form counts, at any depth", () => {
+    assert.strictEqual(ignoreEntries({ ignore: "src/a.ts" }), 1);
+    assert.strictEqual(ignoreEntries({ ignore: ["a", "b"], ignoreDependencies: ["c"] }), 3);
+    assert.strictEqual(ignoreEntries({ ignoreIssues: { "a.ts": ["exports", "types"] } }), 2);
+    assert.strictEqual(ignoreEntries({ workspaces: { ".": { ignoreBinaries: ["x"] } } }), 1);
+    assert.strictEqual(ignoreEntries({ entry: ["a"], ignoreExportsUsedInFile: true }), 0);
+  });
+
+  it.effect("19 a baseline count must be a non-negative integer", () =>
+    Effect.gen(function* decodes() {
+      const decode = Schema.decodeUnknownEffect(Baseline);
+
+      assert.deepStrictEqual(yield* decode(counted(2)), counted(2));
+
+      for (const bad of [-1, 0.5]) {
+        assert.strictEqual((yield* Effect.flip(decode(counted(bad))))._tag, "SchemaError");
+      }
+    }),
   );
 });

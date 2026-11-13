@@ -497,10 +497,10 @@ export default defineConfig({
       //
       // Every other "off" below is staged off until its follow-up fixes the code (I-29 ruling,
       // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
-      // schema-class-missing-brand 46, all-of-map-to-for-each 31, prefer-typed-schema-decoder 30,
+      // schema-class-missing-brand 47, all-of-map-to-for-each 31, prefer-typed-schema-decoder 31,
       // any-unknown-in-error-context 20, schema-number 19, schema-class-object-literal 19,
       // multiple-effect-provide 9, prefer-succeed-some-or-none 9, effect-try-without-catch 7 (delta),
-      // run-effect-inside-effect 7, unstable-api-usage 6 (infra/migrations-digest.ts and
+      // run-effect-inside-effect 8, unstable-api-usage 11 (apps/auth/src/email-key.ts 5, unlisted in allowedUnstableApis; infra/migrations-digest.ts and
       // infra/stacks/settings.ts sit outside every tsconfig, so the plugin entry does not reach
       // them), missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
       // process-env 3 (delta, `test/`), flat-map-conditional-to-filter-or-fail 3,
