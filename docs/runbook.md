@@ -26,7 +26,7 @@ Reset a stage's latch with `bun packages/budget-guard/scripts/reset.ts --stage <
 
 `workers.dev` is a public suffix, so browsers isolate cookies between accounts but not between Workers of one account; the risk is accepted until an owned domain (I-26).
 
-**Changes the origin.** Every passkey registered on `workers.dev` stops working (the RP ID is the hostname) and every session ends; OAuth callbacks must be re-registered. Do it before the first outside user, not after.
+**Changes the origin.** Every passkey registered on `workers.dev` stops working (the RP ID is the hostname), and browsers sign in again because their session cookie stays scoped to the old host while server-side sessions stay valid until they expire; OAuth callbacks must be re-registered. Do it before the first outside user, not after.
 
 Prerequisites: the hostname's zone is active in the deploying Cloudflare account, the hostname has no existing CNAME, and the zone has no wildcard record. The deploy touches the zone only to attach the hostname. The WAF rate-limit rule (50 requests per 10 s per IP outside `/assets/`, blocked for 10 s) is defined in `infra/src/domain.ts` but not yet declared on the zone: the pinned `Cloudflare.Ruleset` takes a `Zone` resource, which would create or patch the zone, so it waits on a ruling.
 
