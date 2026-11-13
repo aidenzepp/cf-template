@@ -654,10 +654,10 @@ export default defineConfig({
       //
       // Every other "off" below is staged off until its follow-up fixes the code (I-29 ruling,
       // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
-      // any-unknown-in-error-context 20, multiple-effect-provide 9, effect-try-without-catch 7 (delta),
+      // multiple-effect-provide 9, effect-try-without-catch 7 (delta),
       // run-effect-inside-effect 8,
       // return-effect-in-gen 3, then 2 each: schema-sync-in-effect, unknown-in-effect-catch.
-      "effecttsgo/any-unknown-in-error-context": "off",
+      "effecttsgo/any-unknown-in-error-context": "warn",
       "effecttsgo/effect-try-without-catch": "warn",
       "effecttsgo/extends-native-error": "warn",
       "effecttsgo/process-env": "warn",
