@@ -14,7 +14,8 @@ import {
 import { SystemApi } from "@workspace/contract/api/system";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
-import { NotebookHttp } from "./docs/routes.ts";
+import { NotebookGroup, NotebookHttp } from "./docs/routes.ts";
+import { NOTES_MAX_PER_OWNER } from "./notes/notebook.aggregate.ts";
 import { NOTE_TITLE_MAX_LENGTH } from "./notes/note.command.ts";
 import { NotesModel } from "./notes/notes.model.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
@@ -43,7 +44,7 @@ const wire = (session: Session) =>
 
 /**
  * Test-local endpoints: two whose handlers fault, since no served route can be made to fault on
- * demand, and one that decodes a payload, since the Notebook group sits outside `ProblemDetails`.
+ * demand, and one that decodes a payload, the control for the Notebook commands.
  */
 const ProbeGroup = HttpApiGroup.make("probe")
   .add(HttpApiEndpoint.get("defect", "/api/probe/defect"))
@@ -56,13 +57,13 @@ const ProbeGroup = HttpApiGroup.make("probe")
 
 /**
  * The served Api's shape with the probe group among the groups `ProblemDetails` wraps: the
- * contract's groups, then the middleware, then the Notebook group under `/api`, as `ServedApi`.
+ * contract's groups, then the middleware, then the Notebook group as `ServedApi` hosts it.
  */
 const ProbedApi = HttpApi.make("Api")
   .add(SystemApi)
   .add(ProbeGroup)
   .middleware(HttpApiMiddleware.ProblemDetails)
-  .add(NotebookHttp.group.prefix("/api"));
+  .add(NotebookGroup);
 
 /**
  * The probe handlers: `defect` dies with `defect`, `conflict` dies with a raw built-in error and
@@ -154,7 +155,8 @@ type Json =
  * @param input - The note fields, any JSON value so a test can send a malformed one.
  * @returns The JSON body.
  */
-const createNote = (input: Json) => JSON.stringify({ commandId: "c-1", input, target: "ada" });
+const createNote = (input: Json, commandId = "c-1", target = "ada") =>
+  JSON.stringify({ commandId, input, target });
 
 /**
  * Assert a response is a bare `about:blank` problem with the given status and phrase.
@@ -173,6 +175,20 @@ const assertBlank = (response: Response, status: number, title: string) =>
       title,
       type: "about:blank",
     });
+  });
+
+/**
+ * Assert a response is the typed problem of a Rejection.
+ *
+ * @param response - The response to check.
+ * @param expected - The expected body.
+ * @returns An effect that asserts.
+ */
+const assertRejection = (response: Response, expected: Record<string, Json>) =>
+  Effect.gen(function* rejection() {
+    assert.strictEqual(response.status, expected.status);
+    assert.match(response.headers.get("content-type") ?? "", /^application\/problem\+json/u);
+    assert.deepStrictEqual(yield* Effect.promise(() => response.json()), expected);
   });
 
 describe("the adapter", () => {
@@ -276,18 +292,21 @@ describe("note size caps", () => {
     Effect.gen(function* oversized() {
       const send = yield* serve({ includeDetails: false });
 
-      // The Notebook group sits outside `ProblemDetails`, so its decode failure is a bare 400.
-      yield* assertBlank(
-        yield* send(
-          json(
-            "/api/CreateNote",
-            "POST",
-            createNote({ body: "b", id: "n-1", title: "t".repeat(NOTE_TITLE_MAX_LENGTH + 1) }),
-          ),
+      const rejected = yield* send(
+        json(
+          "/api/CreateNote",
+          "POST",
+          createNote({ body: "b", id: "n-1", title: "t".repeat(NOTE_TITLE_MAX_LENGTH + 1) }),
         ),
-        400,
-        "Bad Request",
       );
+
+      assert.strictEqual(rejected.status, 400);
+      assert.deepStrictEqual(yield* Effect.promise(() => rejected.json()), {
+        detail: "Request validation failed",
+        status: 400,
+        title: "Bad Request",
+        type: "about:blank",
+      });
 
       const created = yield* send(
         json("/api/CreateNote", "POST", createNote({ body: "b", id: "n-1", title: "t" })),
@@ -333,8 +352,77 @@ describe("PROBLEM_DETAILS_INCLUDE", () => {
           const text = yield* Effect.promise(() => response.text());
 
           assert.strictEqual(response.status, 400);
+          assert.match(response.headers.get("content-type") ?? "", /^application\/problem\+json/u);
+          assert.include(text, '"detail":"Request validation failed"');
           assert.notInclude(text, secret);
+          assert.strictEqual(text.includes('"errors"'), includeDetails);
         }
       }).pipe(Effect.scoped),
+  );
+});
+
+describe("Notebook rejections", () => {
+  const note = { body: "b", id: "n-1", title: "t" };
+
+  it.effect("answers a duplicate create with note-already-exists", () =>
+    Effect.gen(function* duplicate() {
+      const send = yield* serve({ includeDetails: false });
+
+      yield* send(json("/api/CreateNote", "POST", createNote(note)));
+
+      yield* assertRejection(
+        yield* send(json("/api/CreateNote", "POST", createNote(note, "c-2"))),
+        {
+          id: "n-1",
+          status: 409,
+          title: "Conflict",
+          type: "/problems/note-already-exists",
+        },
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("answers a create in another owner's notebook with not-notebook-owner", () =>
+    Effect.gen(function* nonOwner() {
+      const send = yield* serve({ includeDetails: false });
+
+      yield* assertRejection(
+        yield* send(json("/api/CreateNote", "POST", createNote(note, "c-1", "bob"))),
+        { status: 403, title: "Forbidden", type: "/problems/not-notebook-owner" },
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("answers a create past the limit with note-quota-exceeded", () =>
+    Effect.gen(function* overQuota() {
+      const send = yield* serve({ includeDetails: false });
+
+      for (let index = 0; index < NOTES_MAX_PER_OWNER; index += 1) {
+        const id = `n-${index}`;
+
+        yield* send(json("/api/CreateNote", "POST", createNote({ ...note, id }, `c-${index}`)));
+      }
+
+      yield* assertRejection(
+        yield* send(json("/api/CreateNote", "POST", createNote({ ...note, id: "n-x" }, "c-x"))),
+        {
+          limit: NOTES_MAX_PER_OWNER,
+          status: 409,
+          title: "Conflict",
+          type: "/problems/note-quota-exceeded",
+        },
+      );
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("answers a delete of a missing note with note-not-found", () =>
+    Effect.gen(function* missing() {
+      const send = yield* serve({ includeDetails: false });
+
+      yield* assertRejection(
+        yield* send(json("/api/DeleteNote", "POST", createNote({ id: "n-9" }))),
+        { id: "n-9", status: 404, title: "Not Found", type: "/problems/note-not-found" },
+      );
+    }).pipe(Effect.scoped),
   );
 });

@@ -1,6 +1,6 @@
 import { Effect, Layer, Result } from "effect";
 import { HttpRouter, HttpServerResponse, Url } from "effect/http";
-import { HttpApiScalar, OpenApi } from "effect/http-api";
+import { HttpApiMiddleware, HttpApiScalar, OpenApi } from "effect/http-api";
 import * as DomainHttp from "@alchemy.run/domain/Http";
 import { DocsEnabledKnob, DocsLiveRead } from "@workspace/config/docs";
 import { LiveKnobs } from "@workspace/config/knob";
@@ -16,12 +16,20 @@ import { llmsText } from "./llms.ts";
 export const NotebookHttp = DomainHttp.toHttpApi(NotebookApi);
 
 /**
- * What the `api` Worker serves and documents: the contract's `Api` with the Notebook group merged
- * into it under `/api`. The group is added after `Api`'s `ProblemDetails` middleware, which wraps
- * only the groups added before it, so a Notebook rejection keeps the status its schema declares
- * (the global problem adapter still turns its body into a bare problem).
+ * The Notebook group as the Worker hosts it: under `/api`, wrapped in `ProblemDetails` like the
+ * contract's groups, so a payload that fails to decode answers the same 400 problem. Each rejection
+ * keeps the status its schema declares; the global problem adapter turns its body into a problem
+ * whose `type` names it.
  */
-export const ServedApi = Api.add(NotebookHttp.group.prefix("/api"));
+export const NotebookGroup = NotebookHttp.group
+  .prefix("/api")
+  .middleware(HttpApiMiddleware.ProblemDetails);
+
+/**
+ * What the `api` Worker serves and documents: the contract's `Api` with {@link NotebookGroup}
+ * merged into it.
+ */
+export const ServedApi = Api.add(NotebookGroup);
 
 /**
  * The route-scoped gate of the three documentation routes: it answers a bare 404 while `enabled`
