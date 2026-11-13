@@ -4,15 +4,12 @@
   "description": "Owns HttpApi definitions, domain schemas, Problem classes, Session. Must not own Tags, implementations, runtime services, Config reads, UI, or any workspace or @alchemy.run/* import.",
   "type": "module",
   "exports": {
-    "./domain/note": "./src/domain/note.ts",
     "./domain/session": "./src/domain/session.ts",
-    "./domain/note-errors": "./src/domain/note-errors.ts",
     "./domain/auth-errors": "./src/domain/auth-errors.ts",
     "./domain/auth-paths": "./src/domain/auth-paths.ts",
     "./domain/auth-endpoints": "./src/domain/auth-endpoints.ts",
     "./domain/rate-limited": "./src/domain/rate-limited.ts",
     "./api/authorization": "./src/api/authorization.ts",
-    "./api/notes": "./src/api/notes.ts",
     "./api/system": "./src/api/system.ts",
     "./api/api": "./src/api/api.ts",
     "./api/docs-paths": "./src/api/docs-paths.ts"

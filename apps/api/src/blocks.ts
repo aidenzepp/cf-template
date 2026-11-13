@@ -1,9 +1,6 @@
 import { Layer } from "effect";
 import { KnobsKvLive } from "@workspace/knobs-kv/live";
 import { SessionMiddlewareLive } from "./authorization.ts";
-import { ExampleFeatureGateLive } from "./notes/gate.ts";
-import { NotesApiHandlersNoDeps } from "./notes/http.ts";
-import { NotesIsolateLive } from "./notes/isolate.ts";
 import { SystemApiHandlers } from "./system/http.ts";
 
 /**
@@ -16,18 +13,12 @@ import { SystemApiHandlers } from "./system/http.ts";
  * a sibling in one `Layer.mergeAll` cannot supply. The attach grammar reads the call whether the
  * formatter keeps it on several lines or collapses it onto one.
  */
-export const ApiWorkerHandlerGroupLayers = Layer.mergeAll(
-  SystemApiHandlers,
-  NotesApiHandlersNoDeps,
-);
+export const ApiWorkerHandlerGroupLayers = Layer.mergeAll(SystemApiHandlers);
 
 /**
  * The middleware layers of the `api` Worker; see {@link ApiWorkerHandlerGroupLayers}.
  */
-export const ApiWorkerMiddlewareLayers = Layer.mergeAll(
-  SessionMiddlewareLive,
-  ExampleFeatureGateLive,
-);
+export const ApiWorkerMiddlewareLayers = Layer.mergeAll(SessionMiddlewareLive);
 
 /**
  * No services: the entry that keeps {@link ApiBlockProviders} a valid call when no unit adds one.
@@ -56,9 +47,4 @@ const NoIsolateServices = Layer.empty;
  * The services the Worker builds once per isolate and every execution shares, over `AppDatabase`;
  * see {@link ApiWorkerHandlerGroupLayers}.
  */
-export const ApiWorkerIsolateLayers = Layer.mergeAll(
-  NoIsolateServices,
-  // block:notes start
-  NotesIsolateLive,
-  // block:notes end
-);
+export const ApiWorkerIsolateLayers = Layer.mergeAll(NoIsolateServices);

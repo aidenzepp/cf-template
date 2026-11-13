@@ -6,9 +6,6 @@ import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { LogLevelKnob } from "@workspace/config/log-level";
 import { HeadSamplingRateKnob } from "@workspace/config/observability";
 import { AuthCheckSessionTimeoutKnob, ProblemDetailsIncludeKnob } from "../apps/api/src/config.ts";
-// block:notes start
-import { ExampleFeatureKnob } from "../apps/api/src/notes/knob.ts";
-// block:notes end
 import { CookieCacheMaxAgeKnob, CookieCacheStrategyKnob } from "../apps/auth/src/config.ts";
 
 /**
@@ -220,9 +217,6 @@ export interface StageValues {
   readonly AUTH_COOKIE_CACHE_MAX_AGE_S: typeof CookieCacheMaxAgeKnob.default;
   readonly AUTH_COOKIE_CACHE_STRATEGY: typeof CookieCacheStrategyKnob.default;
   readonly AUTH_PASSWORD_SCRYPT: typeof AUTH_PASSWORD_SCRYPT.default;
-  // block:notes start
-  readonly EXAMPLE_FEATURE_ENABLED: typeof ExampleFeatureKnob.default;
-  // block:notes end
   readonly HEAD_SAMPLING_RATE: typeof HeadSamplingRateKnob.default;
   readonly LOG_LEVEL: LogLevel.LogLevel;
   readonly PROBLEM_DETAILS_INCLUDE: typeof ProblemDetailsIncludeKnob.default;
@@ -249,9 +243,6 @@ const stageRow = (
   logLevel: string,
   api: {
     readonly docs: string;
-    // block:notes start
-    readonly exampleFeature: string;
-    // block:notes end
     readonly problemDetails: string;
   },
   volumeAlert: boolean,
@@ -261,9 +252,6 @@ const stageRow = (
   AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
   AUTH_PASSWORD_SCRYPT: AUTH_PASSWORD_SCRYPT.default,
   DOCS_ENABLED: validated(DocsEnabledKnob, api.docs),
-  // block:notes start
-  EXAMPLE_FEATURE_ENABLED: validated(ExampleFeatureKnob, api.exampleFeature),
-  // block:notes end
   HEAD_SAMPLING_RATE: validated(HeadSamplingRateKnob, "1"),
   LOG_LEVEL: validated(LogLevelKnob, logLevel),
   PROBLEM_DETAILS_INCLUDE: validated(ProblemDetailsIncludeKnob, api.problemDetails),
@@ -279,9 +267,6 @@ export const Stages: Record<StageKind, StageValues> = {
     "Debug",
     {
       docs: "true",
-      // block:notes start
-      exampleFeature: "true",
-      // block:notes end
       problemDetails: "true",
     },
     false,
@@ -290,9 +275,6 @@ export const Stages: Record<StageKind, StageValues> = {
     "Info",
     {
       docs: "false",
-      // block:notes start
-      exampleFeature: "false",
-      // block:notes end
       problemDetails: "false",
     },
     true,
@@ -301,9 +283,6 @@ export const Stages: Record<StageKind, StageValues> = {
     "Debug",
     {
       docs: "true",
-      // block:notes start
-      exampleFeature: "true",
-      // block:notes end
       problemDetails: "true",
     },
     false,
@@ -312,9 +291,6 @@ export const Stages: Record<StageKind, StageValues> = {
     "Debug",
     {
       docs: "true",
-      // block:notes start
-      exampleFeature: "true",
-      // block:notes end
       problemDetails: "true",
     },
     true,
