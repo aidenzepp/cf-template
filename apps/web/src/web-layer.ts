@@ -1,4 +1,4 @@
-import { ConfigProvider, Context, Effect, Layer } from "effect";
+import { Config, ConfigProvider, Context, Effect, Layer } from "effect";
 import { decodeAuthMethods } from "@workspace/config/auth-methods";
 import type { AuthMethods as AuthMethodsValue } from "@workspace/config/auth-methods";
 import { AUTH_ORPHAN_GRACE_SECONDS } from "@workspace/config/auth-orphan-grace";
@@ -47,4 +47,18 @@ export class AuthMethods extends Context.Service<AuthMethods, typeof AuthMethods
 export const makeWebLayer = (env: { readonly AUTH_METHODS: string }) =>
   Layer.effect(AuthMethods)(
     decodeAuthMethods(env.AUTH_METHODS).pipe(Effect.map((methods) => AuthMethods.of(methods))),
+  );
+
+/**
+ * Read the stack name `infra` bound as `STACK_NAME` through `Config`. The stack name is the
+ * project's identity, so the placeholder page shows it as the title. An absent or empty value
+ * fails: there is no fallback name.
+ *
+ * @param env - The bound text.
+ * @param env.STACK_NAME - The stack name `infra` binds.
+ * @returns The stack name.
+ */
+export const readStackName = (env: { readonly STACK_NAME: string }) =>
+  Config.NonEmptyString("STACK_NAME").pipe(
+    Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(env))),
   );

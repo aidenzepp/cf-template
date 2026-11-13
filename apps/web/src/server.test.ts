@@ -187,6 +187,7 @@ const WebProdLive = Layer.effect(WebProd)(
                 bindings: {
                   AUTH_METHODS: '{"email":false,"providers":["github"]}',
                   PUBLIC_ORIGIN: "http://x",
+                  STACK_NAME: "harness-stack",
                 },
                 compatibilityDate: COMPAT_DATE,
 
@@ -207,6 +208,7 @@ const WebProdLive = Layer.effect(WebProd)(
                   AUTH_METHODS: '{"email":false,"providers":[]}',
                   DOCS_ENABLED: true,
                   PUBLIC_ORIGIN: "http://x",
+                  STACK_NAME: "harness-stack",
                 },
                 compatibilityDate: COMPAT_DATE,
 
@@ -226,6 +228,7 @@ const WebProdLive = Layer.effect(WebProd)(
                 bindings: {
                   AUTH_METHODS: "{nope",
                   PUBLIC_ORIGIN: "http://x",
+                  STACK_NAME: "harness-stack",
                 },
                 compatibilityDate: COMPAT_DATE,
 
@@ -247,6 +250,7 @@ const WebProdLive = Layer.effect(WebProd)(
                   DOCS_ENABLED: false,
                   DOCS_LIVE_READ: true,
                   PUBLIC_ORIGIN: "http://x",
+                  STACK_NAME: "harness-stack",
                 },
                 compatibilityDate: COMPAT_DATE,
                 kvNamespaces: { KNOBS: "web-live-knobs" },

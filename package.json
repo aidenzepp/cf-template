@@ -1,5 +1,5 @@
 {
-  "name": "typescript-template",
+  "name": "cf-template",
   "private": true,
   "workspaces": [
     "apps/*",
