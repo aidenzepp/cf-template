@@ -4,12 +4,8 @@ import { PLACEHOLDER_STAGE } from "alchemy/Alchemist/Operations";
 import { Config, Effect, Layer, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { APP_DB_ID, declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
-// block:budget-guard start
 import { guardNamespace, resources } from "@workspace/budget-guard/stack";
-// block:budget-guard end
-// block:knobs-kv start
 import { knobsNamespace } from "@workspace/knobs-kv/live";
-// block:knobs-kv end
 import { Stage, stageValues } from "./stages.ts";
 import {
   issueNotificationAddress,
@@ -22,9 +18,7 @@ import { declareApi } from "./src/api.ts";
 import { AUTH_DB_ID } from "../apps/auth/src/db/database.ts";
 import { declareAuth } from "./src/auth.ts";
 import { guardLocationHints } from "./src/d1-hint-guard.ts";
-// block:budget-guard start
 import { guardPlan } from "./src/guard-plan.ts";
-// block:budget-guard end
 import { d1LocationHint } from "./src/d1-location.ts";
 import { STATE_STACK, usesProjectState } from "./src/state-selection.ts";
 import { publicOrigin } from "./src/origin.ts";
@@ -125,26 +119,18 @@ const program = Effect.gen(function* declareStack() {
   yield* guardLocationHints([APP_DB_ID, AUTH_DB_ID], hint);
   yield* declareAppDb(stack, stage, hint);
 
-  // block:knobs-kv start
   const knobs = yield* knobsNamespace(stack, stage);
 
-  // block:knobs-kv end
-  // block:budget-guard start
   const guard = yield* guardPlan({ stack, stage });
   yield* resources(guard);
-  // block:budget-guard end
 
   const origin = yield* publicOrigin({ stack, stage });
   const auth = yield* declareAuth({ stack, stage }, hint, values, origin);
   const api = yield* declareApi({ stack, stage }, values);
 
   const web = yield* declareWeb({ stack, stage }, { api, auth }, origin, [
-    // block:budget-guard start
     ["GUARD_KV", guardNamespace(guard)],
-    // block:budget-guard end
-    // block:knobs-kv start
     ["KNOBS", knobs],
-    // block:knobs-kv end
   ]);
 
   const address = yield* issueNotificationAddress(stage);

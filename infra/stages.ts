@@ -135,8 +135,6 @@ export const kindOf = (stage: StageName): StageKind => {
 /**
  * The Worker ids every stage deploys, the one list the Worker count and the longest Worker name
  * derive from.
- *
- * A block that adds a Worker adds its id on one line marked `// block:<unit>`.
  */
 export const Workers = ["web", "api", "auth"] as const;
 
