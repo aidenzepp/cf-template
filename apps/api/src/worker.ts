@@ -185,10 +185,10 @@ export const makeHandler = (
     );
 
     const atLevel = atLogLevel(
-      yield* liveLogLevel.pipe(Effect.provide(providers), Effect.provide(provider)),
+      yield* liveLogLevel.pipe(Effect.provide(providers.pipe(Layer.provideMerge(provider)))),
     );
 
-    return atLevel(yield* HttpRouter.toHttpEffect(routes));
+    return yield* HttpRouter.toHttpEffect(routes).pipe(Effect.map(atLevel));
   });
 
 /**

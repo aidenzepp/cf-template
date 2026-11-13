@@ -25,7 +25,10 @@ export const lockFile = "packages/ui/components.lock.json";
  * Raised when the component tree and the committed lock disagree. The message names every added,
  * removed and edited file and the command that rewrites the lock.
  */
-class LockMismatchError extends Schema.TaggedError<LockMismatchError>()("LockMismatchError", {
+class LockMismatchError extends Schema.TaggedError<
+  LockMismatchError,
+  { readonly brand: unique symbol }
+>()("LockMismatchError", {
   message: Schema.String,
 }) {}
 
@@ -34,9 +37,12 @@ const decodeLock = Schema.decodeUnknownEffect(Schema.fromJsonString(LockSchema))
 /**
  * Raised when the Web Crypto digest of a file fails.
  */
-class HashError extends Schema.TaggedError<HashError>()("HashError", {
-  message: Schema.String,
-}) {}
+class HashError extends Schema.TaggedError<HashError, { readonly brand: unique symbol }>()(
+  "HashError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The lowercase hex SHA-256 of `bytes`.

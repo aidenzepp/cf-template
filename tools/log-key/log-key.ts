@@ -35,7 +35,10 @@ const USAGE =
  * The refusal of a request: it is not `--stage <stage> <email>`, it targets `prod` outside CI, or
  * the stage's state holds no email key secret.
  */
-export class LogKeyRefused extends Schema.TaggedError<LogKeyRefused>()("LogKeyRefused", {
+export class LogKeyRefused extends Schema.TaggedError<
+  LogKeyRefused,
+  { readonly brand: unique symbol }
+>()("LogKeyRefused", {
   message: Schema.String,
 }) {}
 

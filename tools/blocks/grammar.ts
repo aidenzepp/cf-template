@@ -53,10 +53,14 @@ export interface AttachLine {
  * Raised when an attach file holds a line of an unknown shape. It is not a dependent: the file is
  * an attach file, so the line must be rewritten into one of the four forms.
  */
-export class UnreadableAttachLineError extends Schema.TaggedError<UnreadableAttachLineError>()(
-  "UnreadableAttachLineError",
-  { file: Schema.String, line: Schema.Number, message: Schema.String },
-) {}
+export class UnreadableAttachLineError extends Schema.TaggedError<
+  UnreadableAttachLineError,
+  { readonly brand: unique symbol }
+>()("UnreadableAttachLineError", {
+  file: Schema.String,
+  line: Schema.Finite,
+  message: Schema.String,
+}) {}
 
 /**
  * The result of scanning one attach file: its attach lines, and the 1-based number of the first

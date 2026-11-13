@@ -4,10 +4,14 @@ import { Effect, Schema } from "effect";
  * Raised when a `block:<unit> start` line has no `block:<unit> end` after it. It names the file
  * and the line of the `start`.
  */
-export class UnterminatedRegionError extends Schema.TaggedError<UnterminatedRegionError>()(
-  "UnterminatedRegionError",
-  { file: Schema.String, line: Schema.Number, message: Schema.String },
-) {}
+export class UnterminatedRegionError extends Schema.TaggedError<
+  UnterminatedRegionError,
+  { readonly brand: unique symbol }
+>()("UnterminatedRegionError", {
+  file: Schema.String,
+  line: Schema.Finite,
+  message: Schema.String,
+}) {}
 
 /**
  * Escapes `text` for use inside a regular expression.

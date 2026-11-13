@@ -62,9 +62,12 @@ const storeOf = (namespaces: ReadonlyArray<NamespaceRef>, rows: Array<StoredKey>
  */
 const run = (request: KnobRequest, store: ReturnType<typeof storeOf>, env = {}) =>
   execute(request).pipe(
-    Effect.provide(store.layer),
     Effect.provide(
-      ConfigProvider.layer(ConfigProvider.fromUnknown({ STACK_NAME: "demo", ...env })),
+      store.layer.pipe(
+        Layer.provideMerge(
+          ConfigProvider.layer(ConfigProvider.fromUnknown({ STACK_NAME: "demo", ...env })),
+        ),
+      ),
     ),
   );
 

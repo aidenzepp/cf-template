@@ -13,7 +13,10 @@ import { Workers } from "../stages.ts";
 /**
  * The failure of the preview pre-step, with the message the workflow log shows.
  */
-export class PreStepError extends Schema.TaggedError<PreStepError>()("PreStepError", {
+export class PreStepError extends Schema.TaggedError<
+  PreStepError,
+  { readonly brand: unique symbol }
+>()("PreStepError", {
   message: Schema.String,
 }) {}
 

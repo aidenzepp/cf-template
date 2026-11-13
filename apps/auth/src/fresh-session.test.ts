@@ -26,6 +26,16 @@ const FRESH_AGE_MS = 86_400_000;
 const ErrorBody = Schema.Struct({ code: Schema.optional(Schema.String) });
 
 /**
+ * A response body that could not be read as JSON.
+ */
+class BodyUnreadable extends Schema.TaggedError<
+  BodyUnreadable,
+  { readonly brand: unique symbol }
+>()("BodyUnreadable", {
+  cause: Schema.Defect(),
+}) {}
+
+/**
  * Post an empty body to an endpoint with `cookie`.
  *
  * @param path - The endpoint, relative to the auth base path.
@@ -40,7 +50,10 @@ const post = (path: string, cookie: string) =>
       method: "POST",
     });
 
-    const body = yield* Effect.tryPromise(() => response.json()).pipe(
+    const body = yield* Effect.tryPromise({
+      catch: (cause) => new BodyUnreadable({ cause }),
+      try: () => response.json(),
+    }).pipe(
       Effect.flatMap(Schema.decodeUnknownEffect(ErrorBody)),
       Effect.orElseSucceed(() => ({ code: undefined })),
     );

@@ -122,9 +122,9 @@ const askWithBindings = (bindings: { readonly GUARD_KV?: unknown }) =>
                   : undefined,
             }),
           ),
+          Layer.provideMerge(Logger.layer([logger])),
         ),
       ),
-      Effect.provide(Logger.layer([logger])),
     );
 
     return { logs, response };

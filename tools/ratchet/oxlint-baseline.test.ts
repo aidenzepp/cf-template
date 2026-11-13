@@ -14,7 +14,7 @@ const SPAWN_TIMEOUT_MS = 60_000;
 const Baseline = Schema.fromJsonString(
   Schema.Record(
     Schema.String,
-    Schema.Record(Schema.String, Schema.Struct({ count: Schema.Number })),
+    Schema.Record(Schema.String, Schema.Struct({ count: Schema.Finite })),
   ),
 );
 

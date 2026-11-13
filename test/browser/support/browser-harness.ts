@@ -51,7 +51,10 @@ const authScript = `export default { fetch: () => new Response("nope", { status:
  * The failure of the harness or of a browser step: the build, Miniflare, or Playwright did not
  * complete.
  */
-class BrowserTierFailed extends Schema.TaggedError<BrowserTierFailed>()("BrowserTierFailed", {
+class BrowserTierFailed extends Schema.TaggedError<
+  BrowserTierFailed,
+  { readonly brand: unique symbol }
+>()("BrowserTierFailed", {
   message: Schema.String,
 }) {}
 

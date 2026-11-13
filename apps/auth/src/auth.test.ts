@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, layer, vi } from "@effect/vitest";
 import { sql } from "drizzle-orm";
 import { EffectSQLiteD1Database } from "drizzle-orm/effect-d1";
-import { Effect, FileSystem, Option, Path, Schema, Tracer } from "effect";
+import { Context, Effect, FileSystem, Option, Path, Schema, Tracer } from "effect";
 import { makeDatabase } from "@workspace/db/database";
 import { AuthService, adapterOptions } from "./auth.ts";
 import {
@@ -171,7 +171,7 @@ layer(LocalAuthD1.layer)("the Better Auth promise view", (it) => {
     }),
   );
 
-  it.effect("loses the request span under a bare runPromise, the control", () =>
+  it.effect("loses the request span under a run that carries only the tracer, the control", () =>
     Effect.gen(function* control() {
       const binding = yield* LocalAuthD1;
 
@@ -181,12 +181,10 @@ layer(LocalAuthD1.layer)("the Better Auth promise view", (it) => {
           const { db } = yield* access;
           const tracer = yield* Tracer.Tracer;
 
-          // A bare `runPromise` starts a fiber with no parent span; only the tracer is carried over
-          // so the span is still recorded.
+          // A run whose services hold only the tracer starts a fiber with no parent span; the
+          // tracer is carried over so the span is still recorded.
           yield* Effect.promise(() =>
-            Effect.runPromise(
-              db.run(sql`select 1`).pipe(Effect.provideService(Tracer.Tracer, tracer)),
-            ),
+            Effect.runPromiseWith(Context.make(Tracer.Tracer, tracer))(db.run(sql`select 1`)),
           );
         }).pipe(Effect.withSpan("request"), asExecution),
       );

@@ -13,9 +13,12 @@ type HarnessResponse = Awaited<ReturnType<Miniflare["dispatchFetch"]>>;
 /**
  * The failure of the harness itself: the build or the workerd runtime did not start.
  */
-class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessError", {
-  message: Schema.String,
-}) {}
+class HarnessError extends Schema.TaggedError<HarnessError, { readonly brand: unique symbol }>()(
+  "HarnessError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The compatibility date of every Worker, as `infra/src/compat.ts` sets it. `apps/web` cannot
@@ -317,7 +320,7 @@ const Echo = Schema.Struct({
   tracestate: Schema.NullOr(Schema.String),
 });
 
-const Problem = Schema.Struct({ status: Schema.Number, title: Schema.String, type: Schema.String });
+const Problem = Schema.Struct({ status: Schema.Finite, title: Schema.String, type: Schema.String });
 
 const decodeBody = <S extends Schema.Decoder<unknown>>(schema: S, response: HarnessResponse) =>
   Effect.tryPromise({
@@ -660,7 +663,7 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
           .request("/api/session-reads")
           .pipe(
             Effect.flatMap((response) =>
-              decodeBody(Schema.Struct({ reads: Schema.Number }), response),
+              decodeBody(Schema.Struct({ reads: Schema.Finite }), response),
             ),
           );
 

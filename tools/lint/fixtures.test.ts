@@ -97,7 +97,7 @@ const LineReport = Schema.fromJsonString(
   Schema.Struct({
     diagnostics: Schema.Array(
       Schema.Struct({
-        labels: Schema.Array(Schema.Struct({ span: Schema.Struct({ line: Schema.Number }) })),
+        labels: Schema.Array(Schema.Struct({ span: Schema.Struct({ line: Schema.Finite }) })),
       }),
     ),
   }),
