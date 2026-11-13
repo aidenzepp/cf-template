@@ -41,9 +41,12 @@ jobs:
             exit 1
           fi
           echo "BRANCH=$branch" >> "$GITHUB_ENV"
+      # The push runs the pre-push hook, whose ratchet needs `git merge-base HEAD origin/main`, so
+      # the checkout carries full history and the default branch.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ env.BRANCH }}
+          fetch-depth: 0
       - uses: ./.github/actions/setup
       - run: bunx playwright install --with-deps chromium
       - run: bun run build

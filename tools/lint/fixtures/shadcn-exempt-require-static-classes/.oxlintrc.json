@@ -1,0 +1,29 @@
+{
+  "jsPlugins": [
+    {
+      "name": "shadcn",
+      "specifier": "@shadcn/lint"
+    }
+  ],
+  "rules": {
+    "shadcn/require-static-classes": "error"
+  },
+  "settings": {
+    "shadcn": {
+      "ui": [
+        "@workspace/ui/components",
+        "apps/web/src/styles/app.css"
+      ]
+    }
+  },
+  "overrides": [
+    {
+      "files": [
+        "**/components/ui/**"
+      ],
+      "rules": {
+        "shadcn/require-static-classes": "off"
+      }
+    }
+  ]
+}

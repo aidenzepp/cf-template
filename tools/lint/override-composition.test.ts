@@ -4,6 +4,7 @@ import config from "../../vite.config.ts";
 import {
   authFetchMembers,
   dataAccessMembers,
+  dataAccessMembersWithoutPrepare,
   globalThisFetch,
   registryMembers,
   runMembers,
@@ -14,6 +15,7 @@ import {
   libraryPaths,
   nodeBuiltins,
   restrictImports,
+  sqlPatterns,
 } from "./rules/restrict-imports.ts";
 
 /**
@@ -164,10 +166,12 @@ describe("no-restricted-imports override composition", () => {
     assert.isTrue(decoded._tag === "Some");
 
     // `password.ts` lifts `node:*` and keeps R1; the library bans every override carries are
-    // checked by their own test.
+    // checked by their own test, and the raw-SQL ban is lifted by its exceptions.
     const groups = (decoded._tag === "Some" ? decoded.value[1].patterns : []).filter(
       (pattern) =>
-        pattern !== nodeBuiltins && !libraryPatterns.some((library) => library === pattern),
+        pattern !== nodeBuiltins &&
+        !libraryPatterns.some((library) => library === pattern) &&
+        !sqlPatterns.some((sql) => sql === pattern),
     );
 
     assert.isAbove(groups.length, 0);
@@ -230,13 +234,20 @@ describe("no-restricted-imports override composition", () => {
   });
 
   it("each lifted file keeps every ban but the one it lifts", () => {
-    for (const file of ["packages/budget-guard/src/latch.ts", "apps/auth/src/test-harness.ts"]) {
-      assert.deepStrictEqual(
-        effective(file),
-        ["error", ...runMembers, ...dataAccessMembers, ...authFetchMembers],
-        file,
-      );
-    }
+    assert.deepStrictEqual(effective("packages/budget-guard/src/latch.ts"), [
+      "error",
+      ...runMembers,
+      ...dataAccessMembers,
+      ...authFetchMembers,
+    ]);
+
+    // The harness seeds the D1 binding through `prepare`.
+    assert.deepStrictEqual(effective("apps/auth/src/test-harness.ts"), [
+      "error",
+      ...runMembers,
+      ...dataAccessMembersWithoutPrepare,
+      ...authFetchMembers,
+    ]);
   });
 
   it("restrictImports output carries the base paths", () => {

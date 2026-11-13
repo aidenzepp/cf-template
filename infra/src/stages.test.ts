@@ -110,6 +110,41 @@ describe("Stages", () => {
     }),
   );
 
+  it.effect("overrides every knob from STAGES_TEST_<KEY> on a test stage, not the others", () =>
+    Effect.gen(function* overridesEveryKnob() {
+      const provider = ConfigProvider.layer(
+        ConfigProvider.fromUnknown({
+          STAGES_TEST_AUTH_CHECK_SESSION_TIMEOUT_MS: "900",
+          STAGES_TEST_DOCS_ENABLED: "false",
+          STAGES_TEST_HEAD_SAMPLING_RATE: "0.25",
+          STAGES_TEST_PROBLEM_DETAILS_INCLUDE: "false",
+        }),
+      );
+
+      const test = yield* stageValues("test-abc").pipe(Effect.provide(provider));
+      const staging = yield* stageValues("staging-1").pipe(Effect.provide(provider));
+
+      assert.strictEqual(test.AUTH_CHECK_SESSION_TIMEOUT_MS, 900);
+      assert.strictEqual(test.DOCS_ENABLED, false);
+      assert.strictEqual(test.HEAD_SAMPLING_RATE, 0.25);
+      assert.strictEqual(test.PROBLEM_DETAILS_INCLUDE, false);
+      assert.strictEqual(test.LOG_LEVEL, Stages.test.LOG_LEVEL);
+      assert.deepStrictEqual(staging, Stages.staging);
+    }),
+  );
+
+  it.effect("fails a test stage on an invalid knob override", () =>
+    Effect.gen(function* invalidOverride() {
+      const provider = ConfigProvider.layer(
+        ConfigProvider.fromUnknown({ STAGES_TEST_DOCS_ENABLED: "maybe" }),
+      );
+
+      const exit = yield* Effect.exit(stageValues("test-abc").pipe(Effect.provide(provider)));
+
+      assert.isTrue(Exit.isFailure(exit));
+    }),
+  );
+
   it("serves the API documentation on every stage kind except prod", () => {
     assert.deepStrictEqual(
       Object.entries(Stages).map(([kind, values]) => [kind, values.DOCS_ENABLED]),

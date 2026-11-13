@@ -21,6 +21,7 @@ import {
   ApiWorkerMiddlewareLayers,
 } from "./blocks.ts";
 import { ApiDocsRoutes, NotebookHttp, ServedApi } from "./docs/routes.ts";
+import { NoteIndexLive, NoteIndexStoreD1 } from "./notes/note-index.projection.ts";
 import { NotesModel } from "./notes/notes.model.ts";
 import { OriginCheck } from "./origin-check.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
@@ -33,9 +34,10 @@ export type ApiIsolateServices = Layer.Success<typeof ApiWorkerIsolateLayers>;
 
 /**
  * The notes model hosted on Durable Objects: one class per aggregate, declared while the layer is
- * built in Worker init, so it needs no binding of its own.
+ * built in Worker init, so it needs no binding of its own. Its `NoteIndex` projection writes to the
+ * app database, so the layer requires `AppDatabase`.
  */
-const NotesHosted = NotesModel.layer(Layer.empty).pipe(
+const NotesHosted = NotesModel.layer(NoteIndexLive.pipe(Layer.provide(NoteIndexStoreD1))).pipe(
   Layer.provide(DomainCloudflare.layerDurableObjects()),
 );
 
@@ -222,20 +224,16 @@ export default ApiWorker.make(
       }),
     );
 
+    const appDatabase = Layer.succeed(AppDatabase, withHostContext(database).pipe(Effect.orDie));
+
     // Bindings register at plan time, so the providers are built here, never per request.
     const providers = Layer.succeedContext(yield* Layer.build(ApiBlockProviders));
     // The model's Durable Object classes are declared here, while the Worker builds.
-    const hosted = yield* Layer.build(NotesHosted);
+    const hosted = yield* Layer.build(NotesHosted.pipe(Layer.provide(appDatabase)));
 
     const isolate = yield* Effect.contextWith((services: Context.Context<ApiIsolateServices>) =>
       Effect.succeed(services),
-    ).pipe(
-      Effect.provide(
-        ApiWorkerIsolateLayers.pipe(
-          Layer.provide(Layer.succeed(AppDatabase, withHostContext(database).pipe(Effect.orDie))),
-        ),
-      ),
-    );
+    ).pipe(Effect.provide(ApiWorkerIsolateLayers.pipe(Layer.provide(appDatabase))));
 
     const handler = yield* makeExecutionMemo(
       makeHandler(
