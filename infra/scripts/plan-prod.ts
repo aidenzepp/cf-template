@@ -69,6 +69,14 @@ export const ALL_CREATE_NOTE =
   "every row is `create`: prod has no baseline, so the first deploy waits for the owner";
 
 /**
+ * The summary line of a plan with no rows. A `prod` stack always plans at least one row, so an
+ * empty plan means the plan did not read the stack; it is held like a destructive one. A plan whose
+ * rows are all `noop` is the positive "no changes" answer.
+ */
+export const EMPTY_PLAN_NOTE =
+  "the plan has no rows, so it says nothing about prod; held until the owner confirms it";
+
+/**
  * The actions that remove or rebuild a resource.
  */
 const DESTRUCTIVE_ACTIONS = new Set(["replace", "delete", "orphaned"]);
@@ -172,7 +180,7 @@ export const verdictOf = Effect.fn("planProd.verdictOf")(function* verdictOf(
   const rows = classify(decoded);
 
   return {
-    destructive: rows.some((entry) => entry.class === "blocking"),
+    destructive: rows.length === 0 || rows.some((entry) => entry.class === "blocking"),
     fingerprint: yield* fingerprint(rows),
     rows,
   } satisfies Verdict;
@@ -207,6 +215,7 @@ export const renderSummary = (verdict: Verdict): string => {
     "| fqn | resourceType | action | class |",
     "| --- | --- | --- | --- |",
     ...table,
+    ...(verdict.rows.length === 0 ? ["", `- ${EMPTY_PLAN_NOTE}`] : []),
     ...(notes.length > 0 ? ["", ...notes] : []),
     "",
   ].join("\n");

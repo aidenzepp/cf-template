@@ -4,6 +4,7 @@ import { Array as Arr, ConfigProvider, Effect, FileSystem, Layer, Option, Ref } 
 import {
   ALL_CREATE_NOTE,
   D1_REPLACE_NOTE,
+  EMPTY_PLAN_NOTE,
   checkFingerprint,
   decide,
   renderSummary,
@@ -72,6 +73,25 @@ describe("plan-prod classifier", () => {
       assert.isTrue(verdict.destructive);
       assert.strictEqual(classes.KnobsNamespace, "blocking");
       assert.strictEqual(classes.Api, "info");
+    }),
+  );
+
+  it.effect("holds a plan with no rows and says why", () =>
+    Effect.gen(function* emptyPlan() {
+      const verdict = yield* verdictOf(yield* rowsOfJson("[]"));
+
+      assert.isTrue(verdict.destructive);
+      assert.include(renderSummary(verdict), EMPTY_PLAN_NOTE);
+    }),
+  );
+
+  it.effect("fails to decode missing or unparsable plan output", () =>
+    Effect.gen(function* missingOutput() {
+      const missing = yield* Effect.flip(rowsOfJson(""));
+      const garbage = yield* Effect.flip(rowsOfJson("not a plan"));
+
+      assert.strictEqual(missing._tag, "PlanProdError");
+      assert.strictEqual(garbage._tag, "PlanProdError");
     }),
   );
 
