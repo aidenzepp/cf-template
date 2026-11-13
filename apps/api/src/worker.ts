@@ -18,7 +18,6 @@ import {
   ApiBlockProviders,
   ApiWorkerHandlerGroupLayers,
   ApiWorkerIsolateLayers,
-  ApiWorkerMiddlewareLayers,
 } from "./blocks.ts";
 import { ApiDocsRoutes, NotebookHttp, ServedApi } from "./docs/routes.ts";
 import { NoteIndexLive, NoteIndexStoreD1 } from "./notes/note-index.projection.ts";
@@ -173,7 +172,6 @@ export const makeHandler = (
 
     const routes = HttpApiBuilder.layer(ServedApi).pipe(
       Layer.provide(Layer.mergeAll(handlers, notebook)),
-      Layer.provide(ApiWorkerMiddlewareLayers),
       Layer.provide(sessions),
       Layer.provide(providers),
       Layer.provide(layerProblemDetails({ includeDetails })),
