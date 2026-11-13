@@ -31,8 +31,9 @@ export default defineConfig({
         scan: (
           { context }: { readonly context: BrowserContext },
           target: string,
-          cookie?: string,
-        ) => scanPage(context, target, cookie),
+          cookie: string | undefined,
+          colorScheme: "light" | "dark",
+        ) => scanPage(context, target, cookie, colorScheme),
       },
       enabled: true,
       headless: true,
