@@ -168,15 +168,24 @@ const matchScreenshot = Effect.fn("matchScreenshot")(function* matchScreenshot(
 }, Effect.scoped);
 
 /**
- * The first screens: the placeholder index, titled with the stack name the harness binds. The stub
+ * The first screens: the placeholder index, titled with the stack name the harness binds, and the
+ * not-found page of an unmatched path. The stub
  * `API` of the harness answers a signed-in caller without the `stub=401` cookie.
  */
 const SCREENS = [
   {
     cookie: undefined,
+    heading: undefined,
     name: "placeholder index",
     path: "/",
     slug: "placeholder-index",
+  },
+  {
+    cookie: undefined,
+    heading: "Page not found",
+    name: "not found page",
+    path: "/missing",
+    slug: "not-found",
   },
 ] as const;
 
@@ -184,7 +193,7 @@ const SCHEMES = ["light", "dark"] as const;
 
 describe("the first screens", () => {
   for (const colorScheme of SCHEMES) {
-    for (const { cookie, name, path, slug } of SCREENS) {
+    for (const { cookie, heading, name, path, slug } of SCREENS) {
       it.effect(`${name} has no axe violations once hydrated in ${colorScheme}`, () =>
         Effect.gen(function* scanScreen() {
           const { dark, passes, stackName, text, violations } = yield* scan(
@@ -194,7 +203,7 @@ describe("the first screens", () => {
           );
 
           assert.isNotEmpty(stackName);
-          assert.include(text, stackName);
+          assert.include(text, heading ?? stackName);
           assert.isAbove(passes, 0);
           assert.strictEqual(dark, colorScheme === "dark");
           assert.deepStrictEqual(
