@@ -23,6 +23,7 @@ import { RpcCallError } from "alchemy/Rpc";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
 import { NotebookHttp, ServedApi } from "./docs/routes.ts";
+import { NoteIndexUnstored } from "./notes/note-index.projection.ts";
 import { NotesModel } from "./notes/notes.model.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
 import { Session as SessionGuard, SessionLive } from "./session-middleware.ts";
@@ -65,7 +66,7 @@ const stack = (
         SystemApiHandlers,
         NotebookHttp.layerFor(ServedApi).pipe(
           Layer.provide(SessionLive),
-          Layer.provide(NotesModel.layer(Layer.empty).pipe(Layer.provide(Domain.InMemory))),
+          Layer.provide(NotesModel.layer(NoteIndexUnstored).pipe(Layer.provide(Domain.InMemory))),
         ),
       ),
     ),
