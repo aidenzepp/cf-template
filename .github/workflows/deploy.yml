@@ -1,13 +1,10 @@
 name: Deploy
 
-# Replaces ci.yml (#43). Every compare that enables a protection is true on an unset variable
-# (`!= 'ruleset' && != 'classic'`); every compare that enables a privilege is false on one
-# (`== 'true'`), so `preview` and `cloud` skip while CLOUDFLARE_DEPLOYS is unset. No `${{ }}` of a
-# PR title, a label or a comment body appears inside a `run:` string; event strings reach steps
-# through `env:`. This file never names `environment: prod`.
+# Replaces ci.yml (#43) for pull requests; a push to main is prod.yml's. Every compare that enables
+# a privilege is false on an unset variable (`== 'true'`), so `preview` and `cloud` skip while
+# CLOUDFLARE_DEPLOYS is unset. No `${{ }}` of a PR title, a label or a comment body appears inside a
+# `run:` string; event strings reach steps through `env:`. This file never names `environment: prod`.
 on:
-  push:
-    branches: [main]
   pull_request:
     types: [opened, synchronize, reopened, edited, labeled, unlabeled, ready_for_review, closed]
 
@@ -18,12 +15,8 @@ env:
   ALCHEMY_TELEMETRY_DISABLED: "1"
 
 jobs:
-  # On a push to main the checks run only on the unprotected tier; a ruleset or classic protection
-  # already required them on the pull request (#43 item 6, C19k).
   checks:
-    if: >-
-      (github.event_name == 'pull_request' && github.event.action != 'closed') ||
-      (github.event_name == 'push' && vars.BRANCH_PROTECTION != 'ruleset' && vars.BRANCH_PROTECTION != 'classic')
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -37,7 +30,7 @@ jobs:
       - uses: ./.github/actions/setup
       - run: bun run check
         env:
-          RATCHET_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+          RATCHET_BASE: ${{ github.event.pull_request.base.sha }}
       - run: bun run test
       - run: bun run build
       - if: vars.CLOUDFLARE_DEPLOYS != 'true'
@@ -45,9 +38,7 @@ jobs:
           echo 'Deploys are off: `CLOUDFLARE_DEPLOYS` is not set. Run `bun run bootstrap` (docs/spin-up.md).' >> "$GITHUB_STEP_SUMMARY"
 
   browser:
-    if: >-
-      (github.event_name == 'pull_request' && github.event.action != 'closed') ||
-      (github.event_name == 'push' && vars.BRANCH_PROTECTION != 'ruleset' && vars.BRANCH_PROTECTION != 'classic')
+    if: github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -202,16 +193,12 @@ jobs:
           echo "Alchemy bump probe (\`alchemy plan --stage prod\`): $outcome" >> "$GITHUB_STEP_SUMMARY"
           test "$outcome" = passed
 
-  # The one required context (#43 item 5, DC17). Passing results: `success` for checks and
-  # browser; design-record `success`, or `skipped` on a push to main, where its own `if:` skips it;
-  # cloud `success` on a pull request while CLOUDFLARE_DEPLOYS is `true`, otherwise not required.
-  # It runs on the same events as checks, so it skips on `closed` and on a protected push.
+  # The one required context (#43 item 5, DC17). Passing results: `success` for checks, browser and
+  # design-record; cloud `success` while CLOUDFLARE_DEPLOYS is `true`, otherwise not required. It
+  # runs on the same events as checks, so it skips on `closed`.
   merge-gate:
     needs: [checks, browser, design-record, cloud]
-    if: >-
-      always() &&
-      ((github.event_name == 'pull_request' && github.event.action != 'closed') ||
-        (github.event_name == 'push' && vars.BRANCH_PROTECTION != 'ruleset' && vars.BRANCH_PROTECTION != 'classic'))
+    if: always() && github.event.action != 'closed'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -220,15 +207,14 @@ jobs:
           fail() { echo "- $1" >> "$GITHUB_STEP_SUMMARY"; status=1; }
           test "$CHECKS" = success || fail "checks: $CHECKS, expected success"
           test "$BROWSER" = success || fail "browser: $BROWSER, expected success"
-          test "$DESIGN_RECORD" = success || { test "$EVENT" = push && test "$DESIGN_RECORD" = skipped; } ||
-            fail "design-record: $DESIGN_RECORD, expected success"
+          test "$DESIGN_RECORD" = success || fail "design-record: $DESIGN_RECORD, expected success"
           if [ "$DEPLOYS" = true ]; then
-            test "$CLOUD" = success || test "$EVENT" = push ||
+            test "$CLOUD" = success ||
               fail "cloud: $CLOUD, expected success because CLOUDFLARE_DEPLOYS is true (add merge-ready)"
           else
             echo 'Deploys are off: `CLOUDFLARE_DEPLOYS` is not set, so cloud is not required. Run `bun run bootstrap` (docs/spin-up.md).' >> "$GITHUB_STEP_SUMMARY"
           fi
-          if [ "$status" = 0 ]; then echo "merge-gate passed: checks, browser, design-record$([ "$DEPLOYS" = true ] && [ "$EVENT" != push ] && echo ', cloud')." >> "$GITHUB_STEP_SUMMARY"; fi
+          if [ "$status" = 0 ]; then echo "merge-gate passed: checks, browser, design-record$([ "$DEPLOYS" = true ] && echo ', cloud')." >> "$GITHUB_STEP_SUMMARY"; fi
           exit "$status"
         env:
           CHECKS: ${{ needs.checks.result }}
@@ -236,4 +222,3 @@ jobs:
           DESIGN_RECORD: ${{ needs.design-record.result }}
           CLOUD: ${{ needs.cloud.result }}
           DEPLOYS: ${{ vars.CLOUDFLARE_DEPLOYS }}
-          EVENT: ${{ github.event_name }}
