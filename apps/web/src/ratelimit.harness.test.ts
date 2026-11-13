@@ -168,6 +168,7 @@ const WebProdLive = Layer.effect(WebProd)(
                 bindings: {
                   AUTH_METHODS: '{"email":true,"providers":[]}',
                   PUBLIC_ORIGIN: "http://x",
+                  STACK_NAME: "harness-stack",
                 },
                 compatibilityDate: "2026-10-26",
                 modules: files.toSorted().map((file) => ({
