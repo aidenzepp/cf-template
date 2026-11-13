@@ -142,7 +142,7 @@ export const Workers = ["web", "api", "auth"] as const;
 /**
  * The length of the longest entry of {@link Workers}.
  */
-export const LONGEST_WORKER = Math.max(...Workers.map((worker) => worker.length));
+const LONGEST_WORKER = Math.max(...Workers.map((worker) => worker.length));
 
 /**
  * The length of the longest stage {@link Stage} accepts, derived from the same bounds the Schema

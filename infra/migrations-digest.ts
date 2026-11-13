@@ -5,7 +5,7 @@ import { base32Sha256 } from "./stages.ts";
 /**
  * How many base32 characters of the digest the database name carries.
  */
-export const DIGEST_LENGTH = 12;
+const DIGEST_LENGTH = 12;
 
 /**
  * Compute the migrations digest: the first {@link DIGEST_LENGTH} base32 characters of the `sha256`
