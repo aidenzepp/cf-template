@@ -308,7 +308,7 @@ layer(WebProdLive, { timeout: 180_000 })("front-door rate limit", (it) => {
     }),
   );
 
-  it.effect("lets a request through when the limiter rejects, logging one line", () =>
+  it.effect("lets a request through when the limiter rejects, logging one error", () =>
     Effect.gen(function* failOpen() {
       const web = yield* WebProd;
       const before = web.stderr().length;
@@ -316,12 +316,12 @@ layer(WebProdLive, { timeout: 180_000 })("front-door rate limit", (it) => {
 
       expect(response.status).not.toBe(429);
 
+      // `structuredLogs` hands `console.error` an object, which workerd prints across lines.
       const output = yield* web.awaitStderr(before, "web.ratelimit.error");
 
-      const lines = output.split("\n").filter((line) => line.includes("web.ratelimit.error"));
-
-      expect(lines).toHaveLength(1);
-      expect(lines[0]).toContain('{"event":"web.ratelimit.error","ratelimit.class":"credential"}');
+      expect(output.split("message: 'web.ratelimit.error'")).toHaveLength(2);
+      expect(output).toContain("level: 'ERROR'");
+      expect(output).toContain("annotations: { 'ratelimit.class': 'credential' }");
     }),
   );
 

@@ -1,6 +1,5 @@
-import { assert, describe, it, vi } from "@effect/vitest";
-import { Effect, Schema } from "effect";
-import { constVoid } from "effect/Function";
+import { assert, describe, it } from "@effect/vitest";
+import { Effect, Logger, References, Schema } from "effect";
 import { RateLimited } from "@workspace/contract/domain/rate-limited";
 import { checkRateLimit, classify, fnv1a32, namespaceId, rateLimitKey } from "./ratelimit.ts";
 import type { RateLimitBinding } from "./ratelimit.ts";
@@ -38,20 +37,25 @@ const requestTo = (path: string, headers: Record<string, string> = {}) =>
 const FROM_ONE_IP = { "cf-connecting-ip": "203.0.113.7" };
 
 /**
- * Run a check while recording what reaches `console.error`.
+ * Run a check while recording what reaches the Effect logger.
  *
  * @param check - The effect to run.
- * @returns The check's result and the recorded console lines.
+ * @returns The check's result and the recorded log lines.
  */
-const withConsole = <A>(check: Effect.Effect<A>) =>
-  Effect.acquireUseRelease(
-    Effect.sync(() => vi.spyOn(console, "error").mockImplementation(constVoid)),
-    (spy) => check.pipe(Effect.map((result) => ({ lines: spy.mock.calls.map(String), result }))),
-    (spy) =>
-      Effect.sync(() => {
-        spy.mockRestore();
-      }),
-  );
+const withLogs = <A>(check: Effect.Effect<A>) =>
+  Effect.gen(function* record() {
+    const lines: Array<string> = [];
+
+    const logger = Logger.make(({ fiber, message }) => {
+      lines.push(
+        `${String(message)} ${JSON.stringify(fiber.getRef(References.CurrentLogAnnotations))}`,
+      );
+    });
+
+    const result = yield* check.pipe(Effect.provide(Logger.layer([logger])));
+
+    return { lines, result };
+  });
 
 /**
  * Require a check to have refused.
@@ -138,7 +142,7 @@ describe("checkRateLimit", () => {
     Effect.gen(function* allowedRequest() {
       const env = { RATELIMIT_CREDENTIAL: verdict(true), RATELIMIT_PUBLIC: verdict(true) };
 
-      const { lines, result } = yield* withConsole(
+      const { lines, result } = yield* withLogs(
         checkRateLimit(requestTo("/auth/sign-in/email", FROM_ONE_IP), env, CREDENTIAL_PATHS),
       );
 
@@ -199,14 +203,12 @@ describe("checkRateLimit", () => {
     Effect.gen(function* failOpen() {
       const env = { RATELIMIT_CREDENTIAL: rejecting, RATELIMIT_PUBLIC: verdict(true) };
 
-      const { lines, result } = yield* withConsole(
+      const { lines, result } = yield* withLogs(
         checkRateLimit(requestTo("/auth/sign-in/email", FROM_ONE_IP), env, CREDENTIAL_PATHS),
       );
 
       assert.isNull(result);
-      assert.deepStrictEqual(lines, [
-        '{"event":"web.ratelimit.error","ratelimit.class":"credential"}',
-      ]);
+      assert.deepStrictEqual(lines, ['web.ratelimit.error {"ratelimit.class":"credential"}']);
     }),
   );
 
@@ -220,7 +222,7 @@ describe("checkRateLimit", () => {
         RATELIMIT_PUBLIC: publicClass.binding,
       };
 
-      const { lines, result } = yield* withConsole(
+      const { lines, result } = yield* withLogs(
         checkRateLimit(requestTo("/auth/sign-in/email"), env, CREDENTIAL_PATHS),
       );
 
