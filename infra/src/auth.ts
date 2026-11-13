@@ -5,6 +5,7 @@ import { AUTH_ORPHAN_GRACE_SECONDS } from "@workspace/config/auth-orphan-grace";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { AuthMethods } from "@workspace/config/auth-methods";
 import { limitKnobs, limitsFor } from "@workspace/config/limits";
+import { PublicOrigin } from "@workspace/config/public-origin";
 import { Auth } from "../../apps/auth/src/contract.ts";
 import { declareDatabase } from "../../apps/auth/src/db/database.ts";
 import { EMAIL_KEY_SECRET_ID } from "../../apps/auth/src/email-key.ts";
@@ -108,31 +109,42 @@ export const encodedOrphanGrace = AUTH_ORPHAN_GRACE_SECONDS.encode(
 );
 
 /**
- * The `oAuthProxy` bindings of one stage: `OAUTH_PROXY_SECRET` and `OAUTH_PROXY_PRODUCTION_URL`,
- * the stage's own origin, on `prod` when the deployer sets `OAUTH_PROXY_SECRET`; nothing elsewhere.
+ * The `oAuthProxy` bindings of one stage, `OAUTH_PROXY_PRODUCTION_URL` and `OAUTH_PROXY_SECRET`.
  *
- * `prod` runs the plugin before any preview: it is the one callback host each provider registers.
- * A `staging-<N>` preview needs `prod`'s origin as its production URL, and no stage reads that
- * origin outside a `prod` deploy yet, so previews bind nothing until one does. `local` and
- * `test-…` stages never receive the secret.
+ * `prod` binds its own origin when the deployer sets `OAUTH_PROXY_SECRET`: it runs the plugin
+ * before any preview, as the one callback host each provider registers. A `staging-<N>` preview
+ * binds the deployer's `PROD_ORIGIN`, decoded as a `PublicOrigin`, when both `PROD_ORIGIN` and
+ * `OAUTH_PROXY_SECRET` are set; a malformed `PROD_ORIGIN` fails the deploy through the `Config`
+ * error channel. Either one absent binds nothing. `local` and `test-…` stages bind nothing,
+ * whatever the deployer sets.
  *
  * @param stage - The decoded stage.
  * @param origin - The stage's public origin.
  * @returns The bindings to merge into the Worker's `env`.
  */
-const oauthProxyBindings = Effect.fn("oauthProxyBindings")(function* oauthProxyBindings(
+export const oauthProxyBindings = Effect.fn("oauthProxyBindings")(function* oauthProxyBindings(
   stage: StageName,
   origin: string,
 ) {
-  if (kindOf(stage) !== "prod") {
+  const kind = kindOf(stage);
+
+  if (kind !== "prod" && kind !== "staging") {
     return {};
   }
 
   const secret = yield* Config.option(Config.Redacted("OAUTH_PROXY_SECRET"));
 
-  return Option.match(secret, {
+  const productionURL =
+    kind === "prod"
+      ? Option.some(origin)
+      : yield* Config.option(Config.schema(PublicOrigin, "PROD_ORIGIN"));
+
+  return Option.match(Option.all({ productionURL, secret }), {
     onNone: () => ({}),
-    onSome: (value) => ({ OAUTH_PROXY_PRODUCTION_URL: origin, OAUTH_PROXY_SECRET: value }),
+    onSome: (value) => ({
+      OAUTH_PROXY_PRODUCTION_URL: value.productionURL,
+      OAUTH_PROXY_SECRET: value.secret,
+    }),
   });
 });
 
