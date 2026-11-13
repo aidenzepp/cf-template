@@ -1,7 +1,21 @@
 import { createSerializationAdapter } from "@tanstack/react-router";
 import { createStart } from "@tanstack/react-start";
+import { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
 import { Predicate } from "effect";
-import { isAuthUnavailable } from "./components/retry.tsx";
+
+/**
+ * The message of an {@link AuthUnavailable}. The router serializes an error to its message alone,
+ * so the browser recognizes the failure by this text, not by its class.
+ */
+const AUTH_UNAVAILABLE_MESSAGE = new AuthUnavailable({ retryAfterSeconds: 0 }).message;
+
+/**
+ * Whether a route error is the sign-in outage the root `beforeLoad` reports.
+ *
+ * @param error - The error being serialized.
+ * @returns `true` for an {@link AuthUnavailable}, on the server and after hydration.
+ */
+const isAuthUnavailable = (error: Error): boolean => error.message === AUTH_UNAVAILABLE_MESSAGE;
 
 /**
  * The text a dehydrated error carries when it is not the declared sign-in outage.

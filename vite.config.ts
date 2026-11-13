@@ -31,7 +31,6 @@ import {
   authFetchMembers,
   dataAccessMembers,
   globalThisFetch,
-  jsonStringifyMember,
   registryMembers,
   runMembers,
 } from "./tools/lint/rules/restricted-properties.ts";
@@ -342,19 +341,6 @@ export default defineConfig({
         rules: { "no-restricted-properties": ["error", ...runMembers, ...registryMembers] },
       },
       {
-        // Lifted until #237 removes it: three `client.$fetch` calls to the passkey endpoints.
-        files: ["apps/web/src/lib/settings-calls.ts"],
-        rules: {
-          "no-restricted-properties": [
-            "error",
-            ...runMembers,
-            ...dataAccessMembers,
-            jsonStringifyMember,
-            globalThisFetch,
-          ],
-        },
-      },
-      {
         // `latch.ts` is lifted until #249 removes it: the latch record is written with
         // `JSON.stringify`. `test-harness.ts` is test support.
         files: ["packages/budget-guard/src/latch.ts", "apps/auth/src/test-harness.ts"],
@@ -383,21 +369,6 @@ export default defineConfig({
           ],
           "promise/prefer-await-to-then": "off",
         },
-      },
-      {
-        // Lifted until the TanStack Form migration (#227) removes them: both files abort a
-        // submission with an `AbortController`, and the hook still chains a `Promise`.
-        files: [
-          "apps/web/src/components/auth/sign-in-form.tsx",
-          "apps/web/src/components/auth/sign-in-form.test.ts",
-          "apps/web/src/components/auth/use-auth-submit.ts",
-        ],
-        rules: { "no-restricted-globals": ["error", ...platformGlobals, webFetch] },
-      },
-      {
-        // Lifted until the TanStack Form migration (#227) removes it: a `.catch().then()` chain.
-        files: ["apps/web/src/components/auth/use-auth-submit.ts"],
-        rules: { "promise/prefer-await-to-then": "off" },
       },
       {
         // `auth.ts` is the documented Effect-to-Promise seam: Better Auth takes a promise view
@@ -492,35 +463,6 @@ export default defineConfig({
         // browser-only hydrated copies are the module state that boundary owns (Mind ruling, I-28f).
         files: ["apps/web/src/runtime.ts"],
         rules: { "workspace/no-mutable-module-state": "off" },
-      },
-      {
-        // The capability registry's form row allows the form hook's own directory to read a submit.
-        files: ["apps/web/src/components/form/**"],
-        rules: { "workspace/no-raw-form-submit": "off" },
-      },
-      {
-        // Lifted until the TanStack Form migration (#253 and its C2/C3 children) replaces them: each
-        // file submits a `<form onSubmit>` or reads a `FormData`; the notes test feeds one to the
-        // parser the migration removes.
-        files: [
-          "apps/web/src/components/auth/reauthenticate.tsx",
-          "apps/web/src/components/auth/sign-in-form.tsx",
-          "apps/web/src/components/auth/sign-up-form.tsx",
-          "apps/web/src/routes/notes/-note-form.tsx",
-          "apps/web/src/routes/notes/-notes.test.ts",
-          "apps/web/src/routes/settings.tsx",
-        ],
-        rules: { "workspace/no-raw-form-submit": "off" },
-      },
-      {
-        // Lifted until #238 moves the re-auth account list into a loader or atom.
-        files: ["apps/web/src/components/auth/reauthenticate.tsx"],
-        rules: { "workspace/no-effect-data-load": "off" },
-      },
-      {
-        // Passkey autofill effect: a WebAuthn conditional-mediation call, not a data load.
-        files: ["apps/web/src/components/auth/sign-in-form.tsx"],
-        rules: { "workspace/no-effect-data-load": "off" },
       },
       {
         // Lifted until #235 loads the settings accounts in the route loader.

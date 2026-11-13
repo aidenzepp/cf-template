@@ -10,141 +10,33 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as OauthErrorRouteImport } from './routes/oauth-error'
-import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as SignInRouteImport } from './routes/sign-in'
-import { Route as SignUpRouteImport } from './routes/sign-up'
-import { Route as UnavailableRouteImport } from './routes/unavailable'
-import { Route as NotesIndexRouteImport } from './routes/notes/index'
-import { Route as NotesNoteIdRouteImport } from './routes/notes/$note-id'
-import { Route as ProblemsSlugRouteImport } from './routes/problems.$slug'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OauthErrorRoute = OauthErrorRouteImport.update({
-  id: '/oauth-error',
-  path: '/oauth-error',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SettingsRoute = SettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignInRoute = SignInRouteImport.update({
-  id: '/sign-in',
-  path: '/sign-in',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SignUpRoute = SignUpRouteImport.update({
-  id: '/sign-up',
-  path: '/sign-up',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const UnavailableRoute = UnavailableRouteImport.update({
-  id: '/unavailable',
-  path: '/unavailable',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotesIndexRoute = NotesIndexRouteImport.update({
-  id: '/notes/',
-  path: '/notes/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const NotesNoteIdRoute = NotesNoteIdRouteImport.update({
-  id: '/notes/$note-id',
-  path: '/notes/$note-id',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProblemsSlugRoute = ProblemsSlugRouteImport.update({
-  id: '/problems/$slug',
-  path: '/problems/$slug',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/oauth-error': typeof OauthErrorRoute
-  '/settings': typeof SettingsRoute
-  '/sign-in': typeof SignInRoute
-  '/sign-up': typeof SignUpRoute
-  '/unavailable': typeof UnavailableRoute
-  '/notes/$note-id': typeof NotesNoteIdRoute
-  '/problems/$slug': typeof ProblemsSlugRoute
-  '/notes/': typeof NotesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/oauth-error': typeof OauthErrorRoute
-  '/settings': typeof SettingsRoute
-  '/sign-in': typeof SignInRoute
-  '/sign-up': typeof SignUpRoute
-  '/unavailable': typeof UnavailableRoute
-  '/notes/$note-id': typeof NotesNoteIdRoute
-  '/problems/$slug': typeof ProblemsSlugRoute
-  '/notes': typeof NotesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/oauth-error': typeof OauthErrorRoute
-  '/settings': typeof SettingsRoute
-  '/sign-in': typeof SignInRoute
-  '/sign-up': typeof SignUpRoute
-  '/unavailable': typeof UnavailableRoute
-  '/notes/$note-id': typeof NotesNoteIdRoute
-  '/problems/$slug': typeof ProblemsSlugRoute
-  '/notes/': typeof NotesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/oauth-error'
-    | '/settings'
-    | '/sign-in'
-    | '/sign-up'
-    | '/unavailable'
-    | '/notes/$note-id'
-    | '/problems/$slug'
-    | '/notes/'
+  fullPaths: '/'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/oauth-error'
-    | '/settings'
-    | '/sign-in'
-    | '/sign-up'
-    | '/unavailable'
-    | '/notes/$note-id'
-    | '/problems/$slug'
-    | '/notes'
-  id:
-    | '__root__'
-    | '/'
-    | '/oauth-error'
-    | '/settings'
-    | '/sign-in'
-    | '/sign-up'
-    | '/unavailable'
-    | '/notes/$note-id'
-    | '/problems/$slug'
-    | '/notes/'
+  to: '/'
+  id: '__root__' | '/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  OauthErrorRoute: typeof OauthErrorRoute
-  SettingsRoute: typeof SettingsRoute
-  SignInRoute: typeof SignInRoute
-  SignUpRoute: typeof SignUpRoute
-  UnavailableRoute: typeof UnavailableRoute
-  NotesNoteIdRoute: typeof NotesNoteIdRoute
-  ProblemsSlugRoute: typeof ProblemsSlugRoute
-  NotesIndexRoute: typeof NotesIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -156,75 +48,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/oauth-error': {
-      id: '/oauth-error'
-      path: '/oauth-error'
-      fullPath: '/oauth-error'
-      preLoaderRoute: typeof OauthErrorRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/settings': {
-      id: '/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof SettingsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sign-in': {
-      id: '/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof SignInRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sign-up': {
-      id: '/sign-up'
-      path: '/sign-up'
-      fullPath: '/sign-up'
-      preLoaderRoute: typeof SignUpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/unavailable': {
-      id: '/unavailable'
-      path: '/unavailable'
-      fullPath: '/unavailable'
-      preLoaderRoute: typeof UnavailableRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notes/': {
-      id: '/notes/'
-      path: '/notes'
-      fullPath: '/notes/'
-      preLoaderRoute: typeof NotesIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/notes/$note-id': {
-      id: '/notes/$note-id'
-      path: '/notes/$note-id'
-      fullPath: '/notes/$note-id'
-      preLoaderRoute: typeof NotesNoteIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/problems/$slug': {
-      id: '/problems/$slug'
-      path: '/problems/$slug'
-      fullPath: '/problems/$slug'
-      preLoaderRoute: typeof ProblemsSlugRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  OauthErrorRoute: OauthErrorRoute,
-  SettingsRoute: SettingsRoute,
-  SignInRoute: SignInRoute,
-  SignUpRoute: SignUpRoute,
-  UnavailableRoute: UnavailableRoute,
-  NotesNoteIdRoute: NotesNoteIdRoute,
-  ProblemsSlugRoute: ProblemsSlugRoute,
-  NotesIndexRoute: NotesIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

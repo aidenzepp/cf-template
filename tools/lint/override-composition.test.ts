@@ -5,7 +5,6 @@ import {
   authFetchMembers,
   dataAccessMembers,
   globalThisFetch,
-  jsonStringifyMember,
   registryMembers,
   runMembers,
 } from "./rules/restricted-properties.ts";
@@ -231,14 +230,6 @@ describe("no-restricted-imports override composition", () => {
   });
 
   it("each lifted file keeps every ban but the one it lifts", () => {
-    assert.deepStrictEqual(effective("apps/web/src/lib/settings-calls.ts"), [
-      "error",
-      ...runMembers,
-      ...dataAccessMembers,
-      jsonStringifyMember,
-      globalThisFetch,
-    ]);
-
     for (const file of ["packages/budget-guard/src/latch.ts", "apps/auth/src/test-harness.ts"]) {
       assert.deepStrictEqual(
         effective(file),

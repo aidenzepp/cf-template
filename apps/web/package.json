@@ -1,7 +1,7 @@
 {
   "name": "@workspace/web",
   "private": true,
-  "description": "Owns routes, UI, the front door, the forward of /api/* and /auth/*, runtime.ts. Must not own data access, D1, sign-in, session storage, or runtime imports of api or auth.",
+  "description": "Owns the placeholder route, the toaster, the front door, the forward of /api/* and /auth/*, runtime.ts. Must not own data access, D1, sign-in, session storage, or runtime imports of api or auth.",
   "type": "module",
   "exports": {},
   "scripts": {
@@ -10,8 +10,6 @@
     "build:prod-harness": "vp build"
   },
   "dependencies": {
-    "@better-auth/passkey": "1.7.19",
-    "@effect/atom-react": "4.1.2",
     "@tanstack/react-router": "1.170.46",
     "@tanstack/react-start": "1.169.5",
     "@workspace/budget-guard": "workspace:*",
@@ -19,11 +17,9 @@
     "@workspace/contract": "workspace:*",
     "@workspace/knobs-kv": "workspace:*",
     "@workspace/ui": "workspace:*",
-    "better-auth": "1.7.19",
     "effect": "4.1.2",
     "react": "19.3.1",
     "react-dom": "19.3.1",
-    "sonner": "2.0.8",
     "tailwindcss": "4.3.5"
   },
   "devDependencies": {
