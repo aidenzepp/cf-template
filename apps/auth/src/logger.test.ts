@@ -23,9 +23,10 @@ interface Line {
 const collected = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* collect() {
     const lines = yield* Ref.make<ReadonlyArray<Line>>([]);
+    const services = yield* Effect.context();
 
     const logger = Logger.make(({ fiber, logLevel, message }) => {
-      Effect.runSync(
+      Effect.runSyncWith(services)(
         Ref.update(lines, (all) => [
           ...all,
           {

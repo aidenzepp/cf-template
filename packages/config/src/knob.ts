@@ -276,38 +276,36 @@ export const fromSource = (source: LiveSource, options: FromSourceOptions = {}):
 
   return {
     bind: <A>(knob: Knob<A>) =>
-      Effect.gen(function* bind() {
-        const base = yield* knob.config;
+      knob.config.pipe(
+        Effect.map((base): Effect.Effect<A> =>
+          Effect.gen(function* read() {
+            const raw = yield* readLive(knob.key);
 
-        const read: Effect.Effect<A> = Effect.gen(function* read() {
-          const raw = yield* readLive(knob.key);
+            if (Option.isNone(raw) || raw.value === "") {
+              return base;
+            }
 
-          if (Option.isNone(raw) || raw.value === "") {
-            return base;
-          }
+            return yield* knob.decode(raw.value).pipe(
+              Effect.catch(() => {
+                const seen = `${knob.key}\u0000${raw.value}`;
 
-          return yield* knob.decode(raw.value).pipe(
-            Effect.catch(() => {
-              const seen = `${knob.key}\u0000${raw.value}`;
+                if (rejected.has(seen)) {
+                  return Effect.succeed(base);
+                }
 
-              if (rejected.has(seen)) {
-                return Effect.succeed(base);
-              }
+                rejected.add(seen);
 
-              rejected.add(seen);
-
-              return withReason(
-                Effect.logError("knob.live.rejected").pipe(
-                  Effect.annotateLogs({ "knob.key": knob.key, "knob.source": source.name }),
-                ),
-                knob.key,
-                "schema_rejected",
-              ).pipe(Effect.as(base));
-            }),
-          );
-        });
-
-        return read;
-      }),
+                return withReason(
+                  Effect.logError("knob.live.rejected").pipe(
+                    Effect.annotateLogs({ "knob.key": knob.key, "knob.source": source.name }),
+                  ),
+                  knob.key,
+                  "schema_rejected",
+                ).pipe(Effect.as(base));
+              }),
+            );
+          }),
+        ),
+      ),
   };
 };

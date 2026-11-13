@@ -1,11 +1,18 @@
 import { expect, layer } from "@effect/vitest";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { LocalD1 } from "../test/miniflare.ts";
 import { batch } from "./batch.ts";
 import { makeDatabase } from "./database.ts";
 
 const items = sqliteTable("items", { id: text().primaryKey(), n: integer().notNull() });
+
+/**
+ * A statement D1 rejected on its raw `exec`.
+ */
+class ExecRejected extends Schema.TaggedError<ExecRejected>()("ExecRejected", {
+  cause: Schema.Defect(),
+}) {}
 
 const execution = Effect.gen(function* openExecution() {
   const raw = yield* LocalD1;
@@ -62,7 +69,13 @@ layer(LocalD1.layer)("batch", (it) => {
   it.effect("D1 rejects BEGIN on Miniflare's exec, outside the package's exports", () =>
     Effect.gen(function* rejectsBegin() {
       const { raw } = yield* execution;
-      const failure = yield* Effect.flip(Effect.tryPromise(() => raw.exec("BEGIN")));
+
+      const failure = yield* Effect.flip(
+        Effect.tryPromise({
+          catch: (cause) => new ExecRejected({ cause }),
+          try: () => raw.exec("BEGIN"),
+        }),
+      );
 
       expect(String(failure.cause)).toMatch(/BEGIN/u);
     }),

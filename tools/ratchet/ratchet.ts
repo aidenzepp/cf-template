@@ -257,16 +257,17 @@ const decodeFile = <A, I>(
   file: string,
   text: string,
   schema: Schema.Codec<A, I>,
-): Effect.Effect<A, CountedFileInvalid> =>
-  Effect.try(() => Bun.JSONC.parse(text)).pipe(
+): Effect.Effect<A, CountedFileInvalid> => {
+  const invalid = () =>
+    new CountedFileInvalid({
+      message: `${file} is not valid JSON with the expected shape; restore it from git or regenerate it`,
+    });
+
+  return Effect.try({ catch: invalid, try: () => Bun.JSONC.parse(text) }).pipe(
     Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-    Effect.mapError(
-      () =>
-        new CountedFileInvalid({
-          message: `${file} is not valid JSON with the expected shape; restore it from git or regenerate it`,
-        }),
-    ),
+    Effect.mapError(invalid),
   );
+};
 
 /**
  * The baselined violations per rule, summed over files.

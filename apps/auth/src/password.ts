@@ -36,6 +36,13 @@ export class ScryptError extends Schema.TaggedError<ScryptError>()("ScryptError"
 }
 
 /**
+ * The failure of one call to the Better Auth adapter while rehashing a password.
+ */
+class RehashAdapterError extends Schema.TaggedError<RehashAdapterError>()("RehashAdapterError", {
+  cause: Schema.Defect(),
+}) {}
+
+/**
  * The bytes of the random salt.
  */
 const SALT_BYTES = 16;
@@ -297,9 +304,10 @@ export const rehashAfterSignIn = (params: ScryptCost, run: RunEffect): BetterAut
 
           await run(
             Effect.gen(function* rehash() {
-              const account = yield* Effect.tryPromise(() =>
-                ctx.context.internalAdapter.findCredentialAccount(userId),
-              );
+              const account = yield* Effect.tryPromise({
+                catch: (cause) => new RehashAdapterError({ cause }),
+                try: () => ctx.context.internalAdapter.findCredentialAccount(userId),
+              });
 
               const stored = account?.password;
 
@@ -317,16 +325,18 @@ export const rehashAfterSignIn = (params: ScryptCost, run: RunEffect): BetterAut
 
               // Compare-and-set: only the row still holding the hash just verified is rewritten, so a
               // password changed meanwhile is never reverted.
-              yield* Effect.tryPromise(() =>
-                ctx.context.adapter.updateMany({
-                  model: "account",
-                  update: { password: replacement },
-                  where: [
-                    { field: "id", value: account.id },
-                    { field: "password", value: stored },
-                  ],
-                }),
-              );
+              yield* Effect.tryPromise({
+                catch: (cause) => new RehashAdapterError({ cause }),
+                try: () =>
+                  ctx.context.adapter.updateMany({
+                    model: "account",
+                    update: { password: replacement },
+                    where: [
+                      { field: "id", value: account.id },
+                      { field: "password", value: stored },
+                    ],
+                  }),
+              });
             }).pipe(Effect.catchCause(() => Effect.logWarning("auth.password.rehash_failed"))),
           );
         }),

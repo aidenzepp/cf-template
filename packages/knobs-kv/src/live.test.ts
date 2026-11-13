@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ConfigProvider, Effect, Logger, Schema } from "effect";
+import { ConfigProvider, Effect, Layer, Logger, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { Knob } from "@workspace/config/knob";
 import { KNOB_REFRESH_MS, makeKnobsPort } from "./live.ts";
@@ -49,8 +49,12 @@ const bound = (read: (key: string) => Effect.Effect<string | null, string>) =>
     const reader = yield* makeKnobsPort(read)
       .bind(ModeKnob)
       .pipe(
-        Effect.provide(Logger.layer([logger])),
-        Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
+        Effect.provide(
+          Layer.mergeAll(
+            Logger.layer([logger]),
+            ConfigProvider.layer(ConfigProvider.fromUnknown({})),
+          ),
+        ),
       );
 
     return { lines, reader: reader.pipe(Effect.provide(Logger.layer([logger]))) };

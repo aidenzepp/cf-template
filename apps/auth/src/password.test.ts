@@ -23,9 +23,10 @@ const CURRENT = AUTH_PASSWORD_SCRYPT.default;
 const logged = <A, E>(effect: Effect.Effect<A, E>) =>
   Effect.gen(function* collect() {
     const lines = yield* Ref.make<ReadonlyArray<string>>([]);
+    const services = yield* Effect.context();
 
     const logger = Logger.make(({ message }) => {
-      Effect.runSync(Ref.update(lines, (all) => [...all, JSON.stringify(message)]));
+      Effect.runSyncWith(services)(Ref.update(lines, (all) => [...all, JSON.stringify(message)]));
     });
 
     const value = yield* effect.pipe(Effect.provide(Logger.layer([logger])));
