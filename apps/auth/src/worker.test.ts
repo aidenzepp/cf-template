@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import * as Cloudflare from "@alchemy.run/cloudflare";
-import { Effect, Layer, Logger, Option } from "effect";
+import { Effect, Layer, Logger } from "effect";
 import type { LogLevel } from "effect";
 import { LiveKnobs, fromSource } from "@workspace/config/knob";
 import type AuthWorker from "./worker.ts";
@@ -54,7 +54,7 @@ describe("the auth Worker module", () => {
         seen.push(logLevel);
       });
 
-      const live = fromSource({ name: "test", read: () => Effect.succeed(Option.some("Warn")) });
+      const live = fromSource({ name: "test", read: () => Effect.succeedSome("Warn") });
       const atLevel = yield* yield* makeAtLevel(Layer.succeed(LiveKnobs, live));
 
       yield* atLevel(

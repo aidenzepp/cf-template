@@ -47,7 +47,7 @@ const settings = (overrides: Readonly<Record<string, string | undefined>> = {}) 
 const runtimeContext: BaseRuntimeContext = {
   Type: "Test",
   env: {},
-  get: () => Effect.succeed(undefined),
+  get: () => Effect.undefined,
   id: "test",
   set: (id) => Effect.succeed(id),
 };

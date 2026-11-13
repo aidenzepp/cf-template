@@ -51,30 +51,30 @@ const load = Effect.gen(function* loadWorkspace() {
   const rootManifest = yield* readManifest("package.json");
   const lock = yield* Effect.flatMap(Effect.flatMap(read("bun.lock"), parseLock), decodeLock);
 
-  const directories = yield* Effect.all(
-    (rootManifest.workspaces ?? []).map((pattern) =>
+  const directories = yield* Effect.forEach(
+    rootManifest.workspaces ?? [],
+    (pattern) =>
       pattern.endsWith("/*")
         ? Effect.map(fs.readDirectory(path.join(root, pattern.slice(0, -2))), (names) =>
             names.map((name) => `${pattern.slice(0, -2)}/${name}`),
           )
         : Effect.succeed([pattern]),
-    ),
+    { concurrency: 1 },
   );
 
   const candidates = ["", ...directories.flat()].map((directory) =>
     directory === "" ? "package.json" : `${directory}/package.json`,
   );
 
-  const present = yield* Effect.all(
-    candidates.map((relative) => fs.exists(path.join(root, relative))),
+  const present = yield* Effect.forEach(
+    candidates,
+    (relative) => fs.exists(path.join(root, relative)),
+    { concurrency: 1 },
   );
 
-  const manifests = yield* Effect.all(
-    candidates
-      .flatMap((relative, index) => (present[index] ? [relative] : []))
-      .map((relative) =>
-        Effect.map(readManifest(relative), (manifest) => ({ manifest, path: relative })),
-      ),
+  const manifests = yield* Effect.forEach(
+    candidates.flatMap((relative, index) => (present[index] ? [relative] : [])),
+    (relative) => Effect.map(readManifest(relative), (manifest) => ({ manifest, path: relative })),
   );
 
   return { lock, manifests, rootManifest };

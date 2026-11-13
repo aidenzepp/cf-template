@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ConfigProvider, Effect, Logger, Option } from "effect";
+import { ConfigProvider, Effect, Logger } from "effect";
 import type { LogLevel } from "effect";
 import { LiveKnobs, fromSource } from "./knob.ts";
 import { CloudflarePlanKnob } from "./plan.ts";
@@ -33,7 +33,7 @@ const levelsLogged = (live: string | undefined) =>
       LiveKnobs,
       live === undefined
         ? LiveKnobs.defaultValue()
-        : fromSource({ name: "test", read: () => Effect.succeed(Option.some(live)) }),
+        : fromSource({ name: "test", read: () => Effect.succeedSome(live) }),
     ),
   );
 

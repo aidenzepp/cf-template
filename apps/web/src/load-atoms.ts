@@ -26,14 +26,11 @@ export const loadAtoms = Effect.fn("web.loadAtoms")(function* loadAtoms(
       }),
   );
 
-  yield* Effect.all(
-    atoms.map((atom) => AtomRegistry.mount(registry, atom)),
-    { discard: true },
-  );
-  yield* Effect.all(
-    atoms.map((atom) => Effect.ignore(AtomRegistry.getResult(registry, atom))),
-    { concurrency: "unbounded", discard: true },
-  );
+  yield* Effect.forEach(atoms, (atom) => AtomRegistry.mount(registry, atom), { discard: true });
+  yield* Effect.forEach(atoms, (atom) => Effect.ignore(AtomRegistry.getResult(registry, atom)), {
+    concurrency: "unbounded",
+    discard: true,
+  });
 
   return Hydration.dehydrate(registry);
 }, Effect.scoped);

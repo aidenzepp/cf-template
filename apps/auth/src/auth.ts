@@ -310,7 +310,7 @@ export const authDatabaseLayer = (
       ReclaimDatabase,
       raw.pipe(
         Effect.flatMap(makeDatabase),
-        Effect.flatMap((access) => access),
+        Effect.flatten,
         Effect.map(({ db }) => db),
         Effect.orDie,
       ),

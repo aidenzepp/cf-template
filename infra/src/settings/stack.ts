@@ -36,13 +36,21 @@ const declare = (plan: DeclarationPlan) =>
   Effect.gen(function* declareResources() {
     yield* GitHub.Repository("repository", plan.repository);
 
-    yield* Effect.all(
-      plan.ruleset.map((props) => GitHub.Ruleset(props.name, props).pipe(adopt(true))),
+    yield* Effect.forEach(
+      plan.ruleset,
+      (props) => GitHub.Ruleset(props.name, props).pipe(adopt(true)),
+      { discard: true },
     );
 
-    yield* Effect.all(plan.environments.map((props) => GitHub.Environment(props.name, props)));
-    yield* Effect.all(plan.labels.map((props) => GitHub.Label(props.name, props)));
-    yield* Effect.all(plan.variables.map((props) => GitHub.Variable(props.name, props)));
+    yield* Effect.forEach(plan.environments, (props) => GitHub.Environment(props.name, props), {
+      discard: true,
+    });
+    yield* Effect.forEach(plan.labels, (props) => GitHub.Label(props.name, props), {
+      discard: true,
+    });
+    yield* Effect.forEach(plan.variables, (props) => GitHub.Variable(props.name, props), {
+      discard: true,
+    });
 
     return {};
   });

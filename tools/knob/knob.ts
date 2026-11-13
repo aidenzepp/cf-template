@@ -141,8 +141,9 @@ export const resolveNamespace = Effect.fn("knob.resolveNamespace")(function* res
  * @returns One line per key, in order.
  */
 export const reportStored = (rows: ReadonlyArray<StoredKey>) =>
-  Effect.all(
-    rows.map((row) => {
+  Effect.forEach(
+    rows,
+    (row) => {
       const knob = liveKnobs.find((candidate) => candidate.key === row.key);
       const value = JSON.stringify(row.value);
 
@@ -155,7 +156,8 @@ export const reportStored = (rows: ReadonlyArray<StoredKey>) =>
             }),
             onSuccess: () => ({ bad: false, line: `${row.key} ok ${value}` }),
           });
-    }),
+    },
+    { concurrency: 1 },
   );
 
 /**

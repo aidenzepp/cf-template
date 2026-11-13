@@ -258,8 +258,9 @@ export const checkMirrors = Effect.fn("mirrors.check")(function* checkMirrors(
   entries: ReadonlyArray<Entry>,
   packages: Packages,
 ) {
-  const reports = yield* Effect.all(
-    entries.map((entry) =>
+  const reports = yield* Effect.forEach(
+    entries,
+    (entry) =>
       Effect.gen(function* checked() {
         const version = versionOf(packages, entry.anchor);
 
@@ -273,7 +274,7 @@ export const checkMirrors = Effect.fn("mirrors.check")(function* checkMirrors(
           ? [{ line: `${entry.name}: stale (${stale.value.reason})`, stale: true }]
           : [];
       }),
-    ),
+    { concurrency: 1 },
   );
 
   return reports.flat() satisfies ReadonlyArray<Report>;
@@ -428,8 +429,9 @@ export const writeIndex = Effect.fn("mirrors.writeIndex")(function* writeIndex(
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const rows = yield* Effect.all(
-    entries.map((entry) =>
+  const rows = yield* Effect.forEach(
+    entries,
+    (entry) =>
       Effect.gen(function* row() {
         const version = versionOf(packages, entry.anchor);
         const dir = yield* checkoutDir(root, entry);
@@ -446,7 +448,7 @@ export const writeIndex = Effect.fn("mirrors.writeIndex")(function* writeIndex(
           `| \`.mirrors/${entry.name}/\` | \`${stamp.value.tag}\` @ \`${commit}\` | \`${entry.anchor}\` ${version.value} | ${contents} |`,
         ];
       }),
-    ),
+    { concurrency: 1 },
   );
 
   yield* fs.makeDirectory(path.join(root, ".mirrors"), { recursive: true });
@@ -483,16 +485,17 @@ export const program = Effect.fn("mirrors.program")(function* program(
   if (check) {
     const reports = yield* checkMirrors(root, entries, packages);
 
-    yield* Effect.all(reports.map((report) => Console.log(report.line)));
+    yield* Effect.forEach(reports, (report) => Console.log(report.line), { discard: true });
 
     return reports.some((report) => report.stale) ? 1 : 0;
   }
 
   const [elapsed, outcomes] = yield* Effect.timed(
-    Effect.all(
-      entries.map((entry) =>
+    Effect.forEach(
+      entries,
+      (entry) =>
         syncOne(root, entry, packages).pipe(Effect.tap((outcome) => Console.log(outcome.line))),
-      ),
+      { concurrency: 1 },
     ),
   );
 
