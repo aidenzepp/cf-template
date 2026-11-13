@@ -31,7 +31,6 @@ import {
   authFetchMembers,
   dataAccessMembers,
   globalThisFetch,
-  jsonStringifyMember,
   registryMembers,
   runMembers,
 } from "./tools/lint/rules/restricted-properties.ts";
@@ -342,19 +341,6 @@ export default defineConfig({
         rules: { "no-restricted-properties": ["error", ...runMembers, ...registryMembers] },
       },
       {
-        // Lifted until #237 removes it: three `client.$fetch` calls to the passkey endpoints.
-        files: ["apps/web/src/lib/settings-calls.ts"],
-        rules: {
-          "no-restricted-properties": [
-            "error",
-            ...runMembers,
-            ...dataAccessMembers,
-            jsonStringifyMember,
-            globalThisFetch,
-          ],
-        },
-      },
-      {
         // `latch.ts` is lifted until #249 removes it: the latch record is written with
         // `JSON.stringify`. `test-harness.ts` is test support.
         files: ["packages/budget-guard/src/latch.ts", "apps/auth/src/test-harness.ts"],
@@ -383,21 +369,6 @@ export default defineConfig({
           ],
           "promise/prefer-await-to-then": "off",
         },
-      },
-      {
-        // Lifted until the TanStack Form migration (#227) removes them: both files abort a
-        // submission with an `AbortController`, and the hook still chains a `Promise`.
-        files: [
-          "apps/web/src/components/auth/sign-in-form.tsx",
-          "apps/web/src/components/auth/sign-in-form.test.ts",
-          "apps/web/src/components/auth/use-auth-submit.ts",
-        ],
-        rules: { "no-restricted-globals": ["error", ...platformGlobals, webFetch] },
-      },
-      {
-        // Lifted until the TanStack Form migration (#227) removes it: a `.catch().then()` chain.
-        files: ["apps/web/src/components/auth/use-auth-submit.ts"],
-        rules: { "promise/prefer-await-to-then": "off" },
       },
       {
         // `auth.ts` is the documented Effect-to-Promise seam: Better Auth takes a promise view

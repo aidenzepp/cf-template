@@ -17,6 +17,8 @@ const pendingGuards: ReadonlyArray<string> = [
   "A3 workspace/no-hand-rolled-retry",
   "A3 workspace/no-keyed-ttl-map",
   "A3 workspace/no-raw-form-submit",
+  "A4 no-restricted-imports",
+  "A4 no-restricted-properties",
   "A4 react-doctor/no-collapse-request-error-to-empty-state",
   "A4 react-doctor/tanstack-start-no-direct-fetch-in-loader",
 ];

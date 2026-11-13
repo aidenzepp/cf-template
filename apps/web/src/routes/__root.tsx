@@ -1,4 +1,3 @@
-import { RegistryProvider } from "@effect/atom-react";
 import { createIsomorphicFn } from "@tanstack/react-start";
 import { setResponseHeader, setResponseStatus } from "@tanstack/react-start/server";
 import {
@@ -7,21 +6,13 @@ import {
   ScriptOnce,
   Scripts,
   createRootRoute,
-  redirect,
   useRouteContext,
 } from "@tanstack/react-router";
-import type { AnyRouter } from "@tanstack/react-router";
 import { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
 import { Effect } from "effect";
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
-import { RouteError } from "../components/errors/error.tsx";
-import { NotFound } from "../components/errors/not-found.tsx";
-import { isAuthUnavailable, Retry } from "../components/retry.tsx";
-import { AppShell } from "../components/shell/app-shell.tsx";
 import { StatusToaster } from "../components/status-toaster.tsx";
-import { validateRedirectSearch } from "../lib/redirect-target.ts";
-import { isAuthScreen, isSessionLess } from "../lib/session-less-paths.ts";
 import { run } from "../runtime.ts";
 import { readSession } from "../session.ts";
 import { AuthMethods } from "../web-layer.ts";
@@ -88,8 +79,8 @@ const RootDocument = ({ children }: { readonly children: ReactNode }) => (
 );
 
 /**
- * The layout of every page: the page inside the sidebar shell for a signed-in caller, the bare page
- * for any other state, and the one toaster. `data-session` carries the state for tests.
+ * The layout of every page: the page and the one toaster. `data-session` carries the session state
+ * for tests.
  *
  * @returns The layout.
  */
@@ -98,18 +89,12 @@ const RootLayout = () => {
   const resolvedTheme = useResolvedTheme();
 
   return (
-    <RegistryProvider>
+    <>
       <div className="contents" data-session={session._tag}>
-        {session._tag === "signedIn" ? (
-          <AppShell>
-            <Outlet />
-          </AppShell>
-        ) : (
-          <Outlet />
-        )}
+        <Outlet />
       </div>
       <StatusToaster theme={resolvedTheme} />
-    </RegistryProvider>
+    </>
   );
 };
 
@@ -140,58 +125,26 @@ const answerUnavailable = createIsomorphicFn()
   .client((retryAfterSeconds: number) => retryAfterSeconds);
 
 /**
- * The root context of a request. A session-less path reads no session, so the outage page never
- * waits on `api`.
- *
- * @param pathname - The pathname of the request.
- * @returns The effect that reads the context.
+ * The root context of a request.
  */
-const readContext = (pathname: string) =>
-  Effect.gen(function* readPathContext() {
-    const authMethods = yield* AuthMethods;
+const readContext = Effect.gen(function* readRootContext() {
+  const authMethods = yield* AuthMethods;
+  const session = yield* readSession;
 
-    if (isSessionLess(pathname)) {
-      return { authMethods, session: { _tag: "unknown" } as const } as const;
-    }
+  if (session._tag === "unknown") {
+    const retryAfterSeconds = answerUnavailable(
+      parseRetryAfter("retryAfter" in session ? session.retryAfter : undefined),
+    );
 
-    const session = yield* readSession;
+    return yield* new AuthUnavailable({ retryAfterSeconds });
+  }
 
-    if (session._tag === "unknown") {
-      const retryAfterSeconds = answerUnavailable(
-        parseRetryAfter("retryAfter" in session ? session.retryAfter : undefined),
-      );
-
-      return yield* new AuthUnavailable({ retryAfterSeconds });
-    }
-
-    return { authMethods, session } as const;
-  });
+  return { authMethods, session } as const;
+});
 
 export const Route = createRootRoute({
-  // Only `signedOut` redirects. The `redirect` value is kept only when it is root-relative; the
-  // hash is empty on the server, which never receives it.
-  beforeLoad: async ({ abortController, location }) => {
-    const context = await run(readContext(location.pathname), { signal: abortController.signal });
-
-    if (context.session._tag === "signedOut" && !isAuthScreen(location.pathname)) {
-      const { redirect: target } = validateRedirectSearch({
-        redirect: `${location.pathname}${location.searchStr}${location.hash}`,
-      });
-
-      // `throw: true` makes the library throw the redirect, which keeps it out of the context type
-      // that a returned `Redirect` would break for every child route.
-      redirect<AnyRouter>({
-        search: target === undefined ? {} : { redirect: target },
-        throw: true,
-        to: "/sign-in",
-      });
-    }
-
-    return context;
-  },
+  beforeLoad: ({ abortController }) => run(readContext, { signal: abortController.signal }),
   component: RootLayout,
-  errorComponent: ({ error }) =>
-    error instanceof Error && isAuthUnavailable(error) ? <Retry /> : <RouteError />,
   head: () => ({
     links: [{ href: appCss, rel: "stylesheet" }],
     meta: [
@@ -201,6 +154,5 @@ export const Route = createRootRoute({
     ],
   }),
   headers: () => ({ "Cache-Control": "private, no-store" }),
-  notFoundComponent: NotFound,
   shellComponent: RootDocument,
 });
