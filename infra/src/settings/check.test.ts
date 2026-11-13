@@ -66,13 +66,7 @@ const state = (overrides: Record<string, Reply> = {}) => {
         { parameters: { allowed_merge_methods: ["squash"] }, type: "pull_request" },
         {
           parameters: {
-            required_status_checks: [
-              "checks",
-              "pr-title",
-              "pr-body",
-              "convention-guard",
-              "merge-gate",
-            ].map((context) => ({ context })),
+            required_status_checks: ["checks", "browser"].map((context) => ({ context })),
           },
           type: "required_status_checks",
         },
@@ -256,7 +250,7 @@ describe("readDrift", () => {
       );
       assert.include(
         lines,
-        "MISMATCH main ruleset required checks: live , declared checks,convention-guard,merge-gate,pr-body,pr-title",
+        "MISMATCH main ruleset required checks: live , declared browser,checks",
       );
     }),
   );
