@@ -61,8 +61,8 @@ jobs:
       - run: bun run test:cloud
 
   # The prod plan verdict: `destructive=true|false` and `fingerprint=<digest>`, or a non-zero exit
-  # (DC10). I-39 fills the body with `infra/scripts/plan-prod.ts`; until then the placeholder fails,
-  # so `deploy-prod` never runs and `plan-missing` reports the missing verdict.
+  # (DC10). `infra/scripts/plan-prod.ts` plans `prod` with `CI=true` and never upgrades the state
+  # store, so a missing or outdated store fails here and `plan-missing` reports it.
   plan-prod:
     needs: [checks, cloud]
     if: >-
@@ -74,12 +74,43 @@ jobs:
     outputs:
       destructive: ${{ steps.plan.outputs.destructive }}
       fingerprint: ${{ steps.plan.outputs.fingerprint }}
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+      CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
+      STACK_NAME: ${{ vars.STACK_NAME }}
     steps:
-      - id: plan
-        name: Plan prod (placeholder, I-39)
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
+      - run: alchemy provider check-env
+        working-directory: infra
+      - run: alchemy state list
+        working-directory: infra
+      # Report-only: the knob status prints into the summary and never fails the plan.
+      - name: Knob status (report-only)
         run: |
-          echo '::error::plan-prod is a placeholder: I-39 adds infra/scripts/plan-prod.ts. No verdict, so prod is not deployed.'
-          exit 1
+          set +e
+          output="$(bun run knob status --stage prod 2>&1)"
+          code=$?
+          printf '%s\n' "$output"
+          {
+            echo '### knob status (prod)'
+            echo
+            echo "exit $code"
+            echo
+            echo '~~~'
+            printf '%s\n' "$output"
+            echo '~~~'
+          } >> "$GITHUB_STEP_SUMMARY"
+      - id: plan
+        name: Plan prod
+        working-directory: infra
+        run: bun scripts/plan-prod.ts
 
   deploy-prod:
     needs: plan-prod
@@ -146,20 +177,36 @@ jobs:
       - run: bun scripts/smoke.ts
 
   # A blocking plan holds prod red and prints the one copyable `gh workflow run prod-destructive.yml`
-  # command (SU13). I-39 fills the body; the placeholder fails so the hold is never silent.
+  # command (SU13). The fingerprint is checked as a sha256 before it reaches the summary.
   hold:
     needs: plan-prod
     if: needs.plan-prod.outputs.destructive == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: Hold a destructive plan (placeholder, I-39)
+      - name: Hold a destructive plan
+        env:
+          PLAN_FINGERPRINT: ${{ needs.plan-prod.outputs.fingerprint }}
         run: |
-          echo '::error::The prod plan is destructive and held. hold is a placeholder: I-39 prints the prod-destructive.yml dispatch command.'
+          [[ "$PLAN_FINGERPRINT" =~ ^[0-9a-f]{64}$ ]] || { echo '::error::plan-prod gave destructive=true without a sha256 fingerprint.'; exit 1; }
+          command="gh workflow run prod-destructive.yml -f sha=$GITHUB_SHA -f fingerprint=$PLAN_FINGERPRINT -f reason=\"<why>\""
+          {
+            echo '### prod is held: the plan is destructive'
+            echo
+            printf -- '- sha: `%s`\n' "$GITHUB_SHA"
+            printf -- '- fingerprint: `%s`\n' "$PLAN_FINGERPRINT"
+            echo
+            echo 'Read the plan summary of plan-prod. To confirm, the repository owner runs:'
+            echo
+            echo '```sh'
+            echo "$command"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "$command"
+          echo "::error::The prod plan is destructive and held (fingerprint $PLAN_FINGERPRINT). The owner confirms with the command in the job summary."
           exit 1
 
   # Fails when plan-prod gave no verdict, so a missing or broken plan never reads as a quiet skip.
-  # I-39 owns the final body.
   plan-missing:
     needs: plan-prod
     if: >-
@@ -169,7 +216,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - run: |
-          echo "::error::plan-prod ($PLAN_RESULT) gave no destructive=true|false verdict, so prod was not deployed."
+          echo "::error::plan-prod produced no verdict (result $PLAN_RESULT), so prod was not deployed."
           exit 1
         env:
           PLAN_RESULT: ${{ needs.plan-prod.result }}

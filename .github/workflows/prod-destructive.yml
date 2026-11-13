@@ -111,14 +111,12 @@ jobs:
         working-directory: infra
       - run: alchemy state list
         working-directory: infra
-      # I-39 fills this step with `infra/scripts/plan-prod.ts`, writing `fingerprint=<digest>`; until
-      # then it fails, so nothing below runs.
+      # Recompute the plan at the held commit: a different fingerprint exits non-zero printing both
+      # digests, and a match writes `fingerprint=<digest>` for the check below.
       - id: plan
-        name: Re-plan prod (placeholder, I-39)
+        name: Re-plan prod
         working-directory: infra
-        run: |
-          echo '::error::The re-plan is a placeholder: I-39 adds infra/scripts/plan-prod.ts. Nothing was deployed.'
-          exit 1
+        run: bun scripts/plan-prod.ts --fingerprint "$INPUT_FINGERPRINT"
       - name: Refuse a changed plan
         env:
           PLAN_FINGERPRINT: ${{ steps.plan.outputs.fingerprint }}
