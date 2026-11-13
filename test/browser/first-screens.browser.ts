@@ -12,6 +12,7 @@ interface Scan {
   readonly dark: boolean;
   readonly passes: number;
   readonly screenshots: ReadonlyArray<{ readonly png: string; readonly width: number }>;
+  readonly stackName: string;
   readonly text: string;
   readonly violations: ReadonlyArray<{
     readonly id: string;
@@ -167,15 +168,14 @@ const matchScreenshot = Effect.fn("matchScreenshot")(function* matchScreenshot(
 }, Effect.scoped);
 
 /**
- * The first screens: the placeholder index. The stub `API` of the harness answers a signed-in
- * caller without the `stub=401` cookie.
+ * The first screens: the placeholder index, titled with the stack name the harness binds. The stub
+ * `API` of the harness answers a signed-in caller without the `stub=401` cookie.
  */
 const SCREENS = [
   {
     cookie: undefined,
     name: "placeholder index",
     path: "/",
-    shows: "typescript-template",
     slug: "placeholder-index",
   },
 ] as const;
@@ -184,12 +184,17 @@ const SCHEMES = ["light", "dark"] as const;
 
 describe("the first screens", () => {
   for (const colorScheme of SCHEMES) {
-    for (const { cookie, name, path, shows, slug } of SCREENS) {
+    for (const { cookie, name, path, slug } of SCREENS) {
       it.effect(`${name} has no axe violations once hydrated in ${colorScheme}`, () =>
         Effect.gen(function* scanScreen() {
-          const { dark, passes, text, violations } = yield* scan(path, cookie, colorScheme);
+          const { dark, passes, stackName, text, violations } = yield* scan(
+            path,
+            cookie,
+            colorScheme,
+          );
 
-          assert.include(text, shows);
+          assert.isNotEmpty(stackName);
+          assert.include(text, stackName);
           assert.isAbove(passes, 0);
           assert.strictEqual(dark, colorScheme === "dark");
           assert.deepStrictEqual(
