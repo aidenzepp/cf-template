@@ -6,7 +6,7 @@ import { Knob } from "./knob.ts";
  */
 export const HeadSamplingRateKnob = Knob.make(
   "HEAD_SAMPLING_RATE",
-  Schema.Number.check(Schema.isBetween({ maximum: 1, minimum: 0 })).annotate({
+  Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 })).annotate({
     default: 1,
     description: "Head sampling rate for Workers traces; applied from Worker metadata at deploy.",
   }),
@@ -18,7 +18,7 @@ export const HeadSamplingRateKnob = Knob.make(
  */
 export const AllowanceShareKnob = Knob.make(
   "ALLOWANCE_SHARE",
-  Schema.Number.check(Schema.isBetween({ maximum: 1, minimum: 0 })).annotate({
+  Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 })).annotate({
     default: 0.5,
     description: "Placeholder share of the account's Paid allowances this project may use.",
   }),
@@ -30,7 +30,7 @@ export const AllowanceShareKnob = Knob.make(
  */
 export const AlertFractionKnob = Knob.make(
   "ALERT_FRACTION",
-  Schema.Number.check(Schema.isBetween({ maximum: 1, minimum: 0 })).annotate({
+  Schema.Finite.check(Schema.isBetween({ maximum: 1, minimum: 0 })).annotate({
     default: 0.5,
     description: "Fraction of the project's share whose hourly pace fires the volume alert.",
   }),

@@ -9,7 +9,10 @@ import { FetchHttpClient } from "effect/http";
 /**
  * The failure of a Cloudflare call the command made, with the operation that failed.
  */
-export class KnobKvError extends Schema.TaggedError<KnobKvError>()("KnobKvError", {
+export class KnobKvError extends Schema.TaggedError<
+  KnobKvError,
+  { readonly brand: unique symbol }
+>()("KnobKvError", {
   message: Schema.String,
 }) {}
 

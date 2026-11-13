@@ -9,7 +9,7 @@ export const LATCH_KEY = "state";
  * The latch record: when the alert fired, its correlation id if it carried one, and the set flag.
  */
 const Latch = Schema.Struct({
-  at: Schema.Number,
+  at: Schema.Finite,
   correlationId: Schema.optional(Schema.String),
   latched: Schema.Literal(true),
 });

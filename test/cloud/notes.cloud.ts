@@ -28,7 +28,7 @@ const SignUpReply = Schema.Struct({ user: Schema.Struct({ id: Schema.String }) }
 const Receipt = Schema.Struct({
   reply: Schema.Unknown,
   stream: Schema.String,
-  version: Schema.Number,
+  version: Schema.Finite,
 });
 
 describe("the deployed notes flow", () => {

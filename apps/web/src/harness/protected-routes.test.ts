@@ -8,9 +8,12 @@ import { FORWARD_PREFIXES } from "../forward-prefixes.ts";
 /**
  * The failure of the harness itself: the build or the workerd runtime did not start.
  */
-class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessError", {
-  message: Schema.String,
-}) {}
+class HarnessError extends Schema.TaggedError<HarnessError, { readonly brand: unique symbol }>()(
+  "HarnessError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The stub `API`. A session read answers by the `stub` cookie, records the `Cookie` it received and
@@ -160,7 +163,7 @@ const WebProdLive = Layer.effect(WebProd)(
 
 const Reads = Schema.Struct({
   last: Schema.NullOr(Schema.Struct({ cookie: Schema.String, names: Schema.Array(Schema.String) })),
-  reads: Schema.Number,
+  reads: Schema.Finite,
 });
 
 const readsOf = Effect.gen(function* readsOf() {

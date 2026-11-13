@@ -104,7 +104,10 @@ const indexIntro = [
 /**
  * A failure the mirrors command reports as one line.
  */
-export class MirrorError extends Schema.TaggedError<MirrorError>()("MirrorError", {
+export class MirrorError extends Schema.TaggedError<
+  MirrorError,
+  { readonly brand: unique symbol }
+>()("MirrorError", {
   message: Schema.String,
 }) {}
 

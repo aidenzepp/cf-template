@@ -28,7 +28,10 @@ const ErrorBody = Schema.Struct({ code: Schema.optional(Schema.String) });
 /**
  * A response body that could not be read as JSON.
  */
-class BodyUnreadable extends Schema.TaggedError<BodyUnreadable>()("BodyUnreadable", {
+class BodyUnreadable extends Schema.TaggedError<
+  BodyUnreadable,
+  { readonly brand: unique symbol }
+>()("BodyUnreadable", {
   cause: Schema.Defect(),
 }) {}
 

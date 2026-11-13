@@ -8,5 +8,5 @@ import { HttpApiError } from "effect/http-api";
 export class RateLimited extends HttpApiError.Problem<RateLimited>()(
   "RateLimited",
   { status: 429, title: "Too many requests", type: "/problems/rate-limited" },
-  { retryAfterSeconds: Schema.Number },
+  { retryAfterSeconds: Schema.Finite },
 ) {}

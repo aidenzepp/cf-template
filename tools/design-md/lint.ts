@@ -5,10 +5,10 @@ import { Console, Effect, Schema, Stdio, Stream } from "effect";
  * The linter ran but its output was not the JSON it documents, or it reported an `error` or a
  * `warning`. The message lists every blocking finding.
  */
-export class DesignMdLintError extends Schema.TaggedError<DesignMdLintError>()(
-  "DesignMdLintError",
-  { message: Schema.String },
-) {}
+export class DesignMdLintError extends Schema.TaggedError<
+  DesignMdLintError,
+  { readonly brand: unique symbol }
+>()("DesignMdLintError", { message: Schema.String }) {}
 
 /**
  * The part of `lint --format json` the check reads: each finding's severity, rule, path and

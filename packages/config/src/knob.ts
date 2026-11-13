@@ -6,10 +6,13 @@ import { Clock, Config, Context, Effect, Option, Predicate, Result, Schema } fro
  * Annotations are not part of the schema's type, so the check runs when the module that declares
  * the knob loads, not when the compiler runs.
  */
-export class MissingKnobAnnotationError extends Schema.TaggedError<MissingKnobAnnotationError>()(
-  "MissingKnobAnnotationError",
-  { annotation: Schema.Literals(["description", "default"]), key: Schema.String },
-) {
+export class MissingKnobAnnotationError extends Schema.TaggedError<
+  MissingKnobAnnotationError,
+  { readonly brand: unique symbol }
+>()("MissingKnobAnnotationError", {
+  annotation: Schema.Literals(["description", "default"]),
+  key: Schema.String,
+}) {
   override get message(): string {
     return `Knob ${this.key} has no "${this.annotation}" annotation. Add it with Schema.annotate({ ${this.annotation}: ... }) where the knob is declared.`;
   }
@@ -19,7 +22,10 @@ export class MissingKnobAnnotationError extends Schema.TaggedError<MissingKnobAn
  * The defect that `Knob.encode` raises when a knob's schema is not a leaf and so has no one-string
  * form.
  */
-class KnobNotLeafError extends Schema.TaggedError<KnobNotLeafError>()("KnobNotLeafError", {
+class KnobNotLeafError extends Schema.TaggedError<
+  KnobNotLeafError,
+  { readonly brand: unique symbol }
+>()("KnobNotLeafError", {
   key: Schema.String,
 }) {
   override get message(): string {
@@ -126,7 +132,10 @@ export class Knob<A> {
 /**
  * The failure of a live source read, such as an unreachable store.
  */
-export class LiveSourceError extends Schema.TaggedError<LiveSourceError>()("LiveSourceError", {
+export class LiveSourceError extends Schema.TaggedError<
+  LiveSourceError,
+  { readonly brand: unique symbol }
+>()("LiveSourceError", {
   cause: Schema.Unknown,
   source: Schema.String,
 }) {
