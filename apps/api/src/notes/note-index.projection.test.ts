@@ -1,6 +1,6 @@
 import * as Domain from "@alchemy.run/domain";
-import { describe, expect, it } from "@effect/vitest";
-import { Effect, Layer, Ref } from "effect";
+import { describe, expect, it, vi } from "@effect/vitest";
+import { Effect, Exit, Layer, Ref } from "effect";
 import { UserId } from "@workspace/contract/domain/session";
 import { CurrentActor } from "../session-middleware.ts";
 import { CreateNote, DeleteNote, NotebookId, UpdateNote } from "./note.command.ts";
@@ -120,5 +120,46 @@ describe("the note index", () => {
 
       expect(yield* rebuilt.rows).toStrictEqual(rows);
     }),
+  );
+
+  it.live("writes exactly one domain.run.failed line when a run fails", () =>
+    Effect.gen(function* failedRun() {
+      const failing = Layer.succeed(NoteIndexStore, { upsert: () => Effect.die("store down") });
+      const { inputs } = yield* hostedRun;
+
+      const spy = yield* Effect.acquireRelease(
+        Effect.sync(() => vi.spyOn(console, "error").mockReturnValue()),
+        (installed) =>
+          Effect.sync(() => {
+            installed.mockRestore();
+          }),
+      );
+
+      const exit = yield* Effect.exit(replay(failing, inputs));
+
+      expect(Exit.isFailure(exit)).toBeTruthy();
+      expect(spy.mock.calls.map(String)).toStrictEqual([
+        '{"consumer":"NoteIndex","event":"domain.run.failed","kind":"projection","outcome":"failed"}',
+      ]);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live("writes no failure line when a run succeeds", () =>
+    Effect.gen(function* succeededRun() {
+      const store = yield* memoryStore;
+      const { inputs } = yield* hostedRun;
+
+      const spy = yield* Effect.acquireRelease(
+        Effect.sync(() => vi.spyOn(console, "error").mockReturnValue()),
+        (installed) =>
+          Effect.sync(() => {
+            installed.mockRestore();
+          }),
+      );
+
+      yield* replay(store.layer, inputs);
+
+      expect(spy.mock.calls).toStrictEqual([]);
+    }).pipe(Effect.scoped),
   );
 });

@@ -1,5 +1,5 @@
 import * as Domain from "@alchemy.run/domain";
-import { Context, DateTime, Effect, Layer } from "effect";
+import { Console, Context, DateTime, Effect, Layer } from "effect";
 import { AppDatabase } from "../app-database.ts";
 import { NoteCreated, NoteDeleted, NoteUpdated } from "./note.event.ts";
 import { Notebook } from "./notebook.aggregate.ts";
@@ -72,14 +72,27 @@ const noteIndexRow = (input: NoteIndexInput): NoteIndexRow => ({
 });
 
 /**
+ * The one `domain.run.failed` line a failed run of the note index writes through `Console.error`,
+ * as one JSON text so Workers Logs reads its keys at the top level of `attributes`. The package
+ * records the failure only as its `domain.runs` metric, which never reaches Workers Logs; this line
+ * is what the `infra` projection failure alert counts.
+ */
+const failedRunLine =
+  '{"consumer":"NoteIndex","event":"domain.run.failed","kind":"projection","outcome":"failed"}';
+
+/**
  * Build the note index's handler over {@link NoteIndexStore}: each input upserts its row, in
  * order, so running a batch again, or the whole history into an empty store, writes the same rows.
+ * A failed run writes one {@link failedRunLine} and keeps its cause, so the platform still records
+ * and retries it.
  */
 export const noteIndexHandler = Effect.gen(function* buildNoteIndexHandler() {
   const store = yield* NoteIndexStore;
 
   return (batch: ReadonlyArray<NoteIndexInput>) =>
-    Effect.forEach(batch, (input) => store.upsert(noteIndexRow(input)), { discard: true });
+    Effect.forEach(batch, (input) => store.upsert(noteIndexRow(input)), { discard: true }).pipe(
+      Effect.tapCause(() => Console.error(failedRunLine)),
+    );
 });
 
 /**
