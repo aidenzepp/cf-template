@@ -166,7 +166,7 @@ const statusWithoutCookie = (operation: Operation) =>
 describe("the generated OpenAPI document with no cookie", () => {
   it.effect("lists a Notebook operation and answers 401 to every operation not allowlisted", () =>
     Effect.gen(function* sweep() {
-      console.info(
+      yield* Effect.logInfo(
         `OpenAPI operations swept: ${operations.length}: ${operations.map((o) => o.key).join(", ")}`,
       );
 
