@@ -1,4 +1,5 @@
 import { Cause, Effect } from "effect";
+import { HttpServerResponse, ProblemDetails } from "effect/http";
 import type { ServiceBinding } from "./env.ts";
 import { FORWARD_PREFIXES } from "./forward-prefixes.ts";
 
@@ -65,7 +66,7 @@ const wantsHtml = (headers: Headers): boolean =>
 
 /**
  * The 502 `web` itself answers when a forward fails: one negotiation rule, a minimal HTML body for
- * a navigation and `application/problem+json` for anything else. Both vary on the two request
+ * a navigation and a problem body for anything else. Both vary on the two request
  * headers the rule reads.
  *
  * @param request - The request whose forward failed.
@@ -79,9 +80,11 @@ const badGateway = (request: Request): Response => {
         headers: { ...vary, "content-type": "text/html; charset=utf-8" },
         status: 502,
       })
-    : Response.json(
-        { status: 502, title: "Bad Gateway", type: "about:blank" },
-        { headers: { ...vary, "content-type": "application/problem+json" }, status: 502 },
+    : HttpServerResponse.toWeb(
+        HttpServerResponse.setHeaders(
+          ProblemDetails.toResponse({ status: 502, title: "Bad Gateway", type: "about:blank" }),
+          vary,
+        ),
       );
 };
 

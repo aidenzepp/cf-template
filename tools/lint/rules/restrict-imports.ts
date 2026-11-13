@@ -28,6 +28,27 @@ export const basePaths: ReadonlyArray<RestrictedPath> = ["effect/Effect", "effec
 }));
 
 /**
+ * The message of the raw-SQL import ban (registry row "Database access").
+ */
+const sqlMessage =
+  "write the query with the Drizzle query builder, not the sql tag (docs/capabilities.md, Database access)";
+
+/**
+ * The raw-SQL `sql` tag: from the `drizzle-orm` root, and from the `drizzle-orm/sql` subpaths.
+ * Carried by every override, even a runtime boundary; only `sql: false` lifts it.
+ */
+const sqlPaths: ReadonlyArray<RestrictedPath> = [
+  { importNames: ["sql"], message: sqlMessage, name: "drizzle-orm" },
+];
+
+/**
+ * The `drizzle-orm/sql` subpaths of the raw-SQL ban.
+ */
+export const sqlPatterns: ReadonlyArray<RestrictedPattern> = [
+  { group: ["drizzle-orm/sql", "drizzle-orm/sql/*"], message: sqlMessage },
+];
+
+/**
  * The message of the two data-fetching library bans: the mechanism of the registry row.
  */
 const serverDataMessage =
@@ -122,12 +143,13 @@ export const nodeBuiltins: RestrictedPattern = {
 /**
  * Builds one `lint.overrides` entry that restricts imports for `files`, prepending `basePaths` so
  * no scoped override silently drops the base ban. Only a runtime boundary passes `base: false`; the
- * library bans stay either way.
+ * library bans stay either way. The raw-SQL ban stays too unless an exception passes `sql: false`.
  */
 export const restrictImports = (
   files: ReadonlyArray<string>,
   restrictions: {
     base?: boolean;
+    sql?: boolean;
     paths?: ReadonlyArray<RestrictedPath>;
     patterns?: ReadonlyArray<RestrictedPattern>;
   },
@@ -138,9 +160,14 @@ export const restrictImports = (
       paths: [
         ...(restrictions.base === false ? [] : basePaths),
         ...libraryPaths,
+        ...(restrictions.sql === false ? [] : sqlPaths),
         ...(restrictions.paths ?? []),
       ],
-      patterns: [...libraryPatterns, ...(restrictions.patterns ?? [])],
+      patterns: [
+        ...libraryPatterns,
+        ...(restrictions.sql === false ? [] : sqlPatterns),
+        ...(restrictions.patterns ?? []),
+      ],
     },
   ];
 

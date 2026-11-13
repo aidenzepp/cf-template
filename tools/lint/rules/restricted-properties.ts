@@ -72,9 +72,10 @@ export const registryMembers = [...authFetchMembers, jsonStringifyMember];
 const dataMessage = "database writes and raw SQL only in packages/db or the auth promise view";
 
 /**
- * Names banned on any object: today they occur only in `packages/db/src/batch.ts`.
+ * Names banned on any object: `batch` occurs only in `packages/db/src/batch.ts`; `prepare` is the
+ * D1 binding's raw statement builder.
  */
-const dataNames = ["transaction", "withTransaction", "unsafe", "batch"] as const;
+const dataNames = ["transaction", "withTransaction", "unsafe", "batch", "prepare"] as const;
 
 /**
  * The Drizzle raw-execution family. `run`, `all`, `get` and `values` are everyday names on `Map`,
@@ -97,3 +98,10 @@ export const dataAccessMembers = [
     rawNames.map((property) => ({ message: dataMessage, object, property })),
   ),
 ];
+
+/**
+ * The data-access entries without the D1 `prepare` ban, for test support that seeds the binding.
+ */
+export const dataAccessMembersWithoutPrepare = dataAccessMembers.filter(
+  (member) => member.property !== "prepare",
+);

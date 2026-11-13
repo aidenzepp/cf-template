@@ -1,4 +1,5 @@
 import { Effect, Layer, Ref, Schema } from "effect";
+import { HttpServerResponse, ProblemDetails } from "effect/http";
 import { RequestGuard, WorkerBindings } from "@workspace/config/web-guard";
 import { LATCH_KEY } from "./latch.ts";
 
@@ -18,10 +19,15 @@ const READ_TTL = "30 seconds";
 const ASSET_PREFIX = "/assets/";
 
 /**
- * The body of the 503 answer, as `application/problem+json`.
+ * The problem the 503 answer carries.
  */
-const LATCHED_BODY =
-  '{"type":"/problems/budget-latched","title":"Service paused","status":503,"detail":"Request volume crossed the project\'s budget line; serving resumes when the latch clears."}';
+const LATCHED_PROBLEM = {
+  detail:
+    "Request volume crossed the project's budget line; serving resumes when the latch clears.",
+  status: 503,
+  title: "Service paused",
+  type: "/problems/budget-latched",
+} as const;
 
 /**
  * The failure of one latch read: the binding is missing or has no `get`, or the read rejected.
@@ -70,10 +76,13 @@ export const makeCheck = <E>(store: LatchStore<E>) =>
         : latched.pipe(
             Effect.map((isLatched) =>
               isLatched
-                ? new Response(LATCHED_BODY, {
-                    headers: { "content-type": "application/problem+json", "retry-after": "300" },
-                    status: 503,
-                  })
+                ? HttpServerResponse.toWeb(
+                    HttpServerResponse.setHeader(
+                      ProblemDetails.toResponse(LATCHED_PROBLEM),
+                      "retry-after",
+                      "300",
+                    ),
+                  )
                 : undefined,
             ),
           );
