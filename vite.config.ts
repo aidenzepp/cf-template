@@ -309,6 +309,17 @@ export default defineConfig({
       restrictImports(["apps/api/src/**/http.ts", "apps/auth/src/**/http.ts"], {
         patterns: [...appImports, dbModules],
       }),
+      // The attach files import the block live Layers (#232); each repeats its app's restrictions.
+      restrictImports(["apps/api/src/blocks.ts", "apps/auth/src/blocks.ts"], {
+        blockLayers: false,
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+      }),
+      restrictImports(["apps/web/src/blocks.ts", "apps/web/src/request-layers.ts"], {
+        blockLayers: false,
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts, workersModule],
+      }),
       // Raw-SQL exceptions, each with its reason. `table.ts` is schema DDL (a `check(...)`
       // constraint is SQL text); `reclaim.ts` is the guarded `DELETE ... NOT EXISTS`, a named data
       // module; `test-harness.ts` is test support that seeds the D1 binding.
