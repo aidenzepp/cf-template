@@ -13,7 +13,7 @@ import {
 } from "effect/http-api";
 import { SystemApi } from "@workspace/contract/api/system";
 import { Session, UserId } from "@workspace/contract/domain/session";
-import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
+import { AuthCheckSession, SessionLookup } from "./authorization.ts";
 import { NotebookGroup, NotebookHttp } from "./docs/routes.ts";
 import { NOTES_MAX_PER_OWNER } from "./notes/notebook.aggregate.ts";
 import { NOTE_TITLE_MAX_LENGTH } from "./notes/note.command.ts";
@@ -104,7 +104,6 @@ const serve = (options: {
       Layer.provide(
         Layer.mergeAll(SystemApiHandlers, notebook, probeHandlers(new Error("kaboom"))),
       ),
-      Layer.provide(SessionMiddlewareLive),
       Layer.provide(SessionLookup.layer),
       Layer.provide(
         Layer.succeed(AuthCheckSession, () =>

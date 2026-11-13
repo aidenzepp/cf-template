@@ -10,6 +10,7 @@ import { HttpRouter } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 import { Auth } from "@workspace/auth/contract";
 import { atLogLevel, liveLogLevel } from "@workspace/config/log-level";
+import type { WorkerRequirements } from "@workspace/config/worker-requirements";
 import { makeDatabase } from "@workspace/db/database";
 import { ProblemDetailsIncludeKnob } from "./config.ts";
 import { AuthCheckSession, SessionLookup } from "./authorization.ts";
@@ -243,5 +244,8 @@ export default ApiWorker.make(
     );
 
     return { fetch: Effect.flatten(handler) };
-  }).pipe(Effect.provide(apiObservability)),
+  }).pipe(
+    Effect.provide(apiObservability),
+    Effect.satisfiesServicesType<WorkerRequirements | Auth>(),
+  ),
 );
