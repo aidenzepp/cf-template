@@ -107,7 +107,7 @@ const GuardReceiverLive = GuardReceiver.make(
       const alert = yield* Cloudflare.Alerting.CustomAlert(GUARD_ALERT_ID, target.value.props);
 
       const policy = yield* Output.named(
-        Output.fromEffect(Effect.succeed(target.value.policy)),
+        Output.literal(target.value.policy),
         "BUDGET_GUARD_POLICY_NAME",
       );
 
