@@ -5,7 +5,10 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 /**
  * A pull request that touches the reviewed paths has no record line naming its head commit.
  */
-export class RecordError extends Schema.TaggedError<RecordError>()("RecordError", {
+export class RecordError extends Schema.TaggedError<
+  RecordError,
+  { readonly brand: unique symbol }
+>()("RecordError", {
   message: Schema.String,
 }) {}
 
