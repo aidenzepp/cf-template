@@ -17,6 +17,7 @@ import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./author
 import { NotebookGroup, NotebookHttp } from "./docs/routes.ts";
 import { NOTES_MAX_PER_OWNER } from "./notes/notebook.aggregate.ts";
 import { NOTE_TITLE_MAX_LENGTH } from "./notes/note.command.ts";
+import { NoteIndexUnstored } from "./notes/note-index.projection.ts";
 import { NotesModel } from "./notes/notes.model.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
 import { SessionLive } from "./session-middleware.ts";
@@ -98,7 +99,7 @@ const serve = (options: {
   Effect.gen(function* serveStack() {
     const notebook = NotebookHttp.layerFor(ProbedApi).pipe(
       Layer.provide(SessionLive),
-      Layer.provide(NotesModel.layer(Layer.empty).pipe(Layer.provide(Domain.InMemory))),
+      Layer.provide(NotesModel.layer(NoteIndexUnstored).pipe(Layer.provide(Domain.InMemory))),
     );
 
     const layer = HttpApiBuilder.layer(ProbedApi).pipe(

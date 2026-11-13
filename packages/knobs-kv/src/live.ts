@@ -1,8 +1,8 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { RemovalPolicy, RuntimeContext } from "alchemy";
-import { Clock, Context, Effect, Exit, Layer, Option } from "effect";
-import { LiveKnobs } from "@workspace/config/knob";
-import type { Knob, LiveKnobsPort } from "@workspace/config/knob";
+import { Context, Effect, Layer, Option } from "effect";
+import { LiveKnobs, LiveSourceError, fromSource } from "@workspace/config/knob";
+import type { LiveKnobsPort } from "@workspace/config/knob";
 
 /**
  * How long a read result, success or failure, is reused before the next request reads the key
@@ -49,14 +49,6 @@ export const knobsNamespace = (stackName: string, stage: string) =>
   }).pipe(RemovalPolicy.retain(stage === "prod"));
 
 /**
- * One cached read: when it ran and how it ended.
- */
-interface CachedRead<E> {
-  readonly at: number;
-  readonly exit: Exit.Exit<string | null, E>;
-}
-
-/**
  * Run a read that needs the host context of the request in progress.
  *
  * The binding's methods are typed with `RuntimeContext`, which the request fiber of a Worker
@@ -75,74 +67,37 @@ const withHostContext = <A, E>(call: Effect.Effect<A, E, RuntimeContext>): Effec
   );
 
 /**
- * Build the `LiveKnobs` port that reads tier (c) through `read`.
+ * The name the knobs namespace is logged under.
+ */
+const SOURCE_NAME = "knobs namespace";
+
+/**
+ * Build the `LiveKnobs` port that reads tier (c) through `read`, on the core `fromSource`.
  *
- * Each key is read at most once per {@link KNOB_REFRESH_MS}, and the exit of that read is cached,
- * so a failing store is retried after the same interval as a healthy one. An in-flight read is
- * never shared: two concurrent requests that both miss the cache both read. An absent or empty
- * value, a failed read and a value the knob's schema rejects all yield the tier (b) value. A
- * rejected value logs `knob.live.rejected` once per key at level `error`. The cache and the set of
- * rejected keys belong to the returned port, so they last as long as the isolate that built it.
+ * `fromSource` supplies the on-demand read, the per-isolate cache of {@link KNOB_REFRESH_MS} that
+ * reuses successes and failures and never shares an in-flight read, the tier (b) fallback, and the
+ * once-per-distinct-value `knob.live.rejected` log. This keeps only the adapter from a binding
+ * read to a `LiveSource`: `null` becomes `Option.none()` and a failure becomes a
+ * `LiveSourceError`. The binding read itself, which takes the request's `RuntimeContext` through
+ * `withHostContext`, stays in {@link KnobsKvLive}, because `fromSource` knows no host context.
  *
  * @param read - Read the string stored under a key; `null` when it holds none.
  * @returns The port value that provides `LiveKnobs`.
  */
 export const makeKnobsPort = <E>(
   read: (key: string) => Effect.Effect<string | null, E>,
-): LiveKnobsPort => {
-  const cache = new Map<string, CachedRead<E>>();
-  const rejected = new Set<string>();
-
-  const cachedRead = Effect.fn("knobs-kv.cachedRead")(function* cachedRead(key: string) {
-    const now = yield* Clock.currentTimeMillis;
-    const hit = cache.get(key);
-
-    if (hit !== undefined && now - hit.at < KNOB_REFRESH_MS) {
-      return hit.exit;
-    }
-
-    const exit = yield* Effect.exit(read(key));
-
-    cache.set(key, { at: now, exit });
-
-    if (Exit.isFailure(exit)) {
-      yield* Effect.logWarning(`The knobs namespace failed reading ${key}.`, exit.cause);
-    }
-
-    return exit;
-  });
-
-  const reject = (key: string) => {
-    if (rejected.has(key)) {
-      return Effect.void;
-    }
-
-    rejected.add(key);
-
-    return Effect.logError("knob.live.rejected").pipe(
-      Effect.annotateLogs({ "knob.key": key, [`knob.${key}.reason`]: "schema_rejected" }),
-    );
-  };
-
-  return {
-    bind: <A>(knob: Knob<A>) =>
-      knob.config.pipe(
-        Effect.map((base): Effect.Effect<A> =>
-          Effect.gen(function* reader() {
-            const exit = yield* cachedRead(knob.key);
-
-            if (Exit.isFailure(exit) || exit.value === null || exit.value === "") {
-              return base;
-            }
-
-            return yield* knob
-              .decode(exit.value)
-              .pipe(Effect.catch(() => reject(knob.key).pipe(Effect.as(base))));
-          }),
+): LiveKnobsPort =>
+  fromSource(
+    {
+      name: SOURCE_NAME,
+      read: (key) =>
+        read(key).pipe(
+          Effect.map(Option.fromNullishOr),
+          Effect.mapError((cause) => new LiveSourceError({ cause, source: SOURCE_NAME })),
         ),
-      ),
-  };
-};
+    },
+    { refreshMs: KNOB_REFRESH_MS },
+  );
 
 /**
  * Provide `LiveKnobs` from the stage's knobs namespace, bound read-only.

@@ -6,6 +6,7 @@ import { HttpRouter, HttpServerResponse } from "effect/http";
 import { HttpApi, HttpApiBuilder } from "effect/http-api";
 import { SessionLookup } from "./authorization.ts";
 import { NotebookHttp } from "./docs/routes.ts";
+import { NoteIndexUnstored } from "./notes/note-index.projection.ts";
 import { NotesModel } from "./notes/notes.model.ts";
 import { FOREIGN_ORIGIN_TYPE, OriginCheck } from "./origin-check.ts";
 import { SessionLive } from "./session-middleware.ts";
@@ -34,7 +35,7 @@ const routes = Layer.mergeAll(
     Layer.provide(
       NotebookHttp.layerFor(Hosted).pipe(
         Layer.provide(SessionLive),
-        Layer.provide(NotesModel.layer(Layer.empty).pipe(Layer.provide(Domain.InMemory))),
+        Layer.provide(NotesModel.layer(NoteIndexUnstored).pipe(Layer.provide(Domain.InMemory))),
         Layer.provide(
           Layer.succeed(SessionLookup, SessionLookup.of({ current: Effect.succeed(null) })),
         ),

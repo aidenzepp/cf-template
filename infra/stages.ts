@@ -1,5 +1,6 @@
-import { Config, Effect, Option, Schema, SchemaTransformation } from "effect";
+import { Config, Effect, Option, Schema, pipe, SchemaTransformation, Struct } from "effect";
 import type { LogLevel } from "effect";
+import type { Knob } from "@workspace/config/knob";
 import { Digest } from "effect/crypto";
 import { DocsEnabledKnob } from "@workspace/config/docs";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
@@ -298,18 +299,59 @@ export const Stages: Record<StageKind, StageValues> = {
 };
 
 /**
+ * The knob behind every knob value of {@link StageValues}, the one list the test-stage overrides
+ * derive from. A knob-adding block adds its knob here and its field to {@link StageValues}.
+ */
+const stageKnobs = {
+  AUTH_CHECK_SESSION_TIMEOUT_MS: AuthCheckSessionTimeoutKnob,
+  AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob,
+  AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob,
+  AUTH_PASSWORD_SCRYPT,
+  DOCS_ENABLED: DocsEnabledKnob,
+  HEAD_SAMPLING_RATE: HeadSamplingRateKnob,
+  LOG_LEVEL: LogLevelKnob,
+  PROBLEM_DETAILS_INCLUDE: ProblemDetailsIncludeKnob,
+};
+
+/**
+ * Turn a knob into the reader of its `STAGES_TEST_<KEY>` override: the decoded value, or none.
+ */
+interface ReadOverride extends Struct.Lambda {
+  <A>(self: Knob<A>): Config.Config<Option.Option<A>>;
+  readonly "~lambda.out": Config.Config<
+    Option.Option<this["~lambda.in"] extends Knob<infer A> ? A : never>
+  >;
+}
+
+/**
+ * Turn an override into the function that picks it over a base value.
+ */
+interface PickOverride extends Struct.Lambda {
+  <A>(self: Option.Option<A>): (base: A) => A;
+  readonly "~lambda.out": (
+    base: this["~lambda.in"] extends Option.Option<infer A> ? A : never,
+  ) => this["~lambda.in"] extends Option.Option<infer A> ? A : never;
+}
+
+const readOverride = Struct.lambda<ReadOverride>((knob) => knob.override("STAGES_TEST_"));
+
+const pickOverride = Struct.lambda<PickOverride>(
+  (override) => (base) => Option.getOrElse(override, () => base),
+);
+
+/**
  * Read the knob values of a stage.
  *
- * For the `test` kind, a key is replaced by the environment variable `STAGES_TEST_<KEY>` when it
- * is set, decoded by the same knob codec, so a test deploy can flip one value without editing
- * {@link Stages}. Other kinds ignore the variable.
+ * For the `test` kind, every knob of {@link stageKnobs} is replaced by the environment variable
+ * `STAGES_TEST_<KEY>` when it is set, decoded by the knob's own schema, so a test deploy can flip
+ * one value without editing {@link Stages}. Other kinds ignore the variables.
  *
  * @param stage - The decoded stage.
  * @returns The knob values, or the failure of an invalid override.
  */
 export const stageValues = Effect.fn("stageValues")(function* stageValues(
   stage: StageName,
-): Effect.fn.Return<StageValues, Config.ConfigError | Schema.SchemaError> {
+): Effect.fn.Return<StageValues, Config.ConfigError> {
   const kind = kindOf(stage);
   const base = Stages[kind];
 
@@ -317,12 +359,7 @@ export const stageValues = Effect.fn("stageValues")(function* stageValues(
     return base;
   }
 
-  const logLevel = yield* Config.String(`STAGES_TEST_${LogLevelKnob.key}`).pipe(Config.option);
+  const overrides = yield* Config.all(pipe(stageKnobs, Struct.map(readOverride)));
 
-  return {
-    ...base,
-    LOG_LEVEL: Option.isSome(logLevel)
-      ? yield* LogLevelKnob.decode(logLevel.value)
-      : base.LOG_LEVEL,
-  };
+  return Struct.evolve(base, pipe(overrides, Struct.map(pickOverride)));
 });
