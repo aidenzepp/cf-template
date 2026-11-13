@@ -1,0 +1,7 @@
+INFERRED: not recorded from a real run; replaced by the S-43 oracle.
+exit: 0
+prod
+staging-12
+staging-7
+test-ci
+test-i38
