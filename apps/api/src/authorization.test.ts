@@ -3,39 +3,29 @@ import {
   ConfigProvider,
   Context,
   DateTime,
-  // block:notes start
   Deferred,
-  // block:notes end
   Effect,
-  // block:notes start
   Fiber,
-  // block:notes end
   Layer,
   Logger,
-  // block:notes start
   References,
   Ref,
-  // block:notes end
   Schema,
-  // block:notes start
   Tracer,
-  // block:notes end
 } from "effect";
-// block:notes start
 import { TestClock } from "effect/testing";
-// block:notes end
-import { HttpRouter, HttpServer } from "effect/http";
+import * as Domain from "@alchemy.run/domain";
+import * as Http from "alchemy/Http";
+import { HttpRouter } from "effect/http";
+import { Rpc, RpcGroup, RpcTest } from "effect/rpc";
 import { HttpApiBuilder } from "effect/http-api";
 import { RpcCallError } from "alchemy/Rpc";
-import { Api } from "@workspace/contract/api/api";
 import { Session, UserId } from "@workspace/contract/domain/session";
 import { AuthCheckSession, SessionLookup, SessionMiddlewareLive } from "./authorization.ts";
-// block:notes start
-import { ExampleFeatureGateLive } from "./notes/gate.ts";
-import { NotesApiHandlersNoDeps } from "./notes/http.ts";
-import { Notes } from "./notes/notes.ts";
-// block:notes end
+import { NotebookHttp, ServedApi } from "./docs/routes.ts";
+import { NotesModel } from "./notes/notes.model.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
+import { Session as SessionGuard, SessionLive } from "./session-middleware.ts";
 import { SystemApiHandlers } from "./system/http.ts";
 
 const ada = new Session({
@@ -59,41 +49,31 @@ const wire = (session: Session) =>
   );
 
 /**
- * The whole router stack of the Worker over a stub `AUTH`.
+ * The whole router stack of the Worker over a stub `AUTH`, the Notebook group hosted in memory.
  *
  * @param checkSession - The stub `AUTH`.
+ * @param env - The Worker bindings the knobs are read from.
  * @returns The layer a web handler is built from.
  */
 const stack = (
   checkSession: typeof AuthCheckSession.Service,
   env: Readonly<Record<string, string | number | boolean>>,
-  // block:notes start
-  notes: Layer.Layer<Notes> = Notes.layerMemory,
-  // block:notes end
 ) =>
-  HttpApiBuilder.layer(Api).pipe(
+  HttpApiBuilder.layer(ServedApi).pipe(
     Layer.provide(
       Layer.mergeAll(
-        // block:notes start
-        NotesApiHandlersNoDeps,
-        // block:notes end
         SystemApiHandlers,
-      ).pipe(
-        // block:notes start
-        Layer.provide(notes),
-        // block:notes end
+        NotebookHttp.layerFor(ServedApi).pipe(
+          Layer.provide(SessionLive),
+          Layer.provide(NotesModel.layer(Layer.empty).pipe(Layer.provide(Domain.InMemory))),
+        ),
       ),
     ),
-    Layer.provide([
-      SessionMiddlewareLive,
-      // block:notes start
-      ExampleFeatureGateLive,
-      // block:notes end
-    ]),
+    Layer.provide(SessionMiddlewareLive),
     Layer.provide(SessionLookup.layer),
     Layer.provide(Layer.succeed(AuthCheckSession, checkSession)),
     Layer.provide(layerProblemDetails({ includeDetails: false })),
-    Layer.provide(HttpServer.layerServices),
+    Layer.provide(Http.Platform),
     Layer.merge(ProblemAdapter),
     Layer.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(env))),
   );
@@ -103,9 +83,8 @@ const stack = (
  *
  * @param checkSession - The stub `AUTH`.
  * @param options - Optional settings.
- * @param options.env - The Worker bindings the knobs are read from; the feature is on by default.
+ * @param options.env - The Worker bindings the knobs are read from; none by default.
  * @param options.logger - A logger that sees every log line of the requests.
- * @param options.notes - The notes service behind the handlers; in memory by default.
  * @param options.tracer - A tracer that sees every span of the requests.
  * @returns A function that sends a request and resolves to its response.
  */
@@ -114,25 +93,13 @@ const serve = (
   options: {
     readonly env?: Readonly<Record<string, string | number | boolean>>;
     readonly logger?: Logger.Logger<unknown, void>;
-    // block:notes start
-    readonly notes?: Layer.Layer<Notes>;
-    // block:notes end
     readonly tracer?: Tracer.Tracer;
   } = {},
 ) =>
   Effect.gen(function* serveStack() {
-    const { dispose, handler } = HttpRouter.toWebHandler(
-      stack(
-        checkSession,
-        options.env ?? { EXAMPLE_FEATURE_ENABLED: true },
-        // block:notes start
-        options.notes,
-        // block:notes end
-      ),
-      {
-        disableLogger: true,
-      },
-    );
+    const { dispose, handler } = HttpRouter.toWebHandler(stack(checkSession, options.env ?? {}), {
+      disableLogger: true,
+    });
 
     yield* Effect.addFinalizer(() => Effect.promise(dispose));
 
@@ -149,10 +116,22 @@ const serve = (
     return (request: Request) => Effect.promise(() => handler(request, context));
   });
 
-// block:notes start
+/**
+ * A `POST /api/CreateNote` command for Ada's notebook: a route the `Session` middleware guards.
+ *
+ * @param headers - Extra request headers, such as `cookie`.
+ * @returns The request.
+ */
 const notesRequest = (headers?: Record<string, string>) =>
-  new Request("http://api.test/api/notes", { headers });
-// block:notes end
+  new Request("http://api.test/api/CreateNote", {
+    body: JSON.stringify({
+      commandId: "c-1",
+      input: { body: "", id: "n-1", title: "Title" },
+      target: "ada",
+    }),
+    headers: { "content-type": "application/json", ...headers },
+    method: "POST",
+  });
 
 /**
  * Read a problem response's body.
@@ -161,12 +140,6 @@ const notesRequest = (headers?: Record<string, string>) =>
  * @returns The decoded body.
  */
 const bodyOf = (response: Response) => Effect.promise(() => response.json());
-
-// block:notes start
-/**
- * A notes operation a test never reaches.
- */
-const unused = () => Effect.die("unused");
 
 describe("session middleware", () => {
   it.effect("answers 401 SessionRequired when auth returns null", () =>
@@ -243,7 +216,7 @@ describe("session middleware", () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect("never serves the notes of a caller whose session check faulted", () =>
+  it.effect("never runs a command for a caller whose session check faulted", () =>
     Effect.gen(function* faulted() {
       const send = yield* serve(() => Effect.fail(new RpcCallError({ cause: 1, method: "x" })));
       const response = yield* send(notesRequest({ cookie: "session=valid" }));
@@ -252,19 +225,9 @@ describe("session middleware", () => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect("tags the request span and every handler log line with the caller's userId only", () =>
-    Effect.gen(function* tagged() {
-      const annotated = yield* Ref.make<ReadonlyArray<string>>([]);
+  it.effect("tags the request span with the caller's userId only", () =>
+    Effect.gen(function* taggedSpan() {
       const spans: Array<Tracer.NativeSpan> = [];
-
-      const logger = Logger.make(({ fiber }) => {
-        Effect.runSync(
-          Ref.update(annotated, (all) => [
-            ...all,
-            JSON.stringify(fiber.getRef(References.CurrentLogAnnotations)),
-          ]),
-        );
-      });
 
       const tracer = Tracer.make({
         span: (options) => {
@@ -276,31 +239,63 @@ describe("session middleware", () => {
         },
       });
 
-      const notes = Layer.succeed(
-        Notes,
-        Notes.of({
-          create: unused,
-          get: unused,
-          list: () => Effect.logInfo("notes listed").pipe(Effect.as([])),
-          remove: unused,
-          update: unused,
-        }),
-      );
-
-      const send = yield* serve(() => Effect.succeed(wire(ada)), { logger, notes, tracer });
+      const send = yield* serve(() => Effect.succeed(wire(ada)), { tracer });
 
       assert.strictEqual((yield* send(notesRequest())).status, 200);
-      assert.deepStrictEqual(yield* Ref.get(annotated), ['{"userId":"ada"}']);
       assert.isTrue(spans.some((span) => span.attributes.get("userId") === "ada"));
       assert.isFalse(spans.some((span) => JSON.stringify([...span.attributes]).includes("@")));
     }).pipe(Effect.scoped),
   );
 });
-// block:notes end
+
+/**
+ * A test-local guarded call whose handler writes one log line, since no Notebook handler logs.
+ */
+const Noted = Rpc.make("Noted").middleware(SessionGuard);
+
+/**
+ * The group of {@link Noted}.
+ */
+const NotedGroup = RpcGroup.make(Noted);
+
+describe("the Session middleware over the lookup", () => {
+  it.effect("tags every handler log line with the caller's userId only", () =>
+    Effect.gen(function* taggedLogs() {
+      const annotated = yield* Ref.make<ReadonlyArray<string>>([]);
+
+      // Only the handler's line: building the lookup logs the knob's missing adapter.
+      const logger = Logger.make(({ fiber, message }) => {
+        if (JSON.stringify(message).includes("noted")) {
+          Effect.runSync(
+            Ref.update(annotated, (all) => [
+              ...all,
+              JSON.stringify(fiber.getRef(References.CurrentLogAnnotations)),
+            ]),
+          );
+        }
+      });
+
+      const world = Layer.mergeAll(
+        NotedGroup.toLayer({ Noted: () => Effect.logInfo("noted") }),
+        SessionLive.pipe(
+          Layer.provide(SessionLookup.layer),
+          Layer.provide(Layer.succeed(AuthCheckSession, () => Effect.succeed(wire(ada)))),
+        ),
+      );
+
+      yield* Effect.gen(function* call() {
+        const client = yield* RpcTest.makeClient(NotedGroup);
+
+        yield* client.Noted(undefined, { headers: { cookie: "session=valid" } });
+      }).pipe(Effect.scoped, Effect.provide(world), Effect.provide(Logger.layer([logger])));
+
+      assert.deepStrictEqual(yield* Ref.get(annotated), ['{"userId":"ada"}']);
+    }),
+  );
+});
 
 const sessionRequest = () => new Request("http://api.test/api/session");
 
-// block:notes start
 describe("an answer or a fault that is not a clean session", () => {
   it.effect.each(["notes", "session"] as const)(
     "answers 503, never 500 or signed out, when the answer does not decode (%s)",
@@ -346,13 +341,13 @@ describe("an answer or a fault that is not a clean session", () => {
 });
 
 describe("knobs read from the Worker bindings", () => {
-  it.effect("reads native number and boolean bindings per execution", () =>
+  it.effect("reads a native number binding per execution", () =>
     Effect.gen(function* bindings() {
       const called = yield* Deferred.make<boolean>();
 
       const send = yield* serve(
         () => Deferred.succeed(called, true).pipe(Effect.andThen(Effect.never)),
-        { env: { AUTH_CHECK_SESSION_TIMEOUT_MS: 200, EXAMPLE_FEATURE_ENABLED: true } },
+        { env: { AUTH_CHECK_SESSION_TIMEOUT_MS: 200 } },
       );
 
       const fiber = yield* Effect.forkChild(send(notesRequest()));
@@ -369,7 +364,6 @@ describe("knobs read from the Worker bindings", () => {
     }).pipe(Effect.scoped),
   );
 });
-// block:notes end
 
 describe("GET /api/session", () => {
   it.effect("answers the session of the caller, and null when signed out", () =>

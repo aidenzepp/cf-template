@@ -54,6 +54,38 @@ export const libraryPaths: ReadonlyArray<RestrictedPath> = [
     message: `${serverDataMessage}; TanStack Query is rejected (C27)`,
     name: "@tanstack/react-query",
   },
+  {
+    message: `${serverDataMessage}; rejected with TanStack Query (D8)`,
+    name: "@tanstack/query-core",
+  },
+  {
+    message: `${serverDataMessage}; rejected with TanStack Query (D8)`,
+    name: "@tanstack/react-db",
+  },
+  {
+    message:
+      "final-form is not used (D8): the form mechanism is TanStack Form, adopted with the first form (#227)",
+    name: "final-form",
+  },
+  {
+    message:
+      "xstate is deferred (D9) until a client flow has at least three states and a guard one atom cannot express, or the Effect bridge is stable on a stable XState major",
+    name: "xstate",
+  },
+  {
+    message:
+      "@tanstack/react-table is deferred (D10, #228) until the first grid that sorts, filters or pages",
+    name: "@tanstack/react-table",
+  },
+  {
+    message:
+      "@tanstack/react-virtual is deferred (D10, #229) until the first list that renders hundreds of rows",
+    name: "@tanstack/react-virtual",
+  },
+  {
+    message: "@tanstack/react-hotkeys is deferred (D10, #230) until the first keyboard shortcut",
+    name: "@tanstack/react-hotkeys",
+  },
 ];
 
 /**
@@ -61,6 +93,20 @@ export const libraryPaths: ReadonlyArray<RestrictedPath> = [
  */
 export const libraryPatterns: ReadonlyArray<RestrictedPattern> = [
   { group: ["@hookform/*"], message: "use TanStack Form (docs/capabilities.md, Forms)" },
+  {
+    group: ["@conform-to/*"],
+    message:
+      "@conform-to is not used (D8): the form mechanism is TanStack Form, adopted with the first form (#227)",
+  },
+  {
+    group: ["@stylexjs/*"],
+    message: "StyleX is not used (D8): styling is Tailwind through stock components",
+  },
+  {
+    group: ["@xstate/*"],
+    message:
+      "@xstate/* is deferred (D9) until a client flow has at least three states and a guard one atom cannot express, or the Effect bridge is stable on a stable XState major",
+  },
 ];
 
 /**

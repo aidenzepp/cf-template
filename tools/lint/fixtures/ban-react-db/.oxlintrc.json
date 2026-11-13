@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@tanstack/react-db",
+            "message": "D8: server data stays on Effect atoms"
+          }
+        ],
+        "patterns": []
+      }
+    ]
+  }
+}

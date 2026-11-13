@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "swr",
+            "message": "D8: server data stays on Effect atoms"
+          }
+        ],
+        "patterns": []
+      }
+    ]
+  }
+}

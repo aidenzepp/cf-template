@@ -28,6 +28,7 @@
         "knip": "6.44.2",
         "oxlint-plugin-react-doctor": "0.9.18",
         "playwright": "1.65.0",
+        "postcss": "8.5.32",
         "supdoc": "0.6.0",
         "typescript": "7.0.2",
         "ultracite": "8.1.1",
@@ -52,7 +53,6 @@
       "devDependencies": {
         "@effect/platform-bun": "4.1.2",
         "@effect/vitest": "4.1.2",
-        "miniflare": "4.20260730.0",
       },
     },
     "apps/auth": {

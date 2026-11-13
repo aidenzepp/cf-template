@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@tanstack/react-hotkeys",
+            "message": "D10 #230"
+          }
+        ],
+        "patterns": []
+      }
+    ]
+  }
+}

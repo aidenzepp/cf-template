@@ -14,3 +14,9 @@ export const DOCS_PATH = "/api/docs" as const;
  * test there pins the two together.
  */
 export const LLMS_PATH = "/llms.txt" as const;
+
+/**
+ * Where `web` serves the committed `DESIGN.md`, behind the same `DOCS_ENABLED` knob as the other
+ * documentation paths. `web` answers it itself, so it is not a forwarded path.
+ */
+export const DESIGN_PATH = "/design.md" as const;
