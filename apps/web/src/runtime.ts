@@ -18,6 +18,11 @@ let hydratedAuthMethods = "";
 let hydratedOrphanGrace = "";
 
 /**
+ * The `STACK_NAME` text the server handed to the browser the same way.
+ */
+let hydratedStackName = "";
+
+/**
  * The `AUTH_METHODS` text of this environment: the Worker's binding on the server, the hydrated
  * copy in the browser. An empty copy fails the decode; there is no fallback value.
  */
@@ -32,6 +37,23 @@ export const authMethodsText = createIsomorphicFn()
 export const orphanGraceText = createIsomorphicFn()
   .server(() => env.AUTH_ORPHAN_GRACE_SECONDS)
   .client(() => hydratedOrphanGrace);
+
+/**
+ * The `STACK_NAME` text of this environment: the Worker's binding on the server, the hydrated copy
+ * in the browser.
+ */
+export const stackNameText = createIsomorphicFn()
+  .server(() => env.STACK_NAME)
+  .client(() => hydratedStackName);
+
+/**
+ * Remember the `STACK_NAME` text the server dehydrated, before the browser renders a page.
+ *
+ * @param text - The stack name `infra` bound.
+ */
+export const hydrateStackName = (text: string): void => {
+  hydratedStackName = text;
+};
 
 /**
  * Remember the `AUTH_ORPHAN_GRACE_SECONDS` text the server dehydrated, before the browser's runtime
