@@ -5,8 +5,13 @@ import { RequestGuard, WorkerBindings, isKvReader } from "@workspace/config/web-
 import { BudgetGuardLive, makeCheck } from "./live.ts";
 import { periodEnd } from "./latch.ts";
 
-const BODY =
-  '{"type":"/problems/budget-latched","title":"Service paused","status":503,"detail":"Request volume crossed the project\'s budget line; serving resumes when the latch clears."}';
+const BODY = {
+  detail:
+    "Request volume crossed the project's budget line; serving resumes when the latch clears.",
+  status: 503,
+  title: "Service paused",
+  type: "/problems/budget-latched",
+};
 
 /**
  * Build the guard over a store that answers `outcome` and counts its reads, then ask it about
@@ -50,7 +55,7 @@ describe("makeCheck", () => {
         assert.strictEqual(response.status, 503);
         assert.strictEqual(response.headers.get("content-type"), "application/problem+json");
         assert.strictEqual(response.headers.get("retry-after"), "300");
-        assert.strictEqual(yield* Effect.promise(() => response.text()), BODY);
+        assert.deepStrictEqual(yield* Effect.promise(() => response.json()), BODY);
       }
     }),
   );

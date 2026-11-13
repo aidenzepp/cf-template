@@ -12,6 +12,14 @@ export class DesignMdParseError extends Schema.TaggedError<DesignMdParseError>()
 ) {}
 
 /**
+ * The guidance file repeats a heading the generator writes. The message names the heading.
+ */
+export class DesignMdGuidanceError extends Schema.TaggedError<DesignMdGuidanceError>()(
+  "DesignMdGuidanceError",
+  { message: Schema.String },
+) {}
+
+/**
  * The custom properties of the blocks the generator reads: `@theme`, `:root` and `.dark`.
  */
 interface Blocks {
@@ -362,27 +370,68 @@ const render = (blocks: Blocks): string => {
 };
 
 /**
- * Generate the `DESIGN.md` text for one stylesheet.
+ * The `##` headings of a text.
+ *
+ * @param text - The text to scan.
+ * @returns Each heading line.
+ */
+const headings = (text: string): ReadonlyArray<string> => text.match(/^## .+$/gmu) ?? [];
+
+/**
+ * Fail when the guidance repeats a `##` heading of the generated text.
+ *
+ * @param generated - The generated text.
+ * @param guidance - The hand-written guidance text.
+ * @returns The guidance, or a {@link DesignMdGuidanceError} naming the repeated heading.
+ */
+const appendGuidance = (
+  generated: string,
+  guidance: string,
+): Effect.Effect<string, DesignMdGuidanceError> => {
+  const written = new Set(headings(generated));
+  const repeated = headings(guidance).find((heading) => written.has(heading));
+
+  return repeated === undefined
+    ? Effect.succeed(guidance === "" ? generated : `${generated}\n${guidance}`)
+    : Effect.fail(
+        new DesignMdGuidanceError({
+          message: `guidance repeats the generated heading "${repeated}"; the generator writes it already`,
+        }),
+      );
+};
+
+/**
+ * Generate the `DESIGN.md` text for one stylesheet: the generated tokens, then the guidance.
  *
  * @param file - The stylesheet's name, used in a parse failure.
  * @param css - The stylesheet text.
- * @returns The `DESIGN.md` text, or a {@link DesignMdParseError}.
+ * @param guidance - The hand-written guidance appended after the generated sections.
+ * @returns The `DESIGN.md` text, or a {@link DesignMdParseError} or {@link DesignMdGuidanceError}.
  */
-export const generate = (file: string, css: string): Effect.Effect<string, DesignMdParseError> =>
-  Effect.map(readBlocks(css, file), render);
+export const generate = (
+  file: string,
+  css: string,
+  guidance = "",
+): Effect.Effect<string, DesignMdParseError | DesignMdGuidanceError> =>
+  Effect.flatMap(Effect.map(readBlocks(css, file), render), (generated) =>
+    appendGuidance(generated, guidance),
+  );
 
 /**
- * Read a stylesheet and generate its `DESIGN.md` text.
+ * Read a stylesheet and optionally a guidance file, and generate the `DESIGN.md` text.
  *
  * @param path - The stylesheet path.
+ * @param guidancePath - The guidance file path, if any.
  * @returns The `DESIGN.md` text, or a failure naming the file.
  */
 export const generateFrom = Effect.fn("designMd.generateFrom")(function* generateFrom(
   path: string,
+  guidancePath?: string,
 ) {
   const fs = yield* FileSystem.FileSystem;
+  const guidance = guidancePath === undefined ? "" : yield* fs.readFileString(guidancePath);
 
-  return yield* generate(path, yield* fs.readFileString(path));
+  return yield* generate(path, yield* fs.readFileString(path), guidance);
 });
 
 if (import.meta.main) {
@@ -393,7 +442,10 @@ if (import.meta.main) {
 
       yield* fs.writeFileString(
         `${root}/DESIGN.md`,
-        yield* generateFrom(`${root}/packages/ui/src/styles/globals.css`),
+        yield* generateFrom(
+          `${root}/packages/ui/src/styles/globals.css`,
+          `${root}/tools/design-md/guidance.md`,
+        ),
       );
     }).pipe(Effect.provide(BunServices.layer)),
   );
