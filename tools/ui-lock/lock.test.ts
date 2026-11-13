@@ -2,6 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 
+import { applyStockTheme, checkTheme, diffTheme, themeFile } from "./theme.ts";
 import { checkLock, componentsDirectory, diffLock, hashFiles, lockFile, readTree } from "./lock.ts";
 
 const encoder = new TextEncoder();
@@ -69,5 +70,31 @@ it.effect("fails when a file is added", () =>
     }));
 
     assert.deepStrictEqual(found, ["added: extra.tsx"]);
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("theme passes on the committed stylesheet", () =>
+  Effect.gen(function* themePasses() {
+    const path = yield* Path.Path;
+
+    yield* checkTheme(path.join(yield* root(), themeFile));
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("theme fails when one variable is edited, and stock restores it", () =>
+  Effect.gen(function* themeEdited() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const css = yield* fs.readFileString(path.join(yield* root(), themeFile));
+
+    const edited = css.replace(
+      "--primary: oklch(0.205 0 0);",
+      "--primary: oklch(0.585 0.233 277.117);",
+    );
+
+    assert.deepStrictEqual(diffTheme(edited), [
+      ":root edited: --primary: oklch(0.585 0.233 277.117) (stock oklch(0.205 0 0))",
+    ]);
+    assert.deepStrictEqual(diffTheme(applyStockTheme(edited)), []);
   }).pipe(Effect.provide(BunServices.layer)),
 );
