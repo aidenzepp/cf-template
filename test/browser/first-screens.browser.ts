@@ -182,7 +182,7 @@ const SCREENS = [
   },
   {
     cookie: undefined,
-    heading: "Page not found",
+    heading: "Page not found (merge-gate demo)",
     name: "not found page",
     path: "/missing",
     slug: "not-found",
