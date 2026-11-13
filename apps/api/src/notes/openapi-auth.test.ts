@@ -6,6 +6,7 @@ import { HttpServerRequest, HttpServerResponse } from "effect/http";
 import { OpenApi } from "effect/http-api";
 import { ServedApi } from "../docs/routes.ts";
 import { makeHandler } from "../worker.ts";
+import { NoteIndexUnstored } from "./note-index.projection.ts";
 import { NotesModel } from "./notes.model.ts";
 
 /**
@@ -135,7 +136,7 @@ const operations: ReadonlyArray<Operation> = Object.entries(
 const statusWithoutCookie = (operation: Operation) =>
   Effect.gen(function* call() {
     const hosted = yield* Layer.build(
-      NotesModel.layer(Layer.empty).pipe(Layer.provide(Domain.InMemory)),
+      NotesModel.layer(NoteIndexUnstored).pipe(Layer.provide(Domain.InMemory)),
     );
 
     const handler = yield* makeHandler(

@@ -1,9 +1,23 @@
-import { DateTime, Effect } from "effect";
+import { DateTime, Effect, Schema } from "effect";
 
 /**
  * The KV key that holds the latch.
  */
 export const LATCH_KEY = "state";
+
+/**
+ * The latch record: when the alert fired, its correlation id if it carried one, and the set flag.
+ */
+const Latch = Schema.Struct({
+  at: Schema.Number,
+  correlationId: Schema.optional(Schema.String),
+  latched: Schema.Literal(true),
+});
+
+/**
+ * The latch record as the JSON text kept under {@link LATCH_KEY}.
+ */
+export const LatchJson = Schema.fromJsonString(Latch);
 
 /**
  * The first instant of the next UTC month in epoch seconds: where the billing-period end is taken
@@ -67,13 +81,11 @@ export const makeReceive =
         return;
       }
 
-      yield* options.put(
-        LATCH_KEY,
-        JSON.stringify({
-          at: delivery.ts,
-          correlationId: delivery.alertCorrelationId,
-          latched: true,
-        }),
-        { expiration: yield* periodEnd },
-      );
+      const value = yield* Schema.encodeEffect(LatchJson)({
+        at: delivery.ts,
+        correlationId: delivery.alertCorrelationId,
+        latched: true,
+      });
+
+      yield* options.put(LATCH_KEY, value, { expiration: yield* periodEnd });
     }).pipe(Effect.catchCause((cause) => Effect.logError("web.guard.latch_error", cause)));
