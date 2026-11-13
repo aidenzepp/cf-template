@@ -1,5 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import {
+  Cause,
   ConfigProvider,
   Effect,
   Exit,
@@ -65,7 +66,11 @@ const sourceOf = (value: string): LiveSource => ({
  * Construct a knob from `schema` and return the defect `Knob.make` raised.
  */
 const defectOf = (schema: Schema.Codec<string>) =>
-  Effect.try({ catch: (error) => error, try: () => Knob.make("BARE", schema) }).pipe(Effect.flip);
+  Effect.try({
+    catch: (error) =>
+      error instanceof MissingKnobAnnotationError ? error : new Cause.UnknownError(error),
+    try: () => Knob.make("BARE", schema),
+  }).pipe(Effect.flip);
 
 describe("Knob.make", () => {
   it.effect("applies the default when the key is absent", () =>

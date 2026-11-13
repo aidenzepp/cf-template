@@ -217,20 +217,29 @@ const WebProdLive = Layer.effect(WebProd)(
             watchers.delete(check);
           });
         }),
-      limiterCalls: (name) =>
-        Effect.tryPromise({
-          catch: (cause) =>
-            new HarnessError({
-              message: `the rate limiter call count for ${name} could not be read: ${String(cause)}`,
-            }),
+      limiterCalls: (name) => {
+        const unreadable = (cause: unknown) =>
+          new HarnessError({
+            message: `the rate limiter call count for ${name} could not be read: ${String(cause)}`,
+          });
+
+        return Effect.tryPromise({
+          catch: unreadable,
           try: async () => {
             const worker = await mf.getWorker(`limit-${name}`);
             const reply = await worker.fetch("http://limiter.test/");
-            const body = await reply.json();
 
-            return Schema.decodeUnknownSync(Schema.Struct({ calls: Schema.Number }))(body).calls;
+            return await reply.json();
           },
-        }),
+        }).pipe(
+          Effect.flatMap((body) =>
+            Schema.decodeUnknownEffect(Schema.Struct({ calls: Schema.Number }))(body).pipe(
+              Effect.mapError(unreadable),
+            ),
+          ),
+          Effect.map(({ calls }) => calls),
+        );
+      },
       send: (method, target, headers) =>
         Effect.tryPromise({
           catch: (cause) =>

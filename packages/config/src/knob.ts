@@ -208,49 +208,47 @@ export const fromSource = (source: LiveSource): LiveKnobsPort => {
 
   return {
     bind: <A>(knob: Knob<A>) =>
-      Effect.gen(function* bind() {
-        const base = yield* knob.config;
-
-        const read: Effect.Effect<A> = Effect.gen(function* read() {
-          const raw = yield* source
-            .read(knob.key)
-            .pipe(
-              Effect.catchTag("LiveSourceError", (error) =>
-                Effect.logWarning(
-                  `Live source ${source.name} failed reading ${knob.key}.`,
-                  error,
-                ).pipe(Effect.as(Option.none<string>())),
-              ),
-            );
-
-          if (Option.isNone(raw) || raw.value === "") {
-            return base;
-          }
-
-          return yield* knob.decode(raw.value).pipe(
-            Effect.catch(() => {
-              const seen = `${knob.key}\u0000${raw.value}`;
-
-              if (rejected.has(seen)) {
-                return Effect.succeed(base);
-              }
-
-              rejected.add(seen);
-
-              return withReason(
-                Effect.logError("knob.live.rejected").pipe(
-                  Effect.annotateLogs({ "knob.key": knob.key, "knob.source": source.name }),
+      knob.config.pipe(
+        Effect.flatMap((base) => {
+          const read: Effect.Effect<A> = Effect.gen(function* read() {
+            const raw = yield* source
+              .read(knob.key)
+              .pipe(
+                Effect.catchTag("LiveSourceError", (error) =>
+                  Effect.logWarning(
+                    `Live source ${source.name} failed reading ${knob.key}.`,
+                    error,
+                  ).pipe(Effect.as(Option.none<string>())),
                 ),
-                knob.key,
-                "schema_rejected",
-              ).pipe(Effect.as(base));
-            }),
-          );
-        });
+              );
 
-        yield* read;
+            if (Option.isNone(raw) || raw.value === "") {
+              return base;
+            }
 
-        return read;
-      }),
+            return yield* knob.decode(raw.value).pipe(
+              Effect.catch(() => {
+                const seen = `${knob.key}\u0000${raw.value}`;
+
+                if (rejected.has(seen)) {
+                  return Effect.succeed(base);
+                }
+
+                rejected.add(seen);
+
+                return withReason(
+                  Effect.logError("knob.live.rejected").pipe(
+                    Effect.annotateLogs({ "knob.key": knob.key, "knob.source": source.name }),
+                  ),
+                  knob.key,
+                  "schema_rejected",
+                ).pipe(Effect.as(base));
+              }),
+            );
+          });
+
+          return read.pipe(Effect.as(read));
+        }),
+      ),
   };
 };

@@ -127,12 +127,8 @@ export const runSmoke = Effect.fn("smoke.run")(function* runSmoke(target: SmokeT
       ? result.body.url
       : "";
 
-    const redirect = Effect.try(() => new URL(url).searchParams.get("redirect_uri")).pipe(
-      Effect.orElseSucceed(() => null),
-    );
-
     const expected = `${target.prodOrigin}/auth/callback/${provider}`;
-    const actual = yield* redirect;
+    const actual = URL.parse(url)?.searchParams.get("redirect_uri") ?? null;
 
     yield* expect(
       result.status === 200 && actual === expected,

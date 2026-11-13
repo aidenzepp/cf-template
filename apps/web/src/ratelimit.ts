@@ -1,4 +1,4 @@
-import { Effect, Number as Num, Result } from "effect";
+import { Effect, Number as Num, Result, Schema } from "effect";
 
 /**
  * The Workers `ratelimit` binding: one `limit` call per request, answering only whether it passed.
@@ -218,6 +218,13 @@ export const classify = (
 };
 
 /**
+ * A rejected `limit` call of a rate-limit binding.
+ */
+class RateLimitCallFailed extends Schema.TaggedError<RateLimitCallFailed>()("RateLimitCallFailed", {
+  cause: Schema.Defect(),
+}) {}
+
+/**
  * Ask one binding whether the caller may proceed. A rejected `limit` fails open: it logs one
  * `web.ratelimit.error` error naming the class and answers allowed.
  *
@@ -227,7 +234,10 @@ export const classify = (
  * @returns Whether the caller is within the limit.
  */
 const allowed = (binding: RateLimitBinding, cls: RateLimitClass, key: string) =>
-  Effect.tryPromise(() => binding.limit({ key })).pipe(
+  Effect.tryPromise({
+    catch: (cause) => new RateLimitCallFailed({ cause }),
+    try: () => binding.limit({ key }),
+  }).pipe(
     Effect.map((outcome) => outcome.success),
     Effect.catch(() =>
       Effect.logError("web.ratelimit.error").pipe(

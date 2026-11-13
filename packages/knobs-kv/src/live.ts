@@ -126,23 +126,21 @@ export const makeKnobsPort = <E>(
 
   return {
     bind: <A>(knob: Knob<A>) =>
-      Effect.gen(function* bind() {
-        const base = yield* knob.config;
+      knob.config.pipe(
+        Effect.map((base): Effect.Effect<A> =>
+          Effect.gen(function* reader() {
+            const exit = yield* cachedRead(knob.key);
 
-        const reader: Effect.Effect<A> = Effect.gen(function* reader() {
-          const exit = yield* cachedRead(knob.key);
+            if (Exit.isFailure(exit) || exit.value === null || exit.value === "") {
+              return base;
+            }
 
-          if (Exit.isFailure(exit) || exit.value === null || exit.value === "") {
-            return base;
-          }
-
-          return yield* knob
-            .decode(exit.value)
-            .pipe(Effect.catch(() => reject(knob.key).pipe(Effect.as(base))));
-        });
-
-        return reader;
-      }),
+            return yield* knob
+              .decode(exit.value)
+              .pipe(Effect.catch(() => reject(knob.key).pipe(Effect.as(base))));
+          }),
+        ),
+      ),
   };
 };
 

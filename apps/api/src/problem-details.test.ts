@@ -240,9 +240,10 @@ describe("the adapter", () => {
   it.effect("turns a defect into a 500 problem and still reports the original defect", () =>
     Effect.gen(function* defect() {
       const reports = yield* Ref.make<ReadonlyArray<string>>([]);
+      const services = yield* Effect.context();
 
       const reporter = ErrorReporter.make(({ error }) => {
-        Effect.runSync(Ref.update(reports, (all) => [...all, error.message]));
+        Effect.runSyncWith(services)(Ref.update(reports, (all) => [...all, error.message]));
       });
 
       const send = yield* serve({ ...defaults, reporter });

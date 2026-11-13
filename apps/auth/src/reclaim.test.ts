@@ -30,12 +30,13 @@ interface Line {
 const observed = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* observe() {
     const lines = yield* Ref.make<ReadonlyArray<Line>>([]);
+    const services = yield* Effect.context();
     const spans: Array<Tracer.NativeSpan> = [];
 
     const logger = Logger.make(({ fiber, message }) => {
       const annotations = fiber.getRef(References.CurrentLogAnnotations);
 
-      Effect.runSync(
+      Effect.runSyncWith(services)(
         Ref.update(lines, (all) => [
           ...all,
           {

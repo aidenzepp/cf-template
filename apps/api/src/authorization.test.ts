@@ -262,11 +262,12 @@ describe("the Session middleware over the lookup", () => {
   it.effect("tags every handler log line with the caller's userId only", () =>
     Effect.gen(function* taggedLogs() {
       const annotated = yield* Ref.make<ReadonlyArray<string>>([]);
+      const services = yield* Effect.context();
 
       // Only the handler's line: building the lookup logs the knob's missing adapter.
       const logger = Logger.make(({ fiber, message }) => {
         if (JSON.stringify(message).includes("noted")) {
-          Effect.runSync(
+          Effect.runSyncWith(services)(
             Ref.update(annotated, (all) => [
               ...all,
               JSON.stringify(fiber.getRef(References.CurrentLogAnnotations)),
@@ -287,7 +288,10 @@ describe("the Session middleware over the lookup", () => {
         const client = yield* RpcTest.makeClient(NotedGroup);
 
         yield* client.Noted(undefined, { headers: { cookie: "session=valid" } });
-      }).pipe(Effect.scoped, Effect.provide(world), Effect.provide(Logger.layer([logger])));
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(world.pipe(Layer.provideMerge(Logger.layer([logger])))),
+      );
 
       assert.deepStrictEqual(yield* Ref.get(annotated), ['{"userId":"ada"}']);
     }),
@@ -313,11 +317,12 @@ describe("an answer or a fault that is not a clean session", () => {
     Effect.gen(function* defect() {
       const cookie = "session=SECRETCOOKIE-1234";
       const lines = yield* Ref.make<ReadonlyArray<string>>([]);
+      const services = yield* Effect.context();
 
       const logger = Logger.make(({ fiber, message }) => {
         const annotations = fiber.getRef(References.CurrentLogAnnotations);
 
-        Effect.runSync(
+        Effect.runSyncWith(services)(
           Ref.update(lines, (all) => [...all, JSON.stringify({ annotations, message })]),
         );
       });
