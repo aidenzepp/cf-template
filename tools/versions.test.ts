@@ -150,7 +150,7 @@ const isExact = (spec: string): boolean =>
 /**
  * Every version string under `value`, with the dotted path that reaches it (overrides may nest).
  */
-const specsOf = (value: typeof Schema.Json.Type, path: string): Array<[string, string]> => {
+const specsOf = (value: Schema.Json, path: string): Array<[string, string]> => {
   if (isString(value)) {
     return [[path, value]];
   }

@@ -22,7 +22,7 @@ import {
  * @returns The decoding effect.
  */
 const decodeStage = (raw: string) =>
-  Schema.decodeUnknownEffect(Stage)(raw).pipe(Effect.provide(Digest.layerWebCrypto));
+  Schema.decodeEffect(Stage)(raw).pipe(Effect.provide(Digest.layerWebCrypto));
 
 describe("Stage", () => {
   it.effect.each(["prod", "staging-1", "staging-123456", "test-ci", "test-abc", "dev"])(

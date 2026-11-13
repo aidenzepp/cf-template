@@ -73,8 +73,8 @@ const applied = Effect.fnUntraced(function* applied() {
   const exempt = merge([base, ...overrides.map((override) => override.rules)]);
 
   return {
-    base: yield* Schema.decodeUnknownEffect(Rules)(base),
-    exempt: yield* Schema.decodeUnknownEffect(Rules)(exempt),
+    base: yield* Schema.decodeEffect(Rules)(base),
+    exempt: yield* Schema.decodeEffect(Rules)(exempt),
   };
 });
 
@@ -96,7 +96,7 @@ describe("shadcn fixtures follow the applied preset", () => {
 
         for (const name of names) {
           const text = yield* fs.readFileString(path.join(dir, name, ".oxlintrc.json"));
-          const fixture = yield* Schema.decodeUnknownEffect(FixtureConfig)(text);
+          const fixture = yield* Schema.decodeEffect(FixtureConfig)(text);
           const [[rule, setting]] = Object.entries(fixture.rules);
 
           assert.isDefined(rule);

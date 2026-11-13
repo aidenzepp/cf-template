@@ -39,9 +39,7 @@ const ada = new Session({
  * @returns The encoded session.
  */
 const wire = (session: Session) =>
-  Schema.decodeUnknownSync(Schema.fromJsonString(Schema.toEncoded(Session)))(
-    JSON.stringify(session),
-  );
+  Schema.decodeSync(Schema.fromJsonString(Schema.toEncoded(Session)))(JSON.stringify(session));
 
 /**
  * Test-local endpoints: two whose handlers fault, since no served route can be made to fault on

@@ -38,7 +38,7 @@ it.effect.each(WORKERS)("attaches KnobsKvLive to the %s Worker", (worker) =>
 
 it.effect("exports only ./live", () =>
   Effect.gen(function* exported() {
-    const manifest = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(PackageJson))(
+    const manifest = yield* Schema.decodeEffect(Schema.fromJsonString(PackageJson))(
       yield* read("../package.json"),
     );
 
