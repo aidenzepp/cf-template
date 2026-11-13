@@ -1,4 +1,5 @@
 import { Effect, Number as Num, Result } from "effect";
+import { HttpServerResponse, ProblemDetails } from "effect/http";
 
 /**
  * The Workers `ratelimit` binding: one `limit` call per request, answering only whether it passed.
@@ -238,26 +239,23 @@ const allowed = (binding: RateLimitBinding, cls: RateLimitClass, key: string) =>
   );
 
 /**
- * The 429 answer: an `application/problem+json` body and `Retry-After`, with no HTML, log or span.
+ * The 429 answer: a problem body and `Retry-After`, with no HTML, log or span.
  *
  * @param retryAfterSeconds - The wait to report.
  * @returns The response.
  */
 const tooManyRequests = (retryAfterSeconds: number) =>
-  Response.json(
-    {
-      retryAfterSeconds,
-      status: 429,
-      title: "Too many requests",
-      type: "/problems/rate-limited",
-    },
-    {
-      headers: {
-        "content-type": "application/problem+json",
-        "retry-after": String(retryAfterSeconds),
-      },
-      status: 429,
-    },
+  HttpServerResponse.toWeb(
+    HttpServerResponse.setHeader(
+      ProblemDetails.toResponse({
+        retryAfterSeconds,
+        status: 429,
+        title: "Too many requests",
+        type: "/problems/rate-limited",
+      }),
+      "retry-after",
+      String(retryAfterSeconds),
+    ),
   );
 
 /**
