@@ -54,7 +54,7 @@ export const authFetchMembers = ["client", "authClient"].map((object) => ({
 /**
  * The `JSON.stringify` entry of `no-restricted-properties` (registry row "JSON encoding").
  */
-export const jsonStringifyMember = {
+const jsonStringifyMember = {
   message:
     "encode with a Schema (Schema.fromJsonString), and log through Effect.annotateLogs (docs/capabilities.md, JSON encoding)",
   object: "JSON",
