@@ -112,7 +112,7 @@ describe("Stages", () => {
 
   it("serves the API documentation on every stage kind except prod", () => {
     assert.deepStrictEqual(
-      Object.entries(Stages).map(([kind, values]) => [kind, values.API_DOCS_ENABLED]),
+      Object.entries(Stages).map(([kind, values]) => [kind, values.DOCS_ENABLED]),
       [
         ["local", true],
         ["prod", false],

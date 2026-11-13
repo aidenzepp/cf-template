@@ -12,10 +12,10 @@ import type { NotesService } from "./notes.ts";
 
 /**
  * The status each documentation path answers through `makeHandler`, with the Worker's bindings
- * set to `env` and the live source holding `live` under `API_DOCS_ENABLED`.
+ * set to `env` and the live source holding `live` under `DOCS_ENABLED`.
  */
 const docsStatuses = (
-  env: { readonly API_DOCS_ENABLED?: string; readonly API_DOCS_LIVE_READ?: string },
+  env: { readonly DOCS_ENABLED?: string; readonly DOCS_LIVE_READ?: string },
   live: Option.Option<string>,
 ) =>
   Effect.gen(function* statuses() {
@@ -53,20 +53,20 @@ const docsStatuses = (
 describe("the documentation routes of the api Worker", () => {
   it.effect.each([
     {
-      env: { API_DOCS_ENABLED: "true" },
+      env: { DOCS_ENABLED: "true" },
       live: Option.none<string>(),
       name: "on by the deploy-time value",
       status: 200,
     },
     { env: {}, live: Option.none<string>(), name: "off when nothing sets it", status: 404 },
     {
-      env: { API_DOCS_ENABLED: "false", API_DOCS_LIVE_READ: "true" },
+      env: { DOCS_ENABLED: "false", DOCS_LIVE_READ: "true" },
       live: Option.some("true"),
       name: "on by the live value on a stage that reads it",
       status: 200,
     },
     {
-      env: { API_DOCS_ENABLED: "false", API_DOCS_LIVE_READ: "false" },
+      env: { DOCS_ENABLED: "false", DOCS_LIVE_READ: "false" },
       live: Option.some("true"),
       name: "off on prod although the live value is true",
       status: 404,

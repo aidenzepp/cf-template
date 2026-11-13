@@ -96,12 +96,12 @@ describe("knob command", () => {
     }),
   );
 
-  it.effect("refuses API_DOCS_ENABLED on prod even under CI, and writes it on a test stage", () =>
+  it.effect("refuses DOCS_ENABLED on prod even under CI, and writes it on a test stage", () =>
     Effect.gen(function* docs() {
       const store = storeOf([NAMESPACE]);
 
       const failure = yield* Effect.flip(
-        run({ command: "set", key: "API_DOCS_ENABLED", stage: "prod", value: "true" }, store, {
+        run({ command: "set", key: "DOCS_ENABLED", stage: "prod", value: "true" }, store, {
           CI: "true",
         }),
       );
@@ -111,10 +111,10 @@ describe("knob command", () => {
       assert.deepStrictEqual(store.calls, []);
 
       yield* run(
-        { command: "set", key: "API_DOCS_ENABLED", stage: "test-abc", value: "false" },
+        { command: "set", key: "DOCS_ENABLED", stage: "test-abc", value: "false" },
         store,
       );
-      assert.deepStrictEqual(store.calls, [`find ${TITLE}`, "put ns-1 API_DOCS_ENABLED false"]);
+      assert.deepStrictEqual(store.calls, [`find ${TITLE}`, "put ns-1 DOCS_ENABLED false"]);
     }),
   );
 
