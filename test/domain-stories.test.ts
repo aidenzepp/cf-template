@@ -3,15 +3,10 @@ import { assert, describe, it } from "@effect/vitest";
 import { Array, Effect, FileSystem, Order, Path } from "effect";
 
 /**
- * The directories a model file never lives in.
- */
-const SKIPPED = new Set(["node_modules", ".worktrees", ".mirrors", ".git", "dist", ".alchemy"]);
-
-/**
- * Every `*.model.ts` file under `root` with no `*.story.ts` of the same stem beside it, as paths
- * relative to `root`.
+ * Every `*.model.ts` file under the `src` directory of each `apps/*` and `packages/*` workspace
+ * with no `*.story.ts` of the same stem beside it, as paths relative to `root`.
  *
- * @param root - The directory to walk.
+ * @param root - The repository root.
  * @returns The model files that have no Story file.
  */
 const unpairedModels = (root: string) =>
@@ -19,11 +14,21 @@ const unpairedModels = (root: string) =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
 
-    const entries = yield* fs.readDirectory(root, { recursive: true });
-
-    const files = new Set(
-      entries.filter((entry) => !entry.split(path.sep).some((part) => SKIPPED.has(part))),
+    const groups = yield* Effect.forEach(["apps", "packages"], (group) =>
+      fs
+        .readDirectory(path.join(root, group))
+        .pipe(Effect.map((names) => names.map((name) => path.join(group, name, "src")))),
     );
+
+    const listed = yield* Effect.forEach(Array.flatten(groups), (src) =>
+      fs.readDirectory(path.join(root, src), { recursive: true }).pipe(
+        Effect.map((entries) => entries.map((entry) => path.join(src, entry))),
+        // A workspace with no `src` directory holds no model file.
+        Effect.orElseSucceed(() => []),
+      ),
+    );
+
+    const files = new Set(Array.flatten(listed));
 
     return Array.sort(
       [...files].filter(

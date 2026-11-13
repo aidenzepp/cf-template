@@ -129,9 +129,13 @@ const lockstepFamilies = {
   // @better-auth/utils is versioned on its own line (0.5.1) and better-auth@1.7.19 depends on it.
   "better-auth": (name: string) =>
     name === "better-auth" || (name.startsWith("@better-auth/") && name !== "@better-auth/utils"),
+  // @effect/tsgo and its platform packages (@effect/tsgo-darwin-arm64, ...) share one version line
+  // (0.67.7) apart from effect.
   effect: (name: string) =>
     name === "effect" ||
-    (name.startsWith("@effect/") && name !== "@effect/tsgo" && name !== "@effect/language-service"),
+    (name.startsWith("@effect/") &&
+      !name.startsWith("@effect/tsgo") &&
+      name !== "@effect/language-service"),
   react: (name: string) => name === "react" || name === "react-dom",
   tailwindcss: (name: string) => name === "tailwindcss" || name === "@tailwindcss/vite",
 };

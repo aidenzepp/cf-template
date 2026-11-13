@@ -1,0 +1,27 @@
+name: UI drift
+
+on:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: bun tools/ui-lock/reinstall.ts
+      - name: Fail on drift under packages/ui
+        run: |
+          git diff --exit-code packages/ui
+          untracked="$(git ls-files --others --exclude-standard packages/ui)"
+          if [ -n "$untracked" ]; then
+            echo "Untracked files under packages/ui:"
+            echo "$untracked"
+            exit 1
+          fi

@@ -178,12 +178,14 @@ const runtime = ManagedRuntime.make(Layer.mergeAll(HarnessLive, BunServices.laye
  * @param context - The Playwright browser context of the test run.
  * @param target - A path on the harness, or a full URL.
  * @param cookie - A `name=value` cookie to send to the harness.
+ * @param colorScheme - The `prefers-color-scheme` to emulate.
  * @returns The count of passed rules, the violations and the visible text of the page.
  */
 const scan = Effect.fn("scan")(function* scan(
   context: BrowserContext,
   target: string,
   cookie: string | undefined,
+  colorScheme: "light" | "dark",
 ) {
   const path = yield* Path.Path;
   const isPath = target.startsWith("/");
@@ -195,6 +197,8 @@ const scan = Effect.fn("scan")(function* scan(
       promised("Opening a tab", () => context.newPage()),
       (opened) => Effect.promise(() => opened.close()),
     );
+
+    yield* promised("Emulating the color scheme", () => page.emulateMedia({ colorScheme }));
 
     yield* promised("Clearing cookies", () => context.clearCookies());
 
@@ -226,7 +230,12 @@ const scan = Effect.fn("scan")(function* scan(
       page.locator("body").allInnerTexts(),
     );
 
+    const dark = yield* promised("Reading the theme class", () =>
+      page.evaluate<boolean>(`document.documentElement.classList.contains("dark")`),
+    );
+
     return {
+      dark,
       passes: passes.length,
       text: texts.join("\n"),
       violations: violations.map(({ id, impact, nodes }) => ({
@@ -245,10 +254,15 @@ const scan = Effect.fn("scan")(function* scan(
  * @param context - The Playwright browser context of the test run.
  * @param target - A path on the harness, or a full URL.
  * @param cookie - A `name=value` cookie to send to the harness.
+ * @param colorScheme - The `prefers-color-scheme` to emulate.
  * @returns A promise of the scan.
  */
-export const scanPage = (context: BrowserContext, target: string, cookie?: string) =>
-  runtime.runPromise(scan(context, target, cookie));
+export const scanPage = (
+  context: BrowserContext,
+  target: string,
+  cookie: string | undefined,
+  colorScheme: "light" | "dark",
+) => runtime.runPromise(scan(context, target, cookie, colorScheme));
 
 /**
  * Stop the harness, if a scan started it.
