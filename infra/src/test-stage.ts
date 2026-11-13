@@ -20,7 +20,10 @@ const TEST_STAGE_PATTERN = /^test-[a-z0-9-]+$/u;
  * The refusal of a stage or phase the guarded script does not run with `--yes`, raised before any
  * `alchemy` call.
  */
-export class TestStageRefused extends Schema.TaggedError<TestStageRefused>()("TestStageRefused", {
+export class TestStageRefused extends Schema.TaggedError<
+  TestStageRefused,
+  { readonly brand: unique symbol }
+>()("TestStageRefused", {
   message: Schema.String,
 }) {}
 

@@ -43,10 +43,13 @@ export interface Tier {
 /**
  * The tier detection failed to read a plan.
  */
-class TierError extends Schema.TaggedError<TierError>()("TierError", {
-  cause: Schema.Defect(),
-  message: Schema.String,
-}) {}
+class TierError extends Schema.TaggedError<TierError, { readonly brand: unique symbol }>()(
+  "TierError",
+  {
+    cause: Schema.Defect(),
+    message: Schema.String,
+  },
+) {}
 
 /**
  * What a private repository on Free gets.

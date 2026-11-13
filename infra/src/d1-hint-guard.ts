@@ -11,14 +11,14 @@ import type { PersistedState } from "alchemy/State";
  * Cloudflare reads the hint only when it creates a database. Alchemy replaces the resource when
  * the hint changes, and the replacement is a new, empty database.
  */
-export class D1LocationHintChanged extends Schema.TaggedError<D1LocationHintChanged>()(
-  "D1LocationHintChanged",
-  {
-    created: Schema.String,
-    database: Schema.String,
-    desired: Schema.String,
-  },
-) {
+export class D1LocationHintChanged extends Schema.TaggedError<
+  D1LocationHintChanged,
+  { readonly brand: unique symbol }
+>()("D1LocationHintChanged", {
+  created: Schema.String,
+  database: Schema.String,
+  desired: Schema.String,
+}) {
   override get message(): string {
     return `Refusing to deploy: the ${this.database} D1 database was created with location hint ${this.created} and D1_PROD_LOCATION_HINT now asks for ${this.desired}. The hint only applies when a database is created; changing it would replace ${this.database} with an empty database. Set D1_PROD_LOCATION_HINT back to ${this.created}.`;
   }

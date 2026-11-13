@@ -32,7 +32,10 @@ const LATCHED_PROBLEM = {
 /**
  * The failure of one latch read: the binding is missing or has no `get`, or the read rejected.
  */
-class LatchReadError extends Schema.TaggedError<LatchReadError>()("LatchReadError", {
+class LatchReadError extends Schema.TaggedError<
+  LatchReadError,
+  { readonly brand: unique symbol }
+>()("LatchReadError", {
   message: Schema.String,
 }) {}
 

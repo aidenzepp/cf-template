@@ -90,24 +90,30 @@ export const Baseline = Schema.Record(
  * ratchet reads as an answer, or printed a count that is not a non-negative integer. The message
  * keeps git's own stderr.
  */
-export class GitFailed extends Schema.TaggedError<GitFailed>()("GitFailed", {
-  message: Schema.String,
-}) {}
+export class GitFailed extends Schema.TaggedError<GitFailed, { readonly brand: unique symbol }>()(
+  "GitFailed",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The failure of `RATCHET_BASE`: it is set but names no commit.
  */
-export class BaseNotCommit extends Schema.TaggedError<BaseNotCommit>()("BaseNotCommit", {
+export class BaseNotCommit extends Schema.TaggedError<
+  BaseNotCommit,
+  { readonly brand: unique symbol }
+>()("BaseNotCommit", {
   message: Schema.String,
 }) {}
 
 /**
  * The failure of a counted file: it does not parse, or it has not the expected shape.
  */
-export class CountedFileInvalid extends Schema.TaggedError<CountedFileInvalid>()(
-  "CountedFileInvalid",
-  { message: Schema.String },
-) {}
+export class CountedFileInvalid extends Schema.TaggedError<
+  CountedFileInvalid,
+  { readonly brand: unique symbol }
+>()("CountedFileInvalid", { message: Schema.String }) {}
 
 /**
  * The counts of one tree. A missing baseline counts as zero (#16: absent equals zero). Only the
@@ -257,16 +263,17 @@ const decodeFile = <A, I>(
   file: string,
   text: string,
   schema: Schema.Codec<A, I>,
-): Effect.Effect<A, CountedFileInvalid> =>
-  Effect.try(() => Bun.JSONC.parse(text)).pipe(
+): Effect.Effect<A, CountedFileInvalid> => {
+  const invalid = () =>
+    new CountedFileInvalid({
+      message: `${file} is not valid JSON with the expected shape; restore it from git or regenerate it`,
+    });
+
+  return Effect.try({ catch: invalid, try: () => Bun.JSONC.parse(text) }).pipe(
     Effect.flatMap(Schema.decodeUnknownEffect(schema)),
-    Effect.mapError(
-      () =>
-        new CountedFileInvalid({
-          message: `${file} is not valid JSON with the expected shape; restore it from git or regenerate it`,
-        }),
-    ),
+    Effect.mapError(invalid),
   );
+};
 
 /**
  * The baselined violations per rule, summed over files.

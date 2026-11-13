@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ConfigProvider, Effect, Exit, Logger, Option } from "effect";
+import { ConfigProvider, Effect, Exit, Layer, Logger, Option } from "effect";
 import { guardThreshold } from "./guard-threshold.ts";
 
 const UNSET_LINE =
@@ -18,8 +18,12 @@ const run = (values: Readonly<Record<string, string>>) =>
     });
 
     const threshold = yield* guardThreshold.pipe(
-      Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown(values))),
-      Effect.provide(Logger.layer([logger])),
+      Effect.provide(
+        Layer.mergeAll(
+          ConfigProvider.layer(ConfigProvider.fromUnknown(values)),
+          Logger.layer([logger]),
+        ),
+      ),
     );
 
     return { lines, threshold };

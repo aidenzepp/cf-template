@@ -7,7 +7,10 @@ import { parseRepository, readOrigin } from "../stack-name.ts";
  * The failure of repository resolution: neither `GITHUB_REPOSITORY` nor the `origin` remote names
  * an `owner/repo`.
  */
-export class RepositoryError extends Schema.TaggedError<RepositoryError>()("RepositoryError", {
+export class RepositoryError extends Schema.TaggedError<
+  RepositoryError,
+  { readonly brand: unique symbol }
+>()("RepositoryError", {
   message: Schema.String,
 }) {}
 
@@ -15,7 +18,10 @@ export class RepositoryError extends Schema.TaggedError<RepositoryError>()("Repo
  * The failure of a GitHub read: the transport failed, the status was not 200, or the body did not
  * decode. Carries no token.
  */
-class GitHubRequestError extends Schema.TaggedError<GitHubRequestError>()("GitHubRequestError", {
+class GitHubRequestError extends Schema.TaggedError<
+  GitHubRequestError,
+  { readonly brand: unique symbol }
+>()("GitHubRequestError", {
   cause: Schema.optional(Schema.Defect()),
   message: Schema.String,
   path: Schema.String,
@@ -25,7 +31,10 @@ class GitHubRequestError extends Schema.TaggedError<GitHubRequestError>()("GitHu
  * The refusal of the admin guard: the repository is unreadable or the token lacks
  * `permissions.admin`. Nothing may be written after it.
  */
-export class AdminGuardError extends Schema.TaggedError<AdminGuardError>()("AdminGuardError", {
+export class AdminGuardError extends Schema.TaggedError<
+  AdminGuardError,
+  { readonly brand: unique symbol }
+>()("AdminGuardError", {
   message: Schema.String,
 }) {}
 
@@ -34,10 +43,10 @@ export class AdminGuardError extends Schema.TaggedError<AdminGuardError>()("Admi
  * `@alchemy.run/github` provider authenticate as, or talk to, something the admin guard never
  * checked.
  */
-export class AmbientCredentialsError extends Schema.TaggedError<AmbientCredentialsError>()(
-  "AmbientCredentialsError",
-  { message: Schema.String },
-) {}
+export class AmbientCredentialsError extends Schema.TaggedError<
+  AmbientCredentialsError,
+  { readonly brand: unique symbol }
+>()("AmbientCredentialsError", { message: Schema.String }) {}
 
 /**
  * The one token of a settings run: the admin guard, the REST calls and the provider all use it.

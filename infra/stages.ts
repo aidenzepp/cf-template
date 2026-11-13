@@ -164,10 +164,10 @@ export const STACK_NAME_MAX = WORKER_NAME_MAX - LONGEST_WORKER - 2 - LONGEST_STA
 /**
  * The failure raised when a derived Worker name exceeds the Worker name limit.
  */
-export class WorkerNameTooLongError extends Schema.TaggedError<WorkerNameTooLongError>()(
-  "WorkerNameTooLongError",
-  { message: Schema.String, workerName: Schema.String },
-) {}
+export class WorkerNameTooLongError extends Schema.TaggedError<
+  WorkerNameTooLongError,
+  { readonly brand: unique symbol }
+>()("WorkerNameTooLongError", { message: Schema.String, workerName: Schema.String }) {}
 
 /**
  * Construct the name of a Worker for a stage as `<stack>-<worker>-<stage>`, lower case.

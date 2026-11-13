@@ -67,15 +67,21 @@ export const report = (gzipBytes: number): ReadonlyArray<string> => {
 /**
  * Raised when the gzip stream of a chunk fails.
  */
-class GzipError extends Schema.TaggedError<GzipError>()("GzipError", {
-  cause: Schema.Defect(),
-  message: Schema.String,
-}) {}
+class GzipError extends Schema.TaggedError<GzipError, { readonly brand: unique symbol }>()(
+  "GzipError",
+  {
+    cause: Schema.Defect(),
+    message: Schema.String,
+  },
+) {}
 
 /**
  * Raised when the chunk graph holds no entry chunk, so there is no initial JavaScript to measure.
  */
-class NoEntryChunkError extends Schema.TaggedError<NoEntryChunkError>()("NoEntryChunkError", {
+class NoEntryChunkError extends Schema.TaggedError<
+  NoEntryChunkError,
+  { readonly brand: unique symbol }
+>()("NoEntryChunkError", {
   message: Schema.String,
 }) {}
 
@@ -173,10 +179,10 @@ export const devtoolsHits = (
 /**
  * Raised when a client file holds Router devtools code, which must never ship in production.
  */
-export class DevtoolsInBundleError extends Schema.TaggedError<DevtoolsInBundleError>()(
-  "DevtoolsInBundleError",
-  { files: Schema.Array(Schema.String), message: Schema.String },
-) {}
+export class DevtoolsInBundleError extends Schema.TaggedError<
+  DevtoolsInBundleError,
+  { readonly brand: unique symbol }
+>()("DevtoolsInBundleError", { files: Schema.Array(Schema.String), message: Schema.String }) {}
 
 /**
  * Fails with {@link DevtoolsInBundleError} when any JavaScript file under `clientDir` holds Router

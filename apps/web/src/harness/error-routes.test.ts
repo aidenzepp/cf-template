@@ -8,9 +8,12 @@ import { FORWARD_PREFIXES } from "../forward-prefixes.ts";
 /**
  * The failure of the harness itself: the build or the workerd runtime did not start.
  */
-class HarnessError extends Schema.TaggedError<HarnessError>()("HarnessError", {
-  message: Schema.String,
-}) {}
+class HarnessError extends Schema.TaggedError<HarnessError, { readonly brand: unique symbol }>()(
+  "HarnessError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The stub `API`: every session read answers a signed-in session. The stub `AUTH` is never reached.

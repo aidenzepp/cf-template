@@ -1,6 +1,6 @@
 import { BunHttpClient } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Schema } from "effect";
+import { Effect, Layer, Schema } from "effect";
 import { Cookies, HttpClient, HttpClientRequest } from "effect/http";
 import { Digest } from "effect/crypto";
 import { publicOrigin } from "../../infra/src/origin.ts";
@@ -28,7 +28,7 @@ const SignUpReply = Schema.Struct({ user: Schema.Struct({ id: Schema.String }) }
 const Receipt = Schema.Struct({
   reply: Schema.Unknown,
   stream: Schema.String,
-  version: Schema.Number,
+  version: Schema.Finite,
 });
 
 describe("the deployed notes flow", () => {
@@ -77,6 +77,6 @@ describe("the deployed notes flow", () => {
       // read-back waits for a read contract.
       assert.strictEqual(receipt.version, 1);
       assert.isTrue(receipt.stream.length > 0);
-    }).pipe(Effect.provide(BunHttpClient.layer), Effect.provide(Digest.layerWebCrypto)),
+    }).pipe(Effect.provide(BunHttpClient.layer.pipe(Layer.provideMerge(Digest.layerWebCrypto)))),
   );
 });

@@ -19,7 +19,10 @@ export const ABSENT_PROVIDER = "smoke-absent";
  * A failed smoke check. `worker` names the Worker that misbehaved, so the failure line says where
  * to look.
  */
-export class SmokeFailed extends Schema.TaggedError<SmokeFailed>()("SmokeFailed", {
+export class SmokeFailed extends Schema.TaggedError<
+  SmokeFailed,
+  { readonly brand: unique symbol }
+>()("SmokeFailed", {
   message: Schema.String,
   worker: Schema.String,
 }) {}
@@ -127,12 +130,8 @@ export const runSmoke = Effect.fn("smoke.run")(function* runSmoke(target: SmokeT
       ? result.body.url
       : "";
 
-    const redirect = Effect.try(() => new URL(url).searchParams.get("redirect_uri")).pipe(
-      Effect.orElseSucceed(() => null),
-    );
-
     const expected = `${target.prodOrigin}/auth/callback/${provider}`;
-    const actual = yield* redirect;
+    const actual = URL.parse(url)?.searchParams.get("redirect_uri") ?? null;
 
     yield* expect(
       result.status === 200 && actual === expected,

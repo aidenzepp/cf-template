@@ -26,7 +26,10 @@ export interface ParsedHash {
 /**
  * The failure of one scrypt derivation.
  */
-export class ScryptError extends Schema.TaggedError<ScryptError>()("ScryptError", {
+export class ScryptError extends Schema.TaggedError<
+  ScryptError,
+  { readonly brand: unique symbol }
+>()("ScryptError", {
   cause: Schema.Unknown,
   keyLength: Schema.Int,
 }) {
@@ -34,6 +37,16 @@ export class ScryptError extends Schema.TaggedError<ScryptError>()("ScryptError"
     return `scrypt could not derive a ${this.keyLength}-byte key.`;
   }
 }
+
+/**
+ * The failure of one call to the Better Auth adapter while rehashing a password.
+ */
+class RehashAdapterError extends Schema.TaggedError<
+  RehashAdapterError,
+  { readonly brand: unique symbol }
+>()("RehashAdapterError", {
+  cause: Schema.Defect(),
+}) {}
 
 /**
  * The bytes of the random salt.
@@ -297,9 +310,10 @@ export const rehashAfterSignIn = (params: ScryptCost, run: RunEffect): BetterAut
 
           await run(
             Effect.gen(function* rehash() {
-              const account = yield* Effect.tryPromise(() =>
-                ctx.context.internalAdapter.findCredentialAccount(userId),
-              );
+              const account = yield* Effect.tryPromise({
+                catch: (cause) => new RehashAdapterError({ cause }),
+                try: () => ctx.context.internalAdapter.findCredentialAccount(userId),
+              });
 
               const stored = account?.password;
 
@@ -317,16 +331,18 @@ export const rehashAfterSignIn = (params: ScryptCost, run: RunEffect): BetterAut
 
               // Compare-and-set: only the row still holding the hash just verified is rewritten, so a
               // password changed meanwhile is never reverted.
-              yield* Effect.tryPromise(() =>
-                ctx.context.adapter.updateMany({
-                  model: "account",
-                  update: { password: replacement },
-                  where: [
-                    { field: "id", value: account.id },
-                    { field: "password", value: stored },
-                  ],
-                }),
-              );
+              yield* Effect.tryPromise({
+                catch: (cause) => new RehashAdapterError({ cause }),
+                try: () =>
+                  ctx.context.adapter.updateMany({
+                    model: "account",
+                    update: { password: replacement },
+                    where: [
+                      { field: "id", value: account.id },
+                      { field: "password", value: stored },
+                    ],
+                  }),
+              });
             }).pipe(Effect.catchCause(() => Effect.logWarning("auth.password.rehash_failed"))),
           );
         }),

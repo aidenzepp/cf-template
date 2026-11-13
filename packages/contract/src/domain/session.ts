@@ -9,7 +9,7 @@ export const UserId = Schema.String.pipe(Schema.brand("UserId"));
  * The session shared by `auth`, `api` and `web`, with the display fields the shell renders.
  * `image` is the one nullable field: the user record has no image until one is set.
  */
-export class Session extends Schema.Class<Session>("Session")({
+export class Session extends Schema.Class<Session, { readonly brand: unique symbol }>("Session")({
   email: Schema.String,
   expiresAt: Schema.DateTimeUtcFromString,
   image: Schema.NullOr(Schema.String),
