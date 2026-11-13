@@ -3,13 +3,41 @@ import type { BrowserContext } from "playwright";
 import { HYDRATED, Harness, promised, runInHarness } from "./browser-harness.ts";
 
 /**
- * The spacing steps, in CSS px, a padding, margin or gap may take. Tailwind spacing is one
- * multiplier (`--spacing`), so `globals.css` names no spacing tokens. The list is the 4 px-multiple
- * steps the stock components of `packages/ui/src/components/ui/` use: their `p-*`, `m-*`, `gap-*`
- * and `space-*` utilities take the integer steps 0 to 8 and 18 (`p-0` to `p-8`, `px-18`), so
- * `p-13` (52 px) falls outside it.
+ * The half steps of Tailwind's spacing scale that stock shadcn uses: 0.5, 1.5, 2.5 and 3.5 units.
  */
-const SPACING_STEPS: ReadonlyArray<number> = [0, 4, 8, 12, 16, 20, 24, 28, 32, 72];
+const HALF_STEPS: ReadonlyArray<number> = [0.5, 1.5, 2.5, 3.5];
+
+/**
+ * The last whole step of the scale, in units: `p-96`, 24 rem at the default unit. Tailwind 4
+ * accepts any multiple and defines no end, so the end is the largest step of Tailwind 3's scale.
+ */
+const LAST_STEP = 96;
+
+/**
+ * The spacing steps, in CSS px, a padding, margin or gap may take: 0, every whole multiple of the
+ * `--spacing` unit up to {@link LAST_STEP}, and the {@link HALF_STEPS}. The unit is read from
+ * `packages/ui/node_modules/tailwindcss/theme.css`, the theme the app builds with (0.25 rem, 4 px,
+ * so the steps run 0, 2, 4, 6, 8, 10, 12, 14, 16, then every 4 px to 384). Arbitrary values are
+ * banned by the lint preset, so a value off this scale, such as 13 px, is a finding.
+ *
+ * @param theme - The text of Tailwind's `theme.css`.
+ * @returns The steps in CSS px, or an empty list when the theme has no unit in rem.
+ */
+const spacingSteps = (theme: string): ReadonlyArray<number> => {
+  const { rem: unit } = /--spacing:\s*(?<rem>[\d.]+)rem\s*;/u.exec(theme)?.groups ?? {};
+
+  if (unit === undefined) {
+    return [];
+  }
+
+  const px = Number(unit) * 16;
+
+  return [
+    0,
+    ...Array.from({ length: LAST_STEP }, (_, index) => (index + 1) * px),
+    ...HALF_STEPS.map((half) => half * px),
+  ];
+};
 
 /**
  * The viewport widths, in CSS px, the audit runs at: a phone and a laptop.
@@ -588,6 +616,17 @@ const audit = Effect.fn("audit")(function* audit(
   const path = yield* Path.Path;
   const root = yield* path.fromFileUrl(new URL("../../../", import.meta.url));
   const colors = themeColors(yield* fs.readFileString(path.join(root, "DESIGN.md")));
+
+  const steps = spacingSteps(
+    yield* fs.readFileString(
+      path.join(root, "packages", "ui", "node_modules", "tailwindcss", "theme.css"),
+    ),
+  );
+
+  if (steps.length === 0) {
+    return yield* Effect.die("tailwindcss/theme.css has no `--spacing` unit in rem.");
+  }
+
   const isPath = target.startsWith("/");
   const { origin } = isPath ? yield* Harness : { origin: "" };
 
@@ -624,7 +663,7 @@ const audit = Effect.fn("audit")(function* audit(
       );
     }
 
-    const input: AuditInput = { ...colors, steps: SPACING_STEPS };
+    const input: AuditInput = { ...colors, steps };
     const seen = new Map<string, Finding>();
 
     for (const width of WIDTHS) {

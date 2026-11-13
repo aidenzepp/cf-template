@@ -1,8 +1,0 @@
-/**
- * Provided through `Layer.mergeAll(` below.
- */
-// Layer.mergeAll(Ignored,
-export const BlocksLive = Layer.mergeAll(
-  KnobsKvLive, // block:knobs
-  /* NotesLive, */
-);

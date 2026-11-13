@@ -183,14 +183,26 @@ const WebProdLive = Layer.effect(WebProd)(
 const HARNESS_DEFECT = "harness-defect-secret";
 
 /**
- * TanStack Router's default not-found body, which the root falls back to.
+ * The title of the not-found page.
  */
-const NOT_FOUND_BODY = "<p>Not Found</p>";
+const NOT_FOUND_TITLE = "Page not found";
 
 /**
- * The heading of TanStack Router's default error body, which the root falls back to.
+ * The description of the not-found page.
  */
-const ERROR_HEADING = "Something went wrong!";
+const NOT_FOUND_DESCRIPTION = "The link may be broken, or the page may have moved.";
+
+/**
+ * The title of the route error page, as the server renders it (`'` escaped).
+ */
+const ERROR_TITLE = "This page couldn&#x27;t load";
+
+/**
+ * The part of a not-found or error page every one of them shows: the stock `Empty` and a link home.
+ */
+const EMPTY_SLOT = 'data-slot="empty"';
+
+const HOME_LINK = 'href="/"';
 
 /**
  * The minimal HTML `badGateway` answers to a navigation whose forward failed.
@@ -199,30 +211,35 @@ const BAD_GATEWAY_BODY =
   "<h1>Bad Gateway</h1><p>The service did not answer. Try again shortly.</p>";
 
 layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
-  it.effect("answers 404 with TanStack's default body for a path no route matches", () =>
+  it.effect("answers 404 with the not-found page for a path no route matches", () =>
     Effect.gen(function* missing() {
       const { html, response } = yield* (yield* WebProd).get("/missing");
 
       expect(response.status).toBe(404);
-      expect(html).toContain(NOT_FOUND_BODY);
+      expect(html).toContain(EMPTY_SLOT);
+      expect(html).toContain(NOT_FOUND_TITLE);
+      expect(html).toContain(NOT_FOUND_DESCRIPTION);
+      expect(html).toContain(HOME_LINK);
     }),
   );
 
-  it.effect("answers 404 with the same body when a loader reports its record missing", () =>
+  it.effect("answers 404 with the same page when a loader reports its record missing", () =>
     Effect.gen(function* loaderNotFound() {
       const { html, response } = yield* (yield* WebProd).get("/-harness-throws?kind=not-found");
 
       expect(response.status).toBe(404);
-      expect(html).toContain(NOT_FOUND_BODY);
+      expect(html).toContain(NOT_FOUND_TITLE);
     }),
   );
 
-  it.effect("answers 500 with TanStack's default error body and none of the thrown text", () =>
+  it.effect("answers 500 with the route error page and none of the thrown text", () =>
     Effect.gen(function* loaderDefect() {
       const { html, response } = yield* (yield* WebProd).get("/-harness-throws");
 
       expect(response.status).toBe(500);
-      expect(html).toContain(ERROR_HEADING);
+      expect(html).toContain(ERROR_TITLE);
+      expect(html).toContain("Try again");
+      expect(html).toContain(HOME_LINK);
       // The whole document, the router's dehydrated state in `<script>` included.
       expect(html).not.toContain(HARNESS_DEFECT);
     }),
@@ -233,7 +250,7 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
       const { html, response } = yield* (yield* WebProd).get("/-harness-throws?kind=string");
 
       expect(response.status).toBe(500);
-      expect(html).toContain(ERROR_HEADING);
+      expect(html).toContain(ERROR_TITLE);
       expect(html).not.toContain("harness-string-secret");
     }),
   );
@@ -243,7 +260,7 @@ layer(WebProdLive, { timeout: 180_000 })("error routes", (it) => {
       const { html, response } = yield* (yield* WebProd).get("/-harness-throws?kind=object");
 
       expect(response.status).toBe(500);
-      expect(html).toContain(ERROR_HEADING);
+      expect(html).toContain(ERROR_TITLE);
       expect(html).not.toContain("harness-object-secret");
       expect(html).not.toContain("apiKey");
     }),

@@ -6,34 +6,46 @@ import { refusal } from "./guard.ts";
 import { WebRequestLayers } from "./request-layers.ts";
 
 /**
- * A Worker env with no binding at all.
+ * A Worker env whose `GUARD_KV` answers every read with `value`, or an env with no binding at all.
  */
-const EMPTY_ENV = Layer.succeed(WorkerBindings, {
-  kv: (name) => new Map<string, KvReader>().get(name),
-});
+const envWith = (value: string | null | undefined) =>
+  Layer.succeed(WorkerBindings, {
+    kv: (name) =>
+      new Map<string, KvReader>(
+        value === undefined ? [] : [["GUARD_KV", { get: () => Promise.resolve(value) }]],
+      ).get(name),
+  });
 
 /**
- * Ask `layers`, built over {@link EMPTY_ENV}, about `/` the way the server entry does: through a
- * runtime that builds the layers once.
+ * Ask {@link WebRequestLayers}, built over `env`, about `/` the way the server entry does: through
+ * a runtime that builds the layers once.
  */
-const askThrough = <E>(layers: Layer.Layer<never, E, WorkerBindings>) =>
+const askThrough = (env: Layer.Layer<WorkerBindings>) =>
   Effect.acquireUseRelease(
-    Effect.sync(() => ManagedRuntime.make(layers.pipe(Layer.provide(EMPTY_ENV)))),
+    Effect.sync(() => ManagedRuntime.make(WebRequestLayers.pipe(Layer.provide(env)))),
     (runtime) =>
       Effect.promise(() => runtime.runPromise(refusal(new Request("https://app.test/")))),
     (runtime) => Effect.promise(() => runtime.dispose()),
   );
 
 describe("WebRequestLayers", () => {
-  it.effect("serves with the budget-guard entry present and its binding missing", () =>
-    Effect.gen(function* bound() {
-      assert.strictEqual(yield* askThrough(WebRequestLayers), undefined);
+  it.effect("attaches the budget guard: a set latch refuses with 503", () =>
+    Effect.gen(function* latched() {
+      const response = yield* askThrough(envWith("{}"));
+
+      assert.strictEqual(response?.status, 503);
     }),
   );
 
-  it.effect("serves with every entry pulled out, leaving only the core empty layer", () =>
-    Effect.gen(function* pulledOut() {
-      assert.strictEqual(yield* askThrough(Layer.mergeAll(Layer.empty)), undefined);
+  it.effect("serves when the latch is clear", () =>
+    Effect.gen(function* clear() {
+      assert.strictEqual(yield* askThrough(envWith(null)), undefined);
+    }),
+  );
+
+  it.effect("serves when the guard binding is missing", () =>
+    Effect.gen(function* unbound() {
+      assert.strictEqual(yield* askThrough(envWith(undefined)), undefined);
     }),
   );
 });

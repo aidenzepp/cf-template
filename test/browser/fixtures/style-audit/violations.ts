@@ -5,9 +5,9 @@
  */
 export const VIOLATIONS = [
   {
-    // `p-13`: Tailwind compiles it to this padding, 52 px, off the spacing steps.
-    html: '<div style="all: unset; display: block; padding: calc(var(--spacing) * 13)"></div>',
-    name: "a p-13 element",
+    // 13 px is not a multiple of half a spacing unit, so it is off Tailwind's scale.
+    html: '<div style="all: unset; display: block; padding: 13px"></div>',
+    name: "a 13 px padding",
     rule: "spacing",
   },
   {

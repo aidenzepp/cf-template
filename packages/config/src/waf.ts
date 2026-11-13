@@ -9,8 +9,8 @@ import { Knob } from "./knob.ts";
 const periodSeconds = Schema.Literals([10, 60, 120, 300, 600, 3600]);
 
 /**
- * The durations, in seconds, Cloudflare accepts for a rate-limit rule's block: the periods plus
- * 1 day.
+ * The durations, in seconds, Cloudflare accepts for how long a rate-limit rule blocks: the periods
+ * plus 1 day.
  */
 const mitigationSeconds = Schema.Literals([10, 60, 120, 300, 600, 3600, 86_400]);
 

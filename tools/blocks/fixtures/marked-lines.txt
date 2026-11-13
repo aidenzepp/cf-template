@@ -1,5 +1,0 @@
-const kept = 1;
-const gone = 2; // block:fixture-unit
-const alsoGone = 3; /* block:fixture-unit */
-const extra = 4; // block:fixture-unit-extra
-const named = "fixture-unit";
