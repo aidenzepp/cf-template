@@ -1,0 +1,25 @@
+name: GitHub App token
+description: >-
+  Mint an installation token for the repository's GitHub App, for a job that must start a workflow
+  run or act as the App instead of GITHUB_TOKEN (#43). A composite action cannot read the secrets
+  context, so the caller passes `app-id: ${{ secrets.APP_ID }}` and
+  `private-key: ${{ secrets.APP_PRIVATE_KEY }}`.
+inputs:
+  app-id:
+    description: The App id, from the repository secret APP_ID.
+    required: true
+  private-key:
+    description: The App private key, from the repository secret APP_PRIVATE_KEY.
+    required: true
+outputs:
+  token:
+    description: The installation token, revoked when the job ends.
+    value: ${{ steps.mint.outputs.token }}
+runs:
+  using: composite
+  steps:
+    - id: mint
+      uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+      with:
+        app-id: ${{ inputs.app-id }}
+        private-key: ${{ inputs.private-key }}
