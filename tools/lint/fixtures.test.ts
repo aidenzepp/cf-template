@@ -200,6 +200,15 @@ describe("lint fixtures", () => {
 
             assert.strictEqual(count(fire), 1, `${name}/${fire}`);
             assert.strictEqual(count(pass), 0, `${name}/${pass}`);
+
+            // An exempt-directory fixture also holds `components/ui/pass.<ext>`, which must stay silent.
+            const exempt = path.join("components", "ui", pass);
+
+            if (yield* fs.exists(path.join(dir, exempt))) {
+              const exemptCount = yield* lintFixture(dir, [exempt]);
+
+              assert.strictEqual(exemptCount(pass), 0, `${name}/${exempt}`);
+            }
           }
         }
       }).pipe(Effect.provide(BunServices.layer)),
