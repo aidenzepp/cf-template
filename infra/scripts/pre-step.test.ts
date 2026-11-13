@@ -1,7 +1,14 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, FileSystem, Option } from "effect";
+import { ConfigProvider, Effect, FileSystem, Layer, Option } from "effect";
 import { BunServices } from "@effect/platform-bun";
-import { parseStateList, planSweep, previewCap } from "./pre-step.ts";
+import {
+  AccountCounts,
+  PreStepError,
+  enforceCap,
+  parseStateList,
+  planSweep,
+  previewCap,
+} from "./pre-step.ts";
 
 /**
  * Read a recorded (inferred) listing: its `exit:` line and the output below it.
@@ -79,4 +86,41 @@ describe("planSweep", () => {
     assert.deepStrictEqual(result.destroy, ["staging-1", "staging-4"]);
     assert.deepStrictEqual(result.leftover, ["prod", "staging-2", "staging-3", "test-i38"]);
   });
+});
+
+/**
+ * Run the cap check with a fake account holding `workers` other Workers.
+ */
+const cap = (config: Record<string, string>, workers: number, count: number) =>
+  enforceCap("example", count, false).pipe(
+    Effect.provide(
+      Layer.mergeAll(
+        Layer.succeed(
+          AccountCounts,
+          AccountCounts.of({ read: () => Effect.succeed({ d1: 0, workers }) }),
+        ),
+        ConfigProvider.layer(ConfigProvider.fromUnknown(config)),
+      ),
+    ),
+  );
+
+describe("enforceCap", () => {
+  it.effect("fails when live counts push the total over the limit", () =>
+    Effect.gen(function* over() {
+      const error = yield* Effect.flip(cap({}, 485, 5));
+
+      assert.instanceOf(error, PreStepError);
+      assert.include(error.message, "cap is 5");
+    }),
+  );
+
+  it.effect("passes under the cap and honors a CAP_WORKERS override", () =>
+    Effect.gen(function* under() {
+      yield* cap({}, 0, 9);
+
+      const error = yield* Effect.flip(cap({ CAP_WORKERS: "1" }, 0, 1));
+
+      assert.include(error.message, "cap is 1");
+    }),
+  );
 });

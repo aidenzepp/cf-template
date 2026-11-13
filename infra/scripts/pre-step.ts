@@ -1,5 +1,11 @@
+import * as Cloudflare from "@alchemy.run/cloudflare";
+import { CloudflareApiLive } from "@alchemy.run/cloudflare/Providers";
+import * as cfD1 from "@distilled.cloud/cloudflare/d1";
+import * as cfWorkers from "@distilled.cloud/cloudflare/workers";
 import { BunRuntime, BunServices } from "@effect/platform-bun";
-import { Config, Console, Effect, Option, Schema, Stream } from "effect";
+import { AuthProvidersLive } from "alchemy/Auth/Registry";
+import { Config, Console, Context, Effect, Layer, Option, Schema, Stream } from "effect";
+import { FetchHttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { CloudflarePlanKnob } from "@workspace/config/plan";
 import { Workers } from "../stages.ts";
@@ -120,6 +126,104 @@ export const planSweep = (
 };
 
 /**
+ * Wrap a failed Cloudflare read as a {@link PreStepError}.
+ */
+const countsFailed = (cause: unknown) =>
+  new PreStepError({
+    message: `Cannot read the account's Workers and D1 counts: ${cause instanceof Error ? cause.message : "Cloudflare request failed"}. The credentials need Workers Scripts and D1 read.`,
+  });
+
+/**
+ * The live counts of the account's Workers and D1 databases that do not belong to this project.
+ * Tests provide a fake; {@link AccountCountsLive} reads the account.
+ */
+export class AccountCounts extends Context.Service<
+  AccountCounts,
+  {
+    /**
+     * Count the account's Workers and D1 databases whose names do not start with `<stack>-`.
+     */
+    readonly read: (
+      stack: string,
+    ) => Effect.Effect<{ readonly workers: number; readonly d1: number }, PreStepError>;
+  }
+>()("infra/AccountCounts") {}
+
+/**
+ * Read the counts through the Cloudflare route the rate-limit guard uses: `CloudflareApiLive`
+ * resolves the credentials and the account, and this reads no profile, token or id source.
+ */
+export const AccountCountsLive = Layer.effect(
+  AccountCounts,
+  Effect.gen(function* buildAccountCounts() {
+    const context = yield* Layer.build(
+      Layer.provide(
+        CloudflareApiLive(),
+        Layer.mergeAll(BunServices.layer, AuthProvidersLive, FetchHttpClient.layer),
+      ),
+    );
+
+    return AccountCounts.of({
+      read: (stack) =>
+        Cloudflare.CloudflareEnvironment.current.pipe(
+          Effect.flatMap(({ accountId }) =>
+            Effect.all({
+              d1: cfD1.listDatabases.items({ accountId }).pipe(
+                Stream.filter((db) => !(db.name ?? "").startsWith(`${stack}-`)),
+                Stream.runCount,
+              ),
+              workers: cfWorkers.listScripts.items({ accountId }).pipe(
+                Stream.filter((script) => !(script.id ?? "").startsWith(`${stack}-`)),
+                Stream.runCount,
+              ),
+            }),
+          ),
+          Effect.provideContext(context),
+          Effect.mapError(countsFailed),
+        ),
+    });
+  }),
+);
+
+/**
+ * Enforce the preview cap: fail when `count` staging stages already exist at or past
+ * `min(PREVIEW_STAGE_LIMIT, capacity)` and this PR's stage is not one of them.
+ *
+ * `PREVIEW_STAGE_LIMIT`, `CLOUDFLARE_PLAN`, `CAP_WORKERS` and `CAP_D1` are read through `Config`.
+ *
+ * @param stack - The project stack name.
+ * @param count - The `staging-<N>` stages other than this PR's.
+ * @param hasOwn - Whether this PR's stage already exists.
+ * @returns Success, or {@link PreStepError} with the cap message.
+ */
+export const enforceCap = Effect.fn("enforceCap")(function* enforceCap(
+  stack: string,
+  count: number,
+  hasOwn: boolean,
+) {
+  const limit = yield* Config.Int("PREVIEW_STAGE_LIMIT").pipe(Config.withDefault(10));
+  const plan = yield* CloudflarePlanKnob.config;
+  const capWorkers = yield* Config.Int("CAP_WORKERS").pipe(Config.option);
+  const capD1 = yield* Config.Int("CAP_D1").pipe(Config.option);
+  const live = yield* (yield* AccountCounts).read(stack);
+
+  const cap = previewCap({
+    capD1: Option.getOrUndefined(capD1),
+    capWorkers: Option.getOrUndefined(capWorkers),
+    limit,
+    liveOtherD1: live.d1,
+    liveOtherWorkers: live.workers,
+    plan,
+  });
+
+  return count >= cap && !hasOwn
+    ? yield* new PreStepError({
+        message: `Preview limit reached: ${count} staging stages exist and the cap is ${cap}. Close a pull request or raise PREVIEW_STAGE_LIMIT.`,
+      })
+    : cap;
+});
+
+/**
  * Run a command, returning its exit code and combined output.
  */
 const run = Effect.fn("run")(function* run(program: string, args: ReadonlyArray<string>) {
@@ -153,8 +257,6 @@ const program = Effect.gen(function* preStep() {
   const stack = yield* Config.String("STACK_NAME");
   const pr = yield* Config.String("PR_NUMBER");
   const closed = (yield* Config.String("PR_ACTION").pipe(Config.withDefault(""))) === "closed";
-  const limit = yield* Config.Int("PREVIEW_STAGE_LIMIT").pipe(Config.withDefault(10));
-  const plan = yield* CloudflarePlanKnob.config;
   const own = `staging-${pr}`;
 
   const listing = yield* run("alchemy", ["state", "list"]).pipe(
@@ -199,13 +301,7 @@ const program = Effect.gen(function* preStep() {
   }
 
   const count = leftover.filter((stage) => PREVIEW_STAGE.test(stage) && stage !== own).length;
-  const cap = previewCap({ limit, liveOtherD1: 0, liveOtherWorkers: 0, plan });
-
-  if (count >= cap && !leftover.includes(own)) {
-    return yield* new PreStepError({
-      message: `Preview limit reached: ${count} staging stages exist and the cap is ${cap}. Close a pull request or raise PREVIEW_STAGE_LIMIT.`,
-    });
-  }
+  yield* enforceCap(stack, count, leftover.includes(own));
 
   return leftover;
 });
@@ -214,7 +310,7 @@ if (import.meta.main) {
   BunRuntime.runMain(
     program.pipe(
       Effect.tapError((failure) => Console.error(failure.message)),
-      Effect.provide(BunServices.layer),
+      Effect.provide(Layer.mergeAll(BunServices.layer, AccountCountsLive)),
     ),
     { disableErrorReporting: true },
   );
