@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Logger, References } from "effect";
+import { Effect, Logger, References, Schema } from "effect";
 import { TestClock } from "effect/testing";
-import { makeReceive } from "./latch.ts";
+import { LatchJson, makeReceive } from "./latch.ts";
 
 const POLICY = "app-guard-test-x";
 
@@ -66,6 +66,19 @@ describe("makeReceive", () => {
           value: '{"at":1700000000,"correlationId":"corr-1","latched":true}',
         },
       ]);
+    }),
+  );
+
+  it.effect("writes a record the latch decoder reads back", () =>
+    Effect.gen(function* roundTrip() {
+      const { puts } = yield* deliver({ policyName: POLICY, ts: 1_700_000_000 });
+      const decoded = yield* Schema.decodeUnknownEffect(LatchJson)(puts[0]?.value);
+
+      assert.deepStrictEqual(decoded, {
+        at: 1_700_000_000,
+        correlationId: "corr-1",
+        latched: true,
+      });
     }),
   );
 

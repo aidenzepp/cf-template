@@ -18,6 +18,12 @@ const CACHE_TTL_S = 30;
  * a value the schema rejects all answer the tier (b) value. With no binding, because the `knobs-kv`
  * block is absent, nothing is read and every knob answers its tier (b) value.
  *
+ * The repository keeps two adapters for this one port because neither can be built on the other.
+ * `web` cannot import `makeKnobsPort`, as above. `makeKnobsPort` cannot be built on `fromSource`:
+ * `fromSource` reads each knob once when it binds, at layer construction, while a `knobs-kv` read
+ * needs a request's `RuntimeContext` and keeps a per-isolate cache, refreshed every
+ * `KNOB_REFRESH_MS`, that `fromSource` has no place for.
+ *
  * @param binding - The `KNOBS` binding of the Worker, absent when the block is.
  * @returns The port that provides `LiveKnobs`.
  */
