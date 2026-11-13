@@ -33,9 +33,8 @@ entry from the check that finds attach lines.
 
 ```ts
 const handlers = Layer.mergeAll(
-  NotesApiHandlersNoDeps,
-  RemindersApiHandlersNoDeps,
   SystemApiHandlers,
+  RemindersApiHandlersNoDeps,
 );
 ```
 
@@ -45,7 +44,7 @@ The array is named in the attach-file list; the slice appends one identifier and
 
 ```ts
 export const registry = [
-  ExampleFeatureKnob,
+  DocsEnabledKnob,
   RemindersKnob,
 ] as const;
 ```
@@ -57,7 +56,7 @@ second dependency into the slice's own layer so one line attaches it.
 
 ```ts
 const handlers = Layer.mergeAll(
-  NotesApiHandlersNoDeps,
+  SystemApiHandlers,
   RemindersApiHandlersNoDeps,
   RemindersExtraHandlers,
 );
@@ -69,10 +68,10 @@ One subpath per module, each pointing at its source file, and no barrel.
 
 ```json
  "exports": {
-   "./domain/note": "./src/domain/note.ts",
+   "./domain/session": "./src/domain/session.ts",
 +  "./domain/reminders/reminder": "./src/domain/reminders/reminder.ts",
 +  "./domain/reminders/reminder-errors": "./src/domain/reminders/reminder-errors.ts",
-   "./api/notes": "./src/api/notes.ts",
+   "./api/system": "./src/api/system.ts",
 +  "./api/reminders": "./src/api/reminders.ts",
    "./api/api": "./src/api/api.ts"
  }

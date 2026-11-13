@@ -76,6 +76,37 @@ const AUTH_UNAVAILABLE_TYPE = "/problems/auth-unavailable";
 const ProblemType = Schema.fromJsonString(Schema.Struct({ type: Schema.String }));
 
 /**
+ * The JSON body an HttpApi endpoint writes for a declared tagged error, such as a Domain Rejection:
+ * its `_tag` and the fields its schema encodes.
+ */
+const TaggedBody = Schema.fromJsonString(
+  Schema.StructWithRest(Schema.Struct({ _tag: Schema.String }), [
+    Schema.Record(Schema.String, Schema.Unknown),
+  ]),
+);
+
+/**
+ * Read the text of a response's buffered body.
+ *
+ * @param response - The response about to be sent.
+ * @returns The text, or none when the body is not buffered.
+ */
+const bodyText = (response: HttpServerResponse.HttpServerResponse): Option.Option<string> =>
+  response.body._tag === "Uint8Array"
+    ? Option.some(response.body.text ?? new TextDecoder().decode(response.body.body))
+    : Option.none();
+
+/**
+ * The problem `type` that names a tagged error: `/problems/` and the tag in kebab case, so
+ * `NoteAlreadyExists` is `/problems/note-already-exists`.
+ *
+ * @param tag - The error's `_tag`.
+ * @returns The problem type.
+ */
+const taggedType = (tag: string): string =>
+  `/problems/${tag.replaceAll(/(?<=[\da-z])(?=[A-Z])/gu, "-").toLowerCase()}`;
+
+/**
  * Report whether a response already carries a problem body.
  *
  * @param response - The response about to be sent.
@@ -91,23 +122,20 @@ const isProblem = (response: HttpServerResponse.HttpServerResponse): boolean =>
  * @returns The `type`, or none when the body is not a buffered JSON object that has one.
  */
 const problemType = (response: HttpServerResponse.HttpServerResponse): Option.Option<string> =>
-  response.body._tag === "Uint8Array"
-    ? Option.map(
-        Schema.decodeUnknownOption(ProblemType)(
-          response.body.text ?? new TextDecoder().decode(response.body.body),
-        ),
-        ({ type }) => type,
-      )
-    : Option.none();
+  Option.map(
+    Option.flatMap(bodyText(response), Schema.decodeUnknownOption(ProblemType)),
+    ({ type }) => type,
+  );
 
 /**
  * Adapt one response about to be sent.
  *
- * A response of status 400 or above that is not a problem is replaced by a bare
- * `{ type: "about:blank", status, title }` problem, the title being the status's IANA phrase. A
+ * A response of status 400 or above that is not a problem is replaced by a problem whose title is
+ * the status's IANA phrase. When its body is a declared tagged error (a Domain Rejection), the
+ * problem keeps the error's identity: its `type` names the tag and its fields stay as extension
+ * members. Any other body becomes a bare `{ type: "about:blank", status, title }` problem. A
  * problem passes through unchanged except that an `AuthUnavailable` body gains `Retry-After`.
- * Responses below 400 are untouched. The adapter never writes a `detail`, an extension or any other
- * `type`.
+ * Responses below 400 are untouched. The adapter never writes a `detail`.
  *
  * @param _request - The request being answered, unused.
  * @param response - The response about to be sent.
@@ -133,12 +161,20 @@ const adapt = (
     );
   }
 
+  const title = STATUS_PHRASES.get(response.status) ?? "Error";
+
   return Effect.succeed(
-    ProblemDetails.toResponse({
-      status: response.status,
-      title: STATUS_PHRASES.get(response.status) ?? "Error",
-      type: ProblemDetails.blankType,
-    }),
+    ProblemDetails.toResponse(
+      Option.match(Option.flatMap(bodyText(response), Schema.decodeUnknownOption(TaggedBody)), {
+        onNone: () => ({ status: response.status, title, type: ProblemDetails.blankType }),
+        onSome: ({ _tag, ...fields }) => ({
+          ...fields,
+          status: response.status,
+          title,
+          type: taggedType(_tag),
+        }),
+      }),
+    ),
   );
 };
 

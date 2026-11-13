@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-brand: var(--brand);
+  --color-on-brand: var(--brand-foreground);
+  --radius-sm: 0.25rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: calc(1.25 / 0.875);
+  --text-sm--letter-spacing: -0.01em;
+  --font-heading: var(--font-sans);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --brand: oklch(0.5 0.2 270);
+  --brand-foreground: var(--background);
+  --radius: 0.5rem;
+}
+
+.dark {
+  --background: oklch(0.1 0 0);
+  --brand: oklch(0.6 0.2 270 / 50%);
+  --brand-foreground: var(--background);
+}

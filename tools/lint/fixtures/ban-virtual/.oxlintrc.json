@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "@tanstack/react-virtual",
+            "message": "D10 #229"
+          }
+        ],
+        "patterns": []
+      }
+    ]
+  }
+}
