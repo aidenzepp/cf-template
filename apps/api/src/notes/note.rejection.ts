@@ -31,3 +31,12 @@ export class NoteQuotaExceeded extends Domain.Rejection(
     httpApiStatus: 409,
   },
 ) {}
+
+/**
+ * The caller is not the owner of the notebook the command names; a caller writes only its own.
+ */
+export class NotNotebookOwner extends Domain.Rejection(
+  "NotNotebookOwner",
+  {},
+  { description: "Only the owner of a notebook may change it.", httpApiStatus: 403 },
+) {}
