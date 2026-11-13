@@ -152,6 +152,24 @@ describe("fromSource", () => {
     }).pipe(withEnv({ MODE: "fast" })),
   );
 
+  it.effect("reads the source on demand and never at bind", () =>
+    Effect.gen(function* onDemand() {
+      const reads: Array<string> = [];
+
+      const source: LiveSource = {
+        name: "test-source",
+        read: (key) => Effect.sync(() => reads.push(key)).pipe(Effect.as(Option.some("slow"))),
+      };
+
+      const read = yield* fromSource(source).bind(ModeKnob);
+
+      assert.strictEqual(reads.length, 0);
+      assert.strictEqual(yield* read, "slow");
+      assert.strictEqual(yield* read, "slow");
+      assert.strictEqual(reads.length, 2);
+    }).pipe(withEnv({ MODE: "fast" })),
+  );
+
   it.effect("falls back to tier (b) and logs once per distinct invalid value", () =>
     Effect.gen(function* step9() {
       const { lines, value } = yield* captureLogs(
