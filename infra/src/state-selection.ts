@@ -1,4 +1,11 @@
 /**
+ * The name the stack program passes to `Alchemy.Stack`, which is the `stack` key of every record
+ * Alchemy keeps. It is not the project stack name that names the state store's Worker. A reader of
+ * the state, such as `bun run log-key`, asks for records under this name.
+ */
+export const STATE_STACK = "app";
+
+/**
  * Report whether the stage keeps its state in the project's Cloudflare state store.
  *
  * `prod`, `staging-<N>` and `test-ci` do; `test-<slug>` and `dev` use Alchemy local state. The

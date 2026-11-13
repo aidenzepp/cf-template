@@ -4,6 +4,8 @@
 
 Stuck sign-up address with the mail add-in on (the reclaim hook is off, so the row stays): delete the abandoned row by hand with `DELETE FROM user WHERE email_verified = 0 AND id NOT IN (SELECT user_id FROM account) AND id NOT IN (SELECT user_id FROM passkey) AND created_at < <now - AUTH_ORPHAN_GRACE_SECONDS in milliseconds>;` (`created_at` is Unix milliseconds in the generated schema).
 
+Rejected sign-in lookup: `bun run log-key --stage <stage> <email>` prints the `emailKey` hash to search for in Workers Logs. It refuses a stage whose state store is missing or outdated and never deploys one. A maintainer runs `prod` locally with `CI=true` on purpose; no workflow may run `log-key`, because this repository is public and an Actions log would show the address and its hash.
+
 ## Limits
 
 CPU: once a `test-<slug>` stage measures p99 CPU per invocation for a Worker, its CPU knob (`WEB_CPU_LIMIT_MS`, `API_CPU_LIMIT_MS`) becomes `max(200, ceil(p99 x 10))`.
@@ -48,5 +50,9 @@ Observed consequence (inferred, not run): after an attach, requests to the old `
 ## Build and gates
 
 `bun run build` ends with `initial JS: <n> / 300 KiB gzipped`, the web entry chunk plus its static imports. It only reports: it warns when over the target and never fails. CI repeats the line in the job summary.
+
+## State store
+
+Create the project state store once, from a laptop, before the first deploy: `bun run alchemy state bootstrap --profile admin --config infra/alchemy.run.ts`. It creates the `<stack>-state` Worker and its two Secrets Store entries in the `admin` profile's account, with `STACK_NAME` when set and the derived name otherwise. The command passes no stage, so Alchemy builds the state layer with its placeholder stage (`PLACEHOLDER_STAGE`, `alchemy/src/Alchemist/Operations.ts`); `infra/alchemy.run.ts` builds the project store for that stage without decoding it as an app stage. Every deploy stage still decodes strictly.
 
 I-38 fills the rest of this section.
