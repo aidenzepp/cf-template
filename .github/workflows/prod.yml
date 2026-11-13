@@ -175,6 +175,24 @@ jobs:
         with:
           working-directory: infra
       - run: bun scripts/smoke.ts
+      # The commit subjects since the latest release tag, or every commit when no release exists.
+      - name: Commits in this deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo '### Commits in this deploy'
+            echo
+            if tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name 2>/dev/null)"; then
+              echo "Since \`$tag\`:"
+              echo
+              gh api "repos/$GITHUB_REPOSITORY/compare/$tag...$GITHUB_SHA" --jq '.commits[].commit.message | split("\n")[0] | "- " + .'
+            else
+              echo 'No release tag yet; all commits:'
+              echo
+              gh api --paginate "repos/$GITHUB_REPOSITORY/commits?sha=$GITHUB_SHA" --jq '.[].commit.message | split("\n")[0] | "- " + .'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # A blocking plan holds prod red and prints the one copyable `gh workflow run prod-destructive.yml`
   # command (SU13). The fingerprint is checked as a sha256 before it reaches the summary.
@@ -221,15 +239,35 @@ jobs:
         env:
           PLAN_RESULT: ${{ needs.plan-prod.result }}
 
-  # The release after a deploy (C33l, C41o), on the App token. I-40 fills the body; the placeholder
-  # fails so turning RELEASE_ON on before I-40 lands is visible.
+  # The release after a deploy (C33l, C41o), on the App token: events made with GITHUB_TOKEN start
+  # no workflow run, so a release PR it opened would never run `checks`. It runs only after a
+  # deployed `prod`, so a tag marks a commit that was deployed first.
   release:
     needs: deploy-prod
     if: vars.RELEASE_ON == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
     steps:
-      - name: Release (placeholder, I-40)
-        run: |
-          echo '::error::release is a placeholder: I-40 adds the release-please step on the App token.'
-          exit 1
+      - id: app-token
+        uses: ./.github/actions/app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  # The lane skips loudly, never red, so a project without the App still deploys green.
+  release-skipped:
+    if: vars.RELEASE_ON != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          echo 'Release lane is off: `RELEASE_ON` is not `true`. Set `APP_ID` and `APP_PRIVATE_KEY`, then `RELEASE_ON=true`.' >> "$GITHUB_STEP_SUMMARY"

@@ -132,8 +132,25 @@ jobs:
           working-directory: infra
       - run: bun scripts/smoke.ts
         working-directory: infra
-      - name: Release (placeholder, I-40)
-        if: vars.RELEASE_ON == 'true'
+      - name: Commits in this deploy
         run: |
-          echo '::error::release is a placeholder: I-40 adds the release-please step on the App token.'
-          exit 1
+          last="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          {
+            echo '### Commits in this deploy'
+            echo
+            if [ -n "$last" ]; then printf 'Since `%s`:\n\n' "$last"; else echo 'No release tag yet; all commits:'; echo; fi
+            git log --format='- %s' "${last:+$last..}HEAD"
+          } >> "$GITHUB_STEP_SUMMARY"
+      # A release merged while prod was held is applied and tagged here, after the deploy.
+      - id: app-token
+        if: vars.RELEASE_ON == 'true'
+        uses: ./.github/actions/app-token
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+      - if: vars.RELEASE_ON == 'true'
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
