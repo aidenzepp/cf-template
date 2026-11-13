@@ -1,0 +1,63 @@
+name: Browser baselines
+
+# Regenerates the screenshot baselines in `test/browser/__screenshots__/` on Linux, the only
+# platform baselines are created on, and commits them back to the branch named by `ref`. Run it by
+# hand after a change that moves the page layout; the `browser` job in `ci.yml` then compares
+# against the new baselines.
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch to update (never the default branch)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: browser-baselines-${{ inputs.ref }}
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      REF: ${{ inputs.ref }}
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+    steps:
+      - name: Refuse the default branch
+        run: |
+          branch="${REF#refs/heads/}"
+          if ! git check-ref-format --branch "$branch" >/dev/null 2>&1; then
+            echo "::error::'$REF' is not a branch name."
+            exit 1
+          fi
+          if [ "$branch" = "main" ] || [ "$branch" = "$DEFAULT_BRANCH" ]; then
+            echo "::error::Baselines are never committed to '$branch'. Run this on a feature branch."
+            exit 1
+          fi
+          echo "BRANCH=$branch" >> "$GITHUB_ENV"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.BRANCH }}
+      - uses: ./.github/actions/setup
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run build
+      # `--update` sets Vitest's update mode to "all", so `toMatchScreenshot` writes every
+      # screenshot as the new reference instead of comparing against the committed one.
+      - run: bun run test:browser --update
+      - name: Commit the baselines
+        run: |
+          git add -- test/browser/__screenshots__/
+          if git diff --cached --quiet; then
+            echo "Baselines unchanged."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "test(ui): update browser screenshot baselines"
+          git push origin "HEAD:refs/heads/$BRANCH"

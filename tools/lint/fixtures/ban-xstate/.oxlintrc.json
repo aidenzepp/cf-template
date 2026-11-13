@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "xstate",
+            "message": "D9: deferred"
+          }
+        ],
+        "patterns": []
+      }
+    ]
+  }
+}

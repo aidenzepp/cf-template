@@ -18,6 +18,8 @@ declare module "cloudflare:workers" {
     };
     readonly AUTH_METHODS: string;
     readonly AUTH_ORPHAN_GRACE_SECONDS: string;
+    readonly DOCS_ENABLED: boolean;
+    readonly DOCS_LIVE_READ: boolean;
     readonly KNOBS?: {
       readonly get: (key: string, options: { readonly cacheTtl: number }) => Promise<string | null>;
     };
@@ -35,4 +37,10 @@ declare module "*.css?url" {
   const url: string;
 
   export default url;
+}
+
+declare module "*.md?raw" {
+  const text: string;
+
+  export default text;
 }
