@@ -18,12 +18,20 @@ import {
   TANSTACK_START_RULES,
 } from "oxlint-plugin-react-doctor";
 
-import { restrictImports } from "./tools/lint/rules/restrict-imports.ts";
+import {
+  abortGlobal,
+  platformGlobals,
+  sourceFetch,
+  webFetch,
+} from "./tools/lint/rules/restricted-globals.ts";
+
+import { nodeBuiltins, restrictImports } from "./tools/lint/rules/restrict-imports.ts";
 
 import {
+  authFetchMembers,
   dataAccessMembers,
-  fetchMessage,
   globalThisFetch,
+  registryMembers,
   runMembers,
 } from "./tools/lint/rules/restricted-properties.ts";
 
@@ -58,10 +66,15 @@ const effectLogStatement = {
 const vendored = ["packages/ui/src/**", "packages/ui/components.json"];
 
 /**
- * R1: an app imports another app only through its contract, and never imports infra. Web overrides
- * repeat it because an override replaces the options of every earlier matching override.
+ * The source of every app and package: the files the capability registry guards
+ * (`docs/capabilities.md`). Tests lift the properties ban and `packages` tests lift the rest.
  */
-const appImports = [
+const sourceFiles = ["apps/*/src/**", "packages/*/src/**"];
+
+/**
+ * R1: an app imports another app only through its contract, and never imports infra.
+ */
+const appRules = [
   {
     group: [
       "@workspace/web",
@@ -76,6 +89,12 @@ const appImports = [
   },
   { group: ["@workspace/infra", "@workspace/infra/*"], message: "an app never imports infra" },
 ];
+
+/**
+ * Everything an app source file may not import by pattern: R1, and `node:*`. Web overrides repeat
+ * it because an override replaces the options of every earlier matching override.
+ */
+const appImports = [...appRules, nodeBuiltins];
 
 /**
  * R5: browser code imports no app contract; the server entry is the exception (ST10).
@@ -192,8 +211,12 @@ export default defineConfig({
       // Runtime boundary: tests bridge stubs to Promise APIs.
       restrictImports(["**/*.test.ts"], { base: false }),
       restrictImports(["apps/*/src/**"], { patterns: appImports }),
+      // Package source imports no `node:*` module; its tests lift that ban and the run-family ban.
+      restrictImports(["packages/*/src/**"], { patterns: [nodeBuiltins] }),
+      restrictImports(["packages/*/src/**/*.test.ts"], { base: false }),
       restrictImports(["packages/contract/src/domain/**"], {
         patterns: [
+          nodeBuiltins,
           {
             group: ["effect/http", "effect/http/*", "@alchemy.run/*", "../api/*", "**/api/*"],
             message:
@@ -240,6 +263,13 @@ export default defineConfig({
         paths: [noHttpBuilder],
         patterns: [...appImports, httpModules],
       }),
+      // `password.ts` is the project's one scrypt call: Effect has no scrypt (its `Kdf` is PBKDF2
+      // only) and Workers serve it only through `node:crypto` (the file's own comment). It lifts
+      // only `node:*`.
+      restrictImports(["apps/auth/src/password.ts"], {
+        paths: [noHttpBuilder],
+        patterns: [...appRules, httpModules],
+      }),
       // `worker.ts` composes `HttpApiBuilder` layers from the http modules; it keeps R1.
       restrictImports(["apps/api/src/worker.ts", "apps/auth/src/worker.ts"], {
         patterns: appImports,
@@ -254,36 +284,97 @@ export default defineConfig({
         patterns: [...appImports, dbModules],
       }),
       {
-        // The data modules lift the data-access bans and keep the run-family ban. Overrides replace
-        // options, so each list below is exact.
-        files: ["packages/db/src/**"],
-        rules: { "no-restricted-properties": ["error", ...runMembers] },
-      },
-      {
-        // `web` reaches `auth` only through `env.AUTH.fetch(...)` (C34). Bare `fetch` is banned by
-        // `no-restricted-globals` below; `globalThis.fetch` joins the member lists, which every
-        // override under apps/web/src repeats because overrides replace options.
-        files: ["apps/web/src/**"],
+        // The capability registry's built-in guards (`docs/capabilities.md`, work order A2) on all
+        // source. Overrides replace options, so each list below and in the overrides after this one
+        // is exact. `no-console` takes no options: logs go through `Effect.log*`.
+        files: sourceFiles,
         rules: {
-          "no-restricted-globals": ["error", { message: fetchMessage, name: "fetch" }],
+          "no-console": "error",
+          "no-restricted-globals": ["error", abortGlobal, ...platformGlobals, sourceFetch],
           "no-restricted-properties": [
             "error",
             ...runMembers,
             ...dataAccessMembers,
+            ...registryMembers,
+          ],
+          "promise/prefer-await-to-then": "error",
+        },
+      },
+      {
+        // The data modules lift the data-access bans and keep the run-family and registry bans.
+        files: ["packages/db/src/**"],
+        rules: { "no-restricted-properties": ["error", ...runMembers, ...registryMembers] },
+      },
+      {
+        // `web` reaches `auth` only through `env.AUTH.fetch(...)` (C34), so its bare `fetch` ban
+        // carries that message. `globalThis.fetch` joins the member lists, which every override
+        // under apps/web/src repeats because overrides replace options.
+        files: ["apps/web/src/**"],
+        rules: {
+          "no-restricted-globals": ["error", abortGlobal, ...platformGlobals, webFetch],
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            ...registryMembers,
             globalThisFetch,
           ],
         },
       },
       {
-        // The web run boundaries lift the run-family ban and keep the data-access and fetch bans.
+        // The web run boundaries lift the run-family ban and keep the data-access, registry and
+        // fetch bans.
         files: ["apps/web/src/runtime.ts", "apps/web/src/server.ts"],
-        rules: { "no-restricted-properties": ["error", ...dataAccessMembers, globalThisFetch] },
+        rules: {
+          "no-restricted-properties": [
+            "error",
+            ...dataAccessMembers,
+            ...registryMembers,
+            globalThisFetch,
+          ],
+        },
       },
       {
         // The auth reclaim statement is one guarded compare-and-delete: a named data module that
-        // keeps the run-family ban.
+        // keeps the run-family and registry bans.
         files: ["apps/auth/src/reclaim.ts"],
-        rules: { "no-restricted-properties": ["error", ...runMembers] },
+        rules: { "no-restricted-properties": ["error", ...runMembers, ...registryMembers] },
+      },
+      {
+        // `latch.ts` is lifted until #249 removes it: the latch record is written with
+        // `JSON.stringify`. `test-harness.ts` is test support.
+        files: ["packages/budget-guard/src/latch.ts", "apps/auth/src/test-harness.ts"],
+        rules: {
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            ...authFetchMembers,
+          ],
+        },
+      },
+      {
+        // Lifted until #244 moves the log to Effect.logError and updates the web.ratelimit.error
+        // alert query with a cloud proof: the alert reads a top-level `event` that the structured
+        // logger would nest (want 3bb9a4ad).
+        files: ["apps/web/src/ratelimit.ts"],
+        rules: {
+          "no-console": "off",
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            ...authFetchMembers,
+            globalThisFetch,
+          ],
+          "promise/prefer-await-to-then": "off",
+        },
+      },
+      {
+        // `auth.ts` is the documented Effect-to-Promise seam: Better Auth takes a promise view
+        // of the Effect, which `.then(onFulfilled, onRejected)` consumes.
+        files: ["apps/auth/src/auth.ts"],
+        rules: { "promise/prefer-await-to-then": "off" },
       },
       {
         // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
