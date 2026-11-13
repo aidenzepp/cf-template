@@ -73,6 +73,7 @@ Do not introduce nullable fields, legacy repair paths, transitional models, or c
 - [.agents/skills/add-block/SKILL.md](.agents/skills/add-block/SKILL.md): adding a removable block, attaching it to core, and checking it with `bun run footprint` and `bun run pullout`.
 - [.agents/skills/add-feature/SKILL.md](.agents/skills/add-feature/SKILL.md): adding a feature slice that declares no resource and adds no Worker.
 - [.agents/skills/conventional-commits/SKILL.md](.agents/skills/conventional-commits/SKILL.md): commit boundaries, staging, and messages.
+- [.agents/skills/design-review/SKILL.md](.agents/skills/design-review/SKILL.md): looking at changed pages in light and dark against a rubric, and the one verdict line for the pull request body.
 - [.agents/skills/document-code/SKILL.md](.agents/skills/document-code/SKILL.md): JSDoc for every program unit and the constraints it must preserve.
 - [.agents/skills/effect-design/SKILL.md](.agents/skills/effect-design/SKILL.md): the native-capability review and local Effect rulings.
 - [.agents/skills/error-messages/SKILL.md](.agents/skills/error-messages/SKILL.md): caller-facing and developer-facing errors.
