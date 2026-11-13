@@ -1,6 +1,5 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as DomainCloudflare from "@alchemy.run/cloudflare/Domain";
-import * as Domain from "@alchemy.run/domain";
 import { RuntimeContext, Telemetry as AlchemyTelemetry } from "alchemy";
 import { makeExecutionMemo } from "alchemy/Runtime/ExecutionMemo";
 import type { InputProps } from "alchemy/Input";
@@ -145,15 +144,13 @@ export class ApiWorker extends Cloudflare.Worker<ApiWorker, ApiEntrypoint>()("Ap
  * @param providers - The services of {@link ApiBlockProviders}, built once in Worker init; they are
  *   provided beneath the session lookup, the middleware and the handlers.
  * @param hosted - The services of the notes model on Durable Objects, built once in Worker init.
- *   Omitted, the model is hosted in memory for this execution alone, so its state does not
- *   outlive the handler; only the `/api/notes` handler tests omit it, until that slice is removed.
  * @returns The router's HTTP effect, built on the execution scope.
  */
 export const makeHandler = (
   checkSession: typeof AuthCheckSession.Service,
   isolate: Context.Context<ApiIsolateServices>,
   providers: Layer.Layer<Layer.Success<typeof ApiBlockProviders>>,
-  hosted?: Context.Context<NotesHostedServices>,
+  hosted: Context.Context<NotesHostedServices>,
 ) =>
   Effect.gen(function* buildHandler() {
     const env = yield* Cloudflare.WorkerEnvironment;
@@ -169,11 +166,7 @@ export const makeHandler = (
 
     const notebook = NotebookHttp.layerFor(ServedApi).pipe(
       Layer.provide(SessionLive),
-      Layer.provide(
-        hosted === undefined
-          ? NotesModel.layer(Layer.empty).pipe(Layer.provide(Domain.InMemory))
-          : Layer.succeedContext(hosted),
-      ),
+      Layer.provide(Layer.succeedContext(hosted)),
     );
 
     const routes = HttpApiBuilder.layer(ServedApi).pipe(
@@ -197,16 +190,16 @@ export const makeHandler = (
   });
 
 /**
- * The `api` Worker: the contract's `HttpApi` over the notes in the app D1 database, the session
- * middleware that asks `auth` through its service binding, the example-feature gate, and Problem
- * Details on every error it produces, merged with the Notebook group `toHttpApi` generates under
- * `/api` (commands only; live reads would be Server-Sent Events). Its `fetch` refuses a foreign
- * `Origin` before routing. It has no public address; `web` forwards `/api/*` to it.
+ * The `api` Worker: the contract's `HttpApi`, the session middleware that asks `auth` through its
+ * service binding, and Problem Details on every error it produces, merged with the Notebook group
+ * `toHttpApi` generates under `/api` (commands only; live reads would be Server-Sent Events). Its
+ * `fetch` refuses a foreign `Origin` before routing. It has no public address; `web` forwards
+ * `/api/*` to it.
  *
  * Initialization binds `auth`, the `AppDb` database and the services of {@link ApiBlockProviders},
  * such as the knobs namespace, hosts the notes model on Durable Objects, reads no setting and
  * builds the isolate services
- * (`ApiWorkerIsolateLayers`, the notes store among them) once; the database client is built on
+ * (`ApiWorkerIsolateLayers`) once; the database client is built on
  * first use in each execution, and so is the handler, which reads the knobs.
  */
 export default ApiWorker.make(
