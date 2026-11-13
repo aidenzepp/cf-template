@@ -1,4 +1,5 @@
-import * as React from "react"
+"use client"
+
 import { Tabs as TabsPrimitive } from "@base-ui/react/tabs"
 import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "cn"
@@ -11,7 +12,7 @@ function Tabs({
   return (
     <TabsPrimitive.Root
       data-slot="tabs"
-      orientation={orientation}
+      data-orientation={orientation}
       className={cn(
         "group/tabs flex gap-2 data-horizontal:flex-col",
         className
@@ -22,145 +23,44 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list relative isolate inline-flex w-fit items-center justify-center rounded-lg p-0.5 text-muted-foreground data-[variant=line]:rounded-none data-horizontal:h-8 data-horizontal:has-data-[layout=stacked]:h-auto data-horizontal:data-[size=lg]:h-9 data-vertical:h-fit data-vertical:flex-col",
+  "group/tabs-list inline-flex w-fit items-center justify-center rounded-lg p-[3px] text-muted-foreground group-data-horizontal/tabs:h-8 group-data-vertical/tabs:h-fit group-data-vertical/tabs:flex-col data-[variant=line]:rounded-none",
   {
     variants: {
       variant: {
-        default: "bg-fill-2",
-        secondary: "bg-transparent",
-        primary: "bg-transparent",
-        line: "bg-transparent",
-      },
-      size: {
-        default: "",
-        lg: "",
+        default: "bg-muted",
+        line: "gap-1 bg-transparent",
       },
     },
     defaultVariants: {
       variant: "default",
-      size: "default",
     },
   }
 )
 
-const tabsIndicatorVariants = cva("absolute -z-10", {
-  variants: {
-    variant: {
-      default:
-        "top-(--active-tab-top) left-(--active-tab-left) h-(--active-tab-height) w-(--active-tab-width) rounded-md bg-raised shadow-xs transition-[top,left,width,height] duration-200 ease-out motion-reduce:transition-none",
-      secondary:
-        "top-(--active-tab-top) left-(--active-tab-left) h-(--active-tab-height) w-(--active-tab-width) rounded-md bg-fill-2 transition-[top,left,width,height] duration-200 ease-out motion-reduce:transition-none",
-      primary:
-        "top-(--active-tab-top) left-(--active-tab-left) h-(--active-tab-height) w-(--active-tab-width) rounded-md bg-primary transition-[top,left,width,height] duration-200 ease-out motion-reduce:transition-none",
-      line: "bg-foreground [--tab-line-x:--spacing(2)] [--tab-line-y:--spacing(1)] group-has-data-[layout=stacked]/tabs-list:[--tab-line-x:--spacing(2.5)] group-has-data-[layout=stacked]/tabs-list:[--tab-line-y:--spacing(2)] group-data-[size=lg]/tabs-list:[--tab-line-x:--spacing(2.5)] group-data-[size=lg]/tabs-list:[--tab-line-y:--spacing(1.5)] data-horizontal:bottom-0 data-horizontal:left-[calc(var(--active-tab-left)+var(--tab-line-x))] data-horizontal:h-0.5 data-horizontal:w-[calc(var(--active-tab-width)-2*var(--tab-line-x))] data-vertical:top-[calc(var(--active-tab-top)+var(--tab-line-y))] data-vertical:right-0 data-vertical:h-[calc(var(--active-tab-height)-2*var(--tab-line-y))] data-vertical:w-0.5",
-    },
-  },
-  defaultVariants: {
-    variant: "default",
-  },
-})
-
 function TabsList({
   className,
   variant = "default",
-  size = "default",
-  children,
   ...props
 }: TabsPrimitive.List.Props & VariantProps<typeof tabsListVariants>) {
   return (
     <TabsPrimitive.List
       data-slot="tabs-list"
       data-variant={variant}
-      data-size={size}
-      className={cn(tabsListVariants({ variant, size }), className)}
+      className={cn(tabsListVariants({ variant }), className)}
       {...props}
-    >
-      {children}
-      <TabsPrimitive.Indicator
-        data-slot="tabs-indicator"
-        renderBeforeHydration
-        className={tabsIndicatorVariants({ variant })}
-      />
-    </TabsPrimitive.List>
+    />
   )
 }
 
-const tabsTriggerVariants = cva(
-  "group/tabs-trigger relative inline-flex rounded-md border border-transparent! text-xs font-medium whitespace-nowrap text-muted-foreground transition-all hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-1 focus-visible:outline-ring aria-disabled:pointer-events-none aria-disabled:opacity-50 data-vertical:w-full [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
-  {
-    variants: {
-      layout: {
-        inline:
-          "h-7 items-center justify-center gap-1 px-1.75 group-data-[size=lg]/tabs-list:h-8 group-data-[size=lg]/tabs-list:gap-1.5 group-data-[size=lg]/tabs-list:px-2.25 data-vertical:justify-start",
-        stacked:
-          "flex-col items-start justify-start gap-2 px-2.25 py-1.75 text-left",
-      },
-      align: {
-        start: "",
-        center: "",
-      },
-    },
-    compoundVariants: [
-      {
-        layout: "stacked",
-        align: "center",
-        class: "items-center text-center",
-      },
-    ],
-    defaultVariants: {
-      layout: "inline",
-      align: "start",
-    },
-  }
-)
-
-function TabsTrigger({
-  className,
-  layout = "inline",
-  align = "start",
-  ...props
-}: TabsPrimitive.Tab.Props & VariantProps<typeof tabsTriggerVariants>) {
+function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
   return (
     <TabsPrimitive.Tab
       data-slot="tabs-trigger"
-      data-layout={layout}
       className={cn(
-        tabsTriggerVariants({ layout, align }),
-        "group-data-[variant=line]/tabs-list:rounded-none data-active:text-foreground group-data-[variant=primary]/tabs-list:data-active:text-primary-foreground",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-/** A secondary line in a trigger: an eyebrow above the label or a description under it. */
-function TabsTriggerDescription({
-  className,
-  ...props
-}: React.ComponentProps<"span">) {
-  return (
-    <span
-      data-slot="tabs-trigger-description"
-      className={cn(
-        "text-2xs font-normal text-muted-foreground group-data-[variant=primary]/tabs-list:group-data-active/tabs-trigger:text-primary-foreground/70",
-        className
-      )}
-      {...props}
-    />
-  )
-}
-
-/** A count after the label. */
-function TabsTriggerCount({
-  className,
-  ...props
-}: React.ComponentProps<"span">) {
-  return (
-    <span
-      data-slot="tabs-trigger-count"
-      className={cn(
-        "font-normal text-muted-foreground tabular-nums group-data-[variant=primary]/tabs-list:group-data-active/tabs-trigger:text-primary-foreground/70",
+        "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-1.5 py-0.5 text-sm font-medium whitespace-nowrap text-foreground/60 transition-all group-data-vertical/tabs:w-full group-data-vertical/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 focus-visible:outline-1 focus-visible:outline-ring disabled:pointer-events-none disabled:opacity-50 has-data-[icon=inline-end]:pr-1 has-data-[icon=inline-start]:pl-1 aria-disabled:pointer-events-none aria-disabled:opacity-50 dark:text-muted-foreground dark:hover:text-foreground group-data-[variant=default]/tabs-list:data-active:shadow-sm group-data-[variant=line]/tabs-list:data-active:shadow-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent",
+        "data-active:bg-background data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 dark:data-active:text-foreground",
+        "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-horizontal/tabs:after:inset-x-0 group-data-horizontal/tabs:after:bottom-[-5px] group-data-horizontal/tabs:after:h-0.5 group-data-vertical/tabs:after:inset-y-0 group-data-vertical/tabs:after:-right-1 group-data-vertical/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100",
         className
       )}
       {...props}
@@ -178,12 +78,4 @@ function TabsContent({ className, ...props }: TabsPrimitive.Panel.Props) {
   )
 }
 
-export {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsTriggerDescription,
-  TabsTriggerCount,
-  TabsContent,
-  tabsListVariants,
-}
+export { Tabs, TabsList, TabsTrigger, TabsContent, tabsListVariants }

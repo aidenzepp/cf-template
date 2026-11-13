@@ -3,7 +3,7 @@ import { cn } from "cn"
 import { ChevronDownIcon } from "lucide-react"
 
 type NativeSelectProps = Omit<React.ComponentProps<"select">, "size"> & {
-  size?: "sm" | "default" | "lg" | "xl"
+  size?: "sm" | "default"
 }
 
 function NativeSelect({
@@ -23,14 +23,10 @@ function NativeSelect({
       <select
         data-slot="native-select"
         data-size={size}
-        className="h-8 w-full min-w-0 appearance-none rounded-lg bg-field pr-8.5 pl-2.5 text-xs outline-1 -outline-offset-1 outline-field-border transition-[color,box-shadow,outline-color] duration-200 outline-solid select-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-ring disabled:pointer-events-none disabled:cursor-not-allowed aria-invalid:ring-2 aria-invalid:ring-destructive/20 aria-invalid:outline-destructive data-[size=lg]:h-9 data-[size=lg]:pr-9.5 data-[size=lg]:pl-3 data-[size=sm]:h-7 data-[size=sm]:pr-8 data-[size=xl]:h-10 data-[size=xl]:pr-10 data-[size=xl]:pl-3 dark:aria-invalid:ring-destructive/40 dark:aria-invalid:outline-destructive/50"
+        className="h-8 w-full min-w-0 appearance-none rounded-lg border border-input bg-transparent py-1 pr-8 pl-2.5 text-sm transition-colors outline-none select-none selection:bg-primary selection:text-primary-foreground placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:pointer-events-none disabled:cursor-not-allowed aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20 data-[size=sm]:h-7 data-[size=sm]:rounded-[min(var(--radius-md),10px)] data-[size=sm]:py-0.5 dark:bg-input/30 dark:hover:bg-input/50 dark:aria-invalid:border-destructive/50 dark:aria-invalid:ring-destructive/40"
         {...props}
       />
-      <ChevronDownIcon
-        className="pointer-events-none absolute top-1/2 right-2 size-4 -translate-y-1/2 text-muted-foreground select-none group-data-[size=lg]/native-select:right-2.5 group-data-[size=sm]/native-select:right-1.5 group-data-[size=xl]/native-select:right-3"
-        aria-hidden="true"
-        data-slot="native-select-icon"
-      />
+      <ChevronDownIcon className="pointer-events-none absolute top-1/2 right-2.5 size-4 -translate-y-1/2 text-muted-foreground select-none" aria-hidden="true" data-slot="native-select-icon" />
     </div>
   )
 }
