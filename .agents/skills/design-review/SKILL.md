@@ -27,7 +27,7 @@ One line, exactly:
 design-review: <40-hex head sha> <pass|concerns|fail> <reason>
 ```
 
-The sha is `git rev-parse HEAD` of the branch as pushed, and the reason is one short sentence. The line goes in the pull request body. A new commit makes the line stale; run the skill again. For a Hand's pull request the Hand runs the skill and reports the line, and the Mind pastes it into the body.
+The sha is `git rev-parse HEAD` of the branch as pushed, and the reason is one short sentence. The line goes in the pull request body. A merge of main keeps the line valid; a change to a reviewed file (not a `.test.ts` or `.test.tsx` file) makes it stale, so run the skill again. For a Hand's pull request the Hand runs the skill and reports the line, and the Mind pastes it into the body.
 
 ## Where later rubric items come from
 
