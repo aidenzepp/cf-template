@@ -1,5 +1,3 @@
-"use client"
-
 import * as React from "react"
 import { cn } from "cn"
 import useEmblaCarousel, {
@@ -49,7 +47,6 @@ function Carousel({
   plugins,
   className,
   children,
-  onKeyDown,
   ...props
 }: React.ComponentProps<"div"> & CarouselProps) {
   const [carouselRef, api] = useEmblaCarousel(
@@ -78,26 +75,15 @@ function Carousel({
 
   const handleKeyDown = React.useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
-      onKeyDown?.(event)
-      const target = event.target as HTMLElement
-      if (
-        event.defaultPrevented ||
-        target.isContentEditable ||
-        target.matches("input, textarea, select")
-      ) {
-        return
-      }
-
-      const horizontal = orientation === "horizontal"
-      if (event.key === (horizontal ? "ArrowLeft" : "ArrowUp")) {
+      if (event.key === "ArrowLeft") {
         event.preventDefault()
         scrollPrev()
-      } else if (event.key === (horizontal ? "ArrowRight" : "ArrowDown")) {
+      } else if (event.key === "ArrowRight") {
         event.preventDefault()
         scrollNext()
       }
     },
-    [onKeyDown, orientation, scrollPrev, scrollNext]
+    [scrollPrev, scrollNext]
   )
 
   React.useEffect(() => {
@@ -112,8 +98,7 @@ function Carousel({
     api.on("select", onSelect)
 
     return () => {
-      api.off("reInit", onSelect)
-      api.off("select", onSelect)
+      api?.off("select", onSelect)
     }
   }, [api, onSelect])
 
@@ -132,7 +117,7 @@ function Carousel({
       }}
     >
       <div
-        onKeyDown={handleKeyDown}
+        onKeyDownCapture={handleKeyDown}
         className={cn("relative", className)}
         role="region"
         aria-roledescription="carousel"
@@ -198,7 +183,7 @@ function CarouselPrevious({
       variant={variant}
       size={size}
       className={cn(
-        "absolute touch-manipulation",
+        "absolute touch-manipulation rounded-full",
         orientation === "horizontal"
           ? "inset-y-0 -left-12 my-auto"
           : "-top-12 left-1/2 -translate-x-1/2 rotate-90",
@@ -208,9 +193,7 @@ function CarouselPrevious({
       onClick={scrollPrev}
       {...props}
     >
-      <ChevronLeftIcon
-        className={cn(orientation === "horizontal" && "rtl:-scale-x-100")}
-      />
+      <ChevronLeftIcon />
       <span className="sr-only">Previous slide</span>
     </Button>
   )
@@ -230,7 +213,7 @@ function CarouselNext({
       variant={variant}
       size={size}
       className={cn(
-        "absolute touch-manipulation",
+        "absolute touch-manipulation rounded-full",
         orientation === "horizontal"
           ? "inset-y-0 -right-12 my-auto"
           : "-bottom-12 left-1/2 -translate-x-1/2 rotate-90",
@@ -240,9 +223,7 @@ function CarouselNext({
       onClick={scrollNext}
       {...props}
     >
-      <ChevronRightIcon
-        className={cn(orientation === "horizontal" && "rtl:-scale-x-100")}
-      />
+      <ChevronRightIcon />
       <span className="sr-only">Next slide</span>
     </Button>
   )

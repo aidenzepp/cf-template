@@ -1,4 +1,6 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
+import * as DomainCloudflare from "@alchemy.run/cloudflare/Domain";
+import * as Domain from "@alchemy.run/domain";
 import { RuntimeContext, Telemetry as AlchemyTelemetry } from "alchemy";
 import { makeExecutionMemo } from "alchemy/Runtime/ExecutionMemo";
 import type { InputProps } from "alchemy/Input";
@@ -8,7 +10,6 @@ import { ConfigProvider, Context, Effect, Layer, Logger, Option } from "effect";
 import { HttpRouter } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
 import { Auth } from "@workspace/auth/contract";
-import { Api } from "@workspace/contract/api/api";
 import { atLogLevel, liveLogLevel } from "@workspace/config/log-level";
 import { makeDatabase } from "@workspace/db/database";
 import { ProblemDetailsIncludeKnob } from "./config.ts";
@@ -20,13 +21,29 @@ import {
   ApiWorkerIsolateLayers,
   ApiWorkerMiddlewareLayers,
 } from "./blocks.ts";
-import { ApiDocsRoutes } from "./docs/routes.ts";
+import { ApiDocsRoutes, NotebookHttp, ServedApi } from "./docs/routes.ts";
+import { NotesModel } from "./notes/notes.model.ts";
+import { OriginCheck } from "./origin-check.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
+import { SessionLive } from "./session-middleware.ts";
 
 /**
  * The services built once per isolate, as the isolate layers of `blocks.ts` provide them.
  */
 export type ApiIsolateServices = Layer.Success<typeof ApiWorkerIsolateLayers>;
+
+/**
+ * The notes model hosted on Durable Objects: one class per aggregate, declared while the layer is
+ * built in Worker init, so it needs no binding of its own.
+ */
+const NotesHosted = NotesModel.layer(Layer.empty).pipe(
+  Layer.provide(DomainCloudflare.layerDurableObjects()),
+);
+
+/**
+ * The services of the hosted notes model, built once in Worker init.
+ */
+export type NotesHostedServices = Layer.Success<typeof NotesHosted>;
 
 /**
  * Run a call on the `auth` binding with the host context of the request in progress.
@@ -127,12 +144,16 @@ export class ApiWorker extends Cloudflare.Worker<ApiWorker, ApiEntrypoint>()("Ap
  * @param isolate - The services of the isolate, built from `ApiWorkerIsolateLayers`.
  * @param providers - The services of {@link ApiBlockProviders}, built once in Worker init; they are
  *   provided beneath the session lookup, the middleware and the handlers.
+ * @param hosted - The services of the notes model on Durable Objects, built once in Worker init.
+ *   Omitted, the model is hosted in memory for this execution alone, so its state does not
+ *   outlive the handler; only the `/api/notes` handler tests omit it, until that slice is removed.
  * @returns The router's HTTP effect, built on the execution scope.
  */
 export const makeHandler = (
   checkSession: typeof AuthCheckSession.Service,
   isolate: Context.Context<ApiIsolateServices>,
   providers: Layer.Layer<Layer.Success<typeof ApiBlockProviders>>,
+  hosted?: Context.Context<NotesHostedServices>,
 ) =>
   Effect.gen(function* buildHandler() {
     const env = yield* Cloudflare.WorkerEnvironment;
@@ -146,14 +167,24 @@ export const makeHandler = (
 
     const handlers = ApiWorkerHandlerGroupLayers.pipe(Layer.provide(Layer.succeedContext(isolate)));
 
-    const routes = HttpApiBuilder.layer(Api).pipe(
-      Layer.provide(handlers),
+    const notebook = NotebookHttp.layerFor(ServedApi).pipe(
+      Layer.provide(SessionLive),
+      Layer.provide(
+        hosted === undefined
+          ? NotesModel.layer(Layer.empty).pipe(Layer.provide(Domain.InMemory))
+          : Layer.succeedContext(hosted),
+      ),
+    );
+
+    const routes = HttpApiBuilder.layer(ServedApi).pipe(
+      Layer.provide(Layer.mergeAll(handlers, notebook)),
       Layer.provide(ApiWorkerMiddlewareLayers),
       Layer.provide(sessions),
       Layer.provide(providers),
       Layer.provide(layerProblemDetails({ includeDetails })),
       Layer.provide(Http.Platform),
       Layer.merge(ProblemAdapter),
+      Layer.merge(OriginCheck),
       Layer.merge(ApiDocsRoutes.pipe(Layer.provide(providers))),
       Layer.provide(provider),
     );
@@ -168,10 +199,13 @@ export const makeHandler = (
 /**
  * The `api` Worker: the contract's `HttpApi` over the notes in the app D1 database, the session
  * middleware that asks `auth` through its service binding, the example-feature gate, and Problem
- * Details on every error it produces. It has no public address; `web` forwards `/api/*` to it.
+ * Details on every error it produces, merged with the Notebook group `toHttpApi` generates under
+ * `/api` (commands only; live reads would be Server-Sent Events). Its `fetch` refuses a foreign
+ * `Origin` before routing. It has no public address; `web` forwards `/api/*` to it.
  *
  * Initialization binds `auth`, the `AppDb` database and the services of {@link ApiBlockProviders},
- * such as the knobs namespace, reads no setting and builds the isolate services
+ * such as the knobs namespace, hosts the notes model on Durable Objects, reads no setting and
+ * builds the isolate services
  * (`ApiWorkerIsolateLayers`, the notes store among them) once; the database client is built on
  * first use in each execution, and so is the handler, which reads the knobs.
  */
@@ -197,6 +231,8 @@ export default ApiWorker.make(
 
     // Bindings register at plan time, so the providers are built here, never per request.
     const providers = Layer.succeedContext(yield* Layer.build(ApiBlockProviders));
+    // The model's Durable Object classes are declared here, while the Worker builds.
+    const hosted = yield* Layer.build(NotesHosted);
 
     const isolate = yield* Effect.contextWith((services: Context.Context<ApiIsolateServices>) =>
       Effect.succeed(services),
@@ -213,6 +249,7 @@ export default ApiWorker.make(
         (input) => withHostContext(authBinding.checkSession(input)),
         isolate,
         providers,
+        hosted,
       ).pipe(Effect.provideContext(context), Effect.orDie),
     );
 

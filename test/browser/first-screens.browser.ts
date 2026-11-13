@@ -8,6 +8,7 @@ import type { BrowserCommands } from "vite-plus/test/internal/browser";
  * returns it.
  */
 interface Scan {
+  readonly dark: boolean;
   readonly passes: number;
   readonly text: string;
   readonly violations: ReadonlyArray<{
@@ -18,25 +19,38 @@ interface Scan {
 }
 
 /**
+ * A `prefers-color-scheme` the scan emulates.
+ */
+type ColorScheme = "light" | "dark";
+
+/**
  * The `scan` command of `vite.browser.config.ts`: open a page in a second tab, wait for React to
  * hydrate it, and run axe-core. A path is served by the production build of `web`. The command is
  * custom, so the typed `commands` object does not name it.
  */
 interface ScanCommand {
-  readonly scan: (target: string, cookie?: string) => Promise<Scan>;
+  readonly scan: (
+    target: string,
+    cookie: string | undefined,
+    colorScheme: ColorScheme,
+  ) => Promise<Scan>;
 }
 
 const hasScan = (candidate: BrowserCommands): candidate is BrowserCommands & ScanCommand =>
   "scan" in candidate;
 
-const scan = Effect.fn("scan")(function* scan(path: string, cookie: string | undefined) {
+const scan = Effect.fn("scan")(function* scan(
+  path: string,
+  cookie: string | undefined,
+  colorScheme: ColorScheme,
+) {
   if (!hasScan(commands)) {
     return yield* Effect.die("The scan command is missing. Check vite.browser.config.ts.");
   }
 
   const scanner: ScanCommand = commands;
 
-  return yield* Effect.promise(() => scanner.scan(path, cookie));
+  return yield* Effect.promise(() => scanner.scan(path, cookie, colorScheme));
 });
 
 /**
@@ -52,19 +66,24 @@ const SCREENS = [
   },
 ] as const;
 
-describe("the first screens", () => {
-  for (const { cookie, name, path, shows } of SCREENS) {
-    it.effect(`${name} has no axe violations once hydrated`, () =>
-      Effect.gen(function* scanScreen() {
-        const { passes, text, violations } = yield* scan(path, cookie);
+const SCHEMES = ["light", "dark"] as const;
 
-        assert.include(text, shows);
-        assert.isAbove(passes, 0);
-        assert.deepStrictEqual(
-          violations.map(({ id }) => id),
-          [],
-        );
-      }),
-    );
+describe("the first screens", () => {
+  for (const colorScheme of SCHEMES) {
+    for (const { cookie, name, path, shows } of SCREENS) {
+      it.effect(`${name} has no axe violations once hydrated in ${colorScheme}`, () =>
+        Effect.gen(function* scanScreen() {
+          const { dark, passes, text, violations } = yield* scan(path, cookie, colorScheme);
+
+          assert.include(text, shows);
+          assert.isAbove(passes, 0);
+          assert.strictEqual(dark, colorScheme === "dark");
+          assert.deepStrictEqual(
+            violations.map(({ id }) => id),
+            [],
+          );
+        }),
+      );
+    }
   }
 });

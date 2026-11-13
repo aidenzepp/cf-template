@@ -13,6 +13,7 @@
     "check": "bun tools/hooks/present.ts && vp check --deny-warnings && ./node_modules/.bin/supdoc check --deny-warnings && bun run ui:typecheck && bun run db:check && bun tools/docs/runbook-check.ts docs/spin-up.md && knip && bun run ratchet",
     "db:check": "bun tools/db/check.ts",
     "ui": "cd packages/ui && bunx shadcn@4.23.0",
+    "ui:lock": "bun tools/ui-lock/reinstall.ts",
     "ui:typecheck": "bun run --filter @workspace/ui typecheck",
     "fix": "vp check --fix --deny-warnings",
     "footprint": "bun tools/blocks/footprint.ts",

@@ -1,0 +1,10 @@
+{
+  "rules": {
+    "no-restricted-globals": [
+      "error",
+      { "name": "AbortController", "message": "docs/capabilities.md, Server data" },
+      { "name": "localStorage", "message": "docs/capabilities.md, Client storage" },
+      { "name": "Bun", "message": "docs/capabilities.md, Platform APIs" }
+    ]
+  }
+}

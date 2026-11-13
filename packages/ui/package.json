@@ -1,7 +1,7 @@
 {
   "name": "@workspace/ui",
   "private": true,
-  "description": "Owns every file the shadcn CLI writes from the shadcn base, sortui and dithercn registries. Must not own a first-party component, a hand edit under src, or a route.",
+  "description": "Owns every file the shadcn CLI writes from the shadcn base registry. Must not own a first-party component, a hand edit under src, or a route.",
   "type": "module",
   "exports": {
     "./components/*": "./src/components/*.tsx",

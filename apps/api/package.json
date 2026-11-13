@@ -6,6 +6,7 @@
   "exports": {},
   "dependencies": {
     "@alchemy.run/cloudflare": "2.0.0-beta.85",
+    "@alchemy.run/domain": "2.0.0-beta.85",
     "@workspace/auth": "workspace:*",
     "@workspace/config": "workspace:*",
     "@workspace/contract": "workspace:*",
