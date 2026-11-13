@@ -198,6 +198,7 @@ describe("the documentation routes with DOCS_ENABLED off", () => {
 
         assert.strictEqual(response.status, 404);
       }
+
       yield* Effect.promise(web.dispose);
     }),
   );

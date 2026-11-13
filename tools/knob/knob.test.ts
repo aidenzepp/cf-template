@@ -38,9 +38,10 @@ const storeOf = (namespaces: ReadonlyArray<NamespaceRef>, rows: Array<StoredKey>
       remove: (namespaceId, key) =>
         Effect.sync(() => {
           calls.push(`remove ${namespaceId} ${key}`);
+
           const at = rows.findIndex((row) => row.key === key);
 
-          if (at >= 0) {
+          if (at !== -1) {
             rows.splice(at, 1);
           }
         }),

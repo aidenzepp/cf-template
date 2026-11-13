@@ -256,11 +256,11 @@ const stageRow = (
   },
   volumeAlert: boolean,
 ): StageValues => ({
-  DOCS_ENABLED: validated(DocsEnabledKnob, api.docs),
   AUTH_CHECK_SESSION_TIMEOUT_MS: validated(AuthCheckSessionTimeoutKnob, "1500"),
   AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob.default,
   AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
   AUTH_PASSWORD_SCRYPT: AUTH_PASSWORD_SCRYPT.default,
+  DOCS_ENABLED: validated(DocsEnabledKnob, api.docs),
   // block:notes start
   EXAMPLE_FEATURE_ENABLED: validated(ExampleFeatureKnob, api.exampleFeature),
   // block:notes end
