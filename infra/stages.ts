@@ -1,7 +1,7 @@
 import { Config, Effect, Option, Schema, SchemaTransformation } from "effect";
 import type { LogLevel } from "effect";
 import { Digest } from "effect/crypto";
-import { ApiDocsEnabledKnob } from "@workspace/config/api-docs";
+import { DocsEnabledKnob } from "@workspace/config/docs";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { LogLevelKnob } from "@workspace/config/log-level";
 import { HeadSamplingRateKnob } from "@workspace/config/observability";
@@ -215,7 +215,7 @@ const validated = <A>(knob: { readonly decodeSync: (raw: string) => A }, raw: st
  * The knob values of one stage kind.
  */
 export interface StageValues {
-  readonly API_DOCS_ENABLED: typeof ApiDocsEnabledKnob.default;
+  readonly DOCS_ENABLED: typeof DocsEnabledKnob.default;
   readonly AUTH_CHECK_SESSION_TIMEOUT_MS: typeof AuthCheckSessionTimeoutKnob.default;
   readonly AUTH_COOKIE_CACHE_MAX_AGE_S: typeof CookieCacheMaxAgeKnob.default;
   readonly AUTH_COOKIE_CACHE_STRATEGY: typeof CookieCacheStrategyKnob.default;
@@ -238,7 +238,8 @@ export interface StageValues {
  *
  * @param logLevel - The raw `LOG_LEVEL` value of the kind.
  * @param api - The `api` switches of the kind, all off on `prod`.
- * @param api.docs - Whether `api` serves the OpenAPI document, the reference page and `llms.txt`.
+ * @param api.docs - Whether the docs knob is on, so `api` serves the OpenAPI document, the
+ *   reference page and `llms.txt`.
  * @param api.exampleFeature - Whether the example notes feature is on.
  * @param api.problemDetails - Whether a 400 problem body lists the validation issues.
  * @param volumeAlert - Whether the kind declares the volume alert.
@@ -255,11 +256,11 @@ const stageRow = (
   },
   volumeAlert: boolean,
 ): StageValues => ({
-  API_DOCS_ENABLED: validated(ApiDocsEnabledKnob, api.docs),
   AUTH_CHECK_SESSION_TIMEOUT_MS: validated(AuthCheckSessionTimeoutKnob, "1500"),
   AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob.default,
   AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
   AUTH_PASSWORD_SCRYPT: AUTH_PASSWORD_SCRYPT.default,
+  DOCS_ENABLED: validated(DocsEnabledKnob, api.docs),
   // block:notes start
   EXAMPLE_FEATURE_ENABLED: validated(ExampleFeatureKnob, api.exampleFeature),
   // block:notes end

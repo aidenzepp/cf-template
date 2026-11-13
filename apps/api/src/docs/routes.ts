@@ -1,7 +1,7 @@
 import { Effect, Layer, Result } from "effect";
 import { HttpRouter, HttpServerResponse, Url } from "effect/http";
 import { HttpApiScalar, OpenApi } from "effect/http-api";
-import { ApiDocsEnabledKnob, ApiDocsLiveRead } from "@workspace/config/api-docs";
+import { DocsEnabledKnob, DocsLiveRead } from "@workspace/config/docs";
 import { LiveKnobs } from "@workspace/config/knob";
 import { Api } from "@workspace/contract/api/api";
 import { DOCS_PATH, LLMS_PATH, OPENAPI_PATH } from "@workspace/contract/api/docs-paths";
@@ -66,10 +66,10 @@ export const ScalarPage = HttpApiScalar.layer(Api, {
 });
 
 /**
- * The routes that document `Api`, behind `API_DOCS_ENABLED`: the OpenAPI document, the Scalar
+ * The routes that document `Api`, behind `DOCS_ENABLED`: the OpenAPI document, the Scalar
  * reference page and `llms.txt`.
  *
- * Where `API_DOCS_LIVE_READ` is on, the gate reads the knob through the `LiveKnobs` port on every
+ * Where `DOCS_LIVE_READ` is on, the gate reads the knob through the `LiveKnobs` port on every
  * request (one cached key read; the KV adapter caches each key for 30 seconds), with the
  * deploy-time value as the fallback. Where it is off, which `infra` sets on `prod` alone, the
  * deploy-time value is final: a live value is never read, and when that value is `false` no route
@@ -77,15 +77,15 @@ export const ScalarPage = HttpApiScalar.layer(Api, {
  */
 export const ApiDocsRoutes = Layer.unwrap(
   Effect.gen(function* buildDocsRoutes() {
-    const live = yield* ApiDocsLiveRead;
-    const deployed = yield* ApiDocsEnabledKnob.config;
+    const live = yield* DocsLiveRead;
+    const deployed = yield* DocsEnabledKnob.config;
 
     if (!live && !deployed) {
       return Layer.empty;
     }
 
     const enabled = live
-      ? yield* (yield* LiveKnobs).bind(ApiDocsEnabledKnob)
+      ? yield* (yield* LiveKnobs).bind(DocsEnabledKnob)
       : Effect.succeed(deployed);
 
     return Layer.mergeAll(DocumentRoutes, ScalarPage).pipe(Layer.provide(docsGate(enabled).layer));
