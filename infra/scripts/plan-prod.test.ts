@@ -3,7 +3,10 @@ import { assert, describe, it } from "@effect/vitest";
 import { Array as Arr, ConfigProvider, Effect, FileSystem, Layer, Option, Ref } from "effect";
 import {
   ALL_CREATE_NOTE,
+  BINDING_REMOVED_NOTE,
   D1_REPLACE_NOTE,
+  EMPTY_PLAN_NOTE,
+  WORKER_REMOVED_NOTE,
   checkFingerprint,
   decide,
   renderSummary,
@@ -28,6 +31,17 @@ const fixture = (name: string) =>
  */
 const verdictOfFixture = (name: string) =>
   fixture(name).pipe(Effect.flatMap(rowsOfJson), Effect.flatMap(verdictOf));
+
+/**
+ * One `Api` Worker row, with one removed binding when `removed` is true.
+ */
+const worker = (action: "replace" | "update", removed: boolean) => ({
+  action,
+  bindings: removed ? [{ action: "delete" as const, sid: "Notebook" }] : [],
+  fqn: "Api",
+  logicalId: "Api",
+  resourceType: "Cloudflare.Worker",
+});
 
 describe("plan-prod classifier", () => {
   it.effect("reads an all-noop plan as not destructive", () =>
@@ -75,6 +89,40 @@ describe("plan-prod classifier", () => {
     }),
   );
 
+  it.effect("blocks a Worker replace, and a Worker update that removes a binding", () =>
+    Effect.gen(function* durableObjects() {
+      const replaced = yield* verdictOf([worker("replace", false)]);
+      const dropped = yield* verdictOf([worker("update", true)]);
+      const updated = yield* verdictOf([worker("update", false)]);
+
+      assert.isTrue(replaced.destructive);
+      assert.include(renderSummary(replaced), WORKER_REMOVED_NOTE);
+      assert.isTrue(dropped.destructive);
+      assert.include(renderSummary(dropped), BINDING_REMOVED_NOTE);
+      assert.isFalse(updated.destructive);
+      assert.strictEqual(updated.rows[0]?.class, "info");
+    }),
+  );
+
+  it.effect("holds a plan with no rows and says why", () =>
+    Effect.gen(function* emptyPlan() {
+      const verdict = yield* verdictOf(yield* rowsOfJson("[]"));
+
+      assert.isTrue(verdict.destructive);
+      assert.include(renderSummary(verdict), EMPTY_PLAN_NOTE);
+    }),
+  );
+
+  it.effect("fails to decode missing or unparsable plan output", () =>
+    Effect.gen(function* missingOutput() {
+      const missing = yield* Effect.flip(rowsOfJson(""));
+      const garbage = yield* Effect.flip(rowsOfJson("not a plan"));
+
+      assert.strictEqual(missing._tag, "PlanProdError");
+      assert.strictEqual(garbage._tag, "PlanProdError");
+    }),
+  );
+
   it.effect("blocks an orphaned row persisted under a pre-rename stateful type", () =>
     Effect.gen(function* legacyNames() {
       const verdict = yield* verdictOf(
@@ -103,9 +151,9 @@ describe("plan-prod classifier", () => {
         {
           action: "replace",
           bindings: [],
-          fqn: "Api",
-          logicalId: "Api",
-          resourceType: "Cloudflare.Worker",
+          fqn: "ApiRoute",
+          logicalId: "ApiRoute",
+          resourceType: "Cloudflare.Workers.Route",
         },
         {
           action: "adopted",
