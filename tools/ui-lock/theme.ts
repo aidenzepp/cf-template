@@ -6,7 +6,7 @@ import { Array as Arr, Effect, FileSystem, Order, Schema } from "effect";
  * CLI (`bun run ui`, shadcn 4.23.0) resolves for `baseColor: "neutral"` in
  * `packages/ui/components.json`. `radius` is part of the light set.
  */
-export const stockTheme = {
+const stockTheme = {
   dark: {
     accent: "oklch(0.269 0 0)",
     "accent-foreground": "oklch(0.985 0 0)",
