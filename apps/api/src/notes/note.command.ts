@@ -1,7 +1,13 @@
 import * as Domain from "@alchemy.run/domain";
 import { Schema } from "effect";
 import { NoteCreated, NoteDeleted, NoteId, NoteUpdated } from "./note.event.ts";
-import { NoteAlreadyExists, NoteNotFound, NoteQuotaExceeded } from "./note.rejection.ts";
+import { Session } from "../session-middleware.ts";
+import {
+  NotNotebookOwner,
+  NoteAlreadyExists,
+  NoteNotFound,
+  NoteQuotaExceeded,
+} from "./note.rejection.ts";
 
 /**
  * Identifier of a notebook: the id of the owner whose notes it holds.
@@ -34,7 +40,8 @@ const NoteBody = Schema.String.check(Schema.isMaxLength(NOTE_BODY_MAX_LENGTH));
 export class CreateNote extends Domain.Command("CreateNote", {
   events: [NoteCreated],
   input: { body: NoteBody, id: NoteId, title: NoteTitle },
-  rejects: [NoteAlreadyExists, NoteQuotaExceeded],
+  middleware: [Session],
+  rejects: [NotNotebookOwner, NoteAlreadyExists, NoteQuotaExceeded],
   target: NotebookId,
 }) {}
 
@@ -44,7 +51,8 @@ export class CreateNote extends Domain.Command("CreateNote", {
 export class UpdateNote extends Domain.Command("UpdateNote", {
   events: [NoteUpdated],
   input: { body: Schema.optionalKey(NoteBody), id: NoteId, title: Schema.optionalKey(NoteTitle) },
-  rejects: [NoteNotFound],
+  middleware: [Session],
+  rejects: [NotNotebookOwner, NoteNotFound],
   target: NotebookId,
 }) {}
 
@@ -54,6 +62,7 @@ export class UpdateNote extends Domain.Command("UpdateNote", {
 export class DeleteNote extends Domain.Command("DeleteNote", {
   events: [NoteDeleted],
   input: { id: NoteId },
-  rejects: [NoteNotFound],
+  middleware: [Session],
+  rejects: [NotNotebookOwner, NoteNotFound],
   target: NotebookId,
 }) {}

@@ -1,5 +1,7 @@
 import { Story } from "@alchemy.run/domain/Story";
 import { Layer } from "effect";
+import { UserId } from "@workspace/contract/domain/session";
+import { CurrentActor } from "../session-middleware.ts";
 import { CreateNote, DeleteNote, NotebookId, UpdateNote } from "./note.command.ts";
 import { NoteCreated, NoteDeleted, NoteId, NoteUpdated } from "./note.event.ts";
 import { NoteAlreadyExists, NoteNotFound, NoteQuotaExceeded } from "./note.rejection.ts";
@@ -17,6 +19,11 @@ const story = Story.make(NotesModel, { layer: Layer.empty });
 const notebook = Notebook.ref(NotebookId.make("owner-1"));
 
 /**
+ * The owner of {@link notebook}, the actor every story sends as.
+ */
+const asOwner = Story.provide(CurrentActor, { userId: UserId.make("owner-1") });
+
+/**
  * The note id the stories create, update and delete.
  */
 const n1 = NoteId.make("n-1");
@@ -30,6 +37,7 @@ const missing = NoteId.make("n-missing");
  * A create records the note, and a second create with the same id is refused.
  */
 export const createsANote = story(
+  asOwner,
   Story.when(notebook, new CreateNote({ body: "Body", id: n1, title: "Title" })),
   Story.then(notebook, new NoteCreated({ body: "Body", id: n1, title: "Title" })),
   Story.when(notebook, new CreateNote({ body: "Other", id: n1, title: "Other" })),
@@ -40,6 +48,7 @@ export const createsANote = story(
  * A notebook at the per-owner limit refuses another create.
  */
 export const refusesPastTheLimit = story(
+  asOwner,
   Story.given(
     notebook,
     ...Array.from(
@@ -56,6 +65,7 @@ export const refusesPastTheLimit = story(
  * unknown note.
  */
 export const updatesANote = story(
+  asOwner,
   Story.given(notebook, new NoteCreated({ body: "Body", id: n1, title: "Title" })),
   Story.when(notebook, new UpdateNote({ id: n1, title: "Renamed" })),
   Story.then(notebook, new NoteUpdated({ body: "Body", id: n1, title: "Renamed" })),
@@ -69,6 +79,7 @@ export const updatesANote = story(
  * A delete removes the note, and deleting it again is refused.
  */
 export const deletesANote = story(
+  asOwner,
   Story.given(notebook, new NoteCreated({ body: "Body", id: n1, title: "Title" })),
   Story.when(notebook, new DeleteNote({ id: n1 })),
   Story.then(notebook, new NoteDeleted({ id: n1 })),
