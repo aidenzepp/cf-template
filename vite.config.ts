@@ -465,6 +465,30 @@ export default defineConfig({
         rules: { "workspace/no-mutable-module-state": "off" },
       },
       {
+        // `packages/contract` defines the Problem classes, so it writes the media type. Tests assert
+        // it on the wire, and the rule's own file names it to look for it.
+        files: [
+          "packages/contract/**",
+          "**/*.test.ts",
+          "tools/lint/rules/no-hand-built-problem.ts",
+        ],
+        rules: { "workspace/no-hand-built-problem": "off" },
+      },
+      {
+        // Lifted until #245 builds these problem responses with `ProblemDetails`.
+        files: [
+          "apps/web/src/forward.ts",
+          "apps/web/src/ratelimit.ts",
+          "packages/budget-guard/src/live.ts",
+        ],
+        rules: { "workspace/no-hand-built-problem": "off" },
+      },
+      {
+        // Lifted until #247 replaces the `Map` with `Cache.makeWith`.
+        files: ["packages/knobs-kv/src/live.ts"],
+        rules: { "workspace/no-keyed-ttl-map": "off" },
+      },
+      {
         // The Ultracite `vitest` preset, scoped to the repository's own test files. The preset's own
         // globs also match `.mjs` suites, which run under `bun:test`, so its rules are re-scoped here
         // instead of adopted through `extends`.
@@ -564,7 +588,13 @@ export default defineConfig({
       "workspace/error-message-grammar": "error",
       "workspace/kebab-case-paths": "error",
       "workspace/no-built-in-try-catch": "error",
+      "workspace/no-effect-data-load": "error",
+      "workspace/no-effect-on-async-result": "error",
+      "workspace/no-hand-built-problem": "error",
+      "workspace/no-hand-rolled-retry": "error",
+      "workspace/no-keyed-ttl-map": "error",
       "workspace/no-mutable-module-state": "error",
+      "workspace/no-raw-form-submit": "error",
     },
     // The shadcn preset finds the components and the theme through these two entries.
     settings: { shadcn: { ui: ["@workspace/ui/components", "apps/web/src/styles/app.css"] } },
