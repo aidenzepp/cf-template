@@ -10,7 +10,7 @@ import type { Session } from "@workspace/contract/domain/session";
  */
 export type EncodedSession = typeof Session.Encoded;
 
-export { AUTH_BASE_PATH, OAUTH_ERROR_PATH } from "@workspace/contract/domain/auth-paths";
+export { AUTH_BASE_PATH } from "@workspace/contract/domain/auth-paths";
 
 export { CREDENTIAL_PATHS, ENDPOINT_CLASSES } from "@workspace/contract/domain/auth-endpoints";
 

@@ -22,7 +22,7 @@ export const EMAIL_KEY_FIELD = "emailKey";
  * @param email - An address as typed.
  * @returns The normalized address.
  */
-export const normalizeEmail = (email: string): string =>
+const normalizeEmail = (email: string): string =>
   email.normalize("NFC").trim().toLowerCase();
 
 /**
