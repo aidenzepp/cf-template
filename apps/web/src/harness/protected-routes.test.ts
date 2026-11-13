@@ -169,7 +169,7 @@ const Reads = Schema.Struct({
 const readsOf = Effect.gen(function* readsOf() {
   const { html } = yield* (yield* WebProd).get("/api/session-reads");
 
-  return yield* Schema.decodeUnknownEffect(Schema.fromJsonString(Reads))(html).pipe(
+  return yield* Schema.decodeEffect(Schema.fromJsonString(Reads))(html).pipe(
     Effect.mapError(
       (cause) =>
         new HarnessError({

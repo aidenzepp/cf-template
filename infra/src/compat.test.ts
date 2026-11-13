@@ -33,7 +33,7 @@ const workerdDate = Effect.gen(function* readWorkerdDate() {
 describe("compat module", () => {
   it.effect("matches its schema", () =>
     Effect.gen(function* decodes() {
-      const decoded = yield* Schema.decodeUnknownEffect(Compat)(compat);
+      const decoded = yield* Schema.decodeEffect(Compat)(compat);
 
       assert.deepStrictEqual(decoded, compat);
     }),

@@ -146,7 +146,7 @@ const stateOf = Effect.fn("logKey.stateOf")(function* stateOf(stage: typeof Stag
 export const resolveTarget = Effect.fn("logKey.resolveTarget")(function* resolveTarget(
   rawStage: string,
 ) {
-  const stage = yield* Schema.decodeUnknownEffect(Stage)(rawStage).pipe(
+  const stage = yield* Schema.decodeEffect(Stage)(rawStage).pipe(
     Effect.provide(Digest.layerWebCrypto),
   );
 

@@ -40,7 +40,7 @@ class AlchemyExited extends Schema.TaggedError<AlchemyExited, { readonly brand: 
  */
 const cloudStage = Effect.fn("cloudStage")(function* cloudStage() {
   const raw = yield* Config.String("ALCHEMY_TEST_STAGE").pipe(Config.withDefault(""));
-  const stage = yield* Schema.decodeUnknownEffect(Stage)(raw);
+  const stage = yield* Schema.decodeEffect(Stage)(raw);
 
   return stage === CLOUD_STAGE
     ? stage

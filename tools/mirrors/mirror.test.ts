@@ -139,7 +139,7 @@ it.effect("keeps one entry per name in mirrors.json", () =>
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const file = yield* path.fromFileUrl(new URL("mirrors.json", import.meta.url));
-    const entries = yield* Schema.decodeUnknownEffect(Mirrors)(yield* fs.readFileString(file));
+    const entries = yield* Schema.decodeEffect(Mirrors)(yield* fs.readFileString(file));
     const found = entries.map((mirror) => mirror.name);
 
     assert.strictEqual(found.length, 4);

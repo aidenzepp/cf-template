@@ -191,7 +191,7 @@ describe("checkRateLimit", () => {
       );
 
       const text = yield* Effect.promise(() => response.text());
-      const problem = yield* Schema.decodeUnknownEffect(Schema.fromJsonString(RateLimited))(text);
+      const problem = yield* Schema.decodeEffect(Schema.fromJsonString(RateLimited))(text);
 
       assert.strictEqual(problem.retryAfterSeconds, 10);
       assert.strictEqual(problem.status, 429);

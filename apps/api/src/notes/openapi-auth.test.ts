@@ -115,8 +115,7 @@ const operations: ReadonlyArray<Operation> = Object.entries(
       ? []
       : [
           {
-            body:
-              schema === undefined ? null : sample(Schema.decodeUnknownSync(bodySchema)(schema)),
+            body: schema === undefined ? null : sample(Schema.decodeSync(bodySchema)(schema)),
             id: operation.operationId,
             key: `${method.toUpperCase()} ${path}`,
             method: method.toUpperCase(),

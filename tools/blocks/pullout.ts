@@ -82,7 +82,7 @@ const decodeStrings = Schema.decodeUnknownOption(Schema.Record(Schema.String, Sc
 /**
  * The value as an object of strings, or nothing when it is another JSON value.
  */
-const stringsOf = (value: typeof Schema.Json.Type): Readonly<Record<string, string>> | undefined =>
+const stringsOf = (value: Schema.Json): Readonly<Record<string, string>> | undefined =>
   Option.getOrUndefined(decodeStrings(value));
 
 /**

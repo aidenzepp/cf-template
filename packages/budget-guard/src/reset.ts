@@ -90,7 +90,7 @@ export const parseStage = (
  * @returns Nothing, after printing the namespace id, its title and the result.
  */
 export const resetGuard = Effect.fn("budgetGuard.reset")(function* resetGuard(rawStage: string) {
-  const stage = yield* Schema.decodeUnknownEffect(Stage)(rawStage).pipe(
+  const stage = yield* Schema.decodeEffect(Stage)(rawStage).pipe(
     Effect.provide(Digest.layerWebCrypto),
   );
 

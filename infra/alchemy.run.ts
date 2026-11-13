@@ -56,7 +56,7 @@ export class ProdStageRefused extends Schema.TaggedError<
  * @returns The decoded stage, or a failure before any resource is declared.
  */
 export const decodeStage = Effect.fn("decodeStage")(function* decodeStage(raw: string) {
-  const stage = yield* Schema.decodeUnknownEffect(Stage)(raw);
+  const stage = yield* Schema.decodeEffect(Stage)(raw);
   const ci = yield* Config.Boolean("CI").pipe(Config.withDefault(false));
 
   return stage === "prod" && !ci

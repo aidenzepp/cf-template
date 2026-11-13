@@ -72,7 +72,7 @@ describe("makeReceive", () => {
   it.effect("writes a record the latch decoder reads back", () =>
     Effect.gen(function* roundTrip() {
       const { puts } = yield* deliver({ policyName: POLICY, ts: 1_700_000_000 });
-      const decoded = yield* Schema.decodeUnknownEffect(LatchJson)(puts[0]?.value);
+      const decoded = yield* Schema.decodeEffect(LatchJson)(puts[0]?.value);
 
       assert.deepStrictEqual(decoded, {
         at: 1_700_000_000,

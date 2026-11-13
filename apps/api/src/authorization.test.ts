@@ -45,9 +45,7 @@ const ada = new Session({
  * @returns The encoded session.
  */
 const wire = (session: Session) =>
-  Schema.decodeUnknownSync(Schema.fromJsonString(Schema.toEncoded(Session)))(
-    JSON.stringify(session),
-  );
+  Schema.decodeSync(Schema.fromJsonString(Schema.toEncoded(Session)))(JSON.stringify(session));
 
 /**
  * The whole router stack of the Worker over a stub `AUTH`, the Notebook group hosted in memory.

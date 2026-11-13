@@ -34,7 +34,7 @@ const Receipt = Schema.Struct({
 describe("the deployed notes flow", () => {
   it.effect("signs a fresh user in and creates a note in the user's own notebook", () =>
     Effect.gen(function* createsNote() {
-      const stage = yield* Schema.decodeUnknownEffect(Stage)(CLOUD_STAGE);
+      const stage = yield* Schema.decodeEffect(Stage)(CLOUD_STAGE);
       const origin = yield* publicOrigin({ stack: yield* resolveStackName(), stage });
       const client = yield* HttpClient.HttpClient;
       const email = `notes-${crypto.randomUUID()}@example.test`;
