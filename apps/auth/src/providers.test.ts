@@ -101,7 +101,7 @@ layer(LocalAuthD1.layer)("the instance's providers", (live) => {
       yield* Effect.gen(function* inner() {
         const instance = yield* (yield* yield* AuthService).auth;
 
-        assert.strictEqual(instance.options.onAPIError?.errorURL, undefined);
+        assert.isFalse(Object.hasOwn(instance.options, "onAPIError"));
       }).pipe(Effect.provide(authOver(binding)), asExecution);
     }),
   );
