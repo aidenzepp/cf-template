@@ -7,6 +7,7 @@ import {
   orphanGraceText,
   stackNameText,
 } from "./runtime.ts";
+import { NotFoundPage, RouteErrorPage } from "./components/system-pages.tsx";
 import { routeTree } from "./route-tree.gen.ts";
 
 /**
@@ -19,6 +20,8 @@ import { routeTree } from "./route-tree.gen.ts";
  */
 export const getRouter = () =>
   createRouter({
+    defaultErrorComponent: RouteErrorPage,
+    defaultNotFoundComponent: NotFoundPage,
     dehydrate: () => ({
       authMethods: authMethodsText(),
       orphanGrace: orphanGraceText(),
