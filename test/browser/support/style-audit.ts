@@ -9,7 +9,7 @@ import { HYDRATED, Harness, promised, runInHarness } from "./browser-harness.ts"
  * and `space-*` utilities take the integer steps 0 to 8 and 18 (`p-0` to `p-8`, `px-18`), so
  * `p-13` (52 px) falls outside it.
  */
-export const SPACING_STEPS: ReadonlyArray<number> = [0, 4, 8, 12, 16, 20, 24, 28, 32, 72];
+const SPACING_STEPS: ReadonlyArray<number> = [0, 4, 8, 12, 16, 20, 24, 28, 32, 72];
 
 /**
  * The viewport widths, in CSS px, the audit runs at: a phone and a laptop.
@@ -24,7 +24,7 @@ const HEIGHT = 900;
 /**
  * One rule a visible element broke: the rule, the element and the offending value.
  */
-export interface Finding {
+interface Finding {
   readonly element: string;
   readonly rule: "color" | "spacing" | "scroll" | "target";
   readonly value: string;
@@ -33,7 +33,7 @@ export interface Finding {
 /**
  * The result of one audit: the theme the page rendered and what it broke.
  */
-export interface Audit {
+interface Audit {
   readonly dark: boolean;
   readonly findings: ReadonlyArray<Finding>;
 }
