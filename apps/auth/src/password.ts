@@ -189,7 +189,7 @@ export const parse = (stored: string): Option.Option<ParsedHash> => {
 
   return Option.all({
     key: decode(key ?? "").pipe(Option.filter((bytes) => bytes.length === KEY_BYTES)),
-    params: Schema.decodeUnknownOption(ScryptParams)({
+    params: Schema.decodeOption(ScryptParams)({
       ln: Number(match.ln),
       p: Number(match.p),
       r: Number(match.r),

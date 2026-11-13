@@ -123,7 +123,7 @@ const ungenerated: Check = {
       "json",
     ]);
 
-    const { status } = yield* Schema.decodeUnknownEffect(Explain)(stdout.trim());
+    const { status } = yield* Schema.decodeEffect(Explain)(stdout.trim());
 
     return status === "ok"
       ? [
@@ -378,7 +378,7 @@ const referencedTables = Effect.fn("db.check.referencedTables")(function* refere
     return new Set<string>();
   }
 
-  const { ddl } = yield* Schema.decodeUnknownEffect(Snapshot)(
+  const { ddl } = yield* Schema.decodeEffect(Snapshot)(
     yield* fs.readFileString(path.join(migrations, newest.value, "snapshot.json")),
   );
 

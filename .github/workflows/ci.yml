@@ -54,3 +54,23 @@ jobs:
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+  # One required context for the three jobs above (#43; DEP-5 replaces this job and keeps the name).
+  # Passing results: `success` for every needed job. `skipped` passes only for design-record on a
+  # push to main, where its own `if:` skips it; on a pull request it always runs and passes itself
+  # when apps/web and packages/ui are untouched, so a pull request needs `success` from all three.
+  merge-gate:
+    needs: [checks, browser, design-record]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          test "$CHECKS" = success
+          test "$BROWSER" = success
+          test "$DESIGN_RECORD" = success || { test "$EVENT" = push && test "$DESIGN_RECORD" = skipped; }
+        env:
+          CHECKS: ${{ needs.checks.result }}
+          BROWSER: ${{ needs.browser.result }}
+          DESIGN_RECORD: ${{ needs.design-record.result }}
+          EVENT: ${{ github.event_name }}

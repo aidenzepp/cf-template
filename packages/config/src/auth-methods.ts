@@ -32,4 +32,4 @@ export const AUTH_METHODS = Config.schema(Schema.fromJsonString(AuthMethods), "A
  *   wrong shape.
  */
 export const decodeAuthMethods = (json: string) =>
-  Schema.decodeUnknownEffect(Schema.fromJsonString(AuthMethods))(json);
+  Schema.decodeEffect(Schema.fromJsonString(AuthMethods))(json);

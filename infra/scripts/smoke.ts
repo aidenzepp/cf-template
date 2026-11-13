@@ -83,9 +83,7 @@ const send = Effect.fn("smoke.send")(function* send(
     ),
   );
 
-  const body = yield* Schema.decodeUnknownEffect(JsonBody)(text).pipe(
-    Effect.orElseSucceed(() => text),
-  );
+  const body = yield* Schema.decodeEffect(JsonBody)(text).pipe(Effect.orElseSucceed(() => text));
 
   return { body, status: response.status };
 });
