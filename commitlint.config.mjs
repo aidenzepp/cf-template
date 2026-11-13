@@ -1,3 +1,8 @@
+import { readFileSync, readdirSync, statSync } from "node:fs";
+import path from "node:path";
+
+import { Schema } from "effect";
+
 import isIgnored from "@commitlint/is-ignored";
 
 /**
@@ -12,9 +17,48 @@ const trailer = /^Co-Authored-By:/imu;
 const header = /^[a-z]+(?:\([^(),/\\]+\))?!?: \S.*$/u;
 
 /**
+ * Decodes the root `package.json` text into its `workspaces` globs.
+ */
+const decodeManifest = Schema.decodeUnknownSync(
+  Schema.fromJsonString(Schema.Struct({ workspaces: Schema.Array(Schema.String) })),
+);
+
+/**
+ * Whether a path is an existing directory.
+ *
+ * @param {string} candidate The path to test.
+ * @returns {boolean} True when the path is a directory.
+ */
+const isDirectory = (candidate) =>
+  statSync(candidate, { throwIfNoEntry: false })?.isDirectory() === true;
+
+/**
+ * The workspace directory names: the root `package.json` `workspaces` globs expanded, `apps/*`
+ * into each directory under `apps`, a literal such as `infra` into itself. Read from the working
+ * directory at load time, so a new workspace is a valid scope without a config edit.
+ *
+ * @returns {string[]} The workspace directory names.
+ */
+const workspaceScopes = () => {
+  const { workspaces } = decodeManifest(readFileSync("package.json", "utf-8"));
+
+  return workspaces.flatMap((glob) => {
+    if (!glob.endsWith("/*")) {
+      return isDirectory(glob) ? [path.basename(glob)] : [];
+    }
+
+    const parent = glob.slice(0, -2);
+
+    return isDirectory(parent)
+      ? readdirSync(parent).filter((name) => isDirectory(path.join(parent, name)))
+      : [];
+  });
+};
+
+/**
  * Repository commit rules on top of `@commitlint/config-conventional`: the type list, the scope
- * list (the workspace directory names plus `tools`, `docs` and `deps`), and no `Co-Authored-By:`
- * trailer.
+ * list (the workspace directory names, read at load time, plus `tools`, `docs` and `deps`), and no
+ * `Co-Authored-By:` trailer.
  *
  * Three parts are not config alone. The `no-co-authored-by` rule is a local plugin, because
  * `trailer-exists` is case-sensitive and reads only the final trailer block. The `header-shape`
@@ -53,27 +97,11 @@ export default {
     },
   ],
   rules: {
+    "body-max-line-length": [0],
+    "footer-max-line-length": [0],
     "header-shape": [2, "always"],
     "no-co-authored-by": [2, "always"],
-    "scope-enum": [
-      2,
-      "always",
-      [
-        "auth",
-        "web",
-        "api",
-        "ui",
-        "contract",
-        "budget-guard",
-        "config",
-        "knobs-kv",
-        "db",
-        "infra",
-        "tools",
-        "docs",
-        "deps",
-      ],
-    ],
+    "scope-enum": [2, "always", [...workspaceScopes(), "tools", "docs", "deps"]],
     "type-enum": [
       2,
       "always",
