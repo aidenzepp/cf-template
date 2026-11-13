@@ -4,7 +4,12 @@ import { HttpRouter } from "effect/http";
 import { OpenApi } from "effect/http-api";
 import { AUTH_BASE_PATH } from "@workspace/auth/contract";
 import { Api } from "@workspace/contract/api/api";
-import { DOCS_PATH, LLMS_PATH, OPENAPI_PATH } from "@workspace/contract/api/docs-paths";
+import {
+  DESIGN_PATH,
+  DOCS_PATH,
+  LLMS_PATH,
+  OPENAPI_PATH,
+} from "@workspace/contract/api/docs-paths";
 import { ProblemAdapter } from "../problem-details.ts";
 import { ApiDocsRoutes } from "./routes.ts";
 
@@ -124,9 +129,14 @@ describe("the documentation routes with DOCS_ENABLED on", () => {
 
       assert.strictEqual(answer.status, 200);
       assert.include(answer.type, "text/plain");
-      assert.deepStrictEqual(links, [`${ORIGIN}${OPENAPI_PATH}`, `${ORIGIN}${DOCS_PATH}`]);
+      assert.deepStrictEqual(links, [
+        `${ORIGIN}${OPENAPI_PATH}`,
+        `${ORIGIN}${DOCS_PATH}`,
+        `${ORIGIN}${DESIGN_PATH}`,
+      ]);
 
-      for (const link of links) {
+      // `web` serves the design description, so only the two `api` links resolve here.
+      for (const link of links.filter((found) => found !== `${ORIGIN}${DESIGN_PATH}`)) {
         assert.strictEqual((yield* get(link)).status, 200);
       }
     }).pipe(Effect.scoped),

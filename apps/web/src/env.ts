@@ -24,6 +24,8 @@ export interface WebEnv {
   readonly AUTH: ServiceBinding;
   readonly AUTH_METHODS: string;
   readonly AUTH_ORPHAN_GRACE_SECONDS: string;
+  readonly DOCS_ENABLED: boolean;
+  readonly DOCS_LIVE_READ: boolean;
   readonly KNOBS?: KnobsBinding;
   readonly PUBLIC_ORIGIN: string;
   readonly RATELIMIT_CREDENTIAL: RateLimitBinding;
