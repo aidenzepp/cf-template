@@ -82,14 +82,44 @@ export const EMPTY_PLAN_NOTE =
 const DESTRUCTIVE_ACTIONS = new Set(["replace", "delete", "orphaned"]);
 
 /**
- * Classify one row on its own: a destructive action on a stateful type blocks, whatever
- * `deleteFirst` says (the row does not carry it); the same action on another type, and `adopted`,
- * are notices; `create` and `update` are info.
+ * The resource type of a Worker. A Worker hosts its Durable Object classes, and their storage has
+ * no plan row of its own: a Worker replace or removal destroys it, and an update that drops a class
+ * deletes that class through the script migration.
+ */
+const WORKER_TYPE = "Cloudflare.Worker";
+
+/**
+ * The summary line of a Worker `replace`, `delete` or `orphaned`.
+ */
+export const WORKER_REMOVED_NOTE = "destroys the storage of every Durable Object this Worker hosts";
+
+/**
+ * The summary line of a Worker `update` that removes a binding. A removed Durable Object binding
+ * deletes its class; the row does not say which kind of binding it is, so every removal holds.
+ */
+export const BINDING_REMOVED_NOTE =
+  "removes a binding; if it is a Durable Object binding, its class and storage are deleted";
+
+/**
+ * Classify one row on its own. A destructive action on a stateful type blocks, whatever
+ * `deleteFirst` says (the row does not carry it), and so does one on a Worker, or a Worker update
+ * that removes a binding, for the Durable Object storage the Worker hosts. The same actions on
+ * another type, and `adopted`, are notices; `create` and `update` are info.
  *
  * @param row - One planned resource.
  * @returns The row with its class and note.
  */
 const classifyRow = (row: PlannedResource): ClassifiedRow => {
+  if (row.resourceType === WORKER_TYPE) {
+    if (DESTRUCTIVE_ACTIONS.has(row.action)) {
+      return { class: "blocking", note: Option.some(WORKER_REMOVED_NOTE), row };
+    }
+
+    if (row.action === "update" && row.bindings.some((binding) => binding.action === "delete")) {
+      return { class: "blocking", note: Option.some(BINDING_REMOVED_NOTE), row };
+    }
+  }
+
   if (DESTRUCTIVE_ACTIONS.has(row.action)) {
     if (!isStatefulType(row.resourceType)) {
       return { class: "notice", note: Option.none(), row };
