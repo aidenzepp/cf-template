@@ -15,6 +15,11 @@ import { CheckSession } from "./session.ts";
 export const ORIGIN = "http://localhost:3000";
 
 /**
+ * The `EMAIL_KEY_SECRET` the test instance binds.
+ */
+export const TEST_EMAIL_KEY_SECRET = "test-email-key-secret-0123456789abcdef";
+
+/**
  * The marker `drizzle-kit` writes between the statements of one migration file.
  */
 const STATEMENT_BREAKPOINT = "--> statement-breakpoint";
@@ -26,10 +31,11 @@ const STATEMENT_BREAKPOINT = "--> statement-breakpoint";
  * @param overrides - Bindings that replace the defaults.
  * @returns A layer that provides the bindings.
  */
-export const settings = (overrides: Readonly<Record<string, string>> = {}) =>
+export const settings = (overrides: Readonly<Record<string, string | undefined>> = {}) =>
   Layer.succeed(WorkerEnvironment, {
     AUTH_METHODS: '{"email":false,"providers":[]}',
     BETTER_AUTH_SECRET: "test-secret-test-secret-test-secret-0123",
+    EMAIL_KEY_SECRET: TEST_EMAIL_KEY_SECRET,
     PUBLIC_ORIGIN: ORIGIN,
     ...overrides,
   });
@@ -117,7 +123,7 @@ export const disposedD1 = Effect.gen(function* startDisposedD1() {
  */
 export const authOver = (
   binding: RawDatabase,
-  overrides?: Readonly<Record<string, string>>,
+  overrides?: Readonly<Record<string, string | undefined>>,
   mailer: typeof Mailer.None = Mailer.None,
 ) =>
   CheckSession.layer.pipe(
