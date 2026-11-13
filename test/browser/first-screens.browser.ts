@@ -2,6 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { commands } from "vite-plus/test/browser";
 import type { BrowserCommands } from "vite-plus/test/internal/browser";
+import { VIOLATIONS } from "./fixtures/style-audit/violations.ts";
 
 /**
  * The result of one axe run on a hydrated page, as the `scan` command in `vite.browser.config.ts`
@@ -35,6 +36,59 @@ interface ScanCommand {
     colorScheme: ColorScheme,
   ) => Promise<Scan>;
 }
+
+/**
+ * The result of one style audit, as the `audit` command in `vite.browser.config.ts` returns it.
+ */
+interface Audit {
+  readonly dark: boolean;
+  readonly findings: ReadonlyArray<{
+    readonly element: string;
+    readonly rule: string;
+    readonly value: string;
+  }>;
+}
+
+/**
+ * The `audit` command of `vite.browser.config.ts` (`test/browser/support/style-audit.ts`): open a
+ * page in a second tab, optionally add a violation fixture, and audit its computed styles at 390
+ * and 1280 px. The command is custom, so the typed `commands` object does not name it.
+ */
+interface AuditCommand {
+  readonly audit: (
+    target: string,
+    cookie: string | undefined,
+    colorScheme: ColorScheme,
+    inject: string | undefined,
+  ) => Promise<Audit>;
+}
+
+const hasAudit = (candidate: BrowserCommands): candidate is BrowserCommands & AuditCommand =>
+  "audit" in candidate;
+
+const audit = Effect.fn("audit")(function* audit(
+  path: string,
+  cookie: string | undefined,
+  colorScheme: ColorScheme,
+  inject: string | undefined,
+) {
+  if (!hasAudit(commands)) {
+    return yield* Effect.die("The audit command is missing. Check vite.browser.config.ts.");
+  }
+
+  const auditor: AuditCommand = commands;
+
+  return yield* Effect.promise(() => auditor.audit(path, cookie, colorScheme, inject));
+});
+
+/**
+ * A finding as one line: the rule, the element and the value.
+ *
+ * @param finding - A finding of the audit.
+ * @returns The line.
+ */
+const line = ({ element, rule, value }: Audit["findings"][number]) =>
+  `${rule}: ${element}: ${value}`;
 
 const hasScan = (candidate: BrowserCommands): candidate is BrowserCommands & ScanCommand =>
   "scan" in candidate;
@@ -81,6 +135,29 @@ describe("the first screens", () => {
           assert.deepStrictEqual(
             violations.map(({ id }) => id),
             [],
+          );
+        }),
+      );
+
+      it.effect(`${name} passes the style audit in ${colorScheme}`, () =>
+        Effect.gen(function* auditScreen() {
+          const { dark, findings } = yield* audit(path, cookie, colorScheme, undefined);
+
+          assert.strictEqual(dark, colorScheme === "dark");
+          assert.deepStrictEqual(findings.map(line), []);
+        }),
+      );
+    }
+
+    for (const { html, name, rule } of VIOLATIONS) {
+      it.effect(`the style audit flags ${name} once in ${colorScheme}`, () =>
+        Effect.gen(function* auditFixture() {
+          const { findings } = yield* audit("/", undefined, colorScheme, html);
+
+          assert.deepStrictEqual(
+            findings.map(({ rule: broken }) => broken),
+            [rule],
+            findings.map(line).join("\n"),
           );
         }),
       );
