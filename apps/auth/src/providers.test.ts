@@ -94,14 +94,14 @@ layer(LocalAuthD1.layer)("the instance's providers", (live) => {
     }),
   );
 
-  live.effect("exposes the Better Auth instance whose options name the OAuth error route", () =>
+  live.effect("exposes the Better Auth instance with no OAuth error route set", () =>
     Effect.gen(function* options() {
       const binding = yield* LocalAuthD1;
 
       yield* Effect.gen(function* inner() {
         const instance = yield* (yield* yield* AuthService).auth;
 
-        assert.strictEqual(instance.options.onAPIError?.errorURL, "/oauth-error");
+        assert.isFalse(Object.hasOwn(instance.options, "onAPIError"));
       }).pipe(Effect.provide(authOver(binding)), asExecution);
     }),
   );
