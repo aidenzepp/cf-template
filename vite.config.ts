@@ -427,7 +427,11 @@ export default defineConfig({
           // warnings, so they are off until a follow-up fixes the code; then delete these lines.
           "react-doctor/jsx-no-jsx-as-prop": "off",
           "react-doctor/jsx-no-new-function-as-prop": "off",
+          // The two server-data guards `docs/capabilities.md` names. Neither is in a React Doctor
+          // rule set, so each is switched on here.
+          "react-doctor/no-collapse-request-error-to-empty-state": "error",
           "react-doctor/only-export-components": "off",
+          "react-doctor/tanstack-start-no-direct-fetch-in-loader": "error",
         },
       },
       {
