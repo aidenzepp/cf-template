@@ -26,7 +26,7 @@ Reset a stage's latch with `bun packages/budget-guard/scripts/reset.ts --stage <
 
 `workers.dev` is a public suffix, so browsers isolate cookies between accounts but not between Workers of one account; the risk is accepted until an owned domain (I-26).
 
-**Changes the origin.** Every passkey registered on `workers.dev` stops working (the RP ID is the hostname) and every session ends; OAuth callbacks must be re-registered. Do it before the first outside user, not after.
+**Changes the origin.** Every passkey registered on `workers.dev` stops working (the RP ID is the hostname), and browsers sign in again because their session cookie stays scoped to the old host while server-side sessions stay valid until they expire; OAuth callbacks must be re-registered. Do it before the first outside user, not after.
 
 Prerequisites: the hostname's zone is active in the deploying Cloudflare account, the hostname has no existing CNAME, and the zone has no wildcard record. The deploy touches the zone only to attach the hostname. The WAF rate-limit rule (50 requests per 10 s per IP outside `/assets/`, blocked for 10 s) is defined in `infra/src/domain.ts` but not yet declared on the zone: the pinned `Cloudflare.Ruleset` takes a `Zone` resource, which would create or patch the zone, so it waits on a ruling.
 
@@ -45,7 +45,9 @@ A zone's rate-limit phase has one owner. Cloudflare keeps one `http_ratelimit` e
 
 `prod` reads `CUSTOM_DOMAIN`. A `test-<slug>` stage ignores it and reads `STAGES_TEST_CUSTOM_DOMAIN` only when the deploy environment sets it; unset, it stays on `workers.dev`. `staging-<N>` and `dev` refuse `CUSTOM_DOMAIN`.
 
-Observed consequence (inferred, not run): after an attach, requests to the old `workers.dev` address return Cloudflare's disabled-route response (error 1042), a pre-switch session cookie gets 401 from `/api/session` on the hostname, a passkey registered before the switch fails there, and a fresh sign-in works. A detach restores the `workers.dev` address. This stays inferred until a throwaway hostname on a zone the maintainer controls exists; the first real attach on `prod` is then the proof.
+Observed consequence (test-i26 run, 2026-11-13): after an attach, requests to the old `workers.dev` address returned Cloudflare's disabled-route response (error 1042). A browser that had signed in on `workers.dev` landed signed out on the hostname, because its session cookie is scoped to the `workers.dev` host. The server-side session was not ended: it stays valid until it expires (7 days), and replaying the pre-switch session token against the hostname still answered 200 on `/api/session`. A passkey registered before the switch failed on the hostname, because the RP ID follows the new origin. A fresh sign-in on the hostname worked. After a detach the `workers.dev` address answered the app again and the pre-switch session token was still accepted there.
+
+**Do not resolve the new hostname before attaching.** Resolvers cache the NXDOMAIN answer for up to 30 minutes (the zone's negative TTL was 1800 s in the run), so a lookup made before the deploy can leave the hostname unreachable from that resolver until the cache expires.
 
 ## Build and gates
 

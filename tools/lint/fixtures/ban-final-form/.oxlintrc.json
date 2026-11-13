@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "name": "final-form",
+            "message": "D8: TanStack Form"
+          }
+        ],
+        "patterns": []
+      }
+    ]
+  }
+}

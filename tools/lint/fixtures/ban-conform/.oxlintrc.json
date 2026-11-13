@@ -1,0 +1,18 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [],
+        "patterns": [
+          {
+            "group": [
+              "@conform-to/*"
+            ],
+            "message": "D8: TanStack Form"
+          }
+        ]
+      }
+    ]
+  }
+}
