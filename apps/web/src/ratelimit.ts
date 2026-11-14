@@ -220,12 +220,12 @@ export const checkRateLimit = (
       ? ["public", "credential"]
       : ["public"];
 
-  return Effect.all(
-    classes.map((cls) =>
+  return Effect.forEach(
+    classes,
+    (cls) =>
       allowed(cls === "public" ? env.RATELIMIT_PUBLIC : env.RATELIMIT_CREDENTIAL, cls, key).pipe(
         Effect.map((ok) => (ok ? 0 : PERIOD_SECONDS[cls])),
       ),
-    ),
     { concurrency: "unbounded" },
   ).pipe(
     Effect.map((waits) => {

@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Effect, Layer } from "effect";
+import { Effect } from "effect";
 import {
   ForeignRateLimitRules,
   RateLimitEntrypoint,
@@ -20,11 +20,9 @@ const zone = { id: "zone-1", name: "example.test" };
  */
 const guard = (rules: ReadonlyArray<EntrypointRule>) =>
   guardRateLimitOwner("app.example.test", ref, "CUSTOM_DOMAIN").pipe(
-    Effect.provide(
-      Layer.succeed(RateLimitEntrypoint, {
-        read: () => Effect.succeed({ rules, zone }),
-      }),
-    ),
+    Effect.provideService(RateLimitEntrypoint, {
+      read: () => Effect.succeed({ rules, zone }),
+    }),
   );
 
 describe("guardRateLimitOwner", () => {

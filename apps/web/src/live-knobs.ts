@@ -27,7 +27,7 @@ export const webKnobs = (binding: KnobsBinding | undefined): LiveKnobsPort =>
     name: "KNOBS",
     read: (key) =>
       binding === undefined
-        ? Effect.succeed(Option.none())
+        ? Effect.succeedNone
         : Effect.tryPromise({
             catch: (cause) => new LiveSourceError({ cause, source: "KNOBS" }),
             try: () => binding.get(key, { cacheTtl: CACHE_TTL_S }),

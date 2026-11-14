@@ -14,7 +14,7 @@ export const refusal = (request: Request): Effect.Effect<Response | undefined> =
   Effect.serviceOption(RequestGuard).pipe(
     Effect.flatMap(
       Option.match({
-        onNone: () => Effect.succeed(undefined),
+        onNone: () => Effect.undefined,
         onSome: (guard) => guard.check(request),
       }),
     ),

@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ConfigProvider, Effect, Logger, Option } from "effect";
+import { ConfigProvider, Effect, Logger } from "effect";
 import type { Config, Layer, LogLevel } from "effect";
 import { LiveKnobs, fromSource } from "@workspace/config/knob";
 import { atLevelLayer, atLiveLevel, unleveledLayer } from "./at-level.ts";
@@ -32,7 +32,7 @@ const none = ConfigProvider.fromUnknown({});
 describe("the live log level of web", () => {
   it.effect("drops an Info log and keeps a Warn log while the live value is Warn", () =>
     Effect.gen(function* warn() {
-      const live = fromSource({ name: "test", read: () => Effect.succeed(Option.some("Warn")) });
+      const live = fromSource({ name: "test", read: () => Effect.succeedSome("Warn") });
 
       assert.deepStrictEqual(yield* levelsLogged(atLevelLayer(live, none)), ["Warn"]);
     }),

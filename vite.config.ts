@@ -309,6 +309,17 @@ export default defineConfig({
       restrictImports(["apps/api/src/**/http.ts", "apps/auth/src/**/http.ts"], {
         patterns: [...appImports, dbModules],
       }),
+      // The attach files import the block live Layers (#232); each repeats its app's restrictions.
+      restrictImports(["apps/api/src/blocks.ts", "apps/auth/src/blocks.ts"], {
+        blockLayers: false,
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+      }),
+      restrictImports(["apps/web/src/blocks.ts", "apps/web/src/request-layers.ts"], {
+        blockLayers: false,
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts, workersModule],
+      }),
       // Raw-SQL exceptions, each with its reason. `table.ts` is schema DDL (a `check(...)`
       // constraint is SQL text); `reclaim.ts` is the guarded `DELETE ... NOT EXISTS`, a named data
       // module; `test-harness.ts` is test support that seeds the D1 binding.
@@ -637,42 +648,17 @@ export default defineConfig({
       // One source for the blank-line policy: the fixture diff in tools/lint/fixtures.test.ts
       // (blank-lines/cases.ts) shows the stylistic padding rule above reports every line this rule does.
       "anti-slop/require-readable-spacing": "off",
-      // The six deltas on the `effect` preset: `try-catch-in-effect-gen` off (a true subset of
-      // `workspace/no-built-in-try-catch`); `effect-try-without-catch`, `unsafe-effect-type-assertion`,
-      // `process-env-in-effect`, `extends-native-error` and `process-env` at `warn`.
-      //
-      // Every other "off" below is staged off until its follow-up fixes the code (I-29 ruling,
-      // 2026-11-12); delete its line when the follow-up lands. Findings on main when staged:
-      // all-of-map-to-for-each 31, any-unknown-in-error-context 20,
-      // multiple-effect-provide 9, prefer-succeed-some-or-none 9, effect-try-without-catch 7 (delta),
-      // run-effect-inside-effect 8, unstable-api-usage 11 (apps/auth/src/email-key.ts 5, unlisted in allowedUnstableApis; infra/migrations-digest.ts and
-      // infra/stacks/settings.ts sit outside every tsconfig, so the plugin entry does not reach
-      // them), missing-return-yield-star 3 (`return yield*` trips `typescript/consistent-return`),
-      // flat-map-conditional-to-filter-or-fail 3,
-      // return-effect-in-gen 3, effect-succeed-with-undefined 3, catch-conditional-refail-to-catch-if
-      // 3, then 2 each: provide-layer-succeed-to-provide-service,
-      // schema-sync-in-effect, unknown-in-effect-catch; then 1 each:
-      // catch-die-to-or-die, catch-tag-to-catch-reason, flat-map-identity-to-flatten,
-      // map-some-to-as-some.
-      "effecttsgo/all-of-map-to-for-each": "off",
-      "effecttsgo/any-unknown-in-error-context": "off",
-      "effecttsgo/catch-conditional-refail-to-catch-if": "off",
-      "effecttsgo/catch-die-to-or-die": "off",
-      "effecttsgo/catch-tag-to-catch-reason": "off",
-      "effecttsgo/effect-succeed-with-undefined": "off",
+      // The seven deltas on the `effect` preset: `try-catch-in-effect-gen` off (a true subset of
+      // `workspace/no-built-in-try-catch`); `any-unknown-in-error-context`, `effect-try-without-catch`,
+      // `unsafe-effect-type-assertion`, `process-env-in-effect`, `extends-native-error` and
+      // `process-env` at `warn`. No rule is staged off: every family #223 split them into is on.
+      "effecttsgo/any-unknown-in-error-context": "warn",
       "effecttsgo/effect-try-without-catch": "warn",
       "effecttsgo/extends-native-error": "warn",
-      "effecttsgo/flat-map-conditional-to-filter-or-fail": "off",
-      "effecttsgo/flat-map-identity-to-flatten": "off",
-      "effecttsgo/map-some-to-as-some": "off",
-      "effecttsgo/missing-return-yield-star": "off",
-      "effecttsgo/prefer-succeed-some-or-none": "off",
       "effecttsgo/process-env": "warn",
       "effecttsgo/process-env-in-effect": "warn",
-      "effecttsgo/provide-layer-succeed-to-provide-service": "off",
       "effecttsgo/try-catch-in-effect-gen": "off",
       "effecttsgo/unsafe-effect-type-assertion": "warn",
-      "effecttsgo/unstable-api-usage": "off",
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],

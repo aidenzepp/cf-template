@@ -77,7 +77,9 @@ interface Check {
     database: (typeof databases)[number],
   ) => Effect.Effect<
     ReadonlyArray<Finding>,
-    unknown,
+    | Config.ConfigError
+    | Effect.Error<ReturnType<FileSystem.FileSystem["stat"]>>
+    | Schema.SchemaError,
     FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
   >;
 }
@@ -150,8 +152,9 @@ const minimalSet: Check = {
     const migrations = path.join(app, "migrations");
     const names = Arr.sort(yield* fs.readDirectory(migrations), Order.String);
 
-    const extras: ReadonlyArray<Finding> = (yield* Effect.all(
-      names.map((name) =>
+    const extras: ReadonlyArray<Finding> = (yield* Effect.forEach(
+      names,
+      (name) =>
         fs.readDirectory(path.join(migrations, name)).pipe(
           Effect.map((entries) =>
             entries
@@ -162,7 +165,7 @@ const minimalSet: Check = {
               })),
           ),
         ),
-      ),
+      { concurrency: 1 },
     )).flat();
 
     const newest = names.at(-1);
@@ -316,10 +319,10 @@ const readers = Effect.fn("db.check.readers")(function* readers(
     .map((line) => line.slice(context.base.length + 1))
     .filter((file) => file !== module && file !== schema && !/\.test\.tsx?$/u.test(file));
 
-  const sources = yield* Effect.all(
-    candidates.map((file) =>
-      run(context.root, "git", ["-C", context.root, "show", `${context.base}:${file}`]),
-    ),
+  const sources = yield* Effect.forEach(
+    candidates,
+    (file) => run(context.root, "git", ["-C", context.root, "show", `${context.base}:${file}`]),
+    { concurrency: 1 },
   );
 
   return candidates.filter((file, index) => imports(path, sources[index] ?? "", file, module));
@@ -349,7 +352,7 @@ const tableModule = Effect.fn("db.check.tableModule")(function* tableModule(
     ),
   ];
 
-  const sources = yield* Effect.all(modules.map(show));
+  const sources = yield* Effect.forEach(modules, show, { concurrency: 1 });
 
   return modules.find((_, index) =>
     [...(sources[index] ?? "").matchAll(/sqliteTable\(\s*["'](?<name>\w+)["']/gu)].some(
@@ -368,8 +371,10 @@ const referencedTables = Effect.fn("db.check.referencedTables")(function* refere
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const present = yield* Effect.all(
-    names.map((name) => fs.exists(path.join(migrations, name, "snapshot.json"))),
+  const present = yield* Effect.forEach(
+    names,
+    (name) => fs.exists(path.join(migrations, name, "snapshot.json")),
+    { concurrency: 1 },
   );
 
   const newest = Arr.last(names.filter((_, index) => present[index]));
@@ -449,8 +454,9 @@ const dangerousSql: Check = {
     const added = all.filter((name) => !existing.includes(`${database.name}/migrations/${name}`));
     const referenced = yield* referencedTables(migrations, all);
 
-    return (yield* Effect.all(
-      added.map((name) =>
+    return (yield* Effect.forEach(
+      added,
+      (name) =>
         Effect.gen(function* migration() {
           const subject = `${database.name}/migrations/${name}/migration.sql`;
 
@@ -487,7 +493,7 @@ const dangerousSql: Check = {
             ...drops.flat(),
           ].map((reason) => ({ reason, subject }));
         }),
-      ),
+      { concurrency: 1 },
     )).flat();
   }),
 };
@@ -620,7 +626,7 @@ if (import.meta.main) {
         base: flag === -1 ? undefined : process.argv[flag + 1],
       });
 
-      yield* Effect.all(lines.map((line) => Console.log(line)));
+      yield* Effect.forEach(lines, (line) => Console.log(line), { discard: true });
 
       if (lines.length > 0) {
         yield* Effect.sync(() => {

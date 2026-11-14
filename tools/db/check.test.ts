@@ -101,19 +101,18 @@ const scratchTree = Effect.fn("db.test.scratchTree")(function* scratchTree() {
     prefix: "db-check-test-",
   });
 
-  yield* Effect.all(
-    copied.map((file) =>
+  yield* Effect.forEach(
+    copied,
+    (file) =>
       fs
         .makeDirectory(path.dirname(path.join(root, file)), { recursive: true })
         .pipe(Effect.andThen(fs.copy(path.join(repo, file), path.join(root, file)))),
-    ),
+    { discard: true },
   );
 
   // The schemas import `drizzle-orm`, which is installed under each app, not at the root.
-  yield* Effect.all(
-    ["apps/api", "apps/auth"].map((app) =>
-      fs.symlink(path.join(repo, app, "node_modules"), path.join(root, app, "node_modules")),
-    ),
+  yield* Effect.forEach(["apps/api", "apps/auth"], (app) =>
+    fs.symlink(path.join(repo, app, "node_modules"), path.join(root, app, "node_modules")),
   );
 
   return root;

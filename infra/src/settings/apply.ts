@@ -54,7 +54,7 @@ export const applySettings = <E, R>(declare: Declare<E, R>) =>
     const reviewer = yield* reviewerAppId;
     const warnings = planWarnings(repository, tier, reviewer);
 
-    yield* Effect.all(warnings.map((line) => Console.warn(line)));
+    yield* Effect.forEach(warnings, (line) => Console.warn(line), { discard: true });
 
     yield* reportDrift(repository, "check before apply").pipe(
       Effect.catch((error) => Console.warn(`check before apply skipped: ${error.message}`)),

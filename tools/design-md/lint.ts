@@ -54,7 +54,7 @@ export const checkFindings = Effect.fn("designMd.checkFindings")(function* check
   const blocking = decoded.findings.filter(({ severity }) => severity !== "info");
 
   if (blocking.length > 0) {
-    yield* new DesignMdLintError({
+    return yield* new DesignMdLintError({
       message: blocking
         .map(
           ({ message, path, rule, severity }) =>
@@ -63,6 +63,8 @@ export const checkFindings = Effect.fn("designMd.checkFindings")(function* check
         .join("\n"),
     });
   }
+
+  return yield* Effect.void;
 });
 
 if (import.meta.main) {
