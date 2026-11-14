@@ -32,6 +32,10 @@ describe("commitlint configuration", () => {
     "feat(web): add x\n\nsee https://example.com/a/very/long/url/that/runs/past/the/one/hundred/character/limit/of/a/body/line/x",
     'Revert "feat: x"',
     "chore(release): 1.2.3-rc.1+build.5 [skip ci]",
+    "chore(main): release 0.1.0",
+    "chore(main): release 1.2.3-rc.1",
+    "chore(deps): update alchemy to v2.0.0-beta.86",
+    "fix(deps): update effect to v4.0.1",
   ]) {
     it.effect(`accepts ${JSON.stringify(message)}`, () =>
       Effect.gen(function* accepted() {
@@ -42,6 +46,11 @@ describe("commitlint configuration", () => {
 
   for (const message of [
     "wip: x",
+    "chore(main): tidy",
+    "chore(main): release",
+    "chore(main): release 1.0",
+    "fix(main): release 0.1.0",
+    "feat(main): x",
     "style: x",
     "feat(nope): x",
     "feat(web,api): x",

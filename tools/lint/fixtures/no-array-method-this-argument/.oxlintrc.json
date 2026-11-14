@@ -1,0 +1,4 @@
+{
+  "jsPlugins": ["../../plugin.mjs"],
+  "rules": { "workspace/no-array-method-this-argument": "error" }
+}

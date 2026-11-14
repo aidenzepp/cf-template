@@ -667,10 +667,14 @@ export default defineConfig({
       // Effect adapters return existing promises without introducing async wrappers.
       "typescript/promise-function-async": "off",
       "unicorn/filename-case": ["error", { case: "kebabCase" }],
+      // Replaced by `workspace/no-array-method-this-argument`: the same check with `Effect` ignored, since
+      // `Effect.forEach(xs, f, { concurrency })` takes options, not a `thisArg`.
+      "unicorn/no-array-method-this-argument": "off",
       // misfires on Schema.TaggedError<X>()(...) calls and takes no options; throw is already banned in source by the Effect-native rule (AGENTS.md)
       "unicorn/throw-new-error": "off",
       "workspace/error-message-grammar": "error",
       "workspace/kebab-case-paths": "error",
+      "workspace/no-array-method-this-argument": "error",
       "workspace/no-built-in-try-catch": "error",
       "workspace/no-effect-data-load": "error",
       "workspace/no-effect-on-async-result": "error",

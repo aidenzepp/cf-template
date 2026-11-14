@@ -17,6 +17,16 @@ const trailer = /^Co-Authored-By:/imu;
 const header = /^[a-z]+(?:\([^(),/\\]+\))?!?: \S.*$/u;
 
 /**
+ * The release-please subject: `release X.Y.Z`, with an optional prerelease suffix.
+ */
+const releaseSubject = /^release \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
+
+/**
+ * The scopes any commit may use, beside the workspace directory names.
+ */
+const fixedScopes = ["tools", "docs", "deps"];
+
+/**
  * Decodes the root `package.json` text into its `workspaces` globs.
  */
 const decodeManifest = Schema.decodeUnknownSync(
@@ -57,8 +67,8 @@ const workspaceScopes = () => {
 
 /**
  * Repository commit rules on top of `@commitlint/config-conventional`: the type list, the scope
- * list (the workspace directory names, read at load time, plus `tools`, `docs` and `deps`), and no
- * `Co-Authored-By:` trailer.
+ * list (the workspace directory names, read at load time, plus `tools`, `docs` and `deps`, and
+ * `main` only for `chore(main): release X.Y.Z`), and no `Co-Authored-By:` trailer.
  *
  * Three parts are not config alone. The `no-co-authored-by` rule is a local plugin, because
  * `trailer-exists` is case-sensitive and reads only the final trailer block. The `header-shape`
@@ -93,6 +103,27 @@ export default {
           !trailer.test(parsed.raw ?? ""),
           "Remove the `Co-Authored-By:` trailer. AI disclosure goes in the pull request body (see /pr-authoring); this repository does not record it in commits.",
         ],
+        /**
+         * The scope is a workspace name or a fixed scope, except that `chore(main): release X.Y.Z`
+         * (the release-please title) is admitted as one explicit form; no other `main` scope is.
+         *
+         * @param {{ type?: string | null; scope?: string | null; subject?: string | null }} parsed
+         *   The parsed commit.
+         */
+        "scope-allowed": (parsed) => {
+          const { scope, subject, type } = parsed;
+
+          const allowed =
+            scope === null ||
+            scope === undefined ||
+            [...workspaceScopes(), ...fixedScopes].includes(scope) ||
+            (scope === "main" && type === "chore" && releaseSubject.test(subject ?? ""));
+
+          return [
+            allowed,
+            `scope must be one of: ${[...workspaceScopes(), ...fixedScopes].join(", ")}`,
+          ];
+        },
       },
     },
   ],
@@ -101,7 +132,7 @@ export default {
     "footer-max-line-length": [0],
     "header-shape": [2, "always"],
     "no-co-authored-by": [2, "always"],
-    "scope-enum": [2, "always", [...workspaceScopes(), "tools", "docs", "deps"]],
+    "scope-allowed": [2, "always"],
     "type-enum": [
       2,
       "always",

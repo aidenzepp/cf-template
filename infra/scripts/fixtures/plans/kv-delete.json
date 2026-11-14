@@ -1,0 +1,37 @@
+[
+  {
+    "fqn": "AppDb",
+    "logicalId": "AppDb",
+    "resourceType": "Cloudflare.D1Database",
+    "action": "noop",
+    "bindings": []
+  },
+  {
+    "fqn": "AuthDb",
+    "logicalId": "AuthDb",
+    "resourceType": "Cloudflare.D1Database",
+    "action": "noop",
+    "bindings": []
+  },
+  {
+    "fqn": "KnobsNamespace",
+    "logicalId": "KnobsNamespace",
+    "resourceType": "Cloudflare.KV.Namespace",
+    "action": "delete",
+    "bindings": []
+  },
+  {
+    "fqn": "Api",
+    "logicalId": "Api",
+    "resourceType": "Cloudflare.Worker",
+    "action": "update",
+    "bindings": []
+  },
+  {
+    "fqn": "Auth",
+    "logicalId": "Auth",
+    "resourceType": "Cloudflare.Worker",
+    "action": "noop",
+    "bindings": []
+  }
+]

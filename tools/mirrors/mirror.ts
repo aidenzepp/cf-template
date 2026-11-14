@@ -258,23 +258,20 @@ export const checkMirrors = Effect.fn("mirrors.check")(function* checkMirrors(
   entries: ReadonlyArray<Entry>,
   packages: Packages,
 ) {
-  const reports = yield* Effect.forEach(
-    entries,
-    (entry) =>
-      Effect.gen(function* checked() {
-        const version = versionOf(packages, entry.anchor);
+  const reports = yield* Effect.forEach(entries, (entry) =>
+    Effect.gen(function* checked() {
+      const version = versionOf(packages, entry.anchor);
 
-        if (Option.isNone(version)) {
-          return [{ line: skipLine(entry), stale: false }];
-        }
+      if (Option.isNone(version)) {
+        return [{ line: skipLine(entry), stale: false }];
+      }
 
-        const stale = yield* staleness(root, entry, version.value);
+      const stale = yield* staleness(root, entry, version.value);
 
-        return Option.isSome(stale)
-          ? [{ line: `${entry.name}: stale (${stale.value.reason})`, stale: true }]
-          : [];
-      }),
-    { concurrency: 1 },
+      return Option.isSome(stale)
+        ? [{ line: `${entry.name}: stale (${stale.value.reason})`, stale: true }]
+        : [];
+    }),
   );
 
   return reports.flat() satisfies ReadonlyArray<Report>;
@@ -429,26 +426,23 @@ export const writeIndex = Effect.fn("mirrors.writeIndex")(function* writeIndex(
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const rows = yield* Effect.forEach(
-    entries,
-    (entry) =>
-      Effect.gen(function* row() {
-        const version = versionOf(packages, entry.anchor);
-        const dir = yield* checkoutDir(root, entry);
-        const stamp = yield* readStamp(dir);
+  const rows = yield* Effect.forEach(entries, (entry) =>
+    Effect.gen(function* row() {
+      const version = versionOf(packages, entry.anchor);
+      const dir = yield* checkoutDir(root, entry);
+      const stamp = yield* readStamp(dir);
 
-        if (Option.isNone(version) || Option.isNone(stamp)) {
-          return [];
-        }
+      if (Option.isNone(version) || Option.isNone(stamp)) {
+        return [];
+      }
 
-        const commit = yield* exec(dir, "git", ["rev-parse", "--short", "HEAD"]);
-        const contents = inside.get(entry.name) ?? entry.sparse.join(", ");
+      const commit = yield* exec(dir, "git", ["rev-parse", "--short", "HEAD"]);
+      const contents = inside.get(entry.name) ?? entry.sparse.join(", ");
 
-        return [
-          `| \`.mirrors/${entry.name}/\` | \`${stamp.value.tag}\` @ \`${commit}\` | \`${entry.anchor}\` ${version.value} | ${contents} |`,
-        ];
-      }),
-    { concurrency: 1 },
+      return [
+        `| \`.mirrors/${entry.name}/\` | \`${stamp.value.tag}\` @ \`${commit}\` | \`${entry.anchor}\` ${version.value} | ${contents} |`,
+      ];
+    }),
   );
 
   yield* fs.makeDirectory(path.join(root, ".mirrors"), { recursive: true });
@@ -491,11 +485,8 @@ export const program = Effect.fn("mirrors.program")(function* program(
   }
 
   const [elapsed, outcomes] = yield* Effect.timed(
-    Effect.forEach(
-      entries,
-      (entry) =>
-        syncOne(root, entry, packages).pipe(Effect.tap((outcome) => Console.log(outcome.line))),
-      { concurrency: 1 },
+    Effect.forEach(entries, (entry) =>
+      syncOne(root, entry, packages).pipe(Effect.tap((outcome) => Console.log(outcome.line))),
     ),
   );
 
