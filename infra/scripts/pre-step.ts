@@ -21,6 +21,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { CloudflarePlanKnob } from "@workspace/config/plan";
 import { STATE_STACK } from "../src/state-selection.ts";
 import { Workers } from "../stages.ts";
+import { APP_STACK_ENTRY } from "../src/app-stack.ts";
 
 /**
  * The failure of the preview pre-step, with the message the workflow log shows.
@@ -347,14 +348,10 @@ const alchemy = (args: ReadonlyArray<string>, cwd?: string) =>
   run("alchemy", args, { cwd, env: { ALCHEMY_LOG_FORMAT: "json" }, extendEnv: true });
 
 /**
- * The entry file the inlined deploy steps pass to `alchemy`, relative to the repository root.
- */
-const ENTRY = "infra/alchemy.run.ts";
-
-/**
  * The command an operator runs by hand, from the repository root, to destroy `stage`.
  */
-const destroyByHand = (stage: string) => `bun run alchemy destroy ${ENTRY} --stage ${stage} --yes`;
+const destroyByHand = (stage: string) =>
+  `bun run alchemy destroy ${APP_STACK_ENTRY} --stage ${stage} --yes`;
 
 /**
  * Destroy one stage the way the inlined preview step deploys it: `alchemy destroy <entry> --stage
@@ -365,7 +362,7 @@ const destroyByHand = (stage: string) => `bun run alchemy destroy ${ENTRY} --sta
 const destroyStage = Effect.fn("destroyStage")(function* destroyStage(stage: string) {
   const root = yield* (yield* Path.Path).fromFileUrl(new URL("../..", import.meta.url));
 
-  const { code } = yield* alchemy(["destroy", ENTRY, "--stage", stage, "--yes"], root);
+  const { code } = yield* alchemy(["destroy", APP_STACK_ENTRY, "--stage", stage, "--yes"], root);
 
   return code === 0
     ? undefined
@@ -410,7 +407,7 @@ export const program = Effect.gen(function* preStep() {
 
   if (listing._tag === "Outdated") {
     return yield* new PreStepError({
-      message: `The state store ${stack}-state is out of date, and a preview cannot upgrade it because this pre-step stops first. Upgrade it from the repository root with the command the bootstrap runs, then re-run the preview: STACK_NAME=${stack} bun run alchemy state bootstrap --config ${ENTRY} --profile <admin profile>`,
+      message: `The state store ${stack}-state is out of date, and a preview cannot upgrade it because this pre-step stops first. Upgrade it from the repository root with the command the bootstrap runs, then re-run the preview: STACK_NAME=${stack} bun run alchemy state bootstrap --config ${APP_STACK_ENTRY} --profile <admin profile>`,
     });
   }
 
