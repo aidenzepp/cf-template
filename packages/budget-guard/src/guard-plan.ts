@@ -1,12 +1,14 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Option } from "effect";
-import { guardNamespace, resources } from "@workspace/budget-guard/stack";
-import type { GuardPlanValue } from "@workspace/budget-guard/stack";
-import { kindOf, workerName } from "../stages.ts";
-import type { StageName } from "../stages.ts";
-import { volumeAlertQuery, volumeAlertWorkers } from "./alerts.ts";
-import { compat } from "./compat.ts";
+import { guardNamespace, resources } from "./stack.ts";
+import type { GuardPlanValue } from "./stack.ts";
+import { kindOf, workerName } from "../../../infra/stages.ts";
+import type { StageName } from "../../../infra/stages.ts";
+import { volumeAlertQuery, volumeAlertWorkers } from "../../../infra/src/alerts.ts";
+import { compat } from "../../../infra/src/compat.ts";
 import { guardThreshold } from "./guard-threshold.ts";
+
+export { guardNamespace } from "./stack.ts";
 
 /**
  * Build the plan of the budget guard block for a stage: its identity, the receiver Worker's name
