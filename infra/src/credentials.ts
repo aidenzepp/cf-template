@@ -3,6 +3,7 @@ import { CloudflareApiLive } from "@alchemy.run/cloudflare/Providers";
 import * as cfAccounts from "@distilled.cloud/cloudflare/accounts";
 import { fromApiToken } from "@distilled.cloud/cloudflare/Credentials";
 import * as cfD1 from "@distilled.cloud/cloudflare/d1";
+import * as cfSecretsStore from "@distilled.cloud/cloudflare/secrets-store";
 import * as cfWorkers from "@distilled.cloud/cloudflare/workers";
 import { BunHttpClient, BunRuntime, BunServices } from "@effect/platform-bun";
 import { CloudflarePlanKnob } from "@workspace/config/plan";
@@ -114,6 +115,32 @@ export interface DeployInput {
 }
 
 /**
+ * The account reads the admin token is probed with before the first write: Workers scripts, D1
+ * databases and Secrets Store stores.
+ */
+export type ReadProbe = "workers" | "d1" | "secrets-store";
+
+/**
+ * What each probe lists, the permission group the token lacks when it is denied, and the Edit
+ * group the step needs. Edit cannot be probed without writing, so the message names it.
+ */
+const PROBES: Record<ReadProbe, { readonly lists: string; readonly missing: string }> = {
+  d1: {
+    lists: "D1 databases",
+    missing: "D1 Read (the collision check lists databases)",
+  },
+  "secrets-store": {
+    lists: "Secrets Store stores",
+    missing: "Secrets Store Edit (the state store's default store and auth-token secret)",
+  },
+  workers: {
+    lists: "Workers scripts",
+    missing:
+      "Workers Scripts Edit (the collision check, the workers.dev subdomain, and the state store's Worker upload, Durable Object namespace and subdomain)",
+  },
+};
+
+/**
  * The reads and writes the credentials half performs. Tests provide a fake; {@link SpinUpLive}
  * talks to Bun, `gh`'s token, the Alchemy CLI and the Cloudflare API.
  */
@@ -158,6 +185,14 @@ export class SpinUp extends Context.Service<
       profile: string,
     ) => Effect.Effect<ReadonlyArray<string>, CredentialsError>;
     /**
+     * Whether the admin token can read one account resource the bootstrap lists: false when
+     * Cloudflare answers Unauthorized or Forbidden, a failure for any other error.
+     */
+    readonly canRead: (
+      profile: string,
+      group: ReadProbe,
+    ) => Effect.Effect<boolean, CredentialsError>;
+    /**
      * The `<stack>-bootstrap` record in the store `<stack>-state`, none when absent.
      */
     readonly record: (
@@ -181,6 +216,34 @@ export class SpinUp extends Context.Service<
     readonly deploy: (input: DeployInput, profile: string) => Effect.Effect<void, CredentialsError>;
   }
 >()("infra/SpinUp") {}
+
+/**
+ * Probe the admin token's reads in order and refuse on the first one Cloudflare denies, before
+ * any write.
+ *
+ * @param profile - The admin profile.
+ * @returns Nothing when all three reads answer.
+ */
+export const permissionPreflight = Effect.fn("permissionPreflight")(function* permissionPreflight(
+  profile: string,
+) {
+  const spinUp = yield* SpinUp;
+
+  yield* Effect.forEach(
+    ["workers", "d1", "secrets-store"] as const,
+    (group) =>
+      spinUp.canRead(profile, group).pipe(
+        Effect.filterOrFail(
+          (readable) => readable,
+          () =>
+            new CredentialsError({
+              message: `The admin token cannot list ${PROBES[group].lists}, so it lacks a permission group. Add ${PROBES[group].missing} to the token's account permissions, update it with \`bun run alchemy profile edit --profile admin\`, and run again. ${STEP_1}`,
+            }),
+        ),
+      ),
+    { discard: true },
+  );
+});
 
 /**
  * The Workers plan: the detector's answer when it returns one, else `CLOUDFLARE_PLAN`. The knob is
@@ -465,6 +528,8 @@ export const credentials = Effect.fn("credentials")(function* credentials(option
   const variables = yield* spinUp.variables(slug);
   const pin = Option.fromNullishOr(variables.get("STACK_NAME"));
   const stack = Option.getOrElse(pin, () => derived);
+  yield* permissionPreflight(options.profile);
+
   const names = yield* spinUp.accountNames(stack, options.profile);
 
   const record = names.includes(`${stack}-state`)
@@ -718,6 +783,28 @@ export const SpinUpLive = Layer.effect(
         Effect.map((text) => text.trim()),
         Effect.mapError(failed("Running bun --version")),
       ),
+
+      canRead: (profile, group) =>
+        cloudflare(profile, `Listing the account's ${PROBES[group].lists}`, (accountId) => {
+          const denied = {
+            Forbidden: () => Effect.succeed(false),
+            Unauthorized: () => Effect.succeed(false),
+          };
+
+          const probes = {
+            d1: cfD1.listDatabases
+              .items({ accountId })
+              .pipe(Stream.runHead, Effect.as(true), Effect.catchTags(denied)),
+            "secrets-store": cfSecretsStore.listStores
+              .items({ accountId })
+              .pipe(Stream.runHead, Effect.as(true), Effect.catchTags(denied)),
+            workers: cfWorkers.listScripts
+              .items({ accountId })
+              .pipe(Stream.runHead, Effect.as(true), Effect.catchTags(denied)),
+          };
+
+          return probes[group];
+        }),
 
       deploy: (input, profile) =>
         alchemyAttached(
