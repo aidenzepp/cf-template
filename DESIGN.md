@@ -67,6 +67,11 @@ colors:
   foreground-dark: "oklch(0.985 0 0)"
   background: "oklch(1 0 0)"
   background-dark: "oklch(0.145 0 0)"
+typography:
+  body:
+    fontFamily: "Outfit Variable"
+  headline:
+    fontFamily: "Roboto Slab Variable"
 rounded:
   sm: "0.375rem"
   md: "0.5rem"
