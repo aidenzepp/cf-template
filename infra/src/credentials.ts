@@ -380,6 +380,23 @@ export const listsBootstrapRecord = (stdout: string, stack: string): boolean =>
   stdout.split("\n").some((line) => line.trim() === `${stack}-bootstrap/`);
 
 /**
+ * The JSON value in `alchemy state read` output for one key. The command prints the value as
+ * `JSON.stringify(value, null, 2)`, a top-level `{` line through its closing `}`, but the CLI's
+ * plain renderer also writes task lines (`• Refreshing Cloudflare State Store credentials`, then
+ * `✓ ...`) and, outside JSON log format, log records to stdout first. This keeps the text from the
+ * last line that is exactly `{`.
+ *
+ * @param stdout - The `alchemy state read` output.
+ * @returns The JSON text, or the whole output when no line is `{`.
+ */
+export const stateReadJson = (stdout: string): string => {
+  const lines = stdout.split("\n");
+  const start = lines.lastIndexOf("{");
+
+  return start === -1 ? stdout : lines.slice(start).join("\n");
+};
+
+/**
  * Fail unless the four variables and two secrets this half writes are present, and print one line
  * per variable. The tier variables are `bun run settings`'s writes and are not read here.
  *
@@ -561,7 +578,9 @@ const SecretsResponse = Schema.Struct({
 const PackageManifest = Schema.fromJsonString(Schema.Struct({ packageManager: Schema.String }));
 
 /**
- * Run `bun run alchemy` with `STACK_NAME` and the extra environment, capturing stdout.
+ * Run `bun run alchemy` with `STACK_NAME` and the extra environment, capturing stdout. It sets
+ * `ALCHEMY_LOG_FORMAT=json`, which sends Alchemy's log records to stderr; the pretty format writes
+ * them to stdout, ahead of the command's own output.
  *
  * @param args - The arguments after `alchemy`.
  * @param env - The extra environment.
@@ -574,7 +593,7 @@ const alchemy = (args: ReadonlyArray<string>, env: Record<string, string>) =>
 
       const handle = yield* spawner.spawn(
         ChildProcess.make("bun", ["run", "alchemy", ...args], {
-          env,
+          env: { ...env, ALCHEMY_LOG_FORMAT: "json" },
           extendEnv: true,
           stderr: "inherit",
         }),
@@ -793,7 +812,9 @@ export const SpinUpLive = Layer.effect(
           );
 
           return Option.some(
-            yield* Schema.decodeEffect(Schema.fromJsonString(BootstrapRecord))(read.stdout),
+            yield* Schema.decodeEffect(Schema.fromJsonString(BootstrapRecord))(
+              stateReadJson(read.stdout),
+            ),
           );
         }).pipe(
           Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
