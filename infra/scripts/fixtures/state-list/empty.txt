@@ -1,3 +1,0 @@
-INFERRED: not recorded from a real run; replaced by the S-43 oracle.
-exit: 0
-No stages found.

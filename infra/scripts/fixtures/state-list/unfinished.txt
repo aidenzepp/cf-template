@@ -1,0 +1,5 @@
+DERIVED FROM SOURCE: alchemy 2.0.0-beta.85 src/State/Provisioning.ts:38-46, :54; not recorded from a run.
+exit: 1
+--- stdout
+--- stderr
+Cloudflare State Store 'example-state' has an unfinished bootstrap. Run 'alchemy state bootstrap --profile <your-ci-profile>' first, or pass --yes.
