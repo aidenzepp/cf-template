@@ -1,0 +1,15 @@
+[
+  {
+    "fqn": "Api",
+    "logicalId": "Api",
+    "resourceType": "Cloudflare.Worker",
+    "action": "create",
+    "bindings": [
+      {
+        "sid": "AppDb",
+        "action": "create"
+      }
+    ],
+    "providerMode": "live"
+  }
+]
