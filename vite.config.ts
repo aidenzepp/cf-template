@@ -1,3 +1,4 @@
+import { readdirSync } from "node:fs";
 import { recommended as effect } from "@effect/tsgo/oxlint-presets";
 
 import { defineConfig } from "vite-plus";
@@ -169,6 +170,16 @@ const presetRules = vitest.overrides?.[0]?.rules ?? {};
  * to on outside CI, so each project turns it off and a focused test fails the run everywhere.
  */
 const noOnly = { allowOnly: false };
+
+/**
+ * One Vitest project per directory under `packages/`, named after the directory, so adding or
+ * removing a package needs no edit here (#232). `ui` is left out: it is the shadcn registry tree
+ * (`vendored`), holds no tests, and is type-checked by its own script.
+ */
+const packageProjects = readdirSync(new URL("packages", import.meta.url), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && entry.name !== "ui")
+  .map((entry) => entry.name)
+  .map((name) => ({ test: { ...noOnly, include: [`packages/${name}/src/**/*.test.ts`], name } }));
 
 export default defineConfig({
   fmt: {
@@ -717,18 +728,8 @@ export default defineConfig({
       { test: { ...noOnly, include: ["apps/web/src/**/*.test.ts"], name: "web" } },
       { test: { ...noOnly, include: ["apps/api/src/**/*.test.ts"], name: "api" } },
       { test: { ...noOnly, include: ["apps/auth/src/**/*.test.ts"], name: "auth" } },
-      { test: { ...noOnly, include: ["packages/contract/src/**/*.test.ts"], name: "contract" } },
-      { test: { ...noOnly, include: ["packages/db/src/**/*.test.ts"], name: "db" } },
-      { test: { ...noOnly, include: ["packages/config/src/**/*.test.ts"], name: "config" } },
-      { test: { ...noOnly, include: ["packages/knobs-kv/src/**/*.test.ts"], name: "knobs-kv" } },
+      ...packageProjects,
       { test: { ...noOnly, include: ["infra/**/*.test.ts"], name: "infra" } },
-      {
-        test: {
-          ...noOnly,
-          include: ["packages/budget-guard/src/**/*.test.ts"],
-          name: "budget-guard",
-        },
-      },
       {
         test: {
           ...noOnly,
