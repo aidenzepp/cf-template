@@ -8,5 +8,8 @@ export default defineConfig({
     fileParallelism: false,
     globalSetup: ["test/cloud/global-setup.ts"],
     include: ["test/cloud/**/*.cloud.ts", "test/e2e/**/*.e2e.ts"],
+    // Each test makes real requests to a deployed stage, such as a sign-in and a Durable Object write;
+    // the notes test passed in 4.5 s once and timed out at Vitest's 5 s default on run 43553665249.
+    testTimeout: 30_000,
   },
 });

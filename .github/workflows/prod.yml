@@ -128,7 +128,11 @@ jobs:
 
   deploy-prod:
     needs: plan-prod
-    if: needs.plan-prod.outputs.destructive == 'false'
+    # !cancelled(): checks and cloud skip on the ruleset tier, and a bare if: implies success(), which
+    # is false below a skipped job, so this job would never run.
+    if: >-
+      !cancelled() && needs.plan-prod.result == 'success' &&
+      needs.plan-prod.outputs.destructive == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ vars.ENVIRONMENTS == 'true' && 'prod' || '' }}
@@ -229,7 +233,9 @@ jobs:
   # command (SU13). The fingerprint is checked as a sha256 before it reaches the summary.
   hold:
     needs: plan-prod
-    if: needs.plan-prod.outputs.destructive == 'true'
+    if: >-
+      !cancelled() && needs.plan-prod.result == 'success' &&
+      needs.plan-prod.outputs.destructive == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -275,7 +281,8 @@ jobs:
   # deployed `prod`, so a tag marks a commit that was deployed first.
   release:
     needs: deploy-prod
-    if: vars.RELEASE_ON == 'true'
+    if: >-
+      !cancelled() && needs.deploy-prod.result == 'success' && vars.RELEASE_ON == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
