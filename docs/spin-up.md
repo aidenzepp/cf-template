@@ -45,6 +45,8 @@ Create the `admin` token with these account-scoped permission groups and no othe
 
 Account Settings Read and zone permissions are not needed. User API Tokens Edit is needed only for a token created from the user tokens page. Before the first write, `bun run credentials` lists Workers, D1 databases and Secrets Store stores and refuses with the missing group's name if Cloudflare denies a read; the Edit side cannot be checked without writing.
 
+Verified on 2026-11-13: a first bootstrap succeeded with a token holding Account API Tokens Edit, Workers Scripts Edit, D1 Edit (which includes D1 Read), Secrets Store Edit, User API Tokens Edit and Account Settings Read. That run proves these are enough, not that each one is required; no group was removed to test it.
+
 ## Per project, before the first deploy
 
 | Step | Command                                                                                                                                                                    | Signal                                                                                                                                                                                                | Tag      | Rests on       |
