@@ -4,6 +4,7 @@
   "description": "Owns the budget guard block, made of the latch KV namespace, the guard alert, the receiver of its notifications and the 503 `web` answers while the latch is set. Must not own an account API token, a route detach, an account-wide billing alert, or any import of an app.",
   "type": "module",
   "exports": {
+    "./infra": "./src/guard-plan.ts",
     "./live": "./src/live.ts",
     "./stack": "./src/stack.ts"
   },

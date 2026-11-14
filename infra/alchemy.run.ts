@@ -4,7 +4,6 @@ import { PLACEHOLDER_STAGE } from "alchemy/Alchemist/Operations";
 import { Config, Effect, Layer, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { APP_DB_ID, declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
-import { guardNamespace } from "@workspace/budget-guard/stack";
 import { knobsNamespace } from "@workspace/knobs-kv/live";
 import { Stage, stageValues } from "./stages.ts";
 import {
@@ -18,7 +17,7 @@ import { declareApi } from "./src/api.ts";
 import { AUTH_DB_ID } from "../apps/auth/src/db/database.ts";
 import { declareAuth } from "./src/auth.ts";
 import { guardLocationHints } from "./src/d1-hint-guard.ts";
-import { declareGuard, guardPlan } from "./src/guard-plan.ts";
+import { declareGuard, guardNamespace, guardPlan } from "@workspace/budget-guard/infra";
 import { d1LocationHint } from "./src/d1-location.ts";
 import { STATE_STACK, usesProjectState } from "./src/state-selection.ts";
 import { publicOrigin } from "./src/origin.ts";
