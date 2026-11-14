@@ -5,7 +5,7 @@ import {
   CpuMsPerRequestKnob,
   GuardMultipleKnob,
   guardPerHour,
-} from "./budget-guard.ts";
+} from "./knobs.ts";
 
 describe.each([CpuMsPerRequestKnob, BytesPerRequestKnob])("$key", (knob) => {
   it("has no default value", () => {

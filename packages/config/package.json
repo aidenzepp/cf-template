@@ -6,7 +6,6 @@
   "exports": {
     "./knob": "./src/knob.ts",
     "./docs": "./src/docs.ts",
-    "./budget-guard": "./src/budget-guard.ts",
     "./log-level": "./src/log-level.ts",
     "./worker-requirements": "./src/worker-requirements.ts",
     "./plan": "./src/plan.ts",

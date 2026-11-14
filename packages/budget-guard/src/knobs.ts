@@ -1,5 +1,5 @@
 import { Config, Option, Schema, SchemaTransformation } from "effect";
-import { Knob } from "./knob.ts";
+import { Knob } from "@workspace/config/knob";
 
 /**
  * The requests a Workers Paid plan includes per billing period.

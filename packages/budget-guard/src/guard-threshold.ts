@@ -1,6 +1,6 @@
 import type { Config } from "effect";
 import { Effect, Option } from "effect";
-import { budgetGuardKnobs, guardPerHour } from "@workspace/config/budget-guard";
+import { budgetGuardKnobs, guardPerHour } from "./knobs.ts";
 import { AllowanceShareKnob } from "@workspace/config/observability";
 
 /**
