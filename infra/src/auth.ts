@@ -203,7 +203,7 @@ export const declareAuth = Effect.fn("declareAuth")(function* declareAuth(
     limits: limitsFor("auth", { ...knobs, scrypt: values.AUTH_PASSWORD_SCRYPT }),
     main,
     name: yield* workerName({ stack, stage, worker: "auth" }),
-    observability: issuesObservability,
+    observability: issuesObservability(stage),
     workersDev: false,
   } satisfies Cloudflare.WorkerProps;
 

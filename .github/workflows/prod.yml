@@ -116,8 +116,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - id: plan
         name: Plan prod
-        working-directory: infra
-        run: bun scripts/plan-prod.ts
+        # From the root: plan-prod imports infra/alchemy.run.ts (APP_STACK_ENTRY), and Web's rootDir
+        # is relative to the working directory.
+        working-directory: .
+        run: bun infra/scripts/plan-prod.ts
 
   deploy-prod:
     needs: plan-prod
