@@ -33,4 +33,6 @@ export const Route = createFileRoute("/")({
   component: Placeholder,
   loader: ({ abortController }) =>
     run(readStackName({ STACK_NAME: stackNameText() }), { signal: abortController.signal }),
+  // The document title follows the heading: the stack name, over the root's fallback.
+  head: ({ loaderData }) => ({ meta: loaderData === undefined ? [] : [{ title: loaderData }] }),
 });

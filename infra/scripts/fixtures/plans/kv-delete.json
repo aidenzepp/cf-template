@@ -4,34 +4,39 @@
     "logicalId": "AppDb",
     "resourceType": "Cloudflare.D1Database",
     "action": "noop",
-    "bindings": []
+    "bindings": [],
+    "providerMode": "live"
   },
   {
     "fqn": "AuthDb",
     "logicalId": "AuthDb",
     "resourceType": "Cloudflare.D1Database",
     "action": "noop",
-    "bindings": []
+    "bindings": [],
+    "providerMode": "live"
   },
   {
     "fqn": "KnobsNamespace",
     "logicalId": "KnobsNamespace",
     "resourceType": "Cloudflare.KV.Namespace",
     "action": "delete",
-    "bindings": []
+    "bindings": [],
+    "providerMode": "live"
   },
   {
     "fqn": "Api",
     "logicalId": "Api",
     "resourceType": "Cloudflare.Worker",
     "action": "update",
-    "bindings": []
+    "bindings": [],
+    "providerMode": "live"
   },
   {
     "fqn": "Auth",
     "logicalId": "Auth",
     "resourceType": "Cloudflare.Worker",
     "action": "noop",
-    "bindings": []
+    "bindings": [],
+    "providerMode": "live"
   }
 ]
