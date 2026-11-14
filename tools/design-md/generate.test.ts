@@ -99,4 +99,24 @@ describe("design-md generator", () => {
       assert.match(error.message, /^--radius-sm: cannot resolve "calc\(var\(--other\) \+ 1px\)"/u);
     }),
   );
+
+  it.effect("emits the body token from --font-sans as its first family only", () =>
+    Effect.gen(function* test() {
+      const css = "@theme inline { --font-sans: 'Outfit Variable', sans-serif; }";
+
+      const text = yield* generate("fonts.css", css);
+
+      assert.include(text, 'typography:\n  body:\n    fontFamily: "Outfit Variable"\n');
+    }),
+  );
+
+  it.effect("emits the headline token from --font-heading as its first family only", () =>
+    Effect.gen(function* test() {
+      const css = "@theme inline { --font-heading: 'Roboto Slab Variable', serif; }";
+
+      const text = yield* generate("fonts.css", css);
+
+      assert.include(text, 'typography:\n  headline:\n    fontFamily: "Roboto Slab Variable"\n');
+    }),
+  );
 });

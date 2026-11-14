@@ -71,6 +71,16 @@ const RADIUS_CALC =
 const DIMENSION = /^(?<amount>[\d.]+)(?<unit>[a-z%]+)$/u;
 
 /**
+ * The `@theme` font properties that become typography tokens, and the token each becomes. The names
+ * are the categories the design.md spec recommends (`body-*`, `headline-*`); a token carries only
+ * `fontFamily` because the theme declares no size for a family.
+ */
+const FONT_TOKENS: ReadonlyMap<string, string> = new Map([
+  ["--font-sans", "body"],
+  ["--font-heading", "headline"],
+]);
+
+/**
  * Every `var()` reference in a value.
  */
 const VAR_REF = /var\((?<name>--[\w-]+)\)/gu;
@@ -257,6 +267,23 @@ const takeText = (tokens: Tokens, prop: string, value: string): void => {
 };
 
 /**
+ * Record one font property as a typography token holding the first family of its stack, unquoted.
+ * The property stays out of `used`, so the prose keeps the full stack with its fallbacks.
+ *
+ * @param tokens - The tokens being collected.
+ * @param name - The typography token name.
+ * @param value - The font stack, such as `'Outfit Variable', sans-serif`.
+ */
+const takeFont = (tokens: Tokens, name: string, value: string): void => {
+  const [first = ""] = value.split(",");
+
+  tokens.typography.set(
+    name,
+    new Map([["fontFamily", JSON.stringify(first.trim().replaceAll(/^["']|["']$/gu, ""))]]),
+  );
+};
+
+/**
  * Take every token group out of the `@theme` block.
  *
  * @param blocks - The collected blocks.
@@ -292,6 +319,8 @@ const takeTokens = (blocks: Blocks): Taken => {
       literal(tokens.rounded, "--radius-", prop, value);
     } else if (prop.startsWith("--spacing-") && source === undefined) {
       literal(tokens.spacing, "--spacing-", prop, value);
+    } else if (FONT_TOKENS.has(prop) && source === undefined) {
+      takeFont(tokens, FONT_TOKENS.get(prop) ?? "", value);
     } else if (prop.startsWith("--text-")) {
       takeText(tokens, prop, value);
     }
