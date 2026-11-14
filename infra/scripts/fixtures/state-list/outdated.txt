@@ -1,3 +1,6 @@
-INFERRED: not recorded from a real run; replaced by the S-43 oracle.
+DERIVED FROM SOURCE: alchemy 2.0.0-beta.85 src/State/Provisioning.ts:38-46, :71, src/Cli/checkVersion.ts:131; not recorded from a run.
 exit: 1
-Error: state store "example-state" is outdated. Re-run with --yes to upgrade it.
+--- stdout
+--- stderr
+{"level":"WARN","message":"alchemy 2.0.0-beta.86 is available (you're on 2.0.0-beta.85). Run `bun add alchemy@2.0.0-beta.86` to upgrade."}
+Cloudflare State Store 'example-state' is out of date (expected v3, observed v2). Run 'alchemy state bootstrap --profile <your-ci-profile>' first, or pass --yes.
