@@ -1,6 +1,6 @@
 {
   "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "base-nova",
+  "style": "base-rhea",
   "rsc": false,
   "tsx": true,
   "tailwind": {
@@ -11,6 +11,7 @@
     "prefix": ""
   },
   "iconLibrary": "lucide",
+  "rtl": true,
   "aliases": {
     "components": "@workspace/ui/components",
     "utils": "@workspace/ui/lib/utils",
@@ -18,5 +19,7 @@
     "lib": "@workspace/ui/lib",
     "hooks": "@workspace/ui/hooks"
   },
+  "menuColor": "default",
+  "menuAccent": "subtle",
   "registries": {}
 }
