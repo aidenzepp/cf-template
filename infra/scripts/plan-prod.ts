@@ -13,6 +13,7 @@ import {
   Stdio,
 } from "effect";
 import { Digest } from "effect/crypto";
+import { APP_STACK_ENTRY } from "../src/app-stack.ts";
 import { isStatefulType } from "../src/stateful-types.ts";
 
 /**
@@ -300,7 +301,7 @@ const parseArgs = (args: ReadonlyArray<string>) => {
     : Effect.fail(
         new PlanProdError({
           message:
-            "Usage: bun scripts/plan-prod.ts [--fingerprint <64-character lowercase sha256>].",
+            "Usage, from the repository root: bun infra/scripts/plan-prod.ts [--fingerprint <64-character lowercase sha256>].",
         }),
       );
 };
@@ -366,9 +367,9 @@ export const decide = Effect.fn("planProd.decide")(function* decide(
 });
 
 /**
- * Plan a deploy of `prod` from `alchemy.run.ts` in the working directory. The run must have
- * `CI=true` (the stack refuses `prod` otherwise) and never upgrades the state store, so a missing
- * or outdated store fails the plan.
+ * Plan a deploy of `prod` from {@link APP_STACK_ENTRY}, run from the repository root. The run must
+ * have `CI=true` (the stack refuses `prod` otherwise) and never upgrades the state store, so a
+ * missing or outdated store fails the plan.
  */
 const planProd = Effect.gen(function* planProd() {
   const ci = yield* Config.Boolean("CI").pipe(Config.withDefault(false));
@@ -377,7 +378,7 @@ const planProd = Effect.gen(function* planProd() {
     return yield* new PlanProdError({ message: "plan-prod plans prod only with CI=true." });
   }
 
-  const stack = yield* Alchemist.importStack(Alchemist.DEFAULT_ENTRYPOINT);
+  const stack = yield* Alchemist.importStack(APP_STACK_ENTRY);
 
   const plan = yield* Alchemist.plan({
     operation: "deploy",

@@ -2,6 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { Config, Effect, Layer, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { APP_STACK_ENTRY } from "../../infra/src/app-stack.ts";
 import { Stage } from "../../infra/stages.ts";
 
 /**
@@ -62,7 +63,7 @@ const alchemy = Effect.fn("alchemy")(function* alchemy(phase: "deploy" | "destro
   const code = yield* spawner.exitCode(
     ChildProcess.make(
       "bun",
-      ["run", "alchemy", phase, "infra/alchemy.run.ts", "--stage", stage, "--yes"],
+      ["run", "alchemy", phase, APP_STACK_ENTRY, "--stage", stage, "--yes"],
       {
         stderr: "inherit",
         stdout: "inherit",
