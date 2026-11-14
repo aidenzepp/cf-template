@@ -51,6 +51,11 @@ interface World {
   readonly secrets: ReadonlyArray<string>;
   readonly names: ReadonlyArray<string>;
   readonly record: Option.Option<FrozenIdentity>;
+  /**
+   * Whether Alchemy's state already holds the bootstrap values, as on a re-run. An unforced deploy
+   * then plans them as no-ops and writes nothing, as Alchemy does.
+   */
+  readonly stateHolds: boolean;
 }
 
 /**
@@ -73,6 +78,7 @@ const DEFAULTS: World = {
   record: Option.none(),
   repository: Option.some(LIVE),
   secrets: [...BOOTSTRAP_SECRETS],
+  stateHolds: false,
   variables: new Map(),
 };
 
@@ -91,7 +97,8 @@ const REPOSITORY_CONFIG = {
  * @param effect - The effect to run.
  * @param overrides - The answers that differ from {@link DEFAULTS}.
  * @param config - The configuration entries.
- * @returns The exit, the recorded calls, the deploy inputs and the printed lines.
+ * @returns The exit, the recorded calls, the deploy inputs, whether each deploy was forced and the
+ *   printed lines.
  */
 const harness = <A>(
   effect: Effect.Effect<A, CredentialsError, SpinUp>,
@@ -101,6 +108,7 @@ const harness = <A>(
   const world = { ...DEFAULTS, ...overrides };
   const calls: Array<string> = [];
   const deploys: Array<DeployInput> = [];
+  const forces: Array<boolean> = [];
   const lines: Array<string> = [];
   let deployed = false;
 
@@ -117,12 +125,13 @@ const harness = <A>(
     bunVersion: record("bunVersion", Effect.succeed(world.bun)),
     canRead: (_profile, group) =>
       record(`canRead:${group}`, Effect.succeed(!world.denied.includes(group))),
-    deploy: (input) =>
+    deploy: (input, _profile, force) =>
       record(
         "deploy",
         Effect.sync(() => {
           deploys.push(input);
-          deployed = true;
+          forces.push(force);
+          deployed = force || !world.stateHolds;
         }),
       ),
     detectPlan: () =>
@@ -161,7 +170,7 @@ const harness = <A>(
     Effect.exit,
   );
 
-  return { calls, deploys, lines, run };
+  return { calls, deploys, forces, lines, run };
 };
 
 /**
@@ -434,6 +443,63 @@ describe("the re-run table", () => {
       const { message } = yield* refusal({ variables: new Map([["STACK_NAME", "kept"]]) });
 
       assert.include(message, "holds no kept-bootstrap record");
+    }),
+  );
+
+  it.effect("a hand-deleted pin refuses a plain run and --force recreates it", () =>
+    Effect.gen(function* deletedPin() {
+      const world = {
+        names: ["widget-state"],
+        record: Option.some({ repository: "acme/widget", repositoryId: 4242 }),
+        stateHolds: true,
+        variables: new Map([...WRITTEN].filter(([name]) => name !== "STACK_NAME")),
+      };
+
+      const { calls, message } = yield* refusal(world);
+
+      assert.include(message, "deleted by hand");
+      assert.isTrue(noWrite(calls));
+
+      const { forces, lines, run } = harness(credentials({ force: true, profile: "admin" }), world);
+      const exit = yield* run;
+
+      assert.strictEqual(exit._tag, "Success");
+      assert.deepStrictEqual(forces, [true]);
+      assert.include(lines, "STACK_NAME=widget");
+    }),
+  );
+
+  it.effect("a value deleted by hand under an intact pin forces the deploy", () =>
+    Effect.gen(function* deletedValue() {
+      const { forces, lines, run } = harness(credentials({ force: false, profile: "admin" }), {
+        names: ["widget-state"],
+        record: Option.some({ repository: "acme/widget", repositoryId: 4242 }),
+        stateHolds: true,
+        variables: new Map([...WRITTEN].filter(([name]) => name !== "CUSTOM_DOMAIN")),
+      });
+
+      const exit = yield* run;
+
+      assert.strictEqual(exit._tag, "Success");
+      assert.deepStrictEqual(forces, [true]);
+      assert.include(lines, "missing on acme/widget: CUSTOM_DOMAIN; forcing the bootstrap deploy");
+      assert.include(lines, "CUSTOM_DOMAIN=workers-dev");
+    }),
+  );
+
+  it.effect("a complete re-run does not force the deploy", () =>
+    Effect.gen(function* complete() {
+      const { forces, run } = harness(credentials({ force: false, profile: "admin" }), {
+        names: ["widget-state"],
+        record: Option.some({ repository: "acme/widget", repositoryId: 4242 }),
+        stateHolds: true,
+        variables: WRITTEN,
+      });
+
+      const exit = yield* run;
+
+      assert.strictEqual(exit._tag, "Success");
+      assert.deepStrictEqual(forces, [false]);
     }),
   );
 

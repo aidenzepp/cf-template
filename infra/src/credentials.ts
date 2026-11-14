@@ -211,9 +211,17 @@ export class SpinUp extends Context.Service<
       profile: string,
     ) => Effect.Effect<void, CredentialsError>;
     /**
-     * `bun run alchemy deploy` of the bootstrap stack at stage `prod`.
+     * `bun run alchemy deploy` of the bootstrap stack at stage `prod`, with Alchemy's `--force`
+     * when `force` is true.
+     *
+     * Alchemy plans an unchanged GitHub variable as a no-op and never asks GitHub whether it still
+     * exists, so only a forced deploy recreates one deleted by hand.
      */
-    readonly deploy: (input: DeployInput, profile: string) => Effect.Effect<void, CredentialsError>;
+    readonly deploy: (
+      input: DeployInput,
+      profile: string,
+      force: boolean,
+    ) => Effect.Effect<void, CredentialsError>;
   }
 >()("infra/SpinUp") {}
 
@@ -460,6 +468,18 @@ export const stateReadJson = (stdout: string): string => {
 };
 
 /**
+ * The variables and secrets this half writes that the repository does not have.
+ *
+ * @param variables - The repository's variables by name.
+ * @param secrets - The repository's secret names.
+ * @returns The missing names, variables first.
+ */
+const missingValues = (variables: ReadonlyMap<string, string>, secrets: ReadonlyArray<string>) => [
+  ...BOOTSTRAP_VARIABLES.filter((name) => !variables.has(name)),
+  ...BOOTSTRAP_SECRETS.filter((name) => !secrets.includes(name)),
+];
+
+/**
  * Fail unless the four variables and two secrets this half writes are present, and print one line
  * per variable. The tier variables are `bun run settings`'s writes and are not read here.
  *
@@ -469,12 +489,7 @@ export const stateReadJson = (stdout: string): string => {
 export const readBack = Effect.fn("readBack")(function* readBack(slug: string) {
   const spinUp = yield* SpinUp;
   const variables = yield* spinUp.variables(slug);
-  const secrets = yield* spinUp.secrets(slug);
-
-  const missing = [
-    ...BOOTSTRAP_VARIABLES.filter((name) => !variables.has(name)),
-    ...BOOTSTRAP_SECRETS.filter((name) => !secrets.includes(name)),
-  ];
+  const missing = missingValues(variables, yield* spinUp.secrets(slug));
 
   if (missing.length > 0) {
     return yield* new CredentialsError({
@@ -497,9 +512,13 @@ export const readBack = Effect.fn("readBack")(function* readBack(slug: string) {
  * The credentials half, in order: derive the stack name, preflight, read the pin, check for
  * collisions on a first run, bootstrap the store, deploy the bootstrap stack and read back.
  *
+ * The deploy is forced under `--force`, and whenever a variable or secret this half writes is
+ * missing on the repository, so a value deleted by hand is recreated rather than planned as a
+ * no-op.
+ *
  * @param options - The command-line options.
  * @param options.profile - The profile the whole bootstrap runs under, `admin` by convention.
- * @param options.force - Whether `--force` repairs a refused pin or record.
+ * @param options.force - Whether `--force` repairs a refused pin or record and forces the deploy.
  * @returns The run.
  */
 export const credentials = Effect.fn("credentials")(function* credentials(options: {
@@ -552,6 +571,13 @@ export const credentials = Effect.fn("credentials")(function* credentials(option
   );
   yield* spinUp.stateBootstrap(decision.stack, options.profile);
 
+  const missing = missingValues(variables, yield* spinUp.secrets(slug));
+  const force = options.force || missing.length > 0;
+
+  if (missing.length > 0) {
+    yield* Console.log(`missing on ${slug}: ${missing.join(", ")}; forcing the bootstrap deploy`);
+  }
+
   yield* spinUp.deploy(
     {
       customDomain: variables.get("CUSTOM_DOMAIN") ?? "workers-dev",
@@ -561,6 +587,7 @@ export const credentials = Effect.fn("credentials")(function* credentials(option
       subdomain: yield* spinUp.workersSubdomain(options.profile),
     },
     options.profile,
+    force,
   );
 
   yield* readBack(slug);
@@ -806,7 +833,7 @@ export const SpinUpLive = Layer.effect(
           return probes[group];
         }),
 
-      deploy: (input, profile) =>
+      deploy: (input, profile, force) =>
         alchemyAttached(
           "bun run alchemy deploy --config infra/stacks/bootstrap.ts",
           [
@@ -818,6 +845,7 @@ export const SpinUpLive = Layer.effect(
             "--stage",
             BOOTSTRAP_STAGE,
             "--yes",
+            ...(force ? ["--force"] : []),
           ],
           {
             BOOTSTRAP_CUSTOM_DOMAIN: input.customDomain,

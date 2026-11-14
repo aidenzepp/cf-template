@@ -98,7 +98,9 @@ export const ciTokenPolicies = (accountId: string) => [
  * repository identity as the stack output.
  *
  * Every logical id is fixed, so a re-run reconciles in place: the token keeps its id and value,
- * the secrets re-upload and the variables are a no-op or a patch.
+ * the secrets re-upload and the variables are a no-op or a patch. Alchemy plans an unchanged
+ * variable as a no-op without asking GitHub whether it still exists, so `bun run credentials`
+ * forces the deploy when a value it writes is missing on the repository.
  */
 const program = Effect.gen(function* declareBootstrap() {
   const inputs = yield* bootstrapInputs;
