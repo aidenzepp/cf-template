@@ -1,5 +1,6 @@
 import kebabCasePaths from "./kebab-case-paths.mjs";
 import noBuiltInTryCatch from "./no-built-in-try-catch.mjs";
+import noArrayMethodThisArgument from "./rules/no-array-method-this-argument.ts";
 import errorMessageGrammar from "./rules/error-message-grammar.ts";
 import noEffectDataLoad from "./rules/no-effect-data-load.ts";
 import noEffectOnAsyncResult from "./rules/no-effect-on-async-result.ts";
@@ -17,6 +18,7 @@ export default {
   rules: {
     "error-message-grammar": errorMessageGrammar,
     "kebab-case-paths": kebabCasePaths,
+    "no-array-method-this-argument": noArrayMethodThisArgument,
     "no-built-in-try-catch": noBuiltInTryCatch,
     "no-effect-data-load": noEffectDataLoad,
     "no-effect-on-async-result": noEffectOnAsyncResult,

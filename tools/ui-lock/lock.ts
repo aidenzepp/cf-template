@@ -77,11 +77,8 @@ export const readTree = Effect.fn("ui-lock.readTree")(function* readTree(directo
   const path = yield* Path.Path;
   const names = yield* fs.readDirectory(directory);
 
-  const entries = yield* Effect.forEach(
-    names,
-    (name) =>
-      Effect.map(fs.readFile(path.join(directory, name)), (bytes) => [name, bytes] as const),
-    { concurrency: 1 },
+  const entries = yield* Effect.forEach(names, (name) =>
+    Effect.map(fs.readFile(path.join(directory, name)), (bytes) => [name, bytes] as const),
   );
 
   return Object.fromEntries(entries);

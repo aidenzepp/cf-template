@@ -152,20 +152,17 @@ const minimalSet: Check = {
     const migrations = path.join(app, "migrations");
     const names = Arr.sort(yield* fs.readDirectory(migrations), Order.String);
 
-    const extras: ReadonlyArray<Finding> = (yield* Effect.forEach(
-      names,
-      (name) =>
-        fs.readDirectory(path.join(migrations, name)).pipe(
-          Effect.map((entries) =>
-            entries
-              .filter((entry) => !generatedFiles.has(entry))
-              .map((entry) => ({
-                reason: "not a file drizzle-kit generates",
-                subject: `${database.name}/migrations/${name}/${entry}`,
-              })),
-          ),
+    const extras: ReadonlyArray<Finding> = (yield* Effect.forEach(names, (name) =>
+      fs.readDirectory(path.join(migrations, name)).pipe(
+        Effect.map((entries) =>
+          entries
+            .filter((entry) => !generatedFiles.has(entry))
+            .map((entry) => ({
+              reason: "not a file drizzle-kit generates",
+              subject: `${database.name}/migrations/${name}/${entry}`,
+            })),
         ),
-      { concurrency: 1 },
+      ),
     )).flat();
 
     const newest = names.at(-1);
@@ -319,10 +316,8 @@ const readers = Effect.fn("db.check.readers")(function* readers(
     .map((line) => line.slice(context.base.length + 1))
     .filter((file) => file !== module && file !== schema && !/\.test\.tsx?$/u.test(file));
 
-  const sources = yield* Effect.forEach(
-    candidates,
-    (file) => run(context.root, "git", ["-C", context.root, "show", `${context.base}:${file}`]),
-    { concurrency: 1 },
+  const sources = yield* Effect.forEach(candidates, (file) =>
+    run(context.root, "git", ["-C", context.root, "show", `${context.base}:${file}`]),
   );
 
   return candidates.filter((file, index) => imports(path, sources[index] ?? "", file, module));
@@ -352,7 +347,7 @@ const tableModule = Effect.fn("db.check.tableModule")(function* tableModule(
     ),
   ];
 
-  const sources = yield* Effect.forEach(modules, show, { concurrency: 1 });
+  const sources = yield* Effect.forEach(modules, show);
 
   return modules.find((_, index) =>
     [...(sources[index] ?? "").matchAll(/sqliteTable\(\s*["'](?<name>\w+)["']/gu)].some(
@@ -371,10 +366,8 @@ const referencedTables = Effect.fn("db.check.referencedTables")(function* refere
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 
-  const present = yield* Effect.forEach(
-    names,
-    (name) => fs.exists(path.join(migrations, name, "snapshot.json")),
-    { concurrency: 1 },
+  const present = yield* Effect.forEach(names, (name) =>
+    fs.exists(path.join(migrations, name, "snapshot.json")),
   );
 
   const newest = Arr.last(names.filter((_, index) => present[index]));
@@ -454,46 +447,43 @@ const dangerousSql: Check = {
     const added = all.filter((name) => !existing.includes(`${database.name}/migrations/${name}`));
     const referenced = yield* referencedTables(migrations, all);
 
-    return (yield* Effect.forEach(
-      added,
-      (name) =>
-        Effect.gen(function* migration() {
-          const subject = `${database.name}/migrations/${name}/migration.sql`;
+    return (yield* Effect.forEach(added, (name) =>
+      Effect.gen(function* migration() {
+        const subject = `${database.name}/migrations/${name}/migration.sql`;
 
-          const sql = statements(
-            yield* fs.readFileString(path.join(migrations, name, "migration.sql")),
-          );
+        const sql = statements(
+          yield* fs.readFileString(path.join(migrations, name, "migration.sql")),
+        );
 
-          const recreates = recreated(sql);
+        const recreates = recreated(sql);
 
-          const drops = yield* Effect.all(
-            sql
-              .flatMap((statement) => captured(/^DROP TABLE [`"](?<name>\w+)[`"]/iu, statement))
-              .flatMap((table) =>
-                table.startsWith("__new_") || recreates.includes(table)
-                  ? []
-                  : [dropFailure(context, database, table)],
-              ),
-          );
-
-          return [
-            ...recreates.flatMap((table) =>
-              referenced.has(table)
-                ? [`recreates ${table}, which other tables reference; redesign it additively`]
-                : [],
+        const drops = yield* Effect.all(
+          sql
+            .flatMap((statement) => captured(/^DROP TABLE [`"](?<name>\w+)[`"]/iu, statement))
+            .flatMap((table) =>
+              table.startsWith("__new_") || recreates.includes(table)
+                ? []
+                : [dropFailure(context, database, table)],
             ),
-            ...sql
-              .filter(
-                (statement) =>
-                  /^ALTER TABLE\s+\S+\s+ADD(?:\s+COLUMN)?\s/iu.test(statement) &&
-                  /\bNOT NULL\b/iu.test(statement) &&
-                  !/\bDEFAULT\b/iu.test(statement),
-              )
-              .map(() => "ADD COLUMN NOT NULL without DEFAULT; add a DEFAULT or make it nullable"),
-            ...drops.flat(),
-          ].map((reason) => ({ reason, subject }));
-        }),
-      { concurrency: 1 },
+        );
+
+        return [
+          ...recreates.flatMap((table) =>
+            referenced.has(table)
+              ? [`recreates ${table}, which other tables reference; redesign it additively`]
+              : [],
+          ),
+          ...sql
+            .filter(
+              (statement) =>
+                /^ALTER TABLE\s+\S+\s+ADD(?:\s+COLUMN)?\s/iu.test(statement) &&
+                /\bNOT NULL\b/iu.test(statement) &&
+                !/\bDEFAULT\b/iu.test(statement),
+            )
+            .map(() => "ADD COLUMN NOT NULL without DEFAULT; add a DEFAULT or make it nullable"),
+          ...drops.flat(),
+        ].map((reason) => ({ reason, subject }));
+      }),
     )).flat();
   }),
 };

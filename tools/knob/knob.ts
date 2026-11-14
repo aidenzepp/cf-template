@@ -141,24 +141,20 @@ export const resolveNamespace = Effect.fn("knob.resolveNamespace")(function* res
  * @returns One line per key, in order.
  */
 export const reportStored = (rows: ReadonlyArray<StoredKey>) =>
-  Effect.forEach(
-    rows,
-    (row) => {
-      const knob = liveKnobs.find((candidate) => candidate.key === row.key);
-      const value = JSON.stringify(row.value);
+  Effect.forEach(rows, (row) => {
+    const knob = liveKnobs.find((candidate) => candidate.key === row.key);
+    const value = JSON.stringify(row.value);
 
-      return knob === undefined
-        ? Effect.succeed({ bad: true, line: `${row.key} ORPHAN: it is not in the registry` })
-        : Effect.match(check(knob, row.value), {
-            onFailure: () => ({
-              bad: true,
-              line: `${row.key} REJECTED: stored ${value} fails its schema`,
-            }),
-            onSuccess: () => ({ bad: false, line: `${row.key} ok ${value}` }),
-          });
-    },
-    { concurrency: 1 },
-  );
+    return knob === undefined
+      ? Effect.succeed({ bad: true, line: `${row.key} ORPHAN: it is not in the registry` })
+      : Effect.match(check(knob, row.value), {
+          onFailure: () => ({
+            bad: true,
+            line: `${row.key} REJECTED: stored ${value} fails its schema`,
+          }),
+          onSuccess: () => ({ bad: false, line: `${row.key} ok ${value}` }),
+        });
+  });
 
 /**
  * Print the stored layer and fail when any key is `REJECTED` or `ORPHAN`.
