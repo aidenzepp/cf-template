@@ -107,6 +107,7 @@ describe("the documentation routes with DOCS_ENABLED on", () => {
         "post /api/CreateNote",
         "post /api/UpdateNote",
         "post /api/DeleteNote",
+        "get /api/Note/{key}",
       ]);
 
       for (const operation of operations) {

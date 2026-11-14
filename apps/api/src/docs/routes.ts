@@ -10,8 +10,9 @@ import { NotebookApi } from "../notes/notebook.api.ts";
 import { llmsText } from "./llms.ts";
 
 /**
- * The Notebook Api published as a plain HTTP group: one `POST /<Command>` per command, built by
- * `toHttpApi` from the Domain Api, so the model is the one source of its paths and errors.
+ * The Notebook Api published as a plain HTTP group: one `POST /<Command>` per command and
+ * `GET /Note/{key}` (with its `watch`, `events`, `list` and `snapshot` routes) for the `Note` view,
+ * built by `toHttpApi` from the Domain Api, so the model is the one source of its paths and errors.
  */
 export const NotebookHttp = DomainHttp.toHttpApi(NotebookApi);
 

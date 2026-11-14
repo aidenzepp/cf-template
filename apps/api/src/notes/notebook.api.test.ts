@@ -9,6 +9,7 @@ import { NOTE_TITLE_MAX_LENGTH, NotebookId } from "./note.command.ts";
 import { NoteId } from "./note.event.ts";
 import { NotebookApi } from "./notebook.api.ts";
 import { NoteIndexUnstored } from "./note-index.projection.ts";
+import { noteKey } from "./note.view.ts";
 import { NotesModel } from "./notes.model.ts";
 
 /**
@@ -114,6 +115,45 @@ describe("the Notebook Api", () => {
       );
 
       assert.strictEqual(created.version, 1);
+    }).pipe(Effect.scoped, Effect.provide(World)),
+  );
+
+  // Live clock: the in-memory host delivers events to the view on it, so a read waiting for the
+  // write never returns under the test clock.
+  it.live("reads a note as its owner and refuses another user, a missing note and no session", () =>
+    Effect.gen(function* readsNote() {
+      const api = yield* NotebookApi.clientInProcess;
+
+      const created = yield* api.CreateNote(
+        notebook,
+        { body: "Body", id: n1, title: "Title" },
+        as("owner-1"),
+      );
+
+      const key = noteKey(notebook, n1);
+      const atLeast = { stream: created.stream, version: created.version };
+
+      const note = yield* api.Note.get(key, { ...as("owner-1"), atLeast });
+
+      assert.strictEqual(note?.title, "Title");
+      assert.strictEqual(note?.body, "Body");
+      assert.isTrue(
+        note !== null && note.createdAt.epochMilliseconds === note.updatedAt.epochMilliseconds,
+      );
+
+      const stranger = yield* Effect.flip(api.Note.get(key, { ...as("owner-2"), atLeast }));
+
+      assert.strictEqual(stranger._tag, "NotNotebookOwner");
+
+      const missing = yield* Effect.flip(
+        api.Note.get(noteKey(notebook, NoteId.make("n-missing")), as("owner-1")),
+      );
+
+      assert.strictEqual(missing._tag, "NoteNotFound");
+
+      const anonymous = yield* Effect.flip(api.Note.get(key));
+
+      assert.strictEqual(anonymous._tag, "SessionRequired");
     }).pipe(Effect.scoped, Effect.provide(World)),
   );
 });

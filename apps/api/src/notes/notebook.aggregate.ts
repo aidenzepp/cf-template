@@ -16,13 +16,13 @@ import {
 export const NOTES_MAX_PER_OWNER = 100;
 
 /**
- * Refuse a command unless the caller owns the notebook it names: one notebook per owner, keyed by
- * the owner's user id.
+ * Refuse a command or a read unless the caller owns the notebook it names: one notebook per owner,
+ * keyed by the owner's user id.
  *
- * @param id - The id of the notebook handling the command.
+ * @param id - The id of the notebook the command or read names.
  * @returns The owner's id, or a failure with `NotNotebookOwner` for any other caller.
  */
-const mustOwn = (id: typeof NotebookId.Type) =>
+export const mustOwn = (id: typeof NotebookId.Type) =>
   Effect.gen(function* mustOwnNotebook() {
     const actor = yield* CurrentActor;
     // Both ids name the same user; the brands differ only by role.
