@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
-import type { Knob } from "../../packages/config/src/knob.ts";
+import type { Knob } from "@workspace/config/knob";
 import { liveKnobs } from "./registry.ts";
 
 /**

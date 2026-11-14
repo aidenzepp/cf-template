@@ -1,8 +1,8 @@
 import { BunRuntime } from "@effect/platform-bun";
 import { Config, Console, Duration, Effect, Schedule, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
-import { CREDENTIAL_ROUTES } from "../../packages/contract/src/domain/auth-endpoints.ts";
-import { ProviderId } from "../../packages/config/src/auth-methods.ts";
+import { CREDENTIAL_ROUTES } from "@workspace/contract/domain/auth-endpoints";
+import { ProviderId } from "@workspace/config/auth-methods";
 
 /**
  * The most requests one smoke run may send to routes of the `credential` rate-limit class, so the

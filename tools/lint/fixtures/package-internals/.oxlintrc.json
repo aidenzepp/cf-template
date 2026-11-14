@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [],
+        "patterns": [
+          {
+            "group": ["**/packages/*/src/**"],
+            "message": "import a package through its public export (@workspace/<package>/<entry>), not a relative path into its src"
+          }
+        ]
+      }
+    ]
+  }
+}

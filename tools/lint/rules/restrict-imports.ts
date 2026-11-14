@@ -149,6 +149,16 @@ export const libraryPatterns: ReadonlyArray<RestrictedPattern> = [
 ];
 
 /**
+ * A package is imported only through its public `exports` (`@workspace/<package>/<entry>`), never
+ * by a relative path into another package's `src`. Carried by every override so none drops it.
+ */
+const packageInternals: RestrictedPattern = {
+  group: ["**/packages/*/src/**"],
+  message:
+    "import a package through its public export (@workspace/<package>/<entry>), not a relative path into its src",
+};
+
+/**
  * Source reads the platform through `@effect/platform-bun`, never a `node:` module. A lifted file
  * names the gap it fills.
  */
@@ -185,6 +195,7 @@ export const restrictImports = (
       ],
       patterns: [
         ...libraryPatterns,
+        packageInternals,
         ...(restrictions.sql === false ? [] : sqlPatterns),
         ...(restrictions.patterns ?? []),
       ],

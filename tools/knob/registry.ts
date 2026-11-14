@@ -1,5 +1,5 @@
-import { DocsEnabledKnob } from "../../packages/config/src/docs.ts";
-import { LogLevelKnob } from "../../packages/config/src/log-level.ts";
+import { DocsEnabledKnob } from "@workspace/config/docs";
+import { LogLevelKnob } from "@workspace/config/log-level";
 
 /**
  * The knobs an operator may set live: the two the template ships, `LOG_LEVEL` and
