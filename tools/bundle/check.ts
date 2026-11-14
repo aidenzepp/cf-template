@@ -123,13 +123,10 @@ export const initialGzipBytes = Effect.fn("bundle.initialGzipBytes")(function* i
     return yield* new NoEntryChunkError({ message: "no entry chunk in the chunk graph" });
   }
 
-  const sizes = yield* Effect.forEach(
-    files,
-    (file) =>
-      fs
-        .readFile(path.join(clientDir, file))
-        .pipe(Effect.flatMap((bytes) => gzipLength(file, bytes))),
-    { concurrency: 1 },
+  const sizes = yield* Effect.forEach(files, (file) =>
+    fs
+      .readFile(path.join(clientDir, file))
+      .pipe(Effect.flatMap((bytes) => gzipLength(file, bytes))),
   );
 
   return sizes.reduce((sum, size) => sum + size, 0);

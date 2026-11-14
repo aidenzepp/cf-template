@@ -159,39 +159,36 @@ const rulesetLines = Effect.fn("rulesetLines")(function* rulesetLines(
     names,
   );
 
-  const detailed = yield* Effect.forEach(
-    plan.ruleset,
-    (declared) =>
-      Effect.gen(function* compareRuleset() {
-        const found = live.find((ruleset) => ruleset.name === declared.name);
+  const detailed = yield* Effect.forEach(plan.ruleset, (declared) =>
+    Effect.gen(function* compareRuleset() {
+      const found = live.find((ruleset) => ruleset.name === declared.name);
 
-        if (found === undefined) {
-          return [];
-        }
+      if (found === undefined) {
+        return [];
+      }
 
-        const { rules } = yield* getJson(`${path}/rulesets/${found.id}`, RulesetDetail);
-        const parameters = rules.map((rule) => rule.parameters);
+      const { rules } = yield* getJson(`${path}/rulesets/${found.id}`, RulesetDetail);
+      const parameters = rules.map((rule) => rule.parameters);
 
-        return [
-          ...mismatch(
-            `${declared.name} ruleset merge methods`,
-            sorted(parameters.flatMap((entry) => entry?.allowed_merge_methods ?? [])),
-            sorted(declared.pullRequest?.allowedMergeMethods ?? []),
-            "declared",
-          ),
-          ...mismatch(
-            `${declared.name} ruleset required checks`,
-            sorted(
-              parameters.flatMap((entry) =>
-                (entry?.required_status_checks ?? []).map((check) => check.context),
-              ),
+      return [
+        ...mismatch(
+          `${declared.name} ruleset merge methods`,
+          sorted(parameters.flatMap((entry) => entry?.allowed_merge_methods ?? [])),
+          sorted(declared.pullRequest?.allowedMergeMethods ?? []),
+          "declared",
+        ),
+        ...mismatch(
+          `${declared.name} ruleset required checks`,
+          sorted(
+            parameters.flatMap((entry) =>
+              (entry?.required_status_checks ?? []).map((check) => check.context),
             ),
-            sorted((declared.requiredStatusChecks?.checks ?? []).map((check) => check.context)),
-            "declared",
           ),
-        ];
-      }),
-    { concurrency: 1 },
+          sorted((declared.requiredStatusChecks?.checks ?? []).map((check) => check.context)),
+          "declared",
+        ),
+      ];
+    }),
   );
 
   return [...lines, ...detailed.flat()];
