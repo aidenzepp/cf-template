@@ -78,6 +78,29 @@ const alchemy = Effect.fn("alchemy")(function* alchemy(phase: "deploy" | "destro
       });
 });
 
+/**
+ * Deploy the stage, and destroy it when the deploy fails, so a failed setup leaves no stage behind
+ * for the next run to deploy over. Vitest registers the teardown only after setup returns, so
+ * without this a failed deploy is never cleaned up. A destroy that fails too is logged; the
+ * deploy's error is the one returned.
+ *
+ * @param stage - The validated stage.
+ * @returns Nothing, or the deploy's {@link AlchemyExited}.
+ */
+export const deployOrDestroy = Effect.fn("deployOrDestroy")(function* deployOrDestroy(
+  stage: string,
+) {
+  yield* alchemy("deploy", stage).pipe(
+    Effect.tapError(() =>
+      alchemy("destroy", stage).pipe(
+        Effect.catch((error) =>
+          Effect.logError(`The cleanup destroy of ${stage} failed too: ${error.message}`),
+        ),
+      ),
+    ),
+  );
+});
+
 const services = Layer.mergeAll(BunServices.layer, Digest.layerWebCrypto);
 
 /**
@@ -89,7 +112,7 @@ const services = Layer.mergeAll(BunServices.layer, Digest.layerWebCrypto);
 export default async function setup() {
   const stage = await Effect.runPromise(cloudStage().pipe(Effect.provide(services)));
 
-  await Effect.runPromise(alchemy("deploy", stage).pipe(Effect.provide(services)));
+  await Effect.runPromise(deployOrDestroy(stage).pipe(Effect.provide(services)));
 
   return () => Effect.runPromise(alchemy("destroy", stage).pipe(Effect.provide(services)));
 }

@@ -1,6 +1,6 @@
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import * as Alchemist from "alchemy/Alchemist";
-import { PlannedResource } from "alchemy/Events";
+import type { PlannedResource } from "alchemy/Events";
 import {
   Array as Arr,
   Config,
@@ -27,10 +27,38 @@ class PlanProdError extends Schema.TaggedError<PlanProdError, { readonly brand: 
 ) {}
 
 /**
- * The resource rows of a plan, decoded with Alchemy's own `PlannedResource` schema, so an action
- * outside the schema fails decoding rather than reaching the classifier.
+ * One binding row of a planned resource: the classifier reads only its `action`.
  */
-const PlanRows = Schema.Array(PlannedResource);
+const PlanBinding = Schema.Struct({
+  action: Schema.Literals(["create", "update", "delete", "noop"]),
+  sid: Schema.String,
+});
+
+/**
+ * The fields of one Alchemy plan row the classifier, the fingerprint and the summary read. Every
+ * other field of the row (`providerMode`, `fromProviderMode`, and any Alchemy adds) is ignored, so
+ * a field the classifier does not use cannot fail the plan. `describeResource` in Alchemy's
+ * `src/Plan.ts` writes `providerMode` and `fromProviderMode` as present keys holding `undefined`,
+ * which Alchemy's own `PlannedResource` (`optionalKey`) rejects. An action outside this set fails
+ * decoding rather than reaching the classifier.
+ */
+const PlanRowSchema = Schema.Struct({
+  action: Schema.Literals(["create", "update", "adopted", "replace", "delete", "orphaned", "noop"]),
+  bindings: Schema.Array(PlanBinding),
+  fqn: Schema.String,
+  logicalId: Schema.String,
+  resourceType: Schema.String,
+});
+
+/**
+ * One decoded plan row.
+ */
+type PlanRow = typeof PlanRowSchema.Type;
+
+/**
+ * The resource rows of a plan.
+ */
+const PlanRows = Schema.Array(PlanRowSchema);
 
 /**
  * How one planned row weighs on the `prod` deploy (#44 items 3 and 9).
@@ -41,7 +69,7 @@ type RowClass = "blocking" | "notice" | "info" | "noop";
  * One planned row with its class and, where the classifier has one, the line the summary prints.
  */
 export interface ClassifiedRow {
-  readonly row: PlannedResource;
+  readonly row: PlanRow;
   readonly class: RowClass;
   readonly note: Option.Option<string>;
 }
@@ -109,7 +137,7 @@ export const BINDING_REMOVED_NOTE =
  * @param row - One planned resource.
  * @returns The row with its class and note.
  */
-const classifyRow = (row: PlannedResource): ClassifiedRow => {
+const classifyRow = (row: PlanRow): ClassifiedRow => {
   if (row.resourceType === WORKER_TYPE) {
     if (DESTRUCTIVE_ACTIONS.has(row.action)) {
       return { class: "blocking", note: Option.some(WORKER_REMOVED_NOTE), row };
@@ -147,7 +175,7 @@ const classifyRow = (row: PlannedResource): ClassifiedRow => {
  * @param rows - The decoded plan rows.
  * @returns One classified row per planned resource, in plan order.
  */
-const classify = (rows: ReadonlyArray<PlannedResource>): ReadonlyArray<ClassifiedRow> =>
+const classify = (rows: ReadonlyArray<PlanRow>): ReadonlyArray<ClassifiedRow> =>
   rows.length > 0 && rows.every((row) => row.action === "create")
     ? rows.map((row) => ({ class: "blocking", note: Option.some(ALL_CREATE_NOTE), row }))
     : rows.map(classifyRow);
@@ -183,10 +211,13 @@ const undecodable = (error: Schema.SchemaError) =>
   new PlanProdError({ message: `The plan rows do not decode: ${error.message}` });
 
 /**
- * Decode the `resources` of a computed plan again with Alchemy's schema, so a change in the
- * programmatic API fails here rather than in the classifier.
+ * Decode the `resources` of a computed plan to the fields the classifier reads, so an unknown
+ * action fails here rather than in the classifier.
+ *
+ * @param resources - The `resources` of an `Alchemist.plan` result.
+ * @returns The rows, or a failure when a row lacks a read field or carries an unknown action.
  */
-const rowsOfPlan = (resources: ReadonlyArray<PlannedResource>) =>
+export const rowsOfPlan = (resources: ReadonlyArray<PlannedResource>) =>
   Schema.decodeEffect(PlanRows)(resources).pipe(Effect.mapError(undecodable));
 
 /**
@@ -205,7 +236,7 @@ export const rowsOfJson = (text: string) =>
  * @returns The verdict.
  */
 export const verdictOf = Effect.fn("planProd.verdictOf")(function* verdictOf(
-  decoded: ReadonlyArray<PlannedResource>,
+  decoded: ReadonlyArray<PlanRow>,
 ) {
   const rows = classify(decoded);
 
@@ -324,7 +355,7 @@ const report = Effect.fn("planProd.report")(function* report(verdict: Verdict) {
  * @returns The verdict that was reported.
  */
 export const decide = Effect.fn("planProd.decide")(function* decide(
-  rows: ReadonlyArray<PlannedResource>,
+  rows: ReadonlyArray<PlanRow>,
   expected: Option.Option<string>,
 ) {
   const verdict = yield* checkFingerprint(yield* verdictOf(rows), expected);

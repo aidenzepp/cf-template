@@ -2,8 +2,9 @@ name: GitHub App token
 description: >-
   Mint an installation token for the repository's GitHub App, for a job that must start a workflow
   run or act as the App instead of GITHUB_TOKEN (#43). A composite action cannot read the secrets
-  context, so the caller passes `app-id: ${{ secrets.APP_ID }}` and
-  `private-key: ${{ secrets.APP_PRIVATE_KEY }}`.
+  context, so the caller passes the repository secrets APP_ID and APP_PRIVATE_KEY as the app-id
+  and private-key inputs. Keep expressions out of the descriptions: the runner evaluates them there
+  too, and an action has no secrets context.
 inputs:
   app-id:
     description: The App id, from the repository secret APP_ID.

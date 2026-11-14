@@ -249,6 +249,8 @@ const scan = Effect.fn("scan")(function* scan(
       page.locator("body").allInnerTexts(),
     );
 
+    const title = yield* promised("Reading the document title", () => page.title());
+
     const dark = yield* promised("Reading the theme class", () =>
       page.evaluate<boolean>(`document.documentElement.classList.contains("dark")`),
     );
@@ -278,6 +280,7 @@ const scan = Effect.fn("scan")(function* scan(
       screenshots,
       stackName,
       text: texts.join("\n"),
+      title,
       violations: violations.map(({ id, impact, nodes }) => ({
         id,
         impact: impact ?? null,

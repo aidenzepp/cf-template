@@ -1,5 +1,5 @@
 import { BunRuntime } from "@effect/platform-bun";
-import { Config, Console, Effect, Schema } from "effect";
+import { Config, Console, Duration, Effect, Schedule, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
 import { CREDENTIAL_ROUTES } from "../../packages/contract/src/domain/auth-endpoints.ts";
 import { ProviderId } from "../../packages/config/src/auth-methods.ts";
@@ -88,6 +88,64 @@ const send = Effect.fn("smoke.send")(function* send(
   return { body, status: response.status };
 });
 
+/**
+ * The total time {@link sendRetrying} keeps retrying one non-credential GET: 60 seconds. A route
+ * that still answers 404 or 5xx after it fails the smoke with the last status. It covers a stage's
+ * first deploy, where a Worker route can answer 404 for a short while after its create.
+ */
+const RETRY_WINDOW = Duration.seconds(60);
+
+/**
+ * The longest single wait between retries, so the exponential delays (1s, 2s, 4s, 8s, 8s, ...) keep
+ * sampling inside {@link RETRY_WINDOW}.
+ */
+const RETRY_DELAY_CAP = Duration.seconds(8);
+
+const retrySchedule = Schedule.exponential(Duration.seconds(1)).pipe(
+  Schedule.modifyDelay(({ duration }) => Effect.succeed(Duration.min(duration, RETRY_DELAY_CAP))),
+  Schedule.upTo({ duration: RETRY_WINDOW }),
+);
+
+/**
+ * Whether a status is one a fresh deploy can answer transiently: 404 or any 5xx.
+ */
+const isRetryable = (status: number) => status === 404 || status >= 500;
+
+/**
+ * {@link send} for a non-credential GET: retries a 404, a 5xx or a transport error under
+ * {@link retrySchedule}, logging one line per failed attempt. Any other status returns at once.
+ * When the window ends, fails with a {@link SmokeFailed} naming the last status. Never use it for
+ * a credential route or a sign-in POST, whose 404 is an expected answer.
+ */
+const sendRetrying = Effect.fn("smoke.sendRetrying")(function* sendRetrying(
+  budget: { used: number },
+  request: HttpClientRequest.HttpClientRequest,
+) {
+  const path = new URL(request.url).pathname;
+  let attempt = 0;
+
+  return yield* send(budget, request).pipe(
+    Effect.filterOrFail(
+      (response) => !isRetryable(response.status),
+      (response) =>
+        new SmokeFailed({
+          message: `GET ${path} answered ${response.status}, expected a non-404, non-5xx answer within ${Duration.format(RETRY_WINDOW)}.`,
+          worker: "auth",
+        }),
+    ),
+    Effect.tapError((failure) =>
+      Effect.sync(() => {
+        attempt += 1;
+      }).pipe(
+        Effect.andThen(
+          Console.log(`smoke retry: ${path} attempt ${attempt} failed: ${failure.message}`),
+        ),
+      ),
+    ),
+    Effect.retry(retrySchedule),
+  );
+});
+
 const expect = (ok: boolean, message: string) =>
   ok ? Effect.void : Effect.fail(new SmokeFailed({ message, worker: "auth" }));
 
@@ -112,10 +170,10 @@ export const runSmoke = Effect.fn("smoke.run")(function* runSmoke(target: SmokeT
       ),
     );
 
-  const ok = yield* send(budget, HttpClientRequest.get(at("/auth/ok")));
+  const ok = yield* sendRetrying(budget, HttpClientRequest.get(at("/auth/ok")));
   yield* expect(ok.status === 200, `GET /auth/ok answered ${ok.status}, expected 200.`);
 
-  const session = yield* send(budget, HttpClientRequest.get(at("/auth/get-session")));
+  const session = yield* sendRetrying(budget, HttpClientRequest.get(at("/auth/get-session")));
   yield* expect(
     session.status === 200 && session.body === null,
     `GET /auth/get-session answered ${session.status}, expected 200 null.`,

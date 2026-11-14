@@ -14,6 +14,7 @@ interface Scan {
   readonly screenshots: ReadonlyArray<{ readonly png: string; readonly width: number }>;
   readonly stackName: string;
   readonly text: string;
+  readonly title: string;
   readonly violations: ReadonlyArray<{
     readonly id: string;
     readonly impact: string | null;
@@ -196,7 +197,7 @@ describe("the first screens", () => {
     for (const { cookie, heading, name, path, slug } of SCREENS) {
       it.effect(`${name} has no axe violations once hydrated in ${colorScheme}`, () =>
         Effect.gen(function* scanScreen() {
-          const { dark, passes, stackName, text, violations } = yield* scan(
+          const { dark, passes, stackName, text, title, violations } = yield* scan(
             path,
             cookie,
             colorScheme,
@@ -204,6 +205,11 @@ describe("the first screens", () => {
 
           assert.isNotEmpty(stackName);
           assert.include(text, heading ?? stackName);
+
+          if (heading === undefined) {
+            assert.strictEqual(title, stackName);
+          }
+
           assert.isAbove(passes, 0);
           assert.strictEqual(dark, colorScheme === "dark");
           assert.deepStrictEqual(
