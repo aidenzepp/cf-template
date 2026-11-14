@@ -66,6 +66,23 @@ export const guardedDomain = Effect.fn("guardedDomain")(function* guardedDomain(
 });
 
 /**
+ * `apps/web` as a URL resolved from this module's own location. Web's Vite `rootDir` must not be a
+ * relative string: Alchemy resolves it against the process working directory, so a run from
+ * `infra/` read `infra/apps/web`. Alchemy replaces `rootDir` with a placeholder before it diffs the
+ * Worker's props, so the checkout location never shows as a Web update.
+ */
+const WEB_ROOT_URL = new URL("../../apps/web", import.meta.url);
+
+/**
+ * Resolve the Web Vite root to an absolute filesystem path, independent of the working directory.
+ *
+ * @param root - The `apps/web` directory URL; tests pass another base.
+ * @returns The absolute path, without a trailing slash.
+ */
+export const webRootDir = (root: URL = WEB_ROOT_URL) =>
+  Path.Path.use((path) => path.fromFileUrl(root));
+
+/**
  * Declare the `web` Worker with `Cloudflare.Website.Vite`, and under the `local` stage kind the
  * `WebProd` harness Worker.
  *
@@ -141,7 +158,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     limits: limitsFor("web", { ...knobs, scrypt: AUTH_PASSWORD_SCRYPT.default }),
     name: yield* workerName({ stack, stage, worker: "web" }),
     observability: webObservability(stage),
-    rootDir: "apps/web",
+    rootDir: yield* webRootDir(),
     workersDev: domain.workersDev,
   });
 

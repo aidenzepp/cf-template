@@ -116,8 +116,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
       - id: plan
         name: Plan prod
-        # From the root: plan-prod imports infra/alchemy.run.ts (APP_STACK_ENTRY), and Web's rootDir
-        # is relative to the working directory.
+        # From the root: plan-prod imports infra/alchemy.run.ts, APP_STACK_ENTRY, the stack's entry.
         working-directory: .
         run: bun infra/scripts/plan-prod.ts
 
@@ -195,7 +194,7 @@ jobs:
       # because that commit carries a symlink (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack. The action
       # deploys main as stage prod (lines 50-55) with `alchemy deploy --stage prod --yes`, as
       # website/src/content/docs/environments/ci.mdx:483-489 documents. This runs from the root and names the
-      # entry file because Web's rootDir "apps/web" is relative to the working directory. No GITHUB_TOKEN:
+      # entry file, APP_STACK_ENTRY. No GITHUB_TOKEN:
       # it feeds only GitHub.GitHubEnv and GitHub.Comment (ci.mdx:238-250, 306-307), which this stack does not
       # declare.
       # Switch back to the action once https://github.com/alchemy-run/alchemy/issues/3355 (the dangling

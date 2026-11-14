@@ -152,8 +152,8 @@ jobs:
       # (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack. As the action does and
       # website/src/content/docs/environments/ci.mdx:483-498 documents: stage staging-<n>, PULL_REQUEST set,
       # `alchemy deploy|destroy --stage <stage> --yes`. One difference: the action runs in its
-      # working-directory input and reads ./alchemy.run.ts, and from infra/ Web's rootDir "apps/web" resolves
-      # to infra/apps/web, so this runs from the root and names the entry file (`alchemy deploy --help`).
+      # working-directory input and reads ./alchemy.run.ts; this runs from the root and names the entry file,
+      # APP_STACK_ENTRY (`alchemy deploy --help`). Web's rootDir resolves from infra/src/web.ts itself.
       # ci.mdx:487-489 also passes GITHUB_SHA and GITHUB_TOKEN: its stack reads them through GitHub.GitHubEnv
       # for a GitHub.Comment (ci.mdx:238-250, 306-307). This stack declares neither, so the token is not
       # passed; the runner sets GITHUB_SHA on every job anyway.
