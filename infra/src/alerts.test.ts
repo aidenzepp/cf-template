@@ -12,9 +12,13 @@ import {
   ISSUE_NOTIFICATION_STEP,
   PROJECTION_FAILURE_THRESHOLD,
   ProjectionConsumers,
+  alertsEnabled,
   issueNotificationAddress,
+  projectionFailureAlertProps,
   projectionFailureQuery,
+  rateLimitErrorAlertProps,
   rateLimitErrorQuery,
+  volumeAlertProps,
   volumeAlertQuery,
   volumeAlertThreshold,
   volumeAlertWorkers,
@@ -39,19 +43,44 @@ describe("volumeAlertThreshold", () => {
 });
 
 describe("volumeAlertWorkers", () => {
-  it.effect("lists each Worker in order, then the state store", () =>
+  it.effect("lists exactly the stage's own Workers in order, never the state store", () =>
     Effect.gen(function* lists() {
-      const names = yield* volumeAlertWorkers("s", "test-abc");
+      for (const stage of ["prod", "test-ci", "test-abc"] as const) {
+        const names = yield* volumeAlertWorkers("s", stage);
 
-      assert.deepStrictEqual(names, [
-        "s-web-test-abc",
-        "s-api-test-abc",
-        "s-auth-test-abc",
-        "s-state",
-      ]);
-      assert.strictEqual(names.length, Workers.length + 1);
+        assert.deepStrictEqual(
+          names,
+          Workers.map((worker) => `s-${worker}-${stage}`),
+        );
+        assert.isFalse(names.some((name) => name.endsWith("-state")));
+      }
     }),
   );
+});
+
+describe("alert enabled gate", () => {
+  const cases = [
+    ["prod", true],
+    ["test-ci", false],
+    ["test-abc", false],
+  ] as const;
+
+  it("is false only for test-kind stages", () => {
+    for (const [stage, enabled] of cases) {
+      assert.strictEqual(alertsEnabled(stage), enabled);
+    }
+  });
+
+  it("is carried by the declared props of all three alerts", () => {
+    for (const [stage, enabled] of cases) {
+      assert.strictEqual(volumeAlertProps(stage, "s", "a@b.c", "q").enabled, enabled);
+      assert.strictEqual(rateLimitErrorAlertProps(stage, "s", "a@b.c", "q").enabled, enabled);
+      assert.strictEqual(
+        projectionFailureAlertProps(stage, "s", "a@b.c", "NoteIndex", "q").enabled,
+        enabled,
+      );
+    }
+  });
 });
 
 describe("volumeAlertQuery", () => {
