@@ -265,7 +265,7 @@ const parseArgs = (args: ReadonlyArray<string>) => {
   const [flag, digest = "", ...extra] = args;
 
   return flag === "--fingerprint" && /^[0-9a-f]{64}$/u.test(digest) && extra.length === 0
-    ? Effect.succeed(Option.some(digest))
+    ? Effect.succeedSome(digest)
     : Effect.fail(
         new PlanProdError({
           message:
