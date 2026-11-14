@@ -68,8 +68,10 @@ export const guardedDomain = Effect.fn("guardedDomain")(function* guardedDomain(
 /**
  * `apps/web` as a URL resolved from this module's own location. Web's Vite `rootDir` must not be a
  * relative string: Alchemy resolves it against the process working directory, so a run from
- * `infra/` read `infra/apps/web`. Alchemy replaces `rootDir` with a placeholder before it diffs the
- * Worker's props, so the checkout location never shows as a Web update.
+ * `infra/` read `infra/apps/web`. Before its raw comparison of the Worker's props, Alchemy replaces
+ * `vite.rootDir` with a placeholder but not the top-level `rootDir` that `Website.Vite` also passes
+ * through, so a plan from a checkout at another path shows a Web update. CI checks out to one path,
+ * so `prod` plans are unaffected.
  */
 const WEB_ROOT_URL = new URL("../../apps/web", import.meta.url);
 
@@ -81,6 +83,36 @@ const WEB_ROOT_URL = new URL("../../apps/web", import.meta.url);
  */
 export const webRootDir = (root: URL = WEB_ROOT_URL) =>
   Path.Path.use((path) => path.fromFileUrl(root));
+
+/**
+ * The workspace packages `web`'s build reads, as directory names under `packages/`: every
+ * `@workspace/*` package `apps/web/package.json` depends on, directly or through another of them.
+ * `web.test.ts` derives the same set from the package manifests, so a new dependency fails that
+ * test until it is listed here.
+ */
+export const WEB_WORKSPACE_PACKAGES = [
+  "budget-guard",
+  "config",
+  "contract",
+  "knobs-kv",
+  "ui",
+] as const;
+
+/**
+ * Web's rebuild scope: `apps/web` and the lockfile (the default), each package of
+ * {@link WEB_WORKSPACE_PACKAGES}, and `DESIGN.md` alone from the repository root.
+ *
+ * The explicit list replaces Alchemy's detection. `apps/web/src/server.ts` imports the root
+ * `DESIGN.md`; Alchemy maps a module outside the Vite root to the directory of the nearest
+ * `package.json` above it, here the repository root, and hashes every file there, so every commit
+ * planned Web as an update.
+ */
+export const WEB_MEMO = {
+  workspaces: [
+    ...WEB_WORKSPACE_PACKAGES.map((name) => ({ cwd: `../../packages/${name}` })),
+    { cwd: "../..", include: ["DESIGN.md"] },
+  ],
+};
 
 /**
  * Declare the `web` Worker with `Cloudflare.Website.Vite`, and under the `local` stage kind the
@@ -156,6 +188,7 @@ export const declareWeb = Effect.fn("declareWeb")(function* declareWeb(
     domain: domain.domain,
     env: bindings,
     limits: limitsFor("web", { ...knobs, scrypt: AUTH_PASSWORD_SCRYPT.default }),
+    memo: WEB_MEMO,
     name: yield* workerName({ stack, stage, worker: "web" }),
     observability: webObservability(stage),
     rootDir: yield* webRootDir(),
