@@ -768,7 +768,7 @@ are never declared (C25k). The state model is proved first on a `cf-template-pro
 
 ### Spin-up (C33, SU1-SU20)
 
-Per machine once: the Cloudflare `admin` profile (an API token with both API-Tokens-Write permissions, treated as
+Per machine once: the Cloudflare `admin` profile (an account-scoped API token with Account API Tokens Edit (the plan detector token and the bootstrap stack's `AccountApiToken`), Workers Scripts Edit (listing Workers, the collision check, the `workers.dev` subdomain, and the state store's Worker upload, Durable Object namespace and subdomain), D1 Read (the collision check) and Secrets Store Edit (the state store's default store and auth-token secret); Account Settings Read and zone permissions are not needed, and User API Tokens Edit is needed only for a token created from the user tokens page; `credentials` lists Workers, D1 and Secrets Store before its first write and names the missing group; treated as
 root; created with a short expiry, one day and at most seven, because Cloudflare API tokens take an expiry at
 creation (rung 1) and the token is needed only for the one-time bootstrap and for deliberate store upgrades, whose
 runbook step says "re-mint the admin token first"; N-5), the Cloudflare `default` OAuth profile, `gh auth login`

@@ -19,10 +19,17 @@ import {
   stateReadJson,
   decidePin,
   parseArguments,
+  permissionPreflight,
   planOf,
   workersPlan,
 } from "./credentials.ts";
-import type { DeployInput, FrozenIdentity, Plan, RepositoryView } from "./credentials.ts";
+import type {
+  DeployInput,
+  FrozenIdentity,
+  Plan,
+  ReadProbe,
+  RepositoryView,
+} from "./credentials.ts";
 
 /**
  * The repository every fake run targets. The id and shapes are inferred from the GitHub REST
@@ -35,6 +42,7 @@ const LIVE: RepositoryView = { admin: true, fullName: "acme/widget", id: 4242 };
  */
 interface World {
   readonly bun: string;
+  readonly denied: ReadonlyArray<ReadProbe>;
   readonly pin: string;
   readonly repository: Option.Option<RepositoryView>;
   readonly profiles: ReadonlyArray<string>;
@@ -57,6 +65,7 @@ const WRITTEN = new Map([
 
 const DEFAULTS: World = {
   bun: "1.4.3",
+  denied: [],
   detector: Option.some("paid"),
   names: [],
   pin: "1.4.3",
@@ -106,6 +115,8 @@ const harness = <A>(
     accountNames: () => record("accountNames", Effect.succeed(world.names)),
     bunPin: record("bunPin", Effect.succeed(world.pin)),
     bunVersion: record("bunVersion", Effect.succeed(world.bun)),
+    canRead: (_profile, group) =>
+      record(`canRead:${group}`, Effect.succeed(!world.denied.includes(group))),
     deploy: (input) =>
       record(
         "deploy",
@@ -239,6 +250,44 @@ describe("preflight refusals", () => {
 
       assert.include(error.message, NO_STACK_NAME);
       assert.deepStrictEqual(calls, []);
+    }),
+  );
+});
+
+describe("the admin token permission preflight", () => {
+  const cases = [
+    ["workers", "Workers Scripts Edit"],
+    ["d1", "D1 Read"],
+    ["secrets-store", "Secrets Store Edit"],
+  ] as const;
+
+  for (const [group, name] of cases) {
+    it.effect(`a denied ${group} read names ${name} and the step, before any write`, () =>
+      Effect.gen(function* denied() {
+        const { calls, message } = yield* refusal({ denied: [group] });
+
+        assert.include(message, name);
+        assert.include(message, "docs/spin-up.md, Once per machine, step 1");
+        assert.isTrue(noWrite(calls));
+        assert.isFalse(calls.includes("accountNames"));
+      }),
+    );
+  }
+
+  it.effect("all three reads answering lets the run continue to the write", () =>
+    Effect.gen(function* allowed() {
+      const { calls, run } = harness(permissionPreflight("admin"));
+      const exit = yield* run;
+
+      assert.strictEqual(exit._tag, "Success");
+      assert.deepStrictEqual(calls, ["canRead:workers", "canRead:d1", "canRead:secrets-store"]);
+
+      const full = harness(credentials({ force: false, profile: "admin" }));
+
+      yield* full.run;
+      assert.isTrue(
+        full.calls.indexOf("canRead:secrets-store") < full.calls.indexOf("stateBootstrap"),
+      );
     }),
   );
 });

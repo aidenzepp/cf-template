@@ -32,6 +32,21 @@ Every step carries exactly one tag, and `bun run check` fails a row that breaks 
 | 1    | `gh auth login` as the owner; `bun run alchemy profile edit` (the `default` profile, OAuth); `bun run alchemy profile create admin`, then `bun run alchemy profile edit --profile admin` with the scoped token | `gh`, the `default` profile and the `admin` profile each hold a login | unproven | I-42     |
 | 2    | Create the GitHub App once, then install it on each new repository                                                                                                                                             | the App is listed as installed on the repository                      | unproven | I-38     |
 
+### The admin token's permissions (step 1)
+
+Create the `admin` token with these account-scoped permission groups and no others:
+
+| Permission group        | What needs it                                                                                                                                  |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Account API Tokens Edit | the plan detector token and the bootstrap stack's `AccountApiToken`                                                                            |
+| Workers Scripts Edit    | listing Workers, the collision check, the `workers.dev` subdomain, and the state store's Worker upload, Durable Object namespace and subdomain |
+| D1 Read                 | listing databases for the collision check                                                                                                      |
+| Secrets Store Edit      | the state store's default store and auth-token secret                                                                                          |
+
+Account Settings Read and zone permissions are not needed. User API Tokens Edit is needed only for a token created from the user tokens page. Before the first write, `bun run credentials` lists Workers, D1 databases and Secrets Store stores and refuses with the missing group's name if Cloudflare denies a read; the Edit side cannot be checked without writing.
+
+Verified on 2026-11-13: a first bootstrap succeeded with a token holding Account API Tokens Edit, Workers Scripts Edit, D1 Edit (which includes D1 Read), Secrets Store Edit, User API Tokens Edit and Account Settings Read. That run proves these are enough, not that each one is required; no group was removed to test it.
+
 ## Per project, before the first deploy
 
 | Step | Command                                                                                                                                                                                                                                                                                                                                                     | Signal                                                                                                                                                                                                | Tag      | Rests on       |
