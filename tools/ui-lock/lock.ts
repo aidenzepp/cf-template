@@ -62,10 +62,8 @@ const hashBytes = Effect.fn("ui-lock.hashBytes")(function* hashBytes(bytes: Uint
 export const hashFiles = Effect.fn("ui-lock.hashFiles")(function* hashFiles(
   files: Readonly<Record<string, Uint8Array>>,
 ) {
-  const entries = yield* Effect.all(
-    Arr.sort(Object.keys(files), Order.String).map((name) =>
-      Effect.map(hashBytes(files[name] ?? new Uint8Array()), (hash) => [name, hash] as const),
-    ),
+  const entries = yield* Effect.forEach(Arr.sort(Object.keys(files), Order.String), (name) =>
+    Effect.map(hashBytes(files[name] ?? new Uint8Array()), (hash) => [name, hash] as const),
   );
 
   return Object.fromEntries(entries) satisfies Lock;
@@ -79,10 +77,11 @@ export const readTree = Effect.fn("ui-lock.readTree")(function* readTree(directo
   const path = yield* Path.Path;
   const names = yield* fs.readDirectory(directory);
 
-  const entries = yield* Effect.all(
-    names.map((name) =>
+  const entries = yield* Effect.forEach(
+    names,
+    (name) =>
       Effect.map(fs.readFile(path.join(directory, name)), (bytes) => [name, bytes] as const),
-    ),
+    { concurrency: 1 },
   );
 
   return Object.fromEntries(entries);

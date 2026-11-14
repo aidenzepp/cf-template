@@ -20,7 +20,7 @@ export const SystemApiHandlers = HttpApiBuilder.group(
     return group.handleAll({
       health: () => Effect.succeed({ ok: true } as const),
       session: Effect.fn("system.session")(function* session() {
-        return yield* lookup.current.pipe(Effect.catch(Effect.die));
+        return yield* lookup.current.pipe(Effect.orDie);
       }),
     });
   }),

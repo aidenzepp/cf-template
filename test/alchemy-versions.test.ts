@@ -24,33 +24,29 @@ const declaredVersions = Effect.gen(function* readDeclaredVersions() {
   const path = yield* Path.Path;
   const root = yield* path.fromFileUrl(new URL("..", import.meta.url));
 
-  const nested = yield* Effect.all(
-    ["apps", "packages"].map((group) =>
-      fs
-        .readDirectory(path.join(root, group))
-        .pipe(Effect.map((names) => names.map((name) => path.join(group, name)))),
-    ),
+  const nested = yield* Effect.forEach(["apps", "packages"], (group) =>
+    fs
+      .readDirectory(path.join(root, group))
+      .pipe(Effect.map((names) => names.map((name) => path.join(group, name)))),
   );
 
   const empty: typeof Manifest.Type = {};
 
-  const manifests = yield* Effect.all(
-    [".", "infra", ...nested.flat()].map((dir) => {
-      const file = path.join(root, dir, "package.json");
+  const manifests = yield* Effect.forEach([".", "infra", ...nested.flat()], (dir) => {
+    const file = path.join(root, dir, "package.json");
 
-      return fs
-        .exists(file)
-        .pipe(
-          Effect.flatMap((present) =>
-            present
-              ? fs
-                  .readFileString(file)
-                  .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Manifest))))
-              : Effect.succeed(empty),
-          ),
-        );
-    }),
-  );
+    return fs
+      .exists(file)
+      .pipe(
+        Effect.flatMap((present) =>
+          present
+            ? fs
+                .readFileString(file)
+                .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Manifest))))
+            : Effect.succeed(empty),
+        ),
+      );
+  });
 
   return manifests.flatMap((manifest) =>
     [manifest.dependencies ?? {}, manifest.devDependencies ?? {}].flatMap((deps) =>

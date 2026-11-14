@@ -3,6 +3,18 @@ import { AtomRegistry, Hydration } from "effect/reactivity";
 import type { AsyncResult, Atom } from "effect/reactivity";
 
 /**
+ * Wait for an atom to leave its initial state and discard the outcome, success or failure.
+ *
+ * @param registry - The registry that owns the atom.
+ * @param atom - The query atom to wait for.
+ * @returns An effect that finishes once the atom has a result and cannot fail.
+ */
+const settle = <A, E>(
+  registry: AtomRegistry.AtomRegistry,
+  atom: Atom.Atom<AsyncResult.AsyncResult<A, E>>,
+) => Effect.ignore(AtomRegistry.getResult(registry, atom));
+
+/**
  * Run the query atoms a route needs on the server and return their encoded state.
  *
  * Each call owns one registry. Every atom is mounted, all of them are awaited concurrently, the
@@ -26,14 +38,11 @@ export const loadAtoms = Effect.fn("web.loadAtoms")(function* loadAtoms(
       }),
   );
 
-  yield* Effect.all(
-    atoms.map((atom) => AtomRegistry.mount(registry, atom)),
-    { discard: true },
-  );
-  yield* Effect.all(
-    atoms.map((atom) => Effect.ignore(AtomRegistry.getResult(registry, atom))),
-    { concurrency: "unbounded", discard: true },
-  );
+  yield* Effect.forEach(atoms, (atom) => AtomRegistry.mount(registry, atom), { discard: true });
+  yield* Effect.forEach(atoms, (atom) => settle(registry, atom), {
+    concurrency: "unbounded",
+    discard: true,
+  });
 
   return Hydration.dehydrate(registry);
 }, Effect.scoped);

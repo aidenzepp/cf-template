@@ -116,6 +116,6 @@ export const guardAlert = (plan: GuardPlanValue) =>
     onNone: () => Effect.succeed(Option.none<Cloudflare.Alerting.CustomAlert>()),
     onSome: (spec) =>
       Cloudflare.Alerting.CustomAlert(GUARD_ALERT_ID, guardAlertProps(plan, spec)).pipe(
-        Effect.map(Option.some),
+        Effect.asSome,
       ),
   });

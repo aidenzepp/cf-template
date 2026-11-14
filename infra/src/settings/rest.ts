@@ -332,33 +332,33 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
 const applyConfirmed = (send: Effect.Success<typeof restClient>, call: Call, confirm: string) =>
   send(call.method, call.path, call.body).pipe(
     Effect.flatMap((response) => settle(response, { gated: true, phrases: call.phrases })),
-    Effect.flatMap((outcome) =>
-      outcome.kind === "applied"
-        ? send("GET", call.path).pipe(
-            Effect.flatMap(HttpClientResponse.filterStatusOk),
-            Effect.flatMap(
-              HttpClientResponse.schemaBodyJson(
-                Schema.Struct({
-                  security_and_analysis: Schema.optional(
-                    Schema.Record(
-                      Schema.String,
-                      Schema.Struct({ status: Schema.optional(Schema.String) }),
-                    ),
+    Effect.filterOrElse(
+      (outcome) => outcome.kind !== "applied",
+      (outcome) =>
+        send("GET", call.path).pipe(
+          Effect.flatMap(HttpClientResponse.filterStatusOk),
+          Effect.flatMap(
+            HttpClientResponse.schemaBodyJson(
+              Schema.Struct({
+                security_and_analysis: Schema.optional(
+                  Schema.Record(
+                    Schema.String,
+                    Schema.Struct({ status: Schema.optional(Schema.String) }),
                   ),
-                }),
-              ),
+                ),
+              }),
             ),
-            Effect.map((repository): Outcome =>
-              repository.security_and_analysis?.[confirm]?.status === "enabled"
-                ? outcome
-                : {
-                    detail: "silently ignored by GitHub",
-                    kind: "unavailable",
-                    status: outcome.status,
-                  },
-            ),
-          )
-        : Effect.succeed(outcome),
+          ),
+          Effect.map((repository): Outcome =>
+            repository.security_and_analysis?.[confirm]?.status === "enabled"
+              ? outcome
+              : {
+                  detail: "silently ignored by GitHub",
+                  kind: "unavailable",
+                  status: outcome.status,
+                },
+          ),
+        ),
     ),
     Effect.orElseSucceed((): Outcome => ({ kind: "failed", status: 0 })),
     Effect.flatMap(({ detail, kind, status }) => report(kind, call.setting, status, detail)),

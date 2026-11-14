@@ -30,6 +30,10 @@
           "effect/Path",
           "effect/Stdio",
           "effect/crypto/Digest",
+          // effect/crypto/Mac: email-key.ts signs email keys with HMAC; Effect has no stable Mac. unstable on purpose: this template builds on Effect v4 and other pre-1.0 APIs; the allowlist tracks the cost and a Renovate upgrade that breaks one shows in its pull request.
+          "effect/crypto/Mac",
+          // effect/crypto/SecureRandom: email-key.ts draws key bytes from it; no stable equivalent.
+          "effect/crypto/SecureRandom",
           "effect/encoding/Jsonc",
           "effect/http-api/HttpApi",
           "effect/http-api/HttpApiBuilder",
@@ -41,7 +45,11 @@
           "effect/http-api/HttpApiSchema",
           "effect/http-api/HttpApiTest",
           "effect/http-api/OpenApi",
+          // effect/http/Cookies: the cloud notes test reads session cookies through it.
+          "effect/http/Cookies",
           "effect/http/FetchHttpClient",
+          // effect/http/Headers: the session middleware reads request headers through it.
+          "effect/http/Headers",
           "effect/http/HttpClient",
           "effect/http/HttpClientRequest",
           "effect/http/HttpClientResponse",
@@ -60,6 +68,11 @@
           "effect/reactivity/AtomHttpApi",
           "effect/reactivity/AtomRegistry",
           "effect/reactivity/Hydration",
+          // effect/rpc/Rpc: the API session middleware and its test build RPCs on the unstable rpc modules (Rpc, RpcGroup, RpcMiddleware, RpcTest).
+          "effect/rpc/Rpc",
+          "effect/rpc/RpcGroup",
+          "effect/rpc/RpcMiddleware",
+          "effect/rpc/RpcTest",
           "effect/sql/SqlError"
         ]
       }
