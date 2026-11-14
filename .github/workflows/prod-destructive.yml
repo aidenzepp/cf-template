@@ -46,6 +46,7 @@ jobs:
       CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
       CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
       STACK_NAME: ${{ vars.STACK_NAME }}
+      ISSUE_NOTIFICATION_EMAIL: ${{ secrets.ISSUE_NOTIFICATION_EMAIL }}
     steps:
       - name: Record the request
         run: |
@@ -107,8 +108,14 @@ jobs:
             echo "SMOKE_ORIGIN=$prod_origin"
             echo "SMOKE_PROVIDERS=[$providers]"
           } >> "$GITHUB_ENV"
-      - run: alchemy provider check-env
+      - run: alchemy provider check-env --provider Cloudflare
         working-directory: infra
+      - name: Require ISSUE_NOTIFICATION_EMAIL
+        run: |
+          if [ -z "$ISSUE_NOTIFICATION_EMAIL" ]; then
+            echo "::error::ISSUE_NOTIFICATION_EMAIL is not set: stage prod declares the volume alert (infra/src/alerts.ts). Set the repository secret: docs/spin-up.md, step 9."
+            exit 1
+          fi
       - run: alchemy state list
         working-directory: infra
       # Recompute the plan at the held commit: a different fingerprint exits non-zero printing both
@@ -125,11 +132,20 @@ jobs:
             echo '::error::The prod plan changed since prod.yml held it: the fingerprint differs. Read the new plan in prod.yml and dispatch again.'
             exit 1
           fi
-      # With the run's ref on main the Action resolves the stage to `prod` and deploys the checked-out
-      # commit.
-      - uses: alchemy-run/alchemy@d0b4a3326718309793459160e94b35abee517b23 # v2.0.0-beta.85
-        with:
-          working-directory: infra
+      # Deploys the checked-out held commit to `prod`.
+      # The deploy step of alchemy-run/alchemy action.yml (lines 61-71) at
+      # d0b4a3326718309793459160e94b35abee517b23 (v2.0.0-beta.85), inlined: `uses:` fails at "Set up job"
+      # because that commit carries a symlink (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack. The action
+      # deploys main as stage prod (lines 50-55) with `alchemy deploy --stage prod --yes`, as
+      # website/src/content/docs/environments/ci.mdx:483-489 documents. This runs from the root and names the
+      # entry file because Web's rootDir "apps/web" is relative to the working directory. No GITHUB_TOKEN:
+      # it feeds only GitHub.GitHubEnv and GitHub.Comment (ci.mdx:238-250, 306-307), which this stack does not
+      # declare.
+      # Switch back to the action once https://github.com/alchemy-run/alchemy/issues/3355 (the dangling
+      # symlink, actions/runner#3234) is fixed and the action can run
+      # infra/alchemy.run.ts from the repository root; at d0b4a33 it has no entry-file input.
+      - name: Deploy prod
+        run: alchemy deploy infra/alchemy.run.ts --stage prod --yes
       - run: bun scripts/smoke.ts
         working-directory: infra
       - name: Commits in this deploy

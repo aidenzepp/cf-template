@@ -60,10 +60,14 @@ const alchemy = Effect.fn("alchemy")(function* alchemy(phase: "deploy" | "destro
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
   const code = yield* spawner.exitCode(
-    ChildProcess.make("bun", ["run", "alchemy", phase, "infra/alchemy.run.ts", "--stage", stage], {
-      stderr: "inherit",
-      stdout: "inherit",
-    }),
+    ChildProcess.make(
+      "bun",
+      ["run", "alchemy", phase, "infra/alchemy.run.ts", "--stage", stage, "--yes"],
+      {
+        stderr: "inherit",
+        stdout: "inherit",
+      },
+    ),
   );
 
   return code === 0

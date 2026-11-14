@@ -90,7 +90,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      pull-requests: write
     concurrency:
       group: deploy-pr-${{ github.event.pull_request.number }}
       cancel-in-progress: false
@@ -102,10 +101,10 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       STACK_NAME: ${{ vars.STACK_NAME }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       PR_ACTION: ${{ github.event.action }}
+      # No ISSUE_NOTIFICATION_EMAIL: a staging stage declares no alert (infra/stages.ts, volumeAlert).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -146,11 +145,32 @@ jobs:
             echo "SMOKE_ORIGIN=https://$STACK_NAME-web-staging-$PR_NUMBER.$CLOUDFLARE_WORKERS_SUBDOMAIN.workers.dev"
             echo "SMOKE_PROVIDERS=[$providers]"
           } >> "$GITHUB_ENV"
-      - run: alchemy provider check-env
+      - run: alchemy provider check-env --provider Cloudflare
       - run: bun scripts/pre-step.ts
-      - uses: alchemy-run/alchemy@d0b4a3326718309793459160e94b35abee517b23 # v2.0.0-beta.85
-        with:
-          working-directory: infra
+      # The steps of alchemy-run/alchemy action.yml (lines 29-83) at d0b4a3326718309793459160e94b35abee517b23
+      # (v2.0.0-beta.85), inlined: `uses:` fails at "Set up job" because that commit carries a symlink
+      # (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack. As the action does and
+      # website/src/content/docs/environments/ci.mdx:483-498 documents: stage staging-<n>, PULL_REQUEST set,
+      # `alchemy deploy|destroy --stage <stage> --yes`. One difference: the action runs in its
+      # working-directory input and reads ./alchemy.run.ts, and from infra/ Web's rootDir "apps/web" resolves
+      # to infra/apps/web, so this runs from the root and names the entry file (`alchemy deploy --help`).
+      # ci.mdx:487-489 also passes GITHUB_SHA and GITHUB_TOKEN: its stack reads them through GitHub.GitHubEnv
+      # for a GitHub.Comment (ci.mdx:238-250, 306-307). This stack declares neither, so the token is not
+      # passed; the runner sets GITHUB_SHA on every job anyway.
+      # Switch back to the action once https://github.com/alchemy-run/alchemy/issues/3355 (the dangling
+      # symlink, actions/runner#3234) is fixed and the action can run
+      # infra/alchemy.run.ts from the repository root; at d0b4a33 it has no entry-file input.
+      - name: Deploy or destroy the pull request stage
+        working-directory: .
+        env:
+          PULL_REQUEST: ${{ github.event.number }}
+          EVENT_ACTION: ${{ github.event.action }}
+        run: |
+          if [ "$EVENT_ACTION" = closed ]; then
+            alchemy destroy infra/alchemy.run.ts --stage "staging-$PULL_REQUEST" --yes
+          else
+            alchemy deploy infra/alchemy.run.ts --stage "staging-$PULL_REQUEST" --yes
+          fi
       - if: github.event.action != 'closed'
         run: bun scripts/smoke.ts
 
@@ -177,14 +197,21 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
       STACK_NAME: ${{ vars.STACK_NAME }}
+      ISSUE_NOTIFICATION_EMAIL: ${{ secrets.ISSUE_NOTIFICATION_EMAIL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
-      - run: alchemy provider check-env
+      - run: alchemy provider check-env --provider Cloudflare
         working-directory: infra
+      - name: Require ISSUE_NOTIFICATION_EMAIL
+        run: |
+          if [ -z "$ISSUE_NOTIFICATION_EMAIL" ]; then
+            echo "::error::ISSUE_NOTIFICATION_EMAIL is not set: stage test-ci declares the volume alert (infra/src/alerts.ts). Set the repository secret: docs/spin-up.md, step 9."
+            exit 1
+          fi
       - run: bun run test:cloud
       - if: contains(github.event.pull_request.labels.*.name, 'alchemy-upgrade')
         working-directory: infra
