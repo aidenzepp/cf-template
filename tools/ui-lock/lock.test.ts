@@ -2,6 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 
+import { checkTheme, diffTheme, themeFile, writeTheme } from "./theme.ts";
 import { checkLock, componentsDirectory, diffLock, hashFiles, lockFile, readTree } from "./lock.ts";
 
 const encoder = new TextEncoder();
@@ -69,5 +70,65 @@ it.effect("fails when a file is added", () =>
     }));
 
     assert.deepStrictEqual(found, ["added: extra.tsx"]);
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("theme passes on the committed stylesheet", () =>
+  Effect.gen(function* themePasses() {
+    const path = yield* Path.Path;
+
+    yield* checkTheme(path.join(yield* root(), themeFile));
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("theme fails when one variable is edited, and stock restores it", () =>
+  Effect.gen(function* themeEdited() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const css = yield* fs.readFileString(path.join(yield* root(), themeFile));
+
+    const edited = css.replace(
+      "--primary: oklch(0.205 0 0);",
+      "--primary: oklch(0.585 0.233 277.117);",
+    );
+
+    assert.deepStrictEqual(diffTheme(edited), [
+      ":root edited: --primary: oklch(0.585 0.233 277.117) (stock oklch(0.205 0 0))",
+    ]);
+
+    const file = path.join(yield* fs.makeTempDirectoryScoped(), "globals.css");
+
+    yield* fs.writeFileString(file, edited);
+    yield* writeTheme(file);
+    yield* checkTheme(file);
+  }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+);
+
+it.effect("theme fails when the pointer rule or a font import is removed", () =>
+  Effect.gen(function* themeRules() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const css = yield* fs.readFileString(path.join(yield* root(), themeFile));
+
+    const edited = css
+      .replace("    cursor: pointer;\n", "")
+      .replace('@import "@fontsource-variable/outfit";\n', "");
+
+    assert.deepStrictEqual(diffTheme(edited), [
+      'missing line: @import "@fontsource-variable/outfit";',
+      "missing line:     cursor: pointer;",
+    ]);
+  }).pipe(Effect.provide(BunServices.layer)),
+);
+
+it.effect("theme fails when only the formatting changes", () =>
+  Effect.gen(function* themeFormat() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const css = yield* fs.readFileString(path.join(yield* root(), themeFile));
+
+    assert.deepStrictEqual(diffTheme(`${css}\n`), [
+      "reordered or reformatted: the text differs from stock",
+    ]);
   }).pipe(Effect.provide(BunServices.layer)),
 );

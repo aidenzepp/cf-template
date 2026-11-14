@@ -4,6 +4,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { sonnerComponent, stockComponents } from "./components.ts";
 import { componentsDirectory, lockFile, writeLock } from "./lock.ts";
+import { themeFile, writeTheme } from "./theme.ts";
 
 /**
  * Runs `bun run ui add <names> --overwrite --yes` and fails when it exits non-zero.
@@ -30,13 +31,14 @@ const add = Effect.fn("ui-lock.add")(function* add(names: ReadonlyArray<string>)
 });
 
 /**
- * Reinstalls the stock list, then `sonner` separately, then rewrites the lock. The only writer of
- * the lock file.
+ * Reinstalls the stock list, then `sonner` separately, then rewrites the lock and restores the
+ * stock stylesheet `globals.css`, which `add` never rewrites. The only writer of the lock file.
  */
 export const reinstall = Effect.fn("ui-lock.reinstall")(function* reinstall() {
   yield* add(stockComponents);
   yield* add([sonnerComponent]);
   yield* writeLock(componentsDirectory, lockFile);
+  yield* writeTheme(themeFile);
 });
 
 if (import.meta.main) {

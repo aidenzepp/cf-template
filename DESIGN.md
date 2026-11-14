@@ -5,81 +5,80 @@ description: Theme tokens generated from packages/ui/src/styles/globals.css.
 omitted:
   - components
 colors:
-  background: "oklch(0.9925 0 0)"
-  background-dark: "oklch(0.145 0 0)"
-  foreground: "oklch(0.145 0 0)"
-  foreground-dark: "oklch(0.985 0 0)"
-  card: "oklch(1 0 0)"
-  card-dark: "oklch(0.205 0 0)"
-  card-foreground: "oklch(0.145 0 0)"
-  card-foreground-dark: "oklch(0.985 0 0)"
-  popover: "oklch(1 0 0)"
-  popover-dark: "oklch(0.237 0 0)"
-  popover-foreground: "oklch(0.145 0 0)"
-  popover-foreground-dark: "oklch(0.985 0 0)"
-  primary: "oklch(0.585 0.233 277.117)"
-  primary-dark: "oklch(0.585 0.233 277.117)"
-  primary-foreground: "oklch(1 0 0)"
-  primary-foreground-dark: "oklch(1 0 0)"
-  secondary: "oklch(0.97 0 0)"
-  secondary-dark: "oklch(0.182 0 0)"
-  secondary-foreground: "oklch(0.145 0 0)"
-  secondary-foreground-dark: "oklch(0.985 0 0)"
-  muted: "oklch(0.97 0 0)"
-  muted-dark: "oklch(0.205 0 0)"
-  muted-foreground: "oklch(0.4975 0 0)"
-  muted-foreground-dark: "oklch(0.708 0 0)"
-  accent: "oklch(0.556 0 0 / 8%)"
-  accent-dark: "oklch(1 0 0 / 10%)"
-  accent-foreground: "oklch(0.145 0 0)"
-  accent-foreground-dark: "oklch(0.985 0 0)"
-  destructive: "oklch(0.637 0.237 25.331)"
-  destructive-dark: "oklch(0.637 0.237 25.331)"
-  border: "oklch(0.145 0 0 / 10%)"
-  border-dark: "oklch(1 0 0 / 10%)"
-  input: "oklch(0.145 0 0 / 10%)"
-  input-dark: "oklch(1 0 0 / 10%)"
-  ring: "oklch(0.708 0 0)"
-  ring-dark: "oklch(0.556 0 0)"
   sidebar-ring: "oklch(0.708 0 0)"
   sidebar-ring-dark: "oklch(0.556 0 0)"
-  sidebar-border: "oklch(0.145 0 0 / 10%)"
+  sidebar-border: "oklch(0.922 0 0)"
   sidebar-border-dark: "oklch(1 0 0 / 10%)"
-  sidebar-accent-foreground: "oklch(0.145 0 0)"
+  sidebar-accent-foreground: "oklch(0.205 0 0)"
   sidebar-accent-foreground-dark: "oklch(0.985 0 0)"
-  sidebar-accent: "oklch(0.556 0 0 / 8%)"
-  sidebar-accent-dark: "oklch(1 0 0 / 10%)"
-  sidebar-primary-foreground: "oklch(1 0 0)"
-  sidebar-primary-foreground-dark: "oklch(1 0 0)"
-  sidebar-primary: "oklch(0.585 0.233 277.117)"
-  sidebar-primary-dark: "oklch(0.585 0.233 277.117)"
+  sidebar-accent: "oklch(0.97 0 0)"
+  sidebar-accent-dark: "oklch(0.269 0 0)"
+  sidebar-primary-foreground: "oklch(0.985 0 0)"
+  sidebar-primary-foreground-dark: "oklch(0.985 0 0)"
+  sidebar-primary: "oklch(0.205 0 0)"
+  sidebar-primary-dark: "oklch(0.488 0.243 264.376)"
   sidebar-foreground: "oklch(0.145 0 0)"
   sidebar-foreground-dark: "oklch(0.985 0 0)"
   sidebar: "oklch(0.985 0 0)"
   sidebar-dark: "oklch(0.205 0 0)"
-  chart-5: "oklch(0.511 0.096 186.391)"
-  chart-5-dark: "oklch(0.511 0.096 186.391)"
-  chart-4: "oklch(0.765 0.177 163.223)"
-  chart-4-dark: "oklch(0.765 0.177 163.223)"
-  chart-3: "oklch(0.837 0.128 66.29)"
-  chart-3-dark: "oklch(0.837 0.128 66.29)"
-  chart-2: "oklch(0.673 0.182 276.935)"
-  chart-2-dark: "oklch(0.673 0.182 276.935)"
-  chart-1: "oklch(0.865 0.127 207.078)"
-  chart-1-dark: "oklch(0.865 0.127 207.078)"
+  chart-5: "oklch(0.269 0 0)"
+  chart-5-dark: "oklch(0.269 0 0)"
+  chart-4: "oklch(0.371 0 0)"
+  chart-4-dark: "oklch(0.371 0 0)"
+  chart-3: "oklch(0.439 0 0)"
+  chart-3-dark: "oklch(0.439 0 0)"
+  chart-2: "oklch(0.556 0 0)"
+  chart-2-dark: "oklch(0.556 0 0)"
+  chart-1: "oklch(0.87 0 0)"
+  chart-1-dark: "oklch(0.87 0 0)"
+  ring: "oklch(0.708 0 0)"
+  ring-dark: "oklch(0.556 0 0)"
+  input: "oklch(0.922 0 0)"
+  input-dark: "oklch(1 0 0 / 15%)"
+  border: "oklch(0.922 0 0)"
+  border-dark: "oklch(1 0 0 / 10%)"
+  destructive: "oklch(0.577 0.245 27.325)"
+  destructive-dark: "oklch(0.704 0.191 22.216)"
+  accent-foreground: "oklch(0.205 0 0)"
+  accent-foreground-dark: "oklch(0.985 0 0)"
+  accent: "oklch(0.97 0 0)"
+  accent-dark: "oklch(0.269 0 0)"
+  muted-foreground: "oklch(0.556 0 0)"
+  muted-foreground-dark: "oklch(0.708 0 0)"
+  muted: "oklch(0.97 0 0)"
+  muted-dark: "oklch(0.269 0 0)"
+  secondary-foreground: "oklch(0.205 0 0)"
+  secondary-foreground-dark: "oklch(0.985 0 0)"
+  secondary: "oklch(0.97 0 0)"
+  secondary-dark: "oklch(0.269 0 0)"
+  primary-foreground: "oklch(0.985 0 0)"
+  primary-foreground-dark: "oklch(0.205 0 0)"
+  primary: "oklch(0.205 0 0)"
+  primary-dark: "oklch(0.922 0 0)"
+  popover-foreground: "oklch(0.145 0 0)"
+  popover-foreground-dark: "oklch(0.985 0 0)"
+  popover: "oklch(1 0 0)"
+  popover-dark: "oklch(0.205 0 0)"
+  card-foreground: "oklch(0.145 0 0)"
+  card-foreground-dark: "oklch(0.985 0 0)"
+  card: "oklch(1 0 0)"
+  card-dark: "oklch(0.205 0 0)"
+  foreground: "oklch(0.145 0 0)"
+  foreground-dark: "oklch(0.985 0 0)"
+  background: "oklch(1 0 0)"
+  background-dark: "oklch(0.145 0 0)"
 typography:
-  xs:
-    fontSize: "0.8125rem"
-    lineHeight: 1.5385
-    letterSpacing: "-0.005em"
-  sm:
-    letterSpacing: "-0.005em"
+  body:
+    fontFamily: "Outfit Variable"
+  headline:
+    fontFamily: "Roboto Slab Variable"
 rounded:
   sm: "0.375rem"
   md: "0.5rem"
-  lg: "0.625rem"
-  xl: "0.75rem"
-  4xl: "1.5rem"
+  xl: "0.875rem"
+  2xl: "1.125rem"
+  3xl: "1.375rem"
+  4xl: "1.625rem"
 ---
 
 ## Overview
@@ -94,7 +93,8 @@ Each token is the `:root` value of a theme color; its `-dark` token is the `.dar
 
 Each step names the font size, line height and letter spacing the theme declares.
 
-- `--font-heading` (@theme): `var(--font-sans)`
+- `--font-sans` (@theme): `'Outfit Variable', sans-serif`
+- `--font-heading` (@theme): `'Roboto Slab Variable', serif`
 
 ## Layout
 
@@ -104,15 +104,11 @@ Spacing steps the theme declares.
 
 Shadows the theme declares.
 
-- `--shadow-sm` (@theme): `0 1px 3px 0 oklch(0 0 0 / 6%), 0 1px 2px -1px oklch(0 0 0 / 6%)`
-- `--shadow-md` (@theme): `0 4px 6px -1px oklch(0 0 0 / 6%), 0 2px 4px -2px oklch(0 0 0 / 6%)`
-- `--shadow-lg` (@theme): `0 10px 15px -3px oklch(0 0 0 / 7%), 0 4px 6px -4px oklch(0 0 0 / 7%)`
-- `--shadow-xl` (@theme): `0 20px 25px -5px oklch(0 0 0 / 7%), 0 8px 10px -6px oklch(0 0 0 / 7%)`
-
 ## Shapes
 
 Corner radius steps the theme declares.
 
+- `--radius-lg` (@theme): `var(--radius)`
 - `--radius` (:root): `0.625rem`
 
 ## Components
