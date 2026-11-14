@@ -156,7 +156,7 @@ hash = "bdda1772c118ac9bbdeaac9d74d3eff9ab717ce2085dfbec3964acaa8d64966e"
 [[link]]
 source = "AGENTS.md"
 target = ".agents/skills/add-feature/SKILL.md"
-hash = "f5b3a3a554290485584509344dbdc70a80546131f6cd686efbe667328cbe2ed9"
+hash = "d6c7963bbdd2678019cc3d76cb5a846bee54631b51cd7a82884184a4ba4b85c1"
 
 [[link]]
 source = "AGENTS.md"
@@ -211,4 +211,4 @@ hash = "492e7a95f6851bc252f41a233e3b1426e37808c5e365bf28f182154ada931c13"
 [[link]]
 source = "docs/decisions/c46-capability-registry.md"
 target = "docs/capabilities.md"
-hash = "e7b17b24546a690664d200a0f51ce3d9aa0411f61382fadb086afd3256c2f666"
+hash = "29e548504ef328368a22a289895461af660d88dc4174fca0840547c10752f0ae"

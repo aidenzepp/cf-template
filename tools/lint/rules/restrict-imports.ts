@@ -110,6 +110,24 @@ export const libraryPaths: ReadonlyArray<RestrictedPath> = [
 ];
 
 /**
+ * The block live Layers (#232): a Worker gets one only through its attach file, so no other
+ * module imports `KnobsKvLive` or `BudgetGuardLive`. `restrictImports` carries it unless an
+ * attach file passes `blockLayers: false`.
+ */
+const blockLayerPaths: ReadonlyArray<RestrictedPath> = [
+  {
+    importNames: ["KnobsKvLive"],
+    message: "import a block's live Layer only in the app's attach file (#232)",
+    name: "@workspace/knobs-kv/live",
+  },
+  {
+    importNames: ["BudgetGuardLive"],
+    message: "import a block's live Layer only in the app's attach file (#232)",
+    name: "@workspace/budget-guard/live",
+  },
+];
+
+/**
  * The `@hookform/*` resolvers of the rejected form library.
  */
 export const libraryPatterns: ReadonlyArray<RestrictedPattern> = [
@@ -149,6 +167,7 @@ export const restrictImports = (
   files: ReadonlyArray<string>,
   restrictions: {
     base?: boolean;
+    blockLayers?: boolean;
     sql?: boolean;
     paths?: ReadonlyArray<RestrictedPath>;
     patterns?: ReadonlyArray<RestrictedPattern>;
@@ -160,6 +179,7 @@ export const restrictImports = (
       paths: [
         ...(restrictions.base === false ? [] : basePaths),
         ...libraryPaths,
+        ...(restrictions.blockLayers === false ? [] : blockLayerPaths),
         ...(restrictions.sql === false ? [] : sqlPaths),
         ...(restrictions.paths ?? []),
       ],

@@ -178,7 +178,7 @@ if (import.meta.main) {
         readBuildPlanLabels(yield* fs.readFileString(architecture)),
       ).map(({ line, message, rule }) => `${runbook}:${line}: ${rule}: ${message}`);
 
-      yield* Effect.all(lines.map((line) => Console.log(line)));
+      yield* Effect.forEach(lines, (line) => Console.log(line), { discard: true });
 
       if (lines.length > 0) {
         yield* Effect.sync(() => {

@@ -33,11 +33,11 @@ const providerPair = (prefix: string) =>
   }).pipe(
     Config.mapEffect(({ id, secret }) => {
       if (Option.isSome(id) && Option.isSome(secret)) {
-        return Effect.succeed(Option.some({ id: id.value, secret: secret.value }));
+        return Effect.succeedSome({ id: id.value, secret: secret.value });
       }
 
       if (Option.isNone(id) && Option.isNone(secret)) {
-        return Effect.succeed(Option.none());
+        return Effect.succeedNone;
       }
 
       const [set, missing] = Option.isSome(id)

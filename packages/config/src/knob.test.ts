@@ -59,7 +59,7 @@ const captureLogs = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
  */
 const sourceOf = (value: string): LiveSource => ({
   name: "test-source",
-  read: () => Effect.succeed(Option.some(value)),
+  read: () => Effect.succeedSome(value),
 });
 
 /**
