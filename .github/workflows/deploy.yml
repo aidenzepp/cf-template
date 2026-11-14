@@ -1,0 +1,224 @@
+name: Deploy
+
+# Replaces ci.yml (#43) for pull requests; a push to main is prod.yml's. Every compare that enables
+# a privilege is false on an unset variable (`== 'true'`), so `preview` and `cloud` skip while
+# CLOUDFLARE_DEPLOYS is unset. No `${{ }}` of a PR title, a label or a comment body appears inside a
+# `run:` string; event strings reach steps through `env:`. This file never names `environment: prod`.
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited, labeled, unlabeled, ready_for_review, closed]
+
+permissions:
+  contents: read
+
+env:
+  ALCHEMY_TELEMETRY_DISABLED: "1"
+
+jobs:
+  checks:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: checks-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: bun run check
+        env:
+          RATCHET_BASE: ${{ github.event.pull_request.base.sha }}
+      - run: bun run test
+      - run: bun run build
+      - if: vars.CLOUDFLARE_DEPLOYS != 'true'
+        run: |
+          echo 'Deploys are off: `CLOUDFLARE_DEPLOYS` is not set. Run `bun run bootstrap` (docs/spin-up.md).' >> "$GITHUB_STEP_SUMMARY"
+
+  browser:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    concurrency:
+      group: browser-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/setup
+      - run: bunx playwright install --with-deps chromium
+      - run: bun run build
+      - run: bun run test:browser
+
+  design-record:
+    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    concurrency:
+      group: design-record-${{ github.event.pull_request.number }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: bun tools/design-review/record.ts
+        env:
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+  # The staging-<N> preview (#43 item 2): same-repository pull requests only, deploys on, no
+  # alchemy-upgrade label, and either `closed` (the destroy), `merge-ready`, or a human author while
+  # PREVIEW_ON is `every-push`. An unset PREVIEW_ON reads as `merge-ready`. On `closed` the checks
+  # are skipped, so the destroy does not wait on them.
+  preview:
+    needs: checks
+    if: >-
+      !cancelled() &&
+      github.event_name == 'pull_request' &&
+      (needs.checks.result == 'success' || github.event.action == 'closed') &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.CLOUDFLARE_DEPLOYS == 'true' &&
+      !contains(github.event.pull_request.labels.*.name, 'alchemy-upgrade') &&
+      (github.event.action == 'closed' ||
+        contains(github.event.pull_request.labels.*.name, 'merge-ready') ||
+        (vars.PREVIEW_ON == 'every-push' && github.event.pull_request.user.type != 'Bot'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      pull-requests: write
+    concurrency:
+      group: deploy-pr-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: infra
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      STACK_NAME: ${{ vars.STACK_NAME }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      PR_ACTION: ${{ github.event.action }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
+      # An unset secret arrives as an empty string, which the deploy would read as a set value, so
+      # only the non-empty provider pairs (c-43 item 3), the proxy secret and the derived origins
+      # reach the later steps. GitHub refuses secret names starting with GITHUB_, hence OAUTH_.
+      # CUSTOM_DOMAIN stays on this step only: a staging stage rejects it.
+      - name: Export the provider credentials and origins
+        env:
+          OAUTH_GITHUB_CLIENT_ID: ${{ secrets.OAUTH_GITHUB_CLIENT_ID }}
+          OAUTH_GITHUB_CLIENT_SECRET: ${{ secrets.OAUTH_GITHUB_CLIENT_SECRET }}
+          OAUTH_GOOGLE_CLIENT_ID: ${{ secrets.OAUTH_GOOGLE_CLIENT_ID }}
+          OAUTH_GOOGLE_CLIENT_SECRET: ${{ secrets.OAUTH_GOOGLE_CLIENT_SECRET }}
+          OAUTH_PROXY_SECRET: ${{ secrets.OAUTH_PROXY_SECRET }}
+          CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
+        run: |
+          providers=""
+          for prefix in GITHUB GOOGLE; do
+            id_name="OAUTH_${prefix}_CLIENT_ID"
+            secret_name="OAUTH_${prefix}_CLIENT_SECRET"
+            if [ -n "${!id_name}" ]; then echo "${prefix}_CLIENT_ID=${!id_name}" >> "$GITHUB_ENV"; fi
+            if [ -n "${!secret_name}" ]; then echo "${prefix}_CLIENT_SECRET=${!secret_name}" >> "$GITHUB_ENV"; fi
+            if [ -n "${!id_name}" ] && [ -n "${!secret_name}" ]; then
+              providers="${providers:+$providers,}\"$(echo "$prefix" | tr '[:upper:]' '[:lower:]')\""
+            fi
+          done
+          if [ -n "$OAUTH_PROXY_SECRET" ]; then echo "OAUTH_PROXY_SECRET=$OAUTH_PROXY_SECRET" >> "$GITHUB_ENV"; fi
+          if [ -n "$CUSTOM_DOMAIN" ] && [ "$CUSTOM_DOMAIN" != workers-dev ]; then
+            prod_origin="https://$CUSTOM_DOMAIN"
+          else
+            prod_origin="https://$STACK_NAME-web-prod.$CLOUDFLARE_WORKERS_SUBDOMAIN.workers.dev"
+          fi
+          {
+            echo "PROD_ORIGIN=$prod_origin"
+            echo "SMOKE_ORIGIN=https://$STACK_NAME-web-staging-$PR_NUMBER.$CLOUDFLARE_WORKERS_SUBDOMAIN.workers.dev"
+            echo "SMOKE_PROVIDERS=[$providers]"
+          } >> "$GITHUB_ENV"
+      - run: alchemy provider check-env
+      - run: bun scripts/pre-step.ts
+      - uses: alchemy-run/alchemy@d0b4a3326718309793459160e94b35abee517b23 # v2.0.0-beta.85
+        with:
+          working-directory: infra
+      - if: github.event.action != 'closed'
+        run: bun scripts/smoke.ts
+
+  # The cloud suite on the fixed serialized stage test-ci (#43 item 5): merge-ready, not draft,
+  # same-repository pull requests, deploys on. On an alchemy-upgrade pull request it also runs the
+  # bump probe, `alchemy plan --stage prod` without `--yes`, and records the outcome.
+  cloud:
+    needs: checks
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      vars.CLOUDFLARE_DEPLOYS == 'true' &&
+      contains(github.event.pull_request.labels.*.name, 'merge-ready') &&
+      !github.event.pull_request.draft
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: test-ci
+      cancel-in-progress: false
+    env:
+      CI: "true"
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
+      STACK_NAME: ${{ vars.STACK_NAME }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
+      - run: alchemy provider check-env
+        working-directory: infra
+      - run: bun run test:cloud
+      - if: contains(github.event.pull_request.labels.*.name, 'alchemy-upgrade')
+        working-directory: infra
+        run: |
+          if alchemy plan --stage prod; then outcome=passed; else outcome=failed; fi
+          echo "Alchemy bump probe (\`alchemy plan --stage prod\`): $outcome" >> "$GITHUB_STEP_SUMMARY"
+          test "$outcome" = passed
+
+  # The one required context (#43 item 5, DC17). Passing results: `success` for checks, browser and
+  # design-record; cloud `success` while CLOUDFLARE_DEPLOYS is `true`, otherwise not required. It
+  # runs on the same events as checks, so it skips on `closed`.
+  merge-gate:
+    needs: [checks, browser, design-record, cloud]
+    if: always() && github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - run: |
+          status=0
+          fail() { echo "- $1" >> "$GITHUB_STEP_SUMMARY"; status=1; }
+          test "$CHECKS" = success || fail "checks: $CHECKS, expected success"
+          test "$BROWSER" = success || fail "browser: $BROWSER, expected success"
+          test "$DESIGN_RECORD" = success || fail "design-record: $DESIGN_RECORD, expected success"
+          if [ "$DEPLOYS" = true ]; then
+            test "$CLOUD" = success ||
+              fail "cloud: $CLOUD, expected success because CLOUDFLARE_DEPLOYS is true (add merge-ready)"
+          else
+            echo 'Deploys are off: `CLOUDFLARE_DEPLOYS` is not set, so cloud is not required. Run `bun run bootstrap` (docs/spin-up.md).' >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "$status" = 0 ]; then echo "merge-gate passed: checks, browser, design-record$([ "$DEPLOYS" = true ] && echo ', cloud')." >> "$GITHUB_STEP_SUMMARY"; fi
+          exit "$status"
+        env:
+          CHECKS: ${{ needs.checks.result }}
+          BROWSER: ${{ needs.browser.result }}
+          DESIGN_RECORD: ${{ needs.design-record.result }}
+          CLOUD: ${{ needs.cloud.result }}
+          DEPLOYS: ${{ vars.CLOUDFLARE_DEPLOYS }}
