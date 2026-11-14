@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ConfigProvider, Effect, Layer, Ref } from "effect";
+import { ConfigProvider, Effect, Layer, Path, Ref } from "effect";
 import { ForeignRateLimitRules, RateLimitEntrypoint } from "./rate-limit-owner.ts";
-import { guardedDomain } from "./web.ts";
+import { guardedDomain, webRootDir } from "./web.ts";
 
 const zone = { id: "zone-1", name: "example.test" };
 
@@ -56,5 +56,30 @@ describe("guardedDomain", () => {
       assert.strictEqual(reads, 0);
       assert.isTrue(exit._tag === "Success");
     }),
+  );
+});
+
+describe("webRootDir", () => {
+  it.effect("resolves to the same absolute apps/web path from any working directory", () =>
+    Effect.gen(function* cwdFree() {
+      const before = yield* webRootDir();
+      const original = process.cwd();
+      yield* Effect.acquireUseRelease(
+        Effect.sync(() => {
+          process.chdir("/");
+        }),
+        () =>
+          Effect.gen(function* moved() {
+            assert.strictEqual(process.cwd(), "/");
+            assert.strictEqual(yield* webRootDir(), before);
+          }),
+        () =>
+          Effect.sync(() => {
+            process.chdir(original);
+          }),
+      );
+      assert.isTrue(before.startsWith("/"));
+      assert.isTrue(before.endsWith("/apps/web"));
+    }).pipe(Effect.provide(Path.layer)),
   );
 });
