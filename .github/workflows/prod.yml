@@ -170,9 +170,14 @@ jobs:
           } >> "$GITHUB_ENV"
       - run: alchemy provider check-env --provider Cloudflare
       - run: alchemy state list
-      # Inlined from alchemy-run/alchemy action.yml at d0b4a3326718309793459160e94b35abee517b23 (v2.0.0-beta.85):
-      # that commit carries a symlink (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack, so `uses:` fails at
-      # "Set up job". Go back to the action once upstream ships without the symlink.
+      # The deploy step of alchemy-run/alchemy action.yml (lines 61-71) at
+      # d0b4a3326718309793459160e94b35abee517b23 (v2.0.0-beta.85), inlined: `uses:` fails at "Set up job"
+      # because that commit carries a symlink (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack. The action
+      # deploys main as stage prod (lines 50-55) with `alchemy deploy --stage prod --yes`, as
+      # website/src/content/docs/environments/ci.mdx:483-489 documents. This runs from the root and names the
+      # entry file because Web's rootDir "apps/web" is relative to the working directory. No GITHUB_TOKEN:
+      # it feeds only GitHub.GitHubEnv and GitHub.Comment (ci.mdx:238-250, 306-307), which this stack does not
+      # declare.
       - name: Deploy prod
         working-directory: .
         run: alchemy deploy infra/alchemy.run.ts --stage prod --yes

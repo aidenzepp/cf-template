@@ -90,7 +90,6 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      pull-requests: write
     concurrency:
       group: deploy-pr-${{ github.event.pull_request.number }}
       cancel-in-progress: false
@@ -102,7 +101,6 @@ jobs:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       STACK_NAME: ${{ vars.STACK_NAME }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       PR_ACTION: ${{ github.event.action }}
@@ -148,9 +146,16 @@ jobs:
           } >> "$GITHUB_ENV"
       - run: alchemy provider check-env --provider Cloudflare
       - run: bun scripts/pre-step.ts
-      # Inlined from alchemy-run/alchemy action.yml at d0b4a3326718309793459160e94b35abee517b23 (v2.0.0-beta.85):
-      # that commit carries a symlink (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack, so `uses:` fails at
-      # "Set up job". Go back to the action once upstream ships without the symlink.
+      # The steps of alchemy-run/alchemy action.yml (lines 29-83) at d0b4a3326718309793459160e94b35abee517b23
+      # (v2.0.0-beta.85), inlined: `uses:` fails at "Set up job" because that commit carries a symlink
+      # (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack. As the action does and
+      # website/src/content/docs/environments/ci.mdx:483-498 documents: stage staging-<n>, PULL_REQUEST set,
+      # `alchemy deploy|destroy --stage <stage> --yes`. One difference: the action runs in its
+      # working-directory input and reads ./alchemy.run.ts, and from infra/ Web's rootDir "apps/web" resolves
+      # to infra/apps/web, so this runs from the root and names the entry file (`alchemy deploy --help`).
+      # ci.mdx:487-489 also passes GITHUB_SHA and GITHUB_TOKEN: its stack reads them through GitHub.GitHubEnv
+      # for a GitHub.Comment (ci.mdx:238-250, 306-307). This stack declares neither, so the token is not
+      # passed; the runner sets GITHUB_SHA on every job anyway.
       - name: Deploy or destroy the pull request stage
         working-directory: .
         env:
