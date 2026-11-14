@@ -55,9 +55,8 @@ export const readSession = Effect.gen(function* readSession() {
         session: yield* encodeSession(session),
       } as const satisfies SessionState);
 }).pipe(
-  Effect.catchCause((cause) =>
-    Cause.hasInterruptsOnly(cause)
-      ? Effect.failCause(cause)
-      : Effect.succeed({ _tag: "unknown" } as const satisfies SessionState),
+  Effect.catchCauseIf(
+    (cause) => !Cause.hasInterruptsOnly(cause),
+    () => Effect.succeed({ _tag: "unknown" } as const satisfies SessionState),
   ),
 );

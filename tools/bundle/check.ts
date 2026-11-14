@@ -123,12 +123,13 @@ export const initialGzipBytes = Effect.fn("bundle.initialGzipBytes")(function* i
     return yield* new NoEntryChunkError({ message: "no entry chunk in the chunk graph" });
   }
 
-  const sizes = yield* Effect.all(
-    files.map((file) =>
+  const sizes = yield* Effect.forEach(
+    files,
+    (file) =>
       fs
         .readFile(path.join(clientDir, file))
         .pipe(Effect.flatMap((bytes) => gzipLength(file, bytes))),
-    ),
+    { concurrency: 1 },
   );
 
   return sizes.reduce((sum, size) => sum + size, 0);
@@ -195,14 +196,12 @@ export const assertNoDevtools = Effect.fn("bundle.assertNoDevtools")(function* a
   const path = yield* Path.Path;
   const names = yield* fs.readDirectory(clientDir, { recursive: true });
 
-  const files = yield* Effect.all(
-    names
-      .filter((name) => name.endsWith(".js"))
-      .map((name) =>
-        fs
-          .readFileString(path.join(clientDir, name))
-          .pipe(Effect.map((text) => ({ file: name, text }))),
-      ),
+  const files = yield* Effect.forEach(
+    names.filter((name) => name.endsWith(".js")),
+    (name) =>
+      fs
+        .readFileString(path.join(clientDir, name))
+        .pipe(Effect.map((text) => ({ file: name, text }))),
   );
 
   const hits = devtoolsHits(files);

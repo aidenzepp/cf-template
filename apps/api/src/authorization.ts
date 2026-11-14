@@ -2,8 +2,7 @@ import type { RpcCallError } from "alchemy/Rpc";
 import { Context, Duration, Effect, Layer, Predicate, Schema } from "effect";
 import { HttpServerRequest } from "effect/http";
 import { LiveKnobs } from "@workspace/config/knob";
-import { CurrentUser, SessionMiddleware } from "@workspace/contract/api/authorization";
-import { AuthUnavailable, SessionRequired } from "@workspace/contract/domain/auth-errors";
+import { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
 import type { EncodedSession } from "@workspace/auth/contract";
 import { Session } from "@workspace/contract/domain/session";
 import { AUTH_UNAVAILABLE_RETRY_AFTER_S, AuthCheckSessionTimeoutKnob } from "./config.ts";
@@ -92,36 +91,3 @@ export class SessionLookup extends Context.Service<
     }),
   );
 }
-
-/**
- * The implementation of `SessionMiddleware`: one path and one authority. `null` from `auth` fails
- * with 401 `SessionRequired`; a session provides `CurrentUser`; a fault fails with 503
- * `AuthUnavailable` and never falls through as anonymous.
- *
- * The one place `api` learns who the caller is also tags them: the request span gets a `userId`
- * attribute, and every log line the handler writes carries a `userId` annotation. Only the id is
- * tagged, never the email or any other profile field.
- */
-export const SessionMiddlewareLive = Layer.effect(
-  SessionMiddleware,
-  Effect.gen(function* buildSessionMiddleware() {
-    const lookup = yield* SessionLookup;
-
-    return SessionMiddleware.of((httpEffect) =>
-      Effect.gen(function* authorize() {
-        const session = yield* lookup.current;
-
-        if (session === null) {
-          return yield* new SessionRequired();
-        }
-
-        yield* Effect.annotateCurrentSpan("userId", session.userId);
-
-        return yield* httpEffect.pipe(
-          Effect.provideService(CurrentUser, session),
-          Effect.annotateLogs({ userId: session.userId }),
-        );
-      }),
-    );
-  }),
-);

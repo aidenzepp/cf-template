@@ -141,8 +141,9 @@ export const resolveNamespace = Effect.fn("knob.resolveNamespace")(function* res
  * @returns One line per key, in order.
  */
 export const reportStored = (rows: ReadonlyArray<StoredKey>) =>
-  Effect.all(
-    rows.map((row) => {
+  Effect.forEach(
+    rows,
+    (row) => {
       const knob = liveKnobs.find((candidate) => candidate.key === row.key);
       const value = JSON.stringify(row.value);
 
@@ -155,7 +156,8 @@ export const reportStored = (rows: ReadonlyArray<StoredKey>) =>
             }),
             onSuccess: () => ({ bad: false, line: `${row.key} ok ${value}` }),
           });
-    }),
+    },
+    { concurrency: 1 },
   );
 
 /**
@@ -174,8 +176,10 @@ const status = Effect.fn("knob.status")(function* status(namespace: NamespaceRef
   const bad = lines.filter((entry) => entry.bad).length;
 
   if (bad > 0) {
-    yield* new KnobStatusFailed({ message: `${bad} stored key(s) are REJECTED or ORPHAN.` });
+    return yield* new KnobStatusFailed({ message: `${bad} stored key(s) are REJECTED or ORPHAN.` });
   }
+
+  return yield* Effect.void;
 });
 
 /**

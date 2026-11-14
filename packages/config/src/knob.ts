@@ -89,11 +89,7 @@ export class Knob<A> {
     this.decodeSync = Schema.decodeUnknownSync(codec);
     this.encode = (a) =>
       Schema.encodeEffect(codec)(a).pipe(
-        Effect.flatMap((tree) =>
-          Predicate.isString(tree)
-            ? Effect.succeed(tree)
-            : Effect.die(new KnobNotLeafError({ key })),
-        ),
+        Effect.filterOrElse(Predicate.isString, () => Effect.die(new KnobNotLeafError({ key }))),
       );
   }
 

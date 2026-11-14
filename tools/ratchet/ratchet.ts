@@ -372,10 +372,9 @@ const count = Effect.fn("ratchet.count")(function* count(root: string, ref: Opti
   const baseline = yield* readCounted(root, BASELINE, ref);
   const knip = yield* readCounted(root, KNIP, ref);
 
-  const directives = yield* Effect.all(
-    DIRECTIVES.map((pattern) => directiveLines(pattern, ref)),
-    { concurrency: 4 },
-  );
+  const directives = yield* Effect.forEach(DIRECTIVES, (pattern) => directiveLines(pattern, ref), {
+    concurrency: 4,
+  });
 
   return {
     directives: Rec.fromEntries(Arr.zip(DIRECTIVES, directives)),
@@ -498,7 +497,7 @@ if (import.meta.main) {
     Effect.gen(function* main() {
       const { code, lines } = yield* ratchet();
 
-      yield* Effect.all(lines.map((line) => Console.error(line)));
+      yield* Effect.forEach(lines, (line) => Console.error(line), { discard: true });
       yield* Effect.sync(() => {
         process.exitCode = code;
       });

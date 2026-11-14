@@ -1,0 +1,17 @@
+{
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          {
+            "importNames": ["KnobsKvLive"],
+            "message": "import a block's live Layer only in the app's attach file (#232)",
+            "name": "@workspace/knobs-kv/live"
+          }
+        ],
+        "patterns": []
+      }
+    ]
+  }
+}
