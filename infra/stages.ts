@@ -220,7 +220,11 @@ export interface StageValues {
   readonly LOG_LEVEL: LogLevel.LogLevel;
   readonly PROBLEM_DETAILS_INCLUDE: typeof ProblemDetailsIncludeKnob.default;
   /**
-   * Whether the stage declares the requests-count volume alert. A plain stage flag, not a knob.
+   * Whether the stage declares the custom alerts in `infra/src/alerts.ts` (volume, rate-limit
+   * error, projection failure). A plain stage flag, not a knob. Only `prod` sets it: Cloudflare
+   * caps an account at 5 custom analytics policies, `prod` holds 3 and the budget guard 1, and a
+   * test stage's 3 more failed `cloud` with `this account can have at most 5 custom analytics
+   * policies`. Every prod deploy proves alert creation and query validation instead.
    */
   readonly volumeAlert: boolean;
 }
@@ -292,7 +296,7 @@ export const Stages: Record<StageKind, StageValues> = {
       docs: "true",
       problemDetails: "true",
     },
-    true,
+    false,
   ),
 };
 

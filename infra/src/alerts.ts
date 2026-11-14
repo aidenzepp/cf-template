@@ -26,11 +26,11 @@ export const volumeAlertThreshold = (share: number, fraction: number): number =>
   Math.floor((INCLUDED_REQUESTS * share * fraction) / HOURLY_WINDOWS);
 
 /**
- * The Worker names the volume alert counts: each entry of `Workers` in order, for every stage.
- *
- * The shared state store `<stack>-state` is not watched: every stage's traffic passes through it,
- * so counting it would trip one stage's alert on another's requests. An account-level alert on the
- * store would be a separate decision.
+ * The Worker names the volume alert counts: each entry of `Workers` in order, for every stage. The
+ * shared state store `<stack>-state` is not counted: every stage's deploys and CI runs go through
+ * it, so counting it in one stage's alert fired that alert on CI traffic (the `test-ci` email of
+ * 2026-11-14, `5795 > 3472`). The store is unwatched for now; an account-level store alert would be
+ * a separate decision.
  *
  * It returns an effect because {@link workerName} fails on a name past the Worker name limit.
  *
@@ -44,16 +44,6 @@ export const volumeAlertWorkers = (
   stage: StageName,
 ): Effect.Effect<ReadonlyArray<string>, WorkerNameTooLongError> =>
   Effect.all(Workers.map((worker) => workerName({ stack, stage, worker })));
-
-/**
- * Whether a stage's alerts may notify: every kind but `test`. A disabled alert still goes through
- * policy create and SQL query validation at deploy, but cannot email the owner, so a cloud test
- * run never does.
- *
- * @param stage - The decoded stage.
- * @returns `false` for a test-kind stage, `true` for every other kind.
- */
-export const alertsEnabled = (stage: StageName): boolean => kindOf(stage) !== "test";
 
 /**
  * An email address as far as the plan can check it: one `@`, a non-empty local part and domain,
@@ -121,31 +111,9 @@ export const volumeAlertQuery = (accountId: string, workers: ReadonlyArray<strin
   `SELECT count() AS value FROM logs.workersLogs WHERE accountTag = '${accountId}' AND logType = 'cf-worker-event' AND scriptName IN (${workers.map((name) => `'${name}'`).join(", ")})`;
 
 /**
- * The declared props of the volume alert.
- *
- * @param stage - The decoded stage.
- * @param stack - The stack name.
- * @param address - The `ISSUE_NOTIFICATION_EMAIL` value.
- * @param query - The {@link volumeAlertQuery} text.
- * @returns The `CustomAlert` props, `enabled` from {@link alertsEnabled}.
- */
-export const volumeAlertProps = (stage: StageName, stack: string, address: string, query: string) =>
-  ({
-    enabled: alertsEnabled(stage),
-    every: "1h",
-    mechanisms: { email: [{ id: address }] },
-    name: `${stack}-volume-${stage}`,
-    query,
-    trigger: {
-      operator: ">",
-      type: "threshold",
-      value: volumeAlertThreshold(AllowanceShareKnob.default, AlertFractionKnob.default),
-      window: "1h",
-    },
-  }) as const;
-
-/**
- * Declare the requests-count volume alert, only where the stage's kind sets `volumeAlert`.
+ * Declare the requests-count volume alert, only where the stage's kind sets `volumeAlert`, which
+ * only `prod` does: `volumeAlert` in `infra/stages.ts` gives Cloudflare's 5-per-account cap on
+ * custom analytics policies as the reason.
  *
  * It counts invocations of {@link volumeAlertWorkers} per `1 h` window and emails `address` above
  * {@link volumeAlertThreshold} of the `ALLOWANCE_SHARE` and `ALERT_FRACTION` defaults.
@@ -165,10 +133,18 @@ export const volumeAlert = Effect.fn("volumeAlert")(function* volumeAlert(
     const { accountId } = yield* Cloudflare.CloudflareEnvironment.current;
     const workers = yield* volumeAlertWorkers(stack, stage);
 
-    yield* Cloudflare.Alerting.CustomAlert(
-      "VolumeAlert",
-      volumeAlertProps(stage, stack, address, volumeAlertQuery(accountId, workers)),
-    );
+    yield* Cloudflare.Alerting.CustomAlert("VolumeAlert", {
+      every: "1h",
+      mechanisms: { email: [{ id: address }] },
+      name: `${stack}-volume-${stage}`,
+      query: volumeAlertQuery(accountId, workers),
+      trigger: {
+        operator: ">",
+        type: "threshold",
+        value: volumeAlertThreshold(AllowanceShareKnob.default, AlertFractionKnob.default),
+        window: "1h",
+      },
+    });
   }
 });
 
@@ -186,30 +162,6 @@ export const volumeAlert = Effect.fn("volumeAlert")(function* volumeAlert(
  */
 export const rateLimitErrorQuery = (accountId: string, script: string): string =>
   `SELECT count() AS value FROM logs.workersLogs WHERE accountTag = '${accountId}' AND scriptName = '${script}' AND attributes['message'] = 'web.ratelimit.error'`;
-
-/**
- * The declared props of the `web.ratelimit.error` alert.
- *
- * @param stage - The decoded stage.
- * @param stack - The stack name.
- * @param address - The `ISSUE_NOTIFICATION_EMAIL` value.
- * @param query - The {@link rateLimitErrorQuery} text.
- * @returns The `CustomAlert` props, `enabled` from {@link alertsEnabled}.
- */
-export const rateLimitErrorAlertProps = (
-  stage: StageName,
-  stack: string,
-  address: string,
-  query: string,
-) =>
-  ({
-    enabled: alertsEnabled(stage),
-    every: "5m",
-    mechanisms: { email: [{ id: address }] },
-    name: `${stack}-ratelimit-error-${stage}`,
-    query,
-    trigger: { operator: ">", type: "threshold", value: 0, window: "5m" },
-  }) as const;
 
 /**
  * Declare the `web.ratelimit.error` alert, only where the stage's kind sets `volumeAlert`.
@@ -231,10 +183,13 @@ export const rateLimitErrorAlert = Effect.fn("rateLimitErrorAlert")(function* ra
     const { accountId } = yield* Cloudflare.CloudflareEnvironment.current;
     const script = yield* workerName({ stack, stage, worker: "web" });
 
-    yield* Cloudflare.Alerting.CustomAlert(
-      "RateLimitErrorAlert",
-      rateLimitErrorAlertProps(stage, stack, address, rateLimitErrorQuery(accountId, script)),
-    );
+    yield* Cloudflare.Alerting.CustomAlert("RateLimitErrorAlert", {
+      every: "5m",
+      mechanisms: { email: [{ id: address }] },
+      name: `${stack}-ratelimit-error-${stage}`,
+      query: rateLimitErrorQuery(accountId, script),
+      trigger: { operator: ">", type: "threshold", value: 0, window: "5m" },
+    });
   }
 });
 
@@ -269,37 +224,6 @@ export const projectionFailureQuery = (
   `SELECT count() AS value FROM logs.workersLogs WHERE accountTag = '${accountId}' AND scriptName = '${script}' AND attributes['event'] = 'domain.run.failed' AND attributes['consumer'] = '${consumer}'`;
 
 /**
- * The declared props of one consumer's projection failure alert.
- *
- * @param stage - The decoded stage.
- * @param stack - The stack name.
- * @param address - The `ISSUE_NOTIFICATION_EMAIL` value.
- * @param consumer - The consumer name, an entry of {@link ProjectionConsumers}.
- * @param query - The {@link projectionFailureQuery} text.
- * @returns The `CustomAlert` props, `enabled` from {@link alertsEnabled}.
- */
-export const projectionFailureAlertProps = (
-  stage: StageName,
-  stack: string,
-  address: string,
-  consumer: string,
-  query: string,
-) =>
-  ({
-    enabled: alertsEnabled(stage),
-    every: "15m",
-    mechanisms: { email: [{ id: address }] },
-    name: `${stack}-projection-failure-${consumer}-${stage}`,
-    query,
-    trigger: {
-      operator: ">",
-      type: "threshold",
-      value: PROJECTION_FAILURE_THRESHOLD,
-      window: "15m",
-    },
-  }) as const;
-
-/**
  * Declare one projection failure alert per entry of {@link ProjectionConsumers}, only where the
  * stage's kind sets `volumeAlert`.
  *
@@ -318,16 +242,18 @@ export const projectionFailureAlert = Effect.fn("projectionFailureAlert")(
       const script = yield* workerName({ stack, stage, worker: "api" });
 
       for (const consumer of ProjectionConsumers) {
-        yield* Cloudflare.Alerting.CustomAlert(
-          `ProjectionFailureAlert-${consumer}`,
-          projectionFailureAlertProps(
-            stage,
-            stack,
-            address,
-            consumer,
-            projectionFailureQuery(accountId, script, consumer),
-          ),
-        );
+        yield* Cloudflare.Alerting.CustomAlert(`ProjectionFailureAlert-${consumer}`, {
+          every: "15m",
+          mechanisms: { email: [{ id: address }] },
+          name: `${stack}-projection-failure-${consumer}-${stage}`,
+          query: projectionFailureQuery(accountId, script, consumer),
+          trigger: {
+            operator: ">",
+            type: "threshold",
+            value: PROJECTION_FAILURE_THRESHOLD,
+            window: "15m",
+          },
+        });
       }
     }
   },
