@@ -11,11 +11,12 @@ import {
   decide,
   renderSummary,
   rowsOfJson,
+  rowsOfPlan,
   verdictOf,
 } from "./plan-prod.ts";
 
 /**
- * Read one inferred plan fixture as text.
+ * Read one plan fixture, derived from the Alchemy source, as text.
  */
 const fixture = (name: string) =>
   Effect.gen(function* read() {
@@ -110,6 +111,38 @@ describe("plan-prod classifier", () => {
 
       assert.isTrue(verdict.destructive);
       assert.include(renderSummary(verdict), EMPTY_PLAN_NOTE);
+    }),
+  );
+
+  it.effect("decodes a first create whose fromProviderMode is present and undefined", () =>
+    Effect.gen(function* firstCreate() {
+      const [row] = yield* rowsOfJson(yield* fixture("first-create"));
+
+      const rows = yield* rowsOfPlan([
+        { ...row, fromProviderMode: undefined, providerMode: "live" },
+      ]);
+
+      assert.deepStrictEqual(rows, [row]);
+      assert.strictEqual(rows[0]?.action, "create");
+    }),
+  );
+
+  it.effect("ignores fields the classifier does not read", () =>
+    Effect.gen(function* extraFields() {
+      const text = JSON.stringify([
+        { ...worker("update", false), fromProviderMode: "local", futureField: 1, providerMode: 7 },
+      ]);
+
+      assert.deepStrictEqual(yield* rowsOfJson(text), [worker("update", false)]);
+    }),
+  );
+
+  it.effect("fails on an action outside the known set", () =>
+    Effect.gen(function* unknownRowAction() {
+      const error = yield* Effect.flip(rowsOfJson(yield* fixture("unknown-action")));
+
+      assert.strictEqual(error._tag, "PlanProdError");
+      assert.include(error.message, `[0]["action"]`);
     }),
   );
 
