@@ -1,7 +1,13 @@
 import * as Domain from "@alchemy.run/domain";
 import { describe, expect, it } from "@effect/vitest";
 import { NotesModel } from "./notes.model.ts";
-import { createsANote, deletesANote, refusesPastTheLimit, updatesANote } from "./notes.story.ts";
+import {
+  createsANote,
+  deletesANote,
+  readsANote,
+  refusesPastTheLimit,
+  updatesANote,
+} from "./notes.story.ts";
 
 describe("the notes model", () => {
   it("is well defined", () => {
@@ -12,4 +18,5 @@ describe("the notes model", () => {
   it.effect("refuses a create past the per-owner limit", () => refusesPastTheLimit);
   it.effect("updates a note and refuses an unknown one", () => updatesANote);
   it.effect("deletes a note and refuses a second delete", () => deletesANote);
+  it.effect("reads a note through its create, update and delete", () => readsANote);
 });

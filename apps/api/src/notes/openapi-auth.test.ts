@@ -177,6 +177,14 @@ describe("the generated OpenAPI document with no cookie", () => {
         );
       }
 
+      // The Note view's read and its live read (Server-Sent Events) are swept like the commands.
+      for (const key of ["GET /api/Note/{key}", "GET /api/Note/{key}/watch"]) {
+        assert.isTrue(
+          operations.some((operation) => operation.key === key),
+          `The document lists no ${key} operation.`,
+        );
+      }
+
       const answers = yield* Effect.forEach(
         operations.filter((operation) => !(operation.key in OPEN_OPERATIONS)),
         (operation) =>

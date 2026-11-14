@@ -4,6 +4,7 @@ import { CurrentActor } from "../session-middleware.ts";
 import { CreateNote, DeleteNote, NotebookId, UpdateNote } from "./note.command.ts";
 import { NoteCreated, NoteDeleted, NoteId, NoteUpdated } from "./note.event.ts";
 import { NoteAlreadyExists, NoteNotFound, NoteQuotaExceeded } from "./note.rejection.ts";
+import { Note, noteKey } from "./note.view.ts";
 import { NOTES_MAX_PER_OWNER, Notebook } from "./notebook.aggregate.ts";
 import { NoteIndexUnstored } from "./note-index.projection.ts";
 import { NotesModel } from "./notes.model.ts";
@@ -85,4 +86,21 @@ export const deletesANote = story(
   Story.then(notebook, new NoteDeleted({ id: n1 })),
   Story.when(notebook, new DeleteNote({ id: n1 })),
   Story.rejected(new NoteNotFound({ id: n1 })),
+);
+
+/**
+ * The `Note` view holds a note's title and body after its create and each update, and drops the
+ * note when it is deleted.
+ */
+export const readsANote = story(
+  asOwner,
+  Story.when(notebook, new CreateNote({ body: "Body", id: n1, title: "Title" })),
+  Story.then(notebook, new NoteCreated({ body: "Body", id: n1, title: "Title" })),
+  Story.view(Note, noteKey(notebook.id, n1), { body: "Body", title: "Title" }),
+  Story.when(notebook, new UpdateNote({ id: n1, title: "Renamed" })),
+  Story.then(notebook, new NoteUpdated({ body: "Body", id: n1, title: "Renamed" })),
+  Story.view(Note, noteKey(notebook.id, n1), { body: "Body", title: "Renamed" }),
+  Story.when(notebook, new DeleteNote({ id: n1 })),
+  Story.then(notebook, new NoteDeleted({ id: n1 })),
+  Story.view(Note, noteKey(notebook.id, n1), Story.none),
 );

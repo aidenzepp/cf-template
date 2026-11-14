@@ -17,9 +17,19 @@ import { SessionLive } from "./session-middleware.ts";
 const APP = "https://app.example.test";
 
 /**
- * The read the tests call: a plain `GET` beside the Notebook group, which publishes commands only.
+ * A plain `GET` route beside the Notebook group, which the check must guard like the group's own.
  */
 const READ_PATH = "/api/probe";
+
+/**
+ * The Notebook group's read of one note, `GET /api/Note/{key}`, for note `n-1` of `owner-1`.
+ */
+const NOTE_PATH = "/api/Note/owner-1~n-1";
+
+/**
+ * The Notebook group's live read of the same note, served as Server-Sent Events.
+ */
+const NOTE_WATCH_PATH = `${NOTE_PATH}/watch`;
 
 /**
  * The Notebook group under `/api`, as the Worker serves it.
@@ -91,12 +101,14 @@ const command = (origin: string | undefined) => {
 };
 
 /**
- * A `GET` of the read route with the given `Origin`.
+ * A `GET` of a read route with the given `Origin`.
  *
  * @param origin - The `Origin` header.
+ * @param path - The path to read: the plain read route unless given.
  * @returns The request.
  */
-const read = (origin: string) => new Request(`${APP}${READ_PATH}`, { headers: { origin } });
+const read = (origin: string, path = READ_PATH) =>
+  new Request(`${APP}${path}`, { headers: { origin } });
 
 describe("the Origin check", () => {
   it.effect("refuses a command from a foreign origin before it is routed", () =>
@@ -114,6 +126,27 @@ describe("the Origin check", () => {
 
       assert.strictEqual(answer.status, 403);
       assert.include(answer.body, FOREIGN_ORIGIN_TYPE);
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("refuses a note read and a note watch from a foreign origin", () =>
+    Effect.gen(function* foreignNoteRead() {
+      for (const path of [NOTE_PATH, NOTE_WATCH_PATH]) {
+        const answer = yield* send(read("https://evil.example.test", path));
+
+        assert.strictEqual(answer.status, 403, path);
+        assert.include(answer.body, FOREIGN_ORIGIN_TYPE, path);
+      }
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect("passes a same-origin note read on to the Notebook group", () =>
+    Effect.gen(function* sameOriginNoteRead() {
+      // No session: the view's own middleware answers, so the check let the read through.
+      const answer = yield* send(read(APP, NOTE_PATH));
+
+      assert.strictEqual(answer.status, 401);
+      assert.include(answer.body, "/problems/session-required");
     }).pipe(Effect.scoped),
   );
 

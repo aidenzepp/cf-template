@@ -193,7 +193,8 @@ export const makeHandler = (
 /**
  * The `api` Worker: the contract's `HttpApi`, the session middleware that asks `auth` through its
  * service binding, and Problem Details on every error it produces, merged with the Notebook group
- * `toHttpApi` generates under `/api` (commands only; live reads would be Server-Sent Events). Its
+ * `toHttpApi` generates under `/api` (commands, and the `Note` view's reads, with its live reads as
+ * Server-Sent Events). Its
  * `fetch` refuses a foreign `Origin` before routing. It has no public address; `web` forwards
  * `/api/*` to it.
  *
