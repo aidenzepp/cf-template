@@ -6,18 +6,11 @@ import { Digest } from "effect/crypto";
 import { APP_DB_ID, declareDatabase as declareAppDb } from "../apps/api/src/db/database.ts";
 import { knobsNamespace } from "@workspace/knobs-kv/live";
 import { Stage, stageValues } from "./stages.ts";
-import {
-  issueNotificationAddress,
-  prodIssueNotification,
-  projectionFailureAlert,
-  rateLimitErrorAlert,
-  volumeAlert,
-} from "./src/alerts.ts";
+import { issueNotificationAddress, prodIssueNotification } from "./src/alerts.ts";
 import { declareApi } from "./src/api.ts";
 import { AUTH_DB_ID } from "../apps/auth/src/db/database.ts";
 import { declareAuth } from "./src/auth.ts";
 import { guardLocationHints } from "./src/d1-hint-guard.ts";
-import { declareGuard, guardNamespace, guardPlan } from "@workspace/budget-guard/infra";
 import { d1LocationHint } from "./src/d1-location.ts";
 import { STATE_STACK, usesProjectState } from "./src/state-selection.ts";
 import { publicOrigin } from "./src/origin.ts";
@@ -123,24 +116,15 @@ const program = Effect.gen(function* declareStack() {
 
   const knobs = yield* knobsNamespace(stack, stage);
 
-  const guard = yield* guardPlan({ stack, stage });
-  yield* declareGuard(stage, guard);
-
   const origin = yield* publicOrigin({ stack, stage });
   const auth = yield* declareAuth({ stack, stage }, hint, values, origin);
   const api = yield* declareApi({ stack, stage }, values);
 
-  const web = yield* declareWeb({ stack, stage }, { api, auth }, origin, [
-    ["GUARD_KV", guardNamespace(guard)],
-    ["KNOBS", knobs],
-  ]);
+  const web = yield* declareWeb({ stack, stage }, { api, auth }, origin, [["KNOBS", knobs]]);
 
   const address = yield* issueNotificationAddress(stage);
 
   if (Option.isSome(address)) {
-    yield* volumeAlert(stage, stack, address.value);
-    yield* rateLimitErrorAlert(stage, stack, address.value);
-    yield* projectionFailureAlert(stage, stack, address.value);
     yield* prodIssueNotification(stage, stack, address.value, { api, auth, web });
   }
 

@@ -104,7 +104,7 @@ jobs:
       STACK_NAME: ${{ vars.STACK_NAME }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       PR_ACTION: ${{ github.event.action }}
-      # No ISSUE_NOTIFICATION_EMAIL: a staging stage declares no alert (infra/stages.ts, volumeAlert).
+      # No ISSUE_NOTIFICATION_EMAIL: only prod reads it, for Workers Issues (infra/src/alerts.ts).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:

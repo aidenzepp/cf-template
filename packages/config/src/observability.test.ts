@@ -1,12 +1,8 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Exit } from "effect";
-import { AllowanceShareKnob, AlertFractionKnob, HeadSamplingRateKnob } from "./observability.ts";
+import { HeadSamplingRateKnob } from "./observability.ts";
 
-const knobs = [
-  { default: "1", knob: HeadSamplingRateKnob },
-  { default: "0.5", knob: AllowanceShareKnob },
-  { default: "0.5", knob: AlertFractionKnob },
-] as const;
+const knobs = [{ default: "1", knob: HeadSamplingRateKnob }] as const;
 
 describe.each(knobs)("$knob.key", ({ default: raw, knob }) => {
   it.effect("decodes its default from its string encoding", () =>

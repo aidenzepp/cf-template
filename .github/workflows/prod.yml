@@ -93,7 +93,7 @@ jobs:
       - name: Require ISSUE_NOTIFICATION_EMAIL
         run: |
           if [ -z "$ISSUE_NOTIFICATION_EMAIL" ]; then
-            echo "::error::ISSUE_NOTIFICATION_EMAIL is not set: stage prod declares the volume alert (infra/src/alerts.ts). Set the repository secret: docs/spin-up.md, step 9."
+            echo "::error::ISSUE_NOTIFICATION_EMAIL is not set: Workers Issues on stage prod email this address (infra/src/alerts.ts). Set the repository secret: docs/spin-up.md, step 9."
             exit 1
           fi
       - run: alchemy state list
@@ -185,7 +185,7 @@ jobs:
       - name: Require ISSUE_NOTIFICATION_EMAIL
         run: |
           if [ -z "$ISSUE_NOTIFICATION_EMAIL" ]; then
-            echo "::error::ISSUE_NOTIFICATION_EMAIL is not set: stage prod declares the volume alert (infra/src/alerts.ts). Set the repository secret: docs/spin-up.md, step 9."
+            echo "::error::ISSUE_NOTIFICATION_EMAIL is not set: Workers Issues on stage prod email this address (infra/src/alerts.ts). Set the repository secret: docs/spin-up.md, step 9."
             exit 1
           fi
       - run: alchemy state list

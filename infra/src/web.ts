@@ -90,13 +90,7 @@ export const webRootDir = (root: URL = WEB_ROOT_URL) =>
  * `web.test.ts` derives the same set from the package manifests, so a new dependency fails that
  * test until it is listed here.
  */
-export const WEB_WORKSPACE_PACKAGES = [
-  "budget-guard",
-  "config",
-  "contract",
-  "knobs-kv",
-  "ui",
-] as const;
+export const WEB_WORKSPACE_PACKAGES = ["config", "contract", "knobs-kv", "ui"] as const;
 
 /**
  * Web's rebuild scope: `apps/web` and the lockfile (the default), each package of
