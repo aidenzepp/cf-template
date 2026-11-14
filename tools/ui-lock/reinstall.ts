@@ -32,7 +32,7 @@ const add = Effect.fn("ui-lock.add")(function* add(names: ReadonlyArray<string>)
 
 /**
  * Reinstalls the stock list, then `sonner` separately, then rewrites the lock and restores the
- * stock theme variables in `globals.css`. The only writer of the lock file.
+ * stock stylesheet `globals.css`, which `add` never rewrites. The only writer of the lock file.
  */
 export const reinstall = Effect.fn("ui-lock.reinstall")(function* reinstall() {
   yield* add(stockComponents);

@@ -1,5 +1,6 @@
 /**
- * Components `bun run ui add` installs from the shadcn base-nova registry, in one batch.
+ * Components `bun run ui add` installs from the shadcn base-rhea registry (RTL on, per
+ * `packages/ui/components.json`), in one batch.
  */
 export const stockComponents = [
   "accordion",
