@@ -1,7 +1,18 @@
+import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
-import { ConfigProvider, Effect, Layer, Path, Ref } from "effect";
+import {
+  Array as Arr,
+  ConfigProvider,
+  Effect,
+  FileSystem,
+  Layer,
+  Order,
+  Path,
+  Ref,
+  Schema,
+} from "effect";
 import { ForeignRateLimitRules, RateLimitEntrypoint } from "./rate-limit-owner.ts";
-import { guardedDomain, webRootDir } from "./web.ts";
+import { WEB_MEMO, WEB_WORKSPACE_PACKAGES, guardedDomain, webRootDir } from "./web.ts";
 
 const zone = { id: "zone-1", name: "example.test" };
 
@@ -82,4 +93,76 @@ describe("webRootDir", () => {
       assert.isTrue(before.endsWith("/apps/web"));
     }).pipe(Effect.provide(Path.layer)),
   );
+});
+
+const Manifest = Schema.Struct({
+  dependencies: Schema.optional(Schema.Record(Schema.String, Schema.String)),
+});
+
+const WORKSPACE_PREFIX = "@workspace/";
+
+/**
+ * The `@workspace/*` packages a manifest depends on, by directory name under `packages/`.
+ *
+ * @param file - The `package.json` URL.
+ * @returns The names after the `@workspace/` prefix.
+ */
+const workspaceDependencies = (file: URL) =>
+  Effect.gen(function* readDependencies() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+
+    const manifest = yield* fs
+      .readFileString(yield* path.fromFileUrl(file))
+      .pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Manifest))));
+
+    return Object.keys(manifest.dependencies ?? {})
+      .filter((name) => name.startsWith(WORKSPACE_PREFIX))
+      .map((name) => name.slice(WORKSPACE_PREFIX.length));
+  });
+
+/**
+ * Every `@workspace/*` package `apps/web` depends on, directly or through another one.
+ */
+const webWorkspaceClosure = Effect.gen(function* closure() {
+  const seen = new Set<string>();
+
+  let pending = yield* workspaceDependencies(
+    new URL("../../apps/web/package.json", import.meta.url),
+  );
+
+  while (pending.length > 0) {
+    const next: Array<string> = [];
+
+    for (const name of pending.filter((candidate) => !seen.has(candidate))) {
+      seen.add(name);
+      next.push(
+        ...(yield* workspaceDependencies(
+          new URL(`../../packages/${name}/package.json`, import.meta.url),
+        )),
+      );
+    }
+
+    pending = next;
+  }
+
+  return Arr.sort([...seen], Order.String);
+});
+
+describe("WEB_WORKSPACE_PACKAGES", () => {
+  it.effect("lists every @workspace package apps/web depends on, directly or transitively", () =>
+    Effect.gen(function* pinned() {
+      assert.deepStrictEqual(
+        Arr.sort(WEB_WORKSPACE_PACKAGES, Order.String),
+        yield* webWorkspaceClosure,
+      );
+    }).pipe(Effect.provide(BunServices.layer)),
+  );
+
+  it("hashes the packages and only DESIGN.md from the repository root", () => {
+    assert.deepStrictEqual(WEB_MEMO.workspaces, [
+      ...WEB_WORKSPACE_PACKAGES.map((name) => ({ cwd: `../../packages/${name}` })),
+      { cwd: "../..", include: ["DESIGN.md"] },
+    ]);
+  });
 });
