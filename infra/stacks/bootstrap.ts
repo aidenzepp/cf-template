@@ -11,16 +11,33 @@ import { Config, Effect, Layer, Option, Redacted, Schema } from "effect";
 export const BOOTSTRAP_STAGE = "prod";
 
 /**
- * The permission groups of the scoped CI token: Workers Scripts, D1, Secrets Store, Account
- * Settings, Tail and KV, by their names in Alchemy's permission-group catalog.
+ * The permission groups of the scoped CI token, by their names in Alchemy's permission-group
+ * catalog: every group the `app` stack's `prod` and `test` stages need, one reason each. A custom
+ * domain (`CUSTOM_DOMAIN`, docs/spin-up.md step 14) adds zone resources and needs zone-scoped
+ * groups this account-scoped list does not hold.
  */
 export const CI_TOKEN_PERMISSION_GROUPS = [
+  // Every Worker upload: api, auth, web, the guard and the state store, with their Durable
+  // Objects, static assets, rate-limit bindings, Telemetry settings and workers.dev subdomain.
   "Workers Scripts Write",
+  // The D1 databases and their migrations.
   "D1 Write",
+  // Binding Secrets Store secrets, and the state store's token read (environments/ci.mdx:466-476).
   "Secrets Store Write",
+  // Account lookups during deploy.
   "Account Settings Read",
+  // Reading Worker tails.
   "Workers Tail Read",
+  // The KV namespaces.
   "Workers KV Storage Write",
+  // The NotificationPolicy and each CustomAlert's notification policy (alerting.createPolicy).
+  "Notifications Write",
+  // The SQL API that validates each CustomAlert query
+  // (developers.cloudflare.com/analytics/sql-api/get-started/).
+  "Account Analytics Read",
+  // The Workers Logs dataset those queries read, and IssueAutomation
+  // (workers.createObservabilityIssueAutomation).
+  "Workers Observability Write",
 ] as const satisfies ReadonlyArray<Cloudflare.ApiToken.PermissionGroupName>;
 
 /**
