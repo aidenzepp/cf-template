@@ -152,14 +152,15 @@ jobs:
       # that commit carries a symlink (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack, so `uses:` fails at
       # "Set up job". Go back to the action once upstream ships without the symlink.
       - name: Deploy or destroy the pull request stage
+        working-directory: .
         env:
           PULL_REQUEST: ${{ github.event.number }}
           EVENT_ACTION: ${{ github.event.action }}
         run: |
           if [ "$EVENT_ACTION" = closed ]; then
-            alchemy destroy --stage "staging-$PULL_REQUEST" --yes
+            alchemy destroy infra/alchemy.run.ts --stage "staging-$PULL_REQUEST" --yes
           else
-            alchemy deploy --stage "staging-$PULL_REQUEST" --yes
+            alchemy deploy infra/alchemy.run.ts --stage "staging-$PULL_REQUEST" --yes
           fi
       - if: github.event.action != 'closed'
         run: bun scripts/smoke.ts

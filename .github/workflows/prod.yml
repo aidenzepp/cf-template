@@ -174,7 +174,8 @@ jobs:
       # that commit carries a symlink (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack, so `uses:` fails at
       # "Set up job". Go back to the action once upstream ships without the symlink.
       - name: Deploy prod
-        run: alchemy deploy --stage prod --yes
+        working-directory: .
+        run: alchemy deploy infra/alchemy.run.ts --stage prod --yes
       - run: bun scripts/smoke.ts
       # The commit subjects since the latest release tag, or every commit when no release exists.
       - name: Commits in this deploy
