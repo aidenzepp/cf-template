@@ -45,7 +45,7 @@ export const declareApi = Effect.fn("declareApi")(function* declareApi(
     limits: limitsFor("api", { ...knobs, scrypt: values.AUTH_PASSWORD_SCRYPT }),
     main,
     name: yield* workerName({ stack, stage, worker: "api" }),
-    observability: issuesObservability,
+    observability: issuesObservability(stage),
     workersDev: false,
   } satisfies Cloudflare.WorkerProps;
 
