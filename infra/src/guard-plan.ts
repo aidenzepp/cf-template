@@ -1,7 +1,8 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Option } from "effect";
+import { guardNamespace, resources } from "@workspace/budget-guard/stack";
 import type { GuardPlanValue } from "@workspace/budget-guard/stack";
-import { workerName } from "../stages.ts";
+import { kindOf, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 import { volumeAlertQuery, volumeAlertWorkers } from "./alerts.ts";
 import { compat } from "./compat.ts";
@@ -35,4 +36,37 @@ export const guardPlan = Effect.fn("guardPlan")(function* guardPlan(identity: {
       name: yield* workerName({ ...identity, worker: "guard" }),
     },
   } satisfies GuardPlanValue;
+});
+
+/**
+ * Whether a stage declares the budget guard's receiver Worker and the alert it consumes, the one
+ * place that is decided. The `test` kind (`test-ci`, `test-<slug>`) does not: the account holder
+ * ruled that test stages carry no alerts or anything else superfluous, and the approved list
+ * (2026-11-14) drops the receiver there. Every stage still declares the latch namespace `GuardKv`,
+ * which `web` binds as `GUARD_KV`.
+ *
+ * @param stage - The decoded stage.
+ * @returns `false` for the `test` kind, `true` for `prod`, `staging` and `local`.
+ */
+export const declaresGuardReceiver = (stage: StageName): boolean => kindOf(stage) !== "test";
+
+/**
+ * Declare the budget guard block for a stage: every resource of the block where
+ * {@link declaresGuardReceiver} allows the receiver, otherwise the latch namespace alone.
+ *
+ * @param stage - The decoded stage.
+ * @param plan - The block's plan from {@link guardPlan}.
+ * @returns Nothing.
+ */
+export const declareGuard = Effect.fn("declareGuard")(function* declareGuard(
+  stage: StageName,
+  plan: GuardPlanValue,
+) {
+  if (declaresGuardReceiver(stage)) {
+    yield* resources(plan);
+
+    return;
+  }
+
+  yield* guardNamespace(plan);
 });

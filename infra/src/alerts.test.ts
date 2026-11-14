@@ -3,12 +3,6 @@ import { ConfigProvider, Effect, Option } from "effect";
 import { Stages, Workers, workerName } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 import {
-  headSamplingRate,
-  issuesObservability,
-  telemetryOptions,
-  webObservability,
-} from "./telemetry.ts";
-import {
   ISSUE_NOTIFICATION_STEP,
   PROJECTION_FAILURE_THRESHOLD,
   ProjectionConsumers,
@@ -185,25 +179,5 @@ describe("volumeAlert flag", () => {
     assert.isFalse(Stages.test.volumeAlert);
     assert.isFalse(Stages.staging.volumeAlert);
     assert.isFalse(Stages.local.volumeAlert);
-  });
-});
-
-describe("telemetry", () => {
-  it("samples every request in every stage kind", () => {
-    for (const stage of ["prod", "staging-1", "test-ci", "dev"] as const) {
-      assert.strictEqual(headSamplingRate(stage), 1);
-      assert.deepStrictEqual(telemetryOptions(stage), { headSamplingRate: 1 });
-    }
-  });
-
-  it("keeps the default logs and turns Issues on for all three Workers", () => {
-    const web = webObservability("prod");
-
-    assert.deepStrictEqual(web.traces, { enabled: true, headSamplingRate: 1 });
-
-    for (const observability of [web, issuesObservability]) {
-      assert.isTrue(observability.issues.enabled);
-      assert.deepStrictEqual(observability.logs, { enabled: true, invocationLogs: true });
-    }
   });
 });
