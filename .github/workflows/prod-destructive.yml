@@ -107,7 +107,7 @@ jobs:
             echo "SMOKE_ORIGIN=$prod_origin"
             echo "SMOKE_PROVIDERS=[$providers]"
           } >> "$GITHUB_ENV"
-      - run: alchemy provider check-env
+      - run: alchemy provider check-env --provider Cloudflare
         working-directory: infra
       - run: alchemy state list
         working-directory: infra
@@ -125,11 +125,13 @@ jobs:
             echo '::error::The prod plan changed since prod.yml held it: the fingerprint differs. Read the new plan in prod.yml and dispatch again.'
             exit 1
           fi
-      # With the run's ref on main the Action resolves the stage to `prod` and deploys the checked-out
-      # commit.
-      - uses: alchemy-run/alchemy@d0b4a3326718309793459160e94b35abee517b23 # v2.0.0-beta.85
-        with:
-          working-directory: infra
+      # Deploys the checked-out held commit to `prod`.
+      # Inlined from alchemy-run/alchemy action.yml at d0b4a3326718309793459160e94b35abee517b23 (v2.0.0-beta.85):
+      # that commit carries a symlink (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack, so `uses:` fails at
+      # "Set up job". Go back to the action once upstream ships without the symlink.
+      - name: Deploy prod
+        run: alchemy deploy --stage prod --yes
+        working-directory: infra
       - run: bun scripts/smoke.ts
         working-directory: infra
       - name: Commits in this deploy

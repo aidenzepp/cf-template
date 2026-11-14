@@ -146,11 +146,21 @@ jobs:
             echo "SMOKE_ORIGIN=https://$STACK_NAME-web-staging-$PR_NUMBER.$CLOUDFLARE_WORKERS_SUBDOMAIN.workers.dev"
             echo "SMOKE_PROVIDERS=[$providers]"
           } >> "$GITHUB_ENV"
-      - run: alchemy provider check-env
+      - run: alchemy provider check-env --provider Cloudflare
       - run: bun scripts/pre-step.ts
-      - uses: alchemy-run/alchemy@d0b4a3326718309793459160e94b35abee517b23 # v2.0.0-beta.85
-        with:
-          working-directory: infra
+      # Inlined from alchemy-run/alchemy action.yml at d0b4a3326718309793459160e94b35abee517b23 (v2.0.0-beta.85):
+      # that commit carries a symlink (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack, so `uses:` fails at
+      # "Set up job". Go back to the action once upstream ships without the symlink.
+      - name: Deploy or destroy the pull request stage
+        env:
+          PULL_REQUEST: ${{ github.event.number }}
+          EVENT_ACTION: ${{ github.event.action }}
+        run: |
+          if [ "$EVENT_ACTION" = closed ]; then
+            alchemy destroy --stage "staging-$PULL_REQUEST" --yes
+          else
+            alchemy deploy --stage "staging-$PULL_REQUEST" --yes
+          fi
       - if: github.event.action != 'closed'
         run: bun scripts/smoke.ts
 
@@ -183,7 +193,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
-      - run: alchemy provider check-env
+      - run: alchemy provider check-env --provider Cloudflare
         working-directory: infra
       - run: bun run test:cloud
       - if: contains(github.event.pull_request.labels.*.name, 'alchemy-upgrade')

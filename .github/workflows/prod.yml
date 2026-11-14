@@ -56,7 +56,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
-      - run: alchemy provider check-env
+      - run: alchemy provider check-env --provider Cloudflare
         working-directory: infra
       - run: bun run test:cloud
 
@@ -87,7 +87,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup
       - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
-      - run: alchemy provider check-env
+      - run: alchemy provider check-env --provider Cloudflare
         working-directory: infra
       - run: alchemy state list
         working-directory: infra
@@ -168,12 +168,13 @@ jobs:
             echo "SMOKE_ORIGIN=$prod_origin"
             echo "SMOKE_PROVIDERS=[$providers]"
           } >> "$GITHUB_ENV"
-      - run: alchemy provider check-env
+      - run: alchemy provider check-env --provider Cloudflare
       - run: alchemy state list
-      # On a push to main the Action resolves the stage to `prod` and deploys it.
-      - uses: alchemy-run/alchemy@d0b4a3326718309793459160e94b35abee517b23 # v2.0.0-beta.85
-        with:
-          working-directory: infra
+      # Inlined from alchemy-run/alchemy action.yml at d0b4a3326718309793459160e94b35abee517b23 (v2.0.0-beta.85):
+      # that commit carries a symlink (.vscode/tsrs-tsdk/tsgo) the runner cannot unpack, so `uses:` fails at
+      # "Set up job". Go back to the action once upstream ships without the symlink.
+      - name: Deploy prod
+        run: alchemy deploy --stage prod --yes
       - run: bun scripts/smoke.ts
       # The commit subjects since the latest release tag, or every commit when no release exists.
       - name: Commits in this deploy
