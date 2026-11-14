@@ -625,7 +625,7 @@ export const SpinUpLive = Layer.effect(
     const fs = yield* FileSystem.FileSystem;
     const http = yield* Effect.context<HttpClient.HttpClient>();
 
-    const github = <A>(effect: Effect.Effect<A, unknown, HttpClient.HttpClient>, step: string) =>
+    const github = <A, E>(effect: Effect.Effect<A, E, HttpClient.HttpClient>, step: string) =>
       effect.pipe(Effect.provideContext(http), Effect.mapError(failed(step)));
 
     const cloudflare = <A, E>(
