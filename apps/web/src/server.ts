@@ -50,9 +50,9 @@ const docsOn = Effect.gen(function* readDocsKnob() {
  * `DOCS_ENABLED` is on; while it is off the request is TanStack's, which answers the not-found of
  * any unrouted path.
  *
- * A block's request guard runs first, so a latched request costs one memoized read; the rate-limit
- * check follows, before the forward and before the tracing layer: a refused request is answered
- * with the 429 and nothing else.
+ * A block's request guard runs first, where one provides it; the rate-limit check follows, before
+ * the forward and before the tracing layer: a refused request is answered with the 429 and nothing
+ * else.
  */
 export default createServerEntry({
   fetch: async (request, options) => {

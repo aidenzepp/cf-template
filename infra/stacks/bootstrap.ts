@@ -17,7 +17,7 @@ export const BOOTSTRAP_STAGE = "prod";
  * groups this account-scoped list does not hold.
  */
 export const CI_TOKEN_PERMISSION_GROUPS = [
-  // Every Worker upload: api, auth, web, the guard and the state store, with their Durable
+  // Every Worker upload: api, auth, web and the state store, with their Durable
   // Objects, static assets, rate-limit bindings, Telemetry settings and workers.dev subdomain.
   "Workers Scripts Write",
   // The D1 databases and their migrations.
@@ -30,13 +30,9 @@ export const CI_TOKEN_PERMISSION_GROUPS = [
   "Workers Tail Read",
   // The KV namespaces.
   "Workers KV Storage Write",
-  // The NotificationPolicy and each CustomAlert's notification policy (alerting.createPolicy).
+  // The Workers Issues NotificationPolicy (alerting.createPolicy).
   "Notifications Write",
-  // The SQL API that validates each CustomAlert query
-  // (developers.cloudflare.com/analytics/sql-api/get-started/).
-  "Account Analytics Read",
-  // The Workers Logs dataset those queries read, and IssueAutomation
-  // (workers.createObservabilityIssueAutomation).
+  // Each Worker's IssueAutomation (workers.createObservabilityIssueAutomation).
   "Workers Observability Write",
 ] as const satisfies ReadonlyArray<Cloudflare.ApiToken.PermissionGroupName>;
 

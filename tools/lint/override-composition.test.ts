@@ -234,13 +234,6 @@ describe("no-restricted-imports override composition", () => {
   });
 
   it("each lifted file keeps every ban but the one it lifts", () => {
-    assert.deepStrictEqual(effective("packages/budget-guard/src/latch.ts"), [
-      "error",
-      ...runMembers,
-      ...dataAccessMembers,
-      ...authFetchMembers,
-    ]);
-
     // The harness seeds the D1 binding through `prepare`.
     assert.deepStrictEqual(effective("apps/auth/src/test-harness.ts"), [
       "error",
