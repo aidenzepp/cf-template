@@ -50,4 +50,4 @@ A slice adds one attach line per attach file, and nothing else in that file.
 - A list endpoint is unpaged by design. The per-user quota bounds how many rows a caller can hold,
   so a slice that adds a list returns every row the caller owns and adds no paging.
 - There is no cascade across databases. An app slice never references the auth database's tables:
-  it stores the owner's id as a plain column with no foreign key and reads it from `CurrentUser`.
+  it stores the owner's id as a plain column with no foreign key and reads it from `CurrentActor` (`apps/api/src/session-middleware.ts`).

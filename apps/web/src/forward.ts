@@ -116,9 +116,9 @@ export const forward = Effect.fn("web.forward")(
     );
   },
   (effect, _binding, request) =>
-    Effect.catchCause(effect, (cause) =>
-      Cause.hasInterruptsOnly(cause)
-        ? Effect.failCause(cause)
-        : Effect.succeed(badGateway(request)),
+    Effect.catchCauseIf(
+      effect,
+      (cause) => !Cause.hasInterruptsOnly(cause),
+      () => Effect.succeed(badGateway(request)),
     ),
 );
