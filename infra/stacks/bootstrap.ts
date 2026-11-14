@@ -12,7 +12,9 @@ export const BOOTSTRAP_STAGE = "prod";
 
 /**
  * The permission groups of the scoped CI token: Workers Scripts, D1, Secrets Store, Account
- * Settings, Tail and KV, by their names in Alchemy's permission-group catalog.
+ * Settings, Tail, KV and Notifications, by their names in Alchemy's permission-group catalog.
+ * `Notifications Write` is for the `Cloudflare.Alerting.CustomAlert` alerts (infra/src/alerts.ts),
+ * which create notification policies.
  */
 export const CI_TOKEN_PERMISSION_GROUPS = [
   "Workers Scripts Write",
@@ -21,6 +23,7 @@ export const CI_TOKEN_PERMISSION_GROUPS = [
   "Account Settings Read",
   "Workers Tail Read",
   "Workers KV Storage Write",
+  "Notifications Write",
 ] as const satisfies ReadonlyArray<Cloudflare.ApiToken.PermissionGroupName>;
 
 /**
