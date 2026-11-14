@@ -4,7 +4,7 @@ import * as cfD1 from "@distilled.cloud/cloudflare/d1";
 import * as cfWorkers from "@distilled.cloud/cloudflare/workers";
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { AuthProvidersLive } from "alchemy/Auth/Registry";
-import { Config, Console, Context, Effect, Layer, Option, Schema, Stream } from "effect";
+import { Config, Console, Context, Effect, Layer, Option, Path, Schema, Stream } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { CloudflarePlanKnob } from "@workspace/config/plan";
@@ -229,18 +229,53 @@ export const enforceCap = Effect.fn("enforceCap")(function* enforceCap(
 /**
  * Run a command, returning its exit code and combined output.
  */
-const run = Effect.fn("run")(function* run(program: string, args: ReadonlyArray<string>) {
+const run = Effect.fn("run")(function* run(
+  program: string,
+  args: ReadonlyArray<string>,
+  options: ChildProcess.CommandOptions = {},
+) {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 
   return yield* Effect.scoped(
     Effect.gen(function* spawned() {
-      const handle = yield* spawner.spawn(ChildProcess.make(program, [...args]));
+      const handle = yield* spawner.spawn(ChildProcess.make(program, [...args], options));
       const output = yield* Stream.mkString(Stream.decodeText(handle.all));
       const code = yield* handle.exitCode;
 
       return { code: Number(code), output };
     }),
   );
+});
+
+/**
+ * The entry file the inlined deploy steps pass to `alchemy`, relative to the repository root.
+ */
+const ENTRY = "infra/alchemy.run.ts";
+
+/**
+ * The command an operator runs by hand, from the repository root, to apply `verb` to `stage`.
+ */
+const byHand = (verb: "deploy" | "destroy", stage: string) =>
+  `bun run alchemy ${verb} ${ENTRY} --stage ${stage} --yes`;
+
+/**
+ * Destroy one stage the way the inlined preview step deploys it: `alchemy destroy <entry> --stage
+ * <stage> --yes` from the repository root, since Web's `rootDir` resolves against the working
+ * directory and a non-interactive run without `--yes` changes nothing. A nonzero exit fails with
+ * the stage, the code and the command that clears it by hand.
+ */
+const destroyStage = Effect.fn("destroyStage")(function* destroyStage(stage: string) {
+  const root = yield* (yield* Path.Path).fromFileUrl(new URL("../..", import.meta.url));
+
+  const { code } = yield* run("alchemy", ["destroy", ENTRY, "--stage", stage, "--yes"], {
+    cwd: root,
+  });
+
+  return code === 0
+    ? undefined
+    : yield* new PreStepError({
+        message: `Destroying stage ${stage} failed with exit code ${code}. Clear it by hand from the repository root: ${byHand("destroy", stage)}`,
+      });
 });
 
 /**
@@ -256,7 +291,7 @@ const readPrState = (stage: string) =>
  * Run the pre-step for the current event: on `closed`, list, destroy this PR's stage and sweep;
  * on a deploy, list, sweep and enforce the cap.
  */
-const program = Effect.gen(function* preStep() {
+export const program = Effect.gen(function* preStep() {
   const stack = yield* Config.String("STACK_NAME");
   const pr = yield* Config.String("PR_NUMBER");
   const closed = (yield* Config.String("PR_ACTION").pipe(Config.withDefault(""))) === "closed";
@@ -274,14 +309,14 @@ const program = Effect.gen(function* preStep() {
 
   if (listing._tag === "Outdated") {
     return yield* new PreStepError({
-      message: `The state store ${stack}-state is outdated. Upgrade it with the alchemy deploy action.`,
+      message: `The state store ${stack}-state is outdated, and a preview cannot upgrade it because this pre-step stops first. Upgrade it from the repository root with the command the preview step runs, then re-run the preview: ${byHand("deploy", own)}`,
     });
   }
 
   const stages = listing._tag === "Populated" ? listing.stages : [];
 
   if (closed) {
-    yield* run("alchemy", ["destroy", "--stage", own]);
+    yield* destroyStage(own);
   }
 
   const states = new Map<string, Option.Option<string>>();
@@ -293,7 +328,7 @@ const program = Effect.gen(function* preStep() {
   const sweep = planSweep(stages, (stage) => states.get(stage) ?? Option.none());
 
   for (const stage of sweep.destroy) {
-    yield* run("alchemy", ["destroy", "--stage", stage]);
+    yield* destroyStage(stage);
   }
 
   const leftover = sweep.leftover.filter((stage) => stage !== own || !closed);
