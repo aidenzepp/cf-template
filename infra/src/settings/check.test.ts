@@ -56,9 +56,15 @@ const state = (overrides: Record<string, Reply> = {}) => {
       environments: [{ name: "prod" }, { name: "prod-destructive" }],
     }),
     [`GET ${base}/labels`]: ok(
-      ["convention", "dependencies", "bug", "enhancement", "documentation", "merge-ready"].map(
-        (name) => ({ name }),
-      ),
+      [
+        "convention",
+        "dependencies",
+        "bug",
+        "enhancement",
+        "documentation",
+        "merge-ready",
+        "want",
+      ].map((name) => ({ name })),
     ),
     [`GET ${base}/rulesets`]: ok([{ id: 7, name: "main" }]),
     [`GET ${base}/rulesets/7`]: ok({
@@ -129,6 +135,7 @@ describe("readDrift", () => {
             "enhancement",
             "documentation",
             "merge-ready",
+            "want",
             "sprint",
           ].map((name) => ({ name })),
         ),
@@ -310,6 +317,7 @@ const applying = (stays: boolean) => {
             "enhancement",
             "documentation",
             "merge-ready",
+            "want",
             "sprint",
           ].map((name) => ({ name })),
         )
