@@ -50,7 +50,6 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
       STACK_NAME: ${{ vars.STACK_NAME }}
-      ISSUE_NOTIFICATION_EMAIL: ${{ secrets.ISSUE_NOTIFICATION_EMAIL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -59,12 +58,6 @@ jobs:
       - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
       - run: alchemy provider check-env --provider Cloudflare
         working-directory: infra
-      - name: Require ISSUE_NOTIFICATION_EMAIL
-        run: |
-          if [ -z "$ISSUE_NOTIFICATION_EMAIL" ]; then
-            echo "::error::ISSUE_NOTIFICATION_EMAIL is not set: stage test-ci declares the volume alert (infra/src/alerts.ts). Set the repository secret: docs/spin-up.md, step 9."
-            exit 1
-          fi
       - run: bun run test:cloud
 
   # The prod plan verdict: `destructive=true|false` and `fingerprint=<digest>`, or a non-zero exit
@@ -128,7 +121,11 @@ jobs:
 
   deploy-prod:
     needs: plan-prod
-    if: needs.plan-prod.outputs.destructive == 'false'
+    # !cancelled(): checks and cloud skip on the ruleset tier, and a bare if: implies success(), which
+    # is false below a skipped job, so this job would never run.
+    if: >-
+      !cancelled() && needs.plan-prod.result == 'success' &&
+      needs.plan-prod.outputs.destructive == 'false'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: ${{ vars.ENVIRONMENTS == 'true' && 'prod' || '' }}
@@ -229,7 +226,9 @@ jobs:
   # command (SU13). The fingerprint is checked as a sha256 before it reaches the summary.
   hold:
     needs: plan-prod
-    if: needs.plan-prod.outputs.destructive == 'true'
+    if: >-
+      !cancelled() && needs.plan-prod.result == 'success' &&
+      needs.plan-prod.outputs.destructive == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -275,7 +274,8 @@ jobs:
   # deployed `prod`, so a tag marks a commit that was deployed first.
   release:
     needs: deploy-prod
-    if: vars.RELEASE_ON == 'true'
+    if: >-
+      !cancelled() && needs.deploy-prod.result == 'success' && vars.RELEASE_ON == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:

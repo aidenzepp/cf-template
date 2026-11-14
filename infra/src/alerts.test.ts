@@ -39,17 +39,12 @@ describe("volumeAlertThreshold", () => {
 });
 
 describe("volumeAlertWorkers", () => {
-  it.effect("lists each Worker in order, then the state store", () =>
+  it.effect("lists each Worker in order, without the shared state store", () =>
     Effect.gen(function* lists() {
       const names = yield* volumeAlertWorkers("s", "test-abc");
 
-      assert.deepStrictEqual(names, [
-        "s-web-test-abc",
-        "s-api-test-abc",
-        "s-auth-test-abc",
-        "s-state",
-      ]);
-      assert.strictEqual(names.length, Workers.length + 1);
+      assert.deepStrictEqual(names, ["s-web-test-abc", "s-api-test-abc", "s-auth-test-abc"]);
+      assert.strictEqual(names.length, Workers.length);
     }),
   );
 });
@@ -125,17 +120,15 @@ const readWith = (stage: StageName) =>
   );
 
 describe("issueNotificationAddress", () => {
-  it.effect("is read for prod and test stages", () =>
+  it.effect("is read for prod", () =>
     Effect.gen(function* read() {
-      for (const stage of ["prod", "test-ci", "test-abc"] as const) {
-        assert.deepStrictEqual(yield* readWith(stage), Option.some("a@example.invalid"));
-      }
+      assert.deepStrictEqual(yield* readWith("prod"), Option.some("a@example.invalid"));
     }),
   );
 
-  it.effect("is never read for staging and local stages", () =>
+  it.effect("is never read for test, staging and local stages", () =>
     Effect.gen(function* unread() {
-      for (const stage of ["staging-1", "dev"] as const) {
+      for (const stage of ["test-ci", "test-abc", "staging-1", "dev"] as const) {
         assert.isTrue(Option.isNone(yield* readWith(stage)));
         assert.isTrue(
           Option.isNone(
@@ -148,23 +141,21 @@ describe("issueNotificationAddress", () => {
     }),
   );
 
-  it.effect(
-    "fails naming the variable, the stage and the step when a stage that needs it has no address",
-    () =>
-      Effect.gen(function* missing() {
-        for (const stage of ["prod", "test-ci", "test-abc"] as const) {
-          const failure = yield* Effect.flip(
-            issueNotificationAddress(stage).pipe(
-              Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
-            ),
-          );
+  it.effect("fails naming the variable, the stage and the step when prod has no address", () =>
+    Effect.gen(function* missing() {
+      for (const stage of ["prod"] as const) {
+        const failure = yield* Effect.flip(
+          issueNotificationAddress(stage).pipe(
+            Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
+          ),
+        );
 
-          assert.strictEqual(failure._tag, "IssueNotificationEmailError");
-          assert.include(failure.message, "ISSUE_NOTIFICATION_EMAIL");
-          assert.include(failure.message, `stage ${stage}`);
-          assert.include(failure.message, ISSUE_NOTIFICATION_STEP);
-        }
-      }),
+        assert.strictEqual(failure._tag, "IssueNotificationEmailError");
+        assert.include(failure.message, "ISSUE_NOTIFICATION_EMAIL");
+        assert.include(failure.message, `stage ${stage}`);
+        assert.include(failure.message, ISSUE_NOTIFICATION_STEP);
+      }
+    }),
   );
 });
 
@@ -189,9 +180,9 @@ describe("issueNotificationAddress validation", () => {
 });
 
 describe("volumeAlert flag", () => {
-  it("is on for prod and test and off for staging and local", () => {
+  it("is on for prod only", () => {
     assert.isTrue(Stages.prod.volumeAlert);
-    assert.isTrue(Stages.test.volumeAlert);
+    assert.isFalse(Stages.test.volumeAlert);
     assert.isFalse(Stages.staging.volumeAlert);
     assert.isFalse(Stages.local.volumeAlert);
   });

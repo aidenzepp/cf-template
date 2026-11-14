@@ -26,8 +26,11 @@ export const volumeAlertThreshold = (share: number, fraction: number): number =>
   Math.floor((INCLUDED_REQUESTS * share * fraction) / HOURLY_WINDOWS);
 
 /**
- * The Worker names the volume alert counts: each entry of `Workers` in order, then the state
- * store `<stack>-state`.
+ * The Worker names the volume alert counts: each entry of `Workers` in order, for every stage. The
+ * shared state store `<stack>-state` is not counted: every stage's deploys and CI runs go through
+ * it, so counting it in one stage's alert fired that alert on CI traffic (the `test-ci` email of
+ * 2026-11-14, `5795 > 3472`). The store is unwatched for now; an account-level store alert would be
+ * a separate decision.
  *
  * It returns an effect because {@link workerName} fails on a name past the Worker name limit.
  *
@@ -40,9 +43,7 @@ export const volumeAlertWorkers = (
   stack: string,
   stage: StageName,
 ): Effect.Effect<ReadonlyArray<string>, WorkerNameTooLongError> =>
-  Effect.all(Workers.map((worker) => workerName({ stack, stage, worker }))).pipe(
-    Effect.map((names) => [...names, `${stack}-state`]),
-  );
+  Effect.all(Workers.map((worker) => workerName({ stack, stage, worker })));
 
 /**
  * An email address as far as the plan can check it: one `@`, a non-empty local part and domain,
@@ -110,7 +111,9 @@ export const volumeAlertQuery = (accountId: string, workers: ReadonlyArray<strin
   `SELECT count() AS value FROM logs.workersLogs WHERE accountTag = '${accountId}' AND logType = 'cf-worker-event' AND scriptName IN (${workers.map((name) => `'${name}'`).join(", ")})`;
 
 /**
- * Declare the requests-count volume alert, only where the stage's kind sets `volumeAlert`.
+ * Declare the requests-count volume alert, only where the stage's kind sets `volumeAlert`, which
+ * only `prod` does: `volumeAlert` in `infra/stages.ts` gives Cloudflare's 5-per-account cap on
+ * custom analytics policies as the reason.
  *
  * It counts invocations of {@link volumeAlertWorkers} per `1 h` window and emails `address` above
  * {@link volumeAlertThreshold} of the `ALLOWANCE_SHARE` and `ALERT_FRACTION` defaults.
