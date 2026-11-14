@@ -14,13 +14,7 @@ Subrequests: once a `test-<slug>` stage measures p99 subrequests per invocation,
 
 `AUTH_CPU_LIMIT_MS` follows the hash cost through `CPU_LIMIT_HEADROOM`; the hash cost is never lowered to fit a limit.
 
-Budget guard: the latch also clears itself at the billing-period end, because the receiver puts `state` with a KV `expiration` at the start of the next UTC month.
-
-`CPU_MS_PER_REQUEST` and `BYTES_PER_REQUEST` set the guard threshold and have no default. Measure both on a bounded `test-<slug>` run (p99 CPU per invocation and bytes served per request) and set them as deploy knobs; until both are set, no guard alert is declared.
-
-Re-check the guard when the first project with outside users runs on `workers.dev` without an owned domain, and when a native Cloudflare spend cap becomes available to this account, after which the block is removed: delete `Layer.mergeAll(BudgetGuardLive)` in `apps/web/src/request-layers.ts` (the Layer attach), its stack lines in `infra/alchemy.run.ts`, its `budget-guard` test project in `vite.config.ts`, and the files it owns (`packages/budget-guard/`, which now holds its infra and knob code), then run `bun run check` and `bun run test`.
-
-Reset a stage's latch with `bun packages/budget-guard/scripts/reset.ts --stage <stage>`: it finds the one namespace titled `<stack>-<stage>-guard`, deletes its `state` key, and prints the namespace id, title and result. `prod` is refused unless `CI=true`, and zero or several matching namespaces write nothing.
+Spend: the template declares no budget guard and no custom analytics policies. The account-wide budget alert, and the spend limits the template leaves off, are set once per Cloudflare account (`docs/spin-up.md`, Operate, step 28).
 
 ## Domain
 
@@ -57,7 +51,7 @@ A projection, such as `NoteIndex` in `apps/api/src/notes/note-index.projection.t
 
 **Position.** The package has no public call that reads a projection's position or starts a rebuild from outside the Worker: the per-key cursors live in the Durable Objects that host the model, and a script cannot read them. Inside the Worker, `NoteIndex.caughtUp(receipt)` waits until one command's events are handled, and the projection's `Progress.history` reports whether the history has reached it.
 
-**Health.** The package records `domain.runs` (a counter by `domain.kind`, `domain.consumer` and `domain.outcome`) and `domain.lag` (a histogram of milliseconds from commit to handling, by `domain.consumer`) as Effect metrics inside the Worker. Nothing exports them, and the `Domain.projection <name>` span of each run goes to Workers Traces, not `logs.workersLogs`, so neither can back an alert. Instead a failed run of the `NoteIndex` handler writes one `console.error` line, `{"consumer":"NoteIndex","event":"domain.run.failed","kind":"projection","outcome":"failed"}`, and the projection failure alert (`projectionFailureAlert` in `infra/src/alerts.ts`, named `<stack>-projection-failure-NoteIndex-<stage>`, on the stages that set `volumeAlert`) emails `ISSUE_NOTIFICATION_EMAIL` when more than 2 such lines from `api` land in a 15 minute window. A failed run is retried, so a handler that keeps failing crosses it quickly. A new projection adds the same line to its handler and its name to `ProjectionConsumers`. There is no lag alert: `domain.lag` has no log form yet. To see what failed, find the errored `Domain.projection <name>` span (attributes `domain.projection`, `domain.key`, `domain.batch`) in the `api` Worker's traces.
+**Health.** The package records `domain.runs` (a counter by `domain.kind`, `domain.consumer` and `domain.outcome`) and `domain.lag` (a histogram of milliseconds from commit to handling, by `domain.consumer`) as Effect metrics inside the Worker. Nothing exports them, and the `Domain.projection <name>` span of each run goes to Workers Traces, not `logs.workersLogs`, so neither can back an alert. Instead a failed run of the `NoteIndex` handler writes one `console.error` line, `{"consumer":"NoteIndex","event":"domain.run.failed","kind":"projection","outcome":"failed"}`, which reaches Workers Logs: query `logs.workersLogs` for `api` rows whose `attributes` hold `event` `domain.run.failed` to count failed runs. Nothing alerts on the line: the template declares no custom analytics policies (`docs/spin-up.md`, Operate, step 28). A failed run is retried, so a handler that keeps failing writes the line again on each attempt. A new projection adds the same line to its handler. `domain.lag` has no log form yet. To see what failed, find the errored `Domain.projection <name>` span (attributes `domain.projection`, `domain.key`, `domain.batch`) in the `api` Worker's traces.
 
 ## Build and gates
 

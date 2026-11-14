@@ -402,19 +402,6 @@ export default defineConfig({
         rules: { "no-restricted-properties": ["error", ...runMembers, ...registryMembers] },
       },
       {
-        // `latch.ts` is lifted until #249 removes it: the latch record is written with
-        // `JSON.stringify`. `test-harness.ts` is test support.
-        files: ["packages/budget-guard/src/latch.ts"],
-        rules: {
-          "no-restricted-properties": [
-            "error",
-            ...runMembers,
-            ...dataAccessMembers,
-            ...authFetchMembers,
-          ],
-        },
-      },
-      {
         // `test-harness.ts` applies the migrations through the D1 binding's `prepare`.
         files: ["apps/auth/src/test-harness.ts"],
         rules: {
@@ -427,9 +414,8 @@ export default defineConfig({
         },
       },
       {
-        // Lifted until #244 moves the log to Effect.logError and updates the web.ratelimit.error
-        // alert query with a cloud proof: the alert reads a top-level `event` that the structured
-        // logger would nest (want 3bb9a4ad).
+        // Lifted until #244 moves the log to Effect.logError (want 3bb9a4ad). No alert reads the
+        // `web.ratelimit.error` line any more; it reaches Workers Logs only.
         files: ["apps/web/src/ratelimit.ts"],
         rules: {
           "no-console": "off",
@@ -559,11 +545,7 @@ export default defineConfig({
       },
       {
         // Lifted until #245 builds these problem responses with `ProblemDetails`.
-        files: [
-          "apps/web/src/forward.ts",
-          "apps/web/src/ratelimit.ts",
-          "packages/budget-guard/src/live.ts",
-        ],
+        files: ["apps/web/src/forward.ts", "apps/web/src/ratelimit.ts"],
         rules: { "workspace/no-hand-built-problem": "off" },
       },
       {

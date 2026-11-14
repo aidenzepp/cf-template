@@ -111,19 +111,14 @@ export const libraryPaths: ReadonlyArray<RestrictedPath> = [
 
 /**
  * The block live Layers (#232): a Worker gets one only through its attach file, so no other
- * module imports `KnobsKvLive` or `BudgetGuardLive`. `restrictImports` carries it unless an
- * attach file passes `blockLayers: false`.
+ * module imports `KnobsKvLive`. `restrictImports` carries it unless an attach file passes
+ * `blockLayers: false`.
  */
 const blockLayerPaths: ReadonlyArray<RestrictedPath> = [
   {
     importNames: ["KnobsKvLive"],
     message: "import a block's live Layer only in the app's attach file (#232)",
     name: "@workspace/knobs-kv/live",
-  },
-  {
-    importNames: ["BudgetGuardLive"],
-    message: "import a block's live Layer only in the app's attach file (#232)",
-    name: "@workspace/budget-guard/live",
   },
 ];
 

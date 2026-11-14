@@ -75,7 +75,7 @@ const noteIndexRow = (input: NoteIndexInput): NoteIndexRow => ({
  * The one `domain.run.failed` line a failed run of the note index writes through `Console.error`,
  * as one JSON text so Workers Logs reads its keys at the top level of `attributes`. The package
  * records the failure only as its `domain.runs` metric, which never reaches Workers Logs; this line
- * is what the `infra` projection failure alert counts.
+ * is the failure's only record there.
  */
 const failedRunLine =
   '{"consumer":"NoteIndex","event":"domain.run.failed","kind":"projection","outcome":"failed"}';

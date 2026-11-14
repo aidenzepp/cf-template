@@ -22,7 +22,6 @@
       "ignore": ["src/route-tree.gen.ts"],
     },
     "infra": { "entry": ["scripts/*.ts"] },
-    "packages/budget-guard": { "entry": ["scripts/*.ts", "src/reset-live.ts"] },
     "packages/ui": { "entry": ["src/**/*.{ts,tsx}"], "includeEntryExports": false },
   },
 }
