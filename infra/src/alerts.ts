@@ -51,17 +51,49 @@ export const volumeAlertWorkers = (
 const EmailAddress = Schema.String.check(Schema.isPattern(/^[^\s@]+@[^\s@]+$/u));
 
 /**
+ * The runbook row that sets `ISSUE_NOTIFICATION_EMAIL`.
+ */
+export const ISSUE_NOTIFICATION_STEP =
+  "docs/spin-up.md, Per project, before the first deploy, step 9";
+
+/**
+ * A stage that declares an alert found no usable `ISSUE_NOTIFICATION_EMAIL`: the variable is unset,
+ * empty or not an email address. The message names the variable, the stage and the runbook step,
+ * never the value.
+ */
+class IssueNotificationEmailError extends Schema.TaggedError<
+  IssueNotificationEmailError,
+  { readonly brand: unique symbol }
+>()("IssueNotificationEmailError", {
+  cause: Schema.optional(Schema.Defect()),
+  message: Schema.String,
+}) {}
+
+/**
  * Read the stack input `ISSUE_NOTIFICATION_EMAIL`, only where an alert needs it: a stage whose kind
  * sets `volumeAlert`, or `prod`. Every other stage never reads the variable.
  *
  * @param stage - The decoded stage.
- * @returns The address, or none when the stage declares no alert.
+ * @returns The address, or none when the stage declares no alert; an
+ *   {@link IssueNotificationEmailError} when a stage that declares one has no valid address.
  */
 export const issueNotificationAddress = Effect.fn("issueNotificationAddress")(
   function* issueNotificationAddress(stage: StageName) {
-    return Stages[kindOf(stage)].volumeAlert || stage === "prod"
-      ? Option.some(yield* Config.schema(EmailAddress, "ISSUE_NOTIFICATION_EMAIL"))
-      : Option.none<string>();
+    if (!(Stages[kindOf(stage)].volumeAlert || stage === "prod")) {
+      return Option.none<string>();
+    }
+
+    const address = yield* Config.schema(EmailAddress, "ISSUE_NOTIFICATION_EMAIL").pipe(
+      Effect.mapError(
+        (cause) =>
+          new IssueNotificationEmailError({
+            cause,
+            message: `ISSUE_NOTIFICATION_EMAIL is not set or is not an email address: stage ${stage} declares the volume alert (infra/src/alerts.ts). Set it in the environment for a local deploy, or as the repository secret for CI. See ${ISSUE_NOTIFICATION_STEP}.`,
+          }),
+      ),
+    );
+
+    return Option.some(address);
   },
 );
 

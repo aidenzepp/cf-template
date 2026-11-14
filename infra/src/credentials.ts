@@ -425,9 +425,38 @@ export const collision = (
     ? Effect.succeed("resume")
     : Effect.fail(
         new CredentialsError({
-          message: `The Worker ${store} exists but holds no ${stack}-bootstrap record. Destroy ${store} if it is a leftover, or choose another name with STACK_NAME, then run again. ${STEP_22}`,
+          message: `The Worker ${store} exists but this run found no ${stack}-bootstrap record in it. Check first, from the repository root: \`STACK_NAME=${stack} bun run alchemy state list --config infra/alchemy.run.ts --profile admin\`. If it lists ${stack}-bootstrap/, the store is this project's: do not destroy it, and report the failed lookup. Only if it does not, and ${store} is a leftover of another project, destroy ${store}, which deletes every stage's state in it, or choose another name with STACK_NAME, then run again. ${STEP_22}`,
         }),
       );
+};
+
+/**
+ * Whether `alchemy state list` output names the `<stack>-bootstrap` stack. A top-level listing
+ * prints one stack per line with a trailing slash (`cf-template-bootstrap/`), as Alchemy's
+ * `listState` returns it.
+ *
+ * @param stdout - The `alchemy state list` output.
+ * @param stack - The stack name.
+ * @returns Whether the bootstrap stack is listed.
+ */
+export const listsBootstrapRecord = (stdout: string, stack: string): boolean =>
+  stdout.split("\n").some((line) => line.trim() === `${stack}-bootstrap/`);
+
+/**
+ * The JSON value in `alchemy state read` output for one key. The command prints the value as
+ * `JSON.stringify(value, null, 2)`, a top-level `{` line through its closing `}`, but the CLI's
+ * plain renderer also writes task lines (`• Refreshing Cloudflare State Store credentials`, then
+ * `✓ ...`) and, outside JSON log format, log records to stdout first. This keeps the text from the
+ * last line that is exactly `{`.
+ *
+ * @param stdout - The `alchemy state read` output.
+ * @returns The JSON text, or the whole output when no line is `{`.
+ */
+export const stateReadJson = (stdout: string): string => {
+  const lines = stdout.split("\n");
+  const start = lines.lastIndexOf("{");
+
+  return start === -1 ? stdout : lines.slice(start).join("\n");
 };
 
 /**
@@ -614,7 +643,9 @@ const SecretsResponse = Schema.Struct({
 const PackageManifest = Schema.fromJsonString(Schema.Struct({ packageManager: Schema.String }));
 
 /**
- * Run `bun run alchemy` with `STACK_NAME` and the extra environment, capturing stdout.
+ * Run `bun run alchemy` with `STACK_NAME` and the extra environment, capturing stdout. It sets
+ * `ALCHEMY_LOG_FORMAT=json`, which sends Alchemy's log records to stderr; the pretty format writes
+ * them to stdout, ahead of the command's own output.
  *
  * @param args - The arguments after `alchemy`.
  * @param env - The extra environment.
@@ -627,7 +658,7 @@ const alchemy = (args: ReadonlyArray<string>, env: Record<string, string>) =>
 
       const handle = yield* spawner.spawn(
         ChildProcess.make("bun", ["run", "alchemy", ...args], {
-          env,
+          env: { ...env, ALCHEMY_LOG_FORMAT: "json" },
           extendEnv: true,
           stderr: "inherit",
         }),
@@ -858,7 +889,7 @@ export const SpinUpLive = Layer.effect(
           const config = ["--config", "infra/alchemy.run.ts", "--profile", profile];
           const listed = yield* alchemy(["state", "list", ...config], env);
 
-          if (!listed.stdout.split("\n").some((line) => line.trim() === `${stack}-bootstrap`)) {
+          if (!listsBootstrapRecord(listed.stdout, stack)) {
             return Option.none<FrozenIdentity>();
           }
 
@@ -868,7 +899,9 @@ export const SpinUpLive = Layer.effect(
           );
 
           return Option.some(
-            yield* Schema.decodeEffect(Schema.fromJsonString(BootstrapRecord))(read.stdout),
+            yield* Schema.decodeEffect(Schema.fromJsonString(BootstrapRecord))(
+              stateReadJson(read.stdout),
+            ),
           );
         }).pipe(
           Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),

@@ -1,5 +1,5 @@
 import { assert, describe, it } from "@effect/vitest";
-import { ConfigProvider, Console, Effect, Option } from "effect";
+import { ConfigProvider, Console, Effect, Option, Schema } from "effect";
 import bootstrapStack, {
   BOOTSTRAP_SECRETS,
   BOOTSTRAP_VARIABLES,
@@ -9,11 +9,14 @@ import bootstrapStack, {
 } from "../stacks/bootstrap.ts";
 import {
   CredentialsError,
+  BootstrapRecord,
   NO_STACK_NAME,
   PLAN_PAGE,
   SpinUp,
   collision,
   credentials,
+  listsBootstrapRecord,
+  stateReadJson,
   decidePin,
   parseArguments,
   permissionPreflight,
@@ -472,14 +475,40 @@ describe("the collision rule", () => {
     }),
   );
 
-  it.effect("refuses the store with no record, naming the two repairs", () =>
+  it.effect("refuses the store with no record, checking for the record before any destroy", () =>
     Effect.gen(function* orphan() {
-      const error = yield* Effect.flip(collision("widget", ["widget-state"], false));
+      const { message } = yield* Effect.flip(collision("widget", ["widget-state"], false));
 
-      assert.include(error.message, "Destroy widget-state if it is a leftover");
-      assert.include(error.message, "choose another name with STACK_NAME");
+      const check = message.indexOf(
+        "`STACK_NAME=widget bun run alchemy state list --config infra/alchemy.run.ts --profile admin`",
+      );
+
+      assert.isAbove(check, -1);
+      assert.include(
+        message,
+        "If it lists widget-bootstrap/, the store is this project's: do not destroy it",
+      );
+      assert.include(message, "deletes every stage's state in it");
+      assert.isBelow(check, message.indexOf("destroy widget-state"));
+      assert.include(message, "choose another name with STACK_NAME");
     }),
   );
+});
+
+describe("the bootstrap record lookup", () => {
+  // The shape `alchemy state list` prints for a top-level listing: one stack per line with a
+  // trailing slash, sorted (alchemy src/State/Tree.ts listState, src/cli/commands/state.ts).
+  const listing = "app/\ncf-template-bootstrap/";
+
+  it("finds the bootstrap stack as listState prints it", () => {
+    assert.isTrue(listsBootstrapRecord(listing, "cf-template"));
+  });
+
+  it("does not find another project's bootstrap stack or a bare stack name", () => {
+    assert.isFalse(listsBootstrapRecord(listing, "widget"));
+    assert.isFalse(listsBootstrapRecord("cf-template-bootstrap", "cf-template"));
+    assert.isFalse(listsBootstrapRecord("", "cf-template"));
+  });
 
   it.effect("passes when no <stack>- name exists", () =>
     Effect.gen(function* clear() {
@@ -535,5 +564,45 @@ describe("the bootstrap stack inputs", () => {
       force: true,
       profile: "admin",
     });
+  });
+});
+
+describe("the bootstrap record read", () => {
+  // `alchemy state read <stack>/prod/output` as the CLI prints it non-interactively: the plain
+  // renderer's task lines on stdout (as CI logged them), then `JSON.stringify(value, null, 2)`
+  // (alchemy src/cli/commands/state.ts read, src/Interaction.ts plain renderer).
+  const json = [
+    "{",
+    '  "repository": "aidenzepp/cf-template",',
+    '  "repositoryId": 1452108219',
+    "}",
+  ];
+
+  const tasks = [
+    "• Refreshing Cloudflare State Store credentials",
+    "✓ Refreshing Cloudflare State Store credentials",
+  ];
+
+  it.effect("decodes the record after the task lines", () =>
+    Effect.gen(function* afterTasks() {
+      const stdout = [...tasks, ...json, ""].join("\n");
+
+      const record = yield* Schema.decodeEffect(Schema.fromJsonString(BootstrapRecord))(
+        stateReadJson(stdout),
+      );
+
+      assert.deepStrictEqual(record, {
+        repository: "aidenzepp/cf-template",
+        repositoryId: 1_452_108_219,
+      });
+    }),
+  );
+
+  it("keeps the JSON after a pretty log record, and returns bare JSON as it is", () => {
+    const warning =
+      "[02:08:24.841] WARN: alchemy 2.0.0-beta.87 is available (you're on 2.0.0-beta.85).";
+
+    assert.strictEqual(stateReadJson([warning, ...json].join("\n")), json.join("\n"));
+    assert.strictEqual(stateReadJson(json.join("\n")), json.join("\n"));
   });
 });
