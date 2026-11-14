@@ -25,7 +25,10 @@ class D1RequestFailed extends Schema.TaggedError<
 /**
  * Send a request to the D1 REST API of the account and decode the reply.
  *
- * @param request - The request with its path after `/accounts/<id>/d1/database` as its URL.
+ * @param request - The request with its path after `/accounts/<id>/d1/database` as its URL: `""` for
+ *   the database list, `/<uuid>/query` for a query. The base is joined by concatenation, not
+ *   `prependUrl`, which adds a slash between empty segments and so asks for `.../database/`, a
+ *   path the first CI run (43547380980) got a 404 with a non-JSON body for.
  * @returns The HTTP status and the decoded reply.
  */
 const d1 = Effect.fn("d1")(function* d1(request: HttpClientRequest.HttpClientRequest) {
@@ -35,18 +38,21 @@ const d1 = Effect.fn("d1")(function* d1(request: HttpClientRequest.HttpClientReq
 
   const response = yield* client.execute(
     request.pipe(
-      HttpClientRequest.prependUrl(
-        `https://api.cloudflare.com/client/v4/accounts/${account}/d1/database`,
+      HttpClientRequest.updateUrl(
+        (path) => `https://api.cloudflare.com/client/v4/accounts/${account}/d1/database${path}`,
       ),
       HttpClientRequest.bearerToken(Redacted.value(token)),
     ),
   );
 
-  const reply = yield* response.json.pipe(
-    Effect.flatMap(Schema.decodeUnknownEffect(Reply)),
+  const body = yield* response.text.pipe(Effect.orElseSucceed(() => ""));
+
+  const reply = yield* Schema.decodeEffect(Schema.fromJsonString(Reply))(body).pipe(
     Effect.mapError(
       () =>
-        new D1RequestFailed({ message: `D1 replied ${response.status} with an unreadable body.` }),
+        new D1RequestFailed({
+          message: `D1 replied ${response.status} with an unreadable body: ${body.slice(0, 200)}`,
+        }),
     ),
   );
 
@@ -57,7 +63,7 @@ const d1 = Effect.fn("d1")(function* d1(request: HttpClientRequest.HttpClientReq
 describe("the deployed test-ci D1", () => {
   it.effect("rejects a BEGIN statement", () =>
     Effect.gen(function* rejectsBegin() {
-      const list = yield* d1(HttpClientRequest.get("/", { urlParams: { name: "test-ci" } }));
+      const list = yield* d1(HttpClientRequest.get("", { urlParams: { name: "test-ci" } }));
 
       const databases = yield* Schema.decodeUnknownEffect(
         Schema.Array(Schema.Struct({ uuid: Schema.String })),
