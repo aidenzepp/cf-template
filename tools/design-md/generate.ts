@@ -20,6 +20,15 @@ export class DesignMdGuidanceError extends Schema.TaggedError<
 >()("DesignMdGuidanceError", { message: Schema.String }) {}
 
 /**
+ * A `--radius-*` step is a `calc()` the generator cannot turn into a plain dimension. The message
+ * names the token and the expression.
+ */
+export class DesignMdResolveError extends Schema.TaggedError<
+  DesignMdResolveError,
+  { readonly brand: unique symbol }
+>()("DesignMdResolveError", { message: Schema.String }) {}
+
+/**
  * The custom properties of the blocks the generator reads: `@theme`, `:root` and `.dark`.
  */
 interface Blocks {
@@ -47,6 +56,19 @@ const ALIAS = /^var\((?<name>--[\w-]+)\)$/u;
  * A line height written as `calc()` of two plain numbers.
  */
 const RATIO = /^calc\(\s*(?<top>[\d.]+)\s*\/\s*(?<bottom>[\d.]+)\s*\)$/u;
+
+/**
+ * A radius step written as `calc()` of `var(--radius)` and a plain number: `var(--radius) * N`, `N
+ *
+ * - Var(--radius)`or`var(--radius) / N`.
+ */
+const RADIUS_CALC =
+  /^calc\(\s*(?:var\(--radius\)\s*(?<op>[*/])\s*(?<after>[\d.]+)|(?<before>[\d.]+)\s*\*\s*var\(--radius\))\s*\)$/u;
+
+/**
+ * A plain dimension: a number and a unit, such as `0.625rem`.
+ */
+const DIMENSION = /^(?<amount>[\d.]+)(?<unit>[a-z%]+)$/u;
 
 /**
  * Every `var()` reference in a value.
@@ -104,6 +126,61 @@ const readBlocks = (css: string, file: string): Effect.Effect<Blocks, DesignMdPa
 
       return blocks;
     },
+  });
+
+/**
+ * Resolve one `@theme` value. A `--radius-*` step written as `calc()` of `var(--radius)` and a
+ * plain number becomes a dimension in the unit of the `:root` `--radius`, rounded to four decimal
+ * places with trailing zeros trimmed. Every other value passes through unchanged.
+ *
+ * @param prop - The `@theme` property.
+ * @param value - Its value.
+ * @param radius - The `:root` `--radius` value, when the stylesheet declares one.
+ * @returns The resolved value, or a {@link DesignMdResolveError} naming the token and the
+ *   expression.
+ */
+const resolveRadius = (
+  prop: string,
+  value: string,
+  radius: string | undefined,
+): Effect.Effect<string, DesignMdResolveError> => {
+  if (!prop.startsWith("--radius-") || !value.startsWith("calc(")) {
+    return Effect.succeed(value);
+  }
+
+  const step = RADIUS_CALC.exec(value)?.groups;
+  const base = DIMENSION.exec(radius ?? "")?.groups;
+
+  if (step === undefined || base === undefined) {
+    return Effect.fail(
+      new DesignMdResolveError({
+        message: `${prop}: cannot resolve "${value}" against :root --radius "${radius ?? "(missing)"}"; only calc(var(--radius) * N), calc(N * var(--radius)) and calc(var(--radius) / N) with a plain --radius dimension resolve`,
+      }),
+    );
+  }
+
+  const amount = Number(base.amount);
+  const factor = Number(step.after ?? step.before);
+  const product = step.op === "/" ? amount / factor : amount * factor;
+
+  return Effect.succeed(`${Number(product.toFixed(4))}${base.unit}`);
+};
+
+/**
+ * Resolve every `--radius-*` `calc()` step of the `@theme` block into a plain dimension.
+ *
+ * @param blocks - The collected blocks.
+ * @returns The blocks with resolved radius steps, or a {@link DesignMdResolveError}.
+ */
+const resolveRadii = (blocks: Blocks): Effect.Effect<Blocks, DesignMdResolveError> =>
+  Effect.gen(function* resolveTheme() {
+    const theme = new Map<string, string>();
+
+    for (const [prop, value] of blocks.theme) {
+      theme.set(prop, yield* resolveRadius(prop, value, blocks.root.get("--radius")));
+    }
+
+    return { ...blocks, theme };
   });
 
 /**
@@ -406,15 +483,17 @@ const appendGuidance = (
  * @param file - The stylesheet's name, used in a parse failure.
  * @param css - The stylesheet text.
  * @param guidance - The hand-written guidance appended after the generated sections.
- * @returns The `DESIGN.md` text, or a {@link DesignMdParseError} or {@link DesignMdGuidanceError}.
+ * @returns The `DESIGN.md` text, or a {@link DesignMdParseError}, {@link DesignMdResolveError} or
+ *   {@link DesignMdGuidanceError}.
  */
 export const generate = (
   file: string,
   css: string,
   guidance = "",
-): Effect.Effect<string, DesignMdParseError | DesignMdGuidanceError> =>
-  Effect.flatMap(Effect.map(readBlocks(css, file), render), (generated) =>
-    appendGuidance(generated, guidance),
+): Effect.Effect<string, DesignMdParseError | DesignMdResolveError | DesignMdGuidanceError> =>
+  Effect.flatMap(
+    Effect.map(Effect.flatMap(readBlocks(css, file), resolveRadii), render),
+    (generated) => appendGuidance(generated, guidance),
   );
 
 /**
