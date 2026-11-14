@@ -2,7 +2,7 @@ name: Browser baselines
 
 # Regenerates the screenshot baselines in `test/browser/__screenshots__/` on Linux, the only
 # platform baselines are created on, and commits them back to the branch named by `ref`. Run it by
-# hand after a change that moves the page layout; the `browser` job in `ci.yml` then compares
+# hand after a change that moves the page layout; the `browser` job in `deploy.yml` then compares
 # against the new baselines.
 on:
   workflow_dispatch:
