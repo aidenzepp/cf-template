@@ -362,10 +362,22 @@ export const collision = (
     ? Effect.succeed("resume")
     : Effect.fail(
         new CredentialsError({
-          message: `The Worker ${store} exists but holds no ${stack}-bootstrap record. Destroy ${store} if it is a leftover, or choose another name with STACK_NAME, then run again. ${STEP_22}`,
+          message: `The Worker ${store} exists but this run found no ${stack}-bootstrap record in it. Check first, from the repository root: \`STACK_NAME=${stack} bun run alchemy state list --config infra/alchemy.run.ts --profile admin\`. If it lists ${stack}-bootstrap/, the store is this project's: do not destroy it, and report the failed lookup. Only if it does not, and ${store} is a leftover of another project, destroy ${store}, which deletes every stage's state in it, or choose another name with STACK_NAME, then run again. ${STEP_22}`,
         }),
       );
 };
+
+/**
+ * Whether `alchemy state list` output names the `<stack>-bootstrap` stack. A top-level listing
+ * prints one stack per line with a trailing slash (`cf-template-bootstrap/`), as Alchemy's
+ * `listState` returns it.
+ *
+ * @param stdout - The `alchemy state list` output.
+ * @param stack - The stack name.
+ * @returns Whether the bootstrap stack is listed.
+ */
+export const listsBootstrapRecord = (stdout: string, stack: string): boolean =>
+  stdout.split("\n").some((line) => line.trim() === `${stack}-bootstrap/`);
 
 /**
  * Fail unless the four variables and two secrets this half writes are present, and print one line
@@ -771,7 +783,7 @@ export const SpinUpLive = Layer.effect(
           const config = ["--config", "infra/alchemy.run.ts", "--profile", profile];
           const listed = yield* alchemy(["state", "list", ...config], env);
 
-          if (!listed.stdout.split("\n").some((line) => line.trim() === `${stack}-bootstrap`)) {
+          if (!listsBootstrapRecord(listed.stdout, stack)) {
             return Option.none<FrozenIdentity>();
           }
 

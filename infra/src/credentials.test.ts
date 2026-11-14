@@ -14,6 +14,7 @@ import {
   SpinUp,
   collision,
   credentials,
+  listsBootstrapRecord,
   decidePin,
   parseArguments,
   planOf,
@@ -423,14 +424,40 @@ describe("the collision rule", () => {
     }),
   );
 
-  it.effect("refuses the store with no record, naming the two repairs", () =>
+  it.effect("refuses the store with no record, checking for the record before any destroy", () =>
     Effect.gen(function* orphan() {
-      const error = yield* Effect.flip(collision("widget", ["widget-state"], false));
+      const { message } = yield* Effect.flip(collision("widget", ["widget-state"], false));
 
-      assert.include(error.message, "Destroy widget-state if it is a leftover");
-      assert.include(error.message, "choose another name with STACK_NAME");
+      const check = message.indexOf(
+        "`STACK_NAME=widget bun run alchemy state list --config infra/alchemy.run.ts --profile admin`",
+      );
+
+      assert.isAbove(check, -1);
+      assert.include(
+        message,
+        "If it lists widget-bootstrap/, the store is this project's: do not destroy it",
+      );
+      assert.include(message, "deletes every stage's state in it");
+      assert.isBelow(check, message.indexOf("destroy widget-state"));
+      assert.include(message, "choose another name with STACK_NAME");
     }),
   );
+});
+
+describe("the bootstrap record lookup", () => {
+  // The shape `alchemy state list` prints for a top-level listing: one stack per line with a
+  // trailing slash, sorted (alchemy src/State/Tree.ts listState, src/cli/commands/state.ts).
+  const listing = "app/\ncf-template-bootstrap/";
+
+  it("finds the bootstrap stack as listState prints it", () => {
+    assert.isTrue(listsBootstrapRecord(listing, "cf-template"));
+  });
+
+  it("does not find another project's bootstrap stack or a bare stack name", () => {
+    assert.isFalse(listsBootstrapRecord(listing, "widget"));
+    assert.isFalse(listsBootstrapRecord("cf-template-bootstrap", "cf-template"));
+    assert.isFalse(listsBootstrapRecord("", "cf-template"));
+  });
 
   it.effect("passes when no <stack>- name exists", () =>
     Effect.gen(function* clear() {
