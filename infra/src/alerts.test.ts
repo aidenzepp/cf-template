@@ -9,6 +9,7 @@ import {
   webObservability,
 } from "./telemetry.ts";
 import {
+  ISSUE_NOTIFICATION_STEP,
   PROJECTION_FAILURE_THRESHOLD,
   ProjectionConsumers,
   issueNotificationAddress,
@@ -147,21 +148,28 @@ describe("issueNotificationAddress", () => {
     }),
   );
 
-  it.effect("fails when a stage that needs it has no address", () =>
-    Effect.gen(function* missing() {
-      const failure = yield* Effect.flip(
-        issueNotificationAddress("prod").pipe(
-          Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
-        ),
-      );
+  it.effect(
+    "fails naming the variable, the stage and the step when a stage that needs it has no address",
+    () =>
+      Effect.gen(function* missing() {
+        for (const stage of ["prod", "test-ci", "test-abc"] as const) {
+          const failure = yield* Effect.flip(
+            issueNotificationAddress(stage).pipe(
+              Effect.provide(ConfigProvider.layer(ConfigProvider.fromUnknown({}))),
+            ),
+          );
 
-      assert.strictEqual(failure._tag, "ConfigError");
-    }),
+          assert.strictEqual(failure._tag, "IssueNotificationEmailError");
+          assert.include(failure.message, "ISSUE_NOTIFICATION_EMAIL");
+          assert.include(failure.message, `stage ${stage}`);
+          assert.include(failure.message, ISSUE_NOTIFICATION_STEP);
+        }
+      }),
   );
 });
 
 describe("issueNotificationAddress validation", () => {
-  it.effect("fails at plan on a malformed address, naming the key", () =>
+  it.effect("fails at plan on a malformed address, naming the key and the step", () =>
     Effect.gen(function* malformed() {
       for (const bad of ["", "no-at-sign", "a@", "@b.invalid", "a b@c.invalid", "a@@b.invalid"]) {
         const failure = yield* Effect.flip(
@@ -172,8 +180,9 @@ describe("issueNotificationAddress validation", () => {
           ),
         );
 
-        assert.strictEqual(failure._tag, "ConfigError");
+        assert.strictEqual(failure._tag, "IssueNotificationEmailError");
         assert.include(failure.message, "ISSUE_NOTIFICATION_EMAIL");
+        assert.include(failure.message, ISSUE_NOTIFICATION_STEP);
       }
     }),
   );
