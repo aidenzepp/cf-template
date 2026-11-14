@@ -157,6 +157,9 @@ jobs:
       # ci.mdx:487-489 also passes GITHUB_SHA and GITHUB_TOKEN: its stack reads them through GitHub.GitHubEnv
       # for a GitHub.Comment (ci.mdx:238-250, 306-307). This stack declares neither, so the token is not
       # passed; the runner sets GITHUB_SHA on every job anyway.
+      # Switch back to the action once https://github.com/alchemy-run/alchemy/issues/3355 (the dangling
+      # symlink, actions/runner#3234) is fixed and the action can run
+      # infra/alchemy.run.ts from the repository root; at d0b4a33 it has no entry-file input.
       - name: Deploy or destroy the pull request stage
         working-directory: .
         env:

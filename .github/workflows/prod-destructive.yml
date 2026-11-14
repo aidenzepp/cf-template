@@ -141,6 +141,9 @@ jobs:
       # entry file because Web's rootDir "apps/web" is relative to the working directory. No GITHUB_TOKEN:
       # it feeds only GitHub.GitHubEnv and GitHub.Comment (ci.mdx:238-250, 306-307), which this stack does not
       # declare.
+      # Switch back to the action once https://github.com/alchemy-run/alchemy/issues/3355 (the dangling
+      # symlink, actions/runner#3234) is fixed and the action can run
+      # infra/alchemy.run.ts from the repository root; at d0b4a33 it has no entry-file input.
       - name: Deploy prod
         run: alchemy deploy infra/alchemy.run.ts --stage prod --yes
       - run: bun scripts/smoke.ts
