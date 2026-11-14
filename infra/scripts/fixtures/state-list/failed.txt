@@ -1,0 +1,6 @@
+DERIVED FROM SOURCE: alchemy 2.0.0-beta.85 src/Cli/checkVersion.ts:131; not recorded from a run.
+exit: 1
+--- stdout
+--- stderr
+{"level":"WARN","message":"alchemy 2.0.0-beta.86 is available (you're on 2.0.0-beta.85). Run `bun add alchemy@2.0.0-beta.86` to upgrade."}
+Cloudflare API request failed: 403 Forbidden
