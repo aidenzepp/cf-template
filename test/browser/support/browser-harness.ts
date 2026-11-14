@@ -3,7 +3,6 @@ import { Context, Effect, FileSystem, Layer, ManagedRuntime, Path, Schema } from
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import type { BrowserContext } from "playwright";
 import type { AxeResults } from "axe-core";
-import { resolveStackName } from "../../../infra/src/stack-name.ts";
 
 /**
  * The WCAG 2.2 A and AA rules of axe-core. Its best-practice rules (a page needs an `h1`, say) are
@@ -86,8 +85,16 @@ export const promised = <A>(what: string, step: () => Promise<A>) =>
 
 /**
  * The origin of the production build of `web`, served on Miniflare, and the stack name it binds as
- * `STACK_NAME`: the one `resolveStackName` derives for a deploy of this checkout.
+ * `STACK_NAME`: {@link BROWSER_STACK_NAME}, fixed so the screenshots do not depend on the project.
  */
+/**
+ * The stack name the browser tier binds as `STACK_NAME`, the same in every project made from the
+ * template. The placeholder index renders the stack name, so a name derived from the checkout made
+ * the screenshot baselines fail on the first pull request of every new project (`cft-probe`, S-43).
+ * It is the name the committed baselines show.
+ */
+const BROWSER_STACK_NAME = "cf-template";
+
 export class Harness extends Context.Service<
   Harness,
   { readonly origin: string; readonly stackName: string }
@@ -107,7 +114,7 @@ const HarnessLive = Layer.effect(Harness)(
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
     const root = yield* path.fromFileUrl(new URL("../../../", import.meta.url));
     const web = path.join(root, "apps", "web");
-    const stackName = yield* resolveStackName();
+    const stackName = BROWSER_STACK_NAME;
     const outDir = path.join(web, "node_modules", ".cache", "browser-harness");
 
     const code = yield* spawner.exitCode(
