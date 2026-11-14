@@ -1,0 +1,12 @@
+DERIVED FROM SOURCE: alchemy 2.0.0-beta.85 src/State/Tree.ts listState (the ${prefix}${child}/ branch), src/Interaction.ts:426, :437; not recorded from a run.
+exit: 0
+--- stdout
+• Resolving the state store
+✓ Resolved the state store
+app/prod/
+app/staging-12/
+app/staging-7/
+app/test-ci/
+app/test-i38/
+--- stderr
+{"level":"INFO","message":"listing app"}

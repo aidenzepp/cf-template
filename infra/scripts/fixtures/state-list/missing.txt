@@ -1,3 +1,5 @@
-INFERRED: not recorded from a real run; replaced by the S-43 oracle.
+DERIVED FROM SOURCE: alchemy 2.0.0-beta.85 src/State/Provisioning.ts:38-46, :54; not recorded from a run.
 exit: 1
-Error: state store "example-state" not found. Run `alchemy state bootstrap` first.
+--- stdout
+--- stderr
+Cloudflare State Store 'example-state' not found. Run 'alchemy state bootstrap --profile <your-ci-profile>' first, or pass --yes.

@@ -1,0 +1,5 @@
+DERIVED FROM SOURCE: alchemy 2.0.0-beta.85 src/State/Tree.ts:184-186, src/Cli/commands/state.ts:129; not recorded from a run.
+exit: 0
+--- stdout
+example-bootstrap/
+--- stderr

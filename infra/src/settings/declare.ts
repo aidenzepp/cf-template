@@ -35,7 +35,16 @@ export const LABELS = [
   "enhancement",
   "documentation",
   "merge-ready",
+  "want",
 ] as const;
+
+/**
+ * The descriptions the declaration sets. A label with none keeps whatever description it has on
+ * GitHub.
+ */
+const LABEL_DESCRIPTIONS: Partial<Record<(typeof LABELS)[number], string>> = {
+  want: "A desire to research before building; no requirements until decided",
+};
 
 /**
  * The props of every `@alchemy.run/github` resource the tier allows. Each prop object is exactly
@@ -204,7 +213,11 @@ export const declarationPlan = (
 
   return {
     environments: tier.environments ? environments(repository) : [],
-    labels: LABELS.map((name) => ({ ...scope, name })),
+    labels: LABELS.map((name) => {
+      const description = LABEL_DESCRIPTIONS[name];
+
+      return description === undefined ? { ...scope, name } : { ...scope, description, name };
+    }),
     repository: repositoryProps(repository, tier),
     ruleset: tier.branchProtection === "ruleset" ? [mainRuleset(repository, reviewer)] : [],
     variables: (
