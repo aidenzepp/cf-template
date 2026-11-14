@@ -107,12 +107,21 @@ describe("declarationPlan", () => {
     assert.deepStrictEqual(plan.repository.name, "widget");
   });
 
-  it("always declares the six labels and the four tier variables", () => {
+  it("always declares the seven labels and the four tier variables", () => {
     const plan = planFor("private", freeTier);
 
     assert.deepStrictEqual(
       plan.labels.map((entry) => entry.name),
       [...LABELS],
+    );
+
+    assert.deepStrictEqual(
+      plan.labels.filter((entry) => entry.description !== undefined).map((entry) => entry.name),
+      ["want"],
+    );
+    assert.strictEqual(
+      plan.labels.find((entry) => entry.name === "want")?.description,
+      "A desire to research before building; no requirements until decided",
     );
 
     assert.deepStrictEqual(
