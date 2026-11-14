@@ -4,13 +4,15 @@
     "logicalId": "AppDb",
     "resourceType": "Cloudflare.D1Database",
     "action": "rename",
-    "bindings": []
+    "bindings": [],
+    "providerMode": "live"
   },
   {
     "fqn": "Api",
     "logicalId": "Api",
     "resourceType": "Cloudflare.Worker",
     "action": "noop",
-    "bindings": []
+    "bindings": [],
+    "providerMode": "live"
   }
 ]
