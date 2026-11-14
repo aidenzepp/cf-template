@@ -3,7 +3,7 @@ import { Clock, Config, Console, Effect, Layer, Schema, Stdio } from "effect";
 import { Digest } from "effect/crypto";
 import { Stage } from "../../infra/stages.ts";
 import { requiresStackNamePin, resolveStackName } from "../../infra/src/stack-name.ts";
-import { knobsNamespaceTitle } from "../../packages/knobs-kv/src/live.ts";
+import { knobsNamespaceTitle } from "@workspace/knobs-kv/live";
 import { KnobKv, KnobKvLive } from "./alchemy.ts";
 import type { NamespaceRef, StoredKey } from "./alchemy.ts";
 import { liveKnobs } from "./registry.ts";
