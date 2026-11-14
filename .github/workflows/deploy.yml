@@ -104,6 +104,7 @@ jobs:
       STACK_NAME: ${{ vars.STACK_NAME }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       PR_ACTION: ${{ github.event.action }}
+      # No ISSUE_NOTIFICATION_EMAIL: a staging stage declares no alert (infra/stages.ts, volumeAlert).
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -193,6 +194,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
       STACK_NAME: ${{ vars.STACK_NAME }}
+      ISSUE_NOTIFICATION_EMAIL: ${{ secrets.ISSUE_NOTIFICATION_EMAIL }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -201,6 +203,12 @@ jobs:
       - run: echo "$GITHUB_WORKSPACE/node_modules/.bin" >> "$GITHUB_PATH"
       - run: alchemy provider check-env --provider Cloudflare
         working-directory: infra
+      - name: Require ISSUE_NOTIFICATION_EMAIL
+        run: |
+          if [ -z "$ISSUE_NOTIFICATION_EMAIL" ]; then
+            echo "::error::ISSUE_NOTIFICATION_EMAIL is not set: stage test-ci declares the volume alert (infra/src/alerts.ts). Set the repository secret: docs/spin-up.md, step 9."
+            exit 1
+          fi
       - run: bun run test:cloud
       - if: contains(github.event.pull_request.labels.*.name, 'alchemy-upgrade')
         working-directory: infra

@@ -46,6 +46,7 @@ jobs:
       CLOUDFLARE_WORKERS_SUBDOMAIN: ${{ vars.CLOUDFLARE_WORKERS_SUBDOMAIN }}
       CUSTOM_DOMAIN: ${{ vars.CUSTOM_DOMAIN }}
       STACK_NAME: ${{ vars.STACK_NAME }}
+      ISSUE_NOTIFICATION_EMAIL: ${{ secrets.ISSUE_NOTIFICATION_EMAIL }}
     steps:
       - name: Record the request
         run: |
@@ -109,6 +110,12 @@ jobs:
           } >> "$GITHUB_ENV"
       - run: alchemy provider check-env --provider Cloudflare
         working-directory: infra
+      - name: Require ISSUE_NOTIFICATION_EMAIL
+        run: |
+          if [ -z "$ISSUE_NOTIFICATION_EMAIL" ]; then
+            echo "::error::ISSUE_NOTIFICATION_EMAIL is not set: stage prod declares the volume alert (infra/src/alerts.ts). Set the repository secret: docs/spin-up.md, step 9."
+            exit 1
+          fi
       - run: alchemy state list
         working-directory: infra
       # Recompute the plan at the held commit: a different fingerprint exits non-zero printing both
