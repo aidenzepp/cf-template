@@ -23,6 +23,8 @@
     "mirrors": "bun tools/mirrors/mirror.ts",
     "alchemy": "ALCHEMY_TELEMETRY_DISABLED=1 alchemy",
     "settings": "ALCHEMY_TELEMETRY_DISABLED=1 bun infra/stacks/settings.ts",
+    "bootstrap": "bun run settings && bun run credentials --profile admin",
+    "credentials": "bun infra/src/credentials.ts",
     "test": "bun test .test.mjs && vp test --project '!e2e-local'",
     "test:browser": "vp test --config vite.browser.config.ts",
     "test:cloud": "ALCHEMY_TEST_STAGE=test-ci vp test --config vite.cloud.config.ts",
