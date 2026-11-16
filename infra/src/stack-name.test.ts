@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect } from "effect";
 import { Digest } from "effect/crypto";
-import { STACK_NAME_MAX, base32Sha256 } from "../stages.ts";
+import { CLOUD_STAGE, STACK_NAME_MAX, base32Sha256 } from "../stages.ts";
 import { StackNameError, requiresStackNamePin, resolveStackName } from "./stack-name.ts";
 
 /**
@@ -110,10 +110,10 @@ describe("resolveStackName normalization", () => {
 });
 
 describe("requiresStackNamePin", () => {
-  it("requires the pin for prod, staging and test-ci only", () => {
+  it("requires the pin for prod, staging and the cloud stage only", () => {
     assert.isTrue(requiresStackNamePin("prod"));
     assert.isTrue(requiresStackNamePin("staging-3"));
-    assert.isTrue(requiresStackNamePin("test-ci"));
+    assert.isTrue(requiresStackNamePin(CLOUD_STAGE));
     assert.isFalse(requiresStackNamePin("test-abc"));
     assert.isFalse(requiresStackNamePin("dev"));
   });
