@@ -348,8 +348,9 @@ export const failOnDrift = (differences: number) =>
       );
 
 /**
- * The standalone `--check`: refuse ambient credentials, resolve the repository, guard on admin
- * access, print every difference and fail when there is any. It never writes.
+ * The standalone `--check`: refuse ambient credentials, resolve the repository, print the
+ * `target: owner/repo` line, guard on admin access, print every difference and fail when there is
+ * any. It never writes.
  *
  * @returns Nothing when live state is clean, else a {@link DriftError}.
  */
@@ -357,6 +358,9 @@ export const checkSettings = Effect.gen(function* checkRun() {
   yield* refuseAmbientCredentials();
 
   const { owner, repo } = yield* resolveRepository();
+
+  yield* Console.log(`target: ${owner}/${repo}`);
+
   const repository = yield* guardAdmin({ owner, repo });
 
   yield* failOnDrift(yield* reportDrift(repository, "check"));
