@@ -54,7 +54,7 @@ const HEIGHT = 900;
  */
 interface Finding {
   readonly element: string;
-  readonly rule: "color" | "spacing" | "scroll" | "target";
+  readonly rule: "color" | "spacing" | "radius" | "scroll" | "target";
   readonly value: string;
 }
 
@@ -67,11 +67,13 @@ interface Audit {
 }
 
 /**
- * What the in-page audit reads: the theme colors of both themes and the spacing steps.
+ * What the in-page audit reads: the theme colors of both themes, the theme's radius token values
+ * as CSS text, and the spacing steps.
  */
 interface AuditInput {
   readonly dark: ReadonlyArray<string>;
   readonly light: ReadonlyArray<string>;
+  readonly radii: ReadonlyArray<string>;
   readonly steps: ReadonlyArray<number>;
 }
 
@@ -102,6 +104,29 @@ const themeColors = (text: string) => {
     light: entries.filter(({ name }) => !name.endsWith("-dark")).map(({ value }) => value),
   };
 };
+
+/**
+ * A `--radius-*` token declaration of the theme block of `globals.css`: `--radius-sm: ...;`. The
+ * `:root` base `--radius` has no step name, so it does not match.
+ */
+const RADIUS_TOKEN = /--radius-[\w-]+:\s*(?<value>[^;]+);/gu;
+
+/**
+ * The values of the radius tokens (`--radius-sm` to `--radius-4xl`) that the Tailwind theme block
+ * of `packages/ui/src/styles/globals.css` declares, as CSS text such as `calc(var(--radius) *
+ * 0.6)`. The audit reads this file, not the `rounded:` block of `DESIGN.md`, because the
+ * generator leaves `--radius-lg` (`var(--radius)`) out of that block. The page resolves each value
+ * against its own `--radius`, so the audit never repeats the theme's arithmetic.
+ *
+ * @param css - The text of `globals.css`.
+ * @returns The value of each radius token, in declaration order.
+ */
+const themeRadii = (css: string): ReadonlyArray<string> =>
+  [...css.matchAll(RADIUS_TOKEN)].flatMap(({ groups }) => {
+    const { value = "" } = groups ?? {};
+
+    return value.trim() === "" ? [] : [value.trim()];
+  });
 
 // The DOM the in-page audit reads, declared here rather than through the `dom` lib: the lib would
 // change the global types of every file the root `tsconfig.json` checks.
@@ -147,6 +172,14 @@ interface Element {
 }
 
 /**
+ * A `div` the in-page audit creates to let the page resolve a CSS value.
+ */
+interface Probe extends Element {
+  readonly remove: () => void;
+  readonly style: { cssText: string };
+}
+
+/**
  * The part of a computed style the in-page audit reads.
  */
 interface Style {
@@ -166,9 +199,11 @@ interface Style {
 
 declare const document: {
   readonly body: Element & {
+    readonly append: (child: Probe) => void;
     readonly insertAdjacentHTML: (position: "beforeend", html: string) => void;
     readonly querySelectorAll: (selector: string) => Iterable<Element>;
   };
+  readonly createElement: (tag: "div") => Probe;
   readonly documentElement: Element & {
     readonly clientWidth: number;
     readonly scrollWidth: number;
@@ -403,6 +438,80 @@ const offSetSpacing = (element: Element, steps: ReadonlyArray<number>): Readonly
 };
 
 /**
+ * The pixel value of each radius token, as the page computes it. A probe element takes each token
+ * value (`calc(var(--radius) * 0.6)`, `var(--radius)`), so `--radius` resolves as it does for a
+ * real element and the numbers match what Chromium computes for `rounded-sm` to `rounded-4xl`.
+ *
+ * @param values - The radius token values, as CSS text.
+ * @returns The value of each token in CSS px.
+ */
+const radiusSteps = (values: ReadonlyArray<string>): ReadonlyArray<number> => {
+  const probe = document.createElement("div");
+
+  document.body.append(probe);
+
+  const steps = values.map((value) => {
+    probe.style.cssText = `border-top-left-radius: ${value}`;
+
+    return pixels(getComputedStyle(probe).getPropertyValue("border-top-left-radius"));
+  });
+
+  probe.remove();
+
+  return steps;
+};
+
+/**
+ * Whether one computed radius, the horizontal or vertical half of a corner, is tokened: `0`, a
+ * token value, or at least the element's longer side, which only a pill or circle reaches
+ * (`rounded-full` computes to `3.35544e+07px` in Chromium, which `Number` reads). A percentage
+ * cannot be compared with a token, so `50%` or more counts as full-round, as does `0%`, and any
+ * other percentage is not tokened. A value that is not a number is not tokened.
+ *
+ * @param radius - The computed radius, in px or `%`.
+ * @param steps - The pixel value of each radius token.
+ * @param longer - The longer side of the element's box, in CSS px.
+ * @returns True when the radius is tokened.
+ */
+const isTokenedRadius = (radius: string, steps: ReadonlyArray<number>, longer: number): boolean => {
+  if (radius.endsWith("%")) {
+    const percent = Number(radius.slice(0, -1));
+
+    return percent === 0 || percent >= 50;
+  }
+
+  const px = pixels(radius);
+
+  return px === 0 || px >= longer || steps.some((step) => Math.abs(px - step) < 0.005);
+};
+
+/**
+ * The corners of an element whose computed radius is not tokened.
+ *
+ * @param element - The element.
+ * @param steps - The pixel value of each radius token.
+ * @returns Each offending property and computed value.
+ */
+const offTokenRadii = (element: Element, steps: ReadonlyArray<number>): ReadonlyArray<string> => {
+  const style = getComputedStyle(element);
+  const box = element.getBoundingClientRect();
+  const longer = Math.max(box.width, box.height);
+
+  return ["top-left", "top-right", "bottom-right", "bottom-left"].flatMap((corner) => {
+    const property = `border-${corner}-radius`;
+    const value = style.getPropertyValue(property);
+
+    // A corner computes to one radius, or two for an elliptical corner: horizontal, then vertical.
+    return value
+      .trim()
+      .split(/\s+/u)
+      .every((radius) => isTokenedRadius(radius, steps, longer))
+      ? []
+      : [`${property} ${value}`];
+  });
+};
+
+/**
  * Sideways scroll: each element that ends past the viewport while its parent does not, or the
  * document when no element does.
  *
@@ -526,7 +635,7 @@ const targetFindings = (elements: ReadonlyArray<Element>): ReadonlyArray<Finding
 /**
  * The audit of the visible elements of the page at the current viewport width.
  *
- * @param input - The theme colors and the spacing steps.
+ * @param input - The theme colors, the radius token values and the spacing steps.
  * @returns What the visible elements broke.
  */
 const auditInPage = (input: AuditInput): ReadonlyArray<Finding> => {
@@ -538,6 +647,8 @@ const auditInPage = (input: AuditInput): ReadonlyArray<Finding> => {
     return lab === undefined ? [] : [lab];
   });
 
+  const radii = radiusSteps(input.radii);
+
   const elements = [document.body, ...document.body.querySelectorAll("*")].filter(
     (element) =>
       element.checkVisibility({ visibilityProperty: true }) && element.getClientRects().length > 0,
@@ -546,6 +657,7 @@ const auditInPage = (input: AuditInput): ReadonlyArray<Finding> => {
   const styled = elements.flatMap((element): ReadonlyArray<Finding> => {
     const untokened = paintsOf(element).filter(([, value]) => !isTokened(value, theme));
     const offSet = offSetSpacing(element, input.steps);
+    const offRadii = offTokenRadii(element, radii);
 
     return [
       ...(untokened.length > 0
@@ -559,6 +671,9 @@ const auditInPage = (input: AuditInput): ReadonlyArray<Finding> => {
         : []),
       ...(offSet.length > 0
         ? [{ element: nameOf(element), rule: "spacing" as const, value: offSet.join("; ") }]
+        : []),
+      ...(offRadii.length > 0
+        ? [{ element: nameOf(element), rule: "radius" as const, value: offRadii.join("; ") }]
         : []),
     ];
   });
@@ -579,6 +694,9 @@ const IN_PAGE = [
   isTokened,
   paintsOf,
   offSetSpacing,
+  radiusSteps,
+  isTokenedRadius,
+  offTokenRadii,
   scrollFindings,
   isCrowded,
   targetFindings,
@@ -588,7 +706,7 @@ const IN_PAGE = [
 /**
  * The script `page.evaluate` runs: the in-page functions, declared by name, then the audit.
  *
- * @param input - The theme colors and the spacing steps.
+ * @param input - The theme colors, the radius token values and the spacing steps.
  * @returns The script.
  */
 const inPageScript = (input: AuditInput) =>
@@ -627,6 +745,14 @@ const audit = Effect.fn("audit")(function* audit(
     return yield* Effect.die("tailwindcss/theme.css has no `--spacing` unit in rem.");
   }
 
+  const radii = themeRadii(
+    yield* fs.readFileString(path.join(root, "packages", "ui", "src", "styles", "globals.css")),
+  );
+
+  if (radii.length === 0) {
+    return yield* Effect.die("globals.css declares no `--radius-*` token.");
+  }
+
   const isPath = target.startsWith("/");
   const { origin } = isPath ? yield* Harness : { origin: "" };
 
@@ -663,7 +789,7 @@ const audit = Effect.fn("audit")(function* audit(
       );
     }
 
-    const input: AuditInput = { ...colors, steps };
+    const input: AuditInput = { ...colors, radii, steps };
     const seen = new Map<string, Finding>();
 
     for (const width of WIDTHS) {
