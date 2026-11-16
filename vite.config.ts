@@ -191,6 +191,8 @@ export default defineConfig({
       "apps/auth/src/db/schema.ts",
       "**/migrations/**",
       "bun.lock",
+      // release-please writes CHANGELOG.md in its own style on every release PR (#383).
+      "CHANGELOG.md",
       "oxlint-suppressions.json",
       "tools/lint/fixtures/**",
       "tools/ratchet/fixtures/**",
