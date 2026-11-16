@@ -1,9 +1,19 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
+import { CLOUD_STAGE } from "../stages.ts";
 import { TestStageRefused, decideTestStage } from "./test-stage.ts";
 
 describe("test-stage guard", () => {
-  for (const stage of ["prod", "staging-1", "test-ci", "dev", "test-", "Test-x", "test-a_b", ""]) {
+  for (const stage of [
+    "prod",
+    "staging-1",
+    CLOUD_STAGE,
+    "dev",
+    "test-",
+    "Test-x",
+    "test-a_b",
+    "",
+  ]) {
     it.effect(`refuses stage ${JSON.stringify(stage)}`, () =>
       Effect.gen(function* refused() {
         const failure = yield* Effect.flip(decideTestStage("deploy", stage));
