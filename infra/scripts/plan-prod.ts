@@ -183,7 +183,10 @@ const classify = (rows: ReadonlyArray<PlanRow>): ReadonlyArray<ClassifiedRow> =>
 
 /**
  * The digest of the blocking rows: `sha256` over their `fqn`, `resourceType` and `action`, one
- * tab-separated line per row, sorted, joined by newlines, hex-encoded.
+ * tab-separated line per row, sorted, joined by newlines, hex-encoded. With no blocking rows the
+ * digest is the `sha256` of empty input,
+ * `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`; a plan with no rows (which is
+ * held, see {@link EMPTY_PLAN_NOTE}) hashes the same.
  *
  * @param rows - The classified rows.
  * @returns The lowercase hex digest.
@@ -249,9 +252,30 @@ export const verdictOf = Effect.fn("planProd.verdictOf")(function* verdictOf(
 });
 
 /**
+ * The characters of a plan value that can change the Markdown around it: the backtick that ends a
+ * code span, `|` that ends a table cell, `@` that mentions a user, `<` and `>` that open and close
+ * an HTML comment such as the hidden marker of the sticky PR comment, and the carriage return and
+ * line feed that end the table row.
+ */
+const MARKDOWN_BREAKOUT = /[`|@<>\r\n]/gu;
+
+/**
+ * Strip from a plan value every character in {@link MARKDOWN_BREAKOUT}, so the value renders as
+ * plain text inside a code span in one table cell. The characters are stripped, not escaped: an
+ * escape inside a code span prints its backslash, and stripping `<` and `>` keeps the comment
+ * marker out whatever its spelling. Only the rendering changes; the classifier and the fingerprint
+ * read the raw `fqn` and `resourceType`.
+ *
+ * @param value - An `fqn` or `resourceType` from a plan row.
+ * @returns The value without the characters that can break out of the cell or mention anyone.
+ */
+const inert = (value: string): string => value.replaceAll(MARKDOWN_BREAKOUT, "");
+
+/**
  * Render the summary: the verdict line, one table row per planned resource (`fqn`,
- * `resourceType`, `action`, `class`), then the classifier's notes. The job summary and the PR
- * comment both print this text.
+ * `resourceType`, `action`, `class`), then the classifier's notes. The job summary, the PR
+ * comment and the `PLAN_SUMMARY_FILE` sink all carry this text. The `fqn` and `resourceType` of
+ * every row pass through {@link inert}, in the table and in the notes.
  *
  * @param verdict - The classified plan.
  * @returns The Markdown summary.
@@ -259,13 +283,13 @@ export const verdictOf = Effect.fn("planProd.verdictOf")(function* verdictOf(
 export const renderSummary = (verdict: Verdict): string => {
   const table = verdict.rows.map(
     ({ class: rowClass, row }) =>
-      `| \`${row.fqn}\` | \`${row.resourceType}\` | ${row.action} | ${rowClass} |`,
+      `| \`${inert(row.fqn)}\` | \`${inert(row.resourceType)}\` | ${row.action} | ${rowClass} |`,
   );
 
   const notes = verdict.rows.flatMap(({ note, row }) =>
     Option.match(note, {
       onNone: () => [],
-      onSome: (text) => [`- \`${row.fqn}\` (${row.action}): ${text}`],
+      onSome: (text) => [`- \`${inert(row.fqn)}\` (${row.action}): ${text}`],
     }),
   );
 
@@ -307,7 +331,9 @@ const parseArgs = (args: ReadonlyArray<string>) => {
 };
 
 /**
- * Refuse a recomputed plan whose fingerprint differs from the one `prod.yml` held.
+ * Refuse a recomputed plan whose fingerprint differs from the one `prod.yml` held. A held plan that
+ * no longer blocks recomputes to the digest of empty input (see `fingerprint`), which the message
+ * prints as the recomputed value.
  *
  * @param verdict - The recomputed verdict.
  * @param expected - The digest from `--fingerprint`, when given.
@@ -324,7 +350,9 @@ export const checkFingerprint = (verdict: Verdict, expected: Option.Option<strin
 
 /**
  * Write the summary to `$GITHUB_STEP_SUMMARY` and both outputs to `$GITHUB_OUTPUT` in one append,
- * or print them when the variables are unset (a local run).
+ * or print them when the variables are unset (a local run). When `PLAN_SUMMARY_FILE` is set, the
+ * same summary text is also written to that path, replacing the file, before the outputs, so a
+ * failed write leaves neither output. Unset, nothing else is written.
  *
  * @param verdict - The checked verdict.
  * @returns Nothing; fails when a file cannot be written.
@@ -332,6 +360,7 @@ export const checkFingerprint = (verdict: Verdict, expected: Option.Option<strin
 const report = Effect.fn("planProd.report")(function* report(verdict: Verdict) {
   const fs = yield* FileSystem.FileSystem;
   const summaryPath = yield* Config.option(Config.String("GITHUB_STEP_SUMMARY"));
+  const summaryFile = yield* Config.option(Config.String("PLAN_SUMMARY_FILE"));
   const outputPath = yield* Config.option(Config.String("GITHUB_OUTPUT"));
   const summary = renderSummary(verdict);
   const outputs = `destructive=${String(verdict.destructive)}\nfingerprint=${verdict.fingerprint}\n`;
@@ -339,6 +368,11 @@ const report = Effect.fn("planProd.report")(function* report(verdict: Verdict) {
   yield* Option.match(summaryPath, {
     onNone: () => Console.log(summary),
     onSome: (path) => fs.writeFileString(path, summary, { flag: "a" }),
+  });
+
+  yield* Option.match(summaryFile, {
+    onNone: () => Effect.void,
+    onSome: (path) => fs.writeFileString(path, summary),
   });
 
   yield* Option.match(outputPath, {

@@ -80,6 +80,15 @@ const normalizeTestStage = Effect.fn("normalizeTestStage")(function* normalizeTe
 });
 
 /**
+ * The one stage `test:cloud` deploys: fixed, serialized, and kept in the project state store.
+ *
+ * It is declared without a type annotation so its literal type is assignable to {@link StageName};
+ * an annotation of `StageName` would be circular, because {@link Stage} reads this constant.
+ * `package.json` and the workflows cannot import it, so tests compare their spellings of it.
+ */
+export const CLOUD_STAGE = "test-ci";
+
+/**
  * The stage name, decoded from `stack.stage` before any resource is declared.
  *
  * It is `prod`, `staging-<N>` of at most six digits, `test-ci`, `test-<slug>` with a slug of
@@ -88,7 +97,7 @@ const normalizeTestStage = Effect.fn("normalizeTestStage")(function* normalizeTe
  * `_` and `dev-<user>` are rejected.
  */
 export const Stage = Schema.Union([
-  Schema.Literals(["prod", "dev", "test-ci"]),
+  Schema.Literals(["prod", "dev", CLOUD_STAGE]),
   Schema.String.check(
     Schema.isPattern(new RegExp(`^staging-[0-9]{1,${STAGING_DIGITS_MAX}}$`, "u")),
   ),
@@ -150,7 +159,7 @@ const LONGEST_WORKER = Math.max(...Workers.map((worker) => worker.length));
 export const LONGEST_STAGE = Math.max(
   "prod".length,
   "dev".length,
-  "test-ci".length,
+  CLOUD_STAGE.length,
   "staging-".length + STAGING_DIGITS_MAX,
   "test-".length + TEST_SLUG_MAX,
 );

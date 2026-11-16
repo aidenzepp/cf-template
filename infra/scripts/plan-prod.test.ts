@@ -44,6 +44,11 @@ const worker = (action: "replace" | "update", removed: boolean) => ({
   resourceType: "Cloudflare.Worker",
 });
 
+/**
+ * The `sha256` of empty input, the fingerprint of a plan with no blocking rows.
+ */
+const EMPTY_INPUT_DIGEST = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
 describe("plan-prod classifier", () => {
   it.effect("reads an all-noop plan as not destructive", () =>
     Effect.gen(function* allNoop() {
@@ -227,13 +232,111 @@ describe("plan-prod classifier", () => {
       assert.include(error.message, verdict.fingerprint);
     }),
   );
+
+  it.effect("fingerprints a plan with no blocking rows as the digest of empty input", () =>
+    Effect.gen(function* emptyDigest() {
+      const noop = yield* verdictOfFixture("all-noop");
+      const empty = yield* verdictOf([]);
+
+      assert.strictEqual(noop.fingerprint, EMPTY_INPUT_DIGEST);
+      assert.strictEqual(empty.fingerprint, EMPTY_INPUT_DIGEST);
+    }),
+  );
+});
+
+/**
+ * The hidden marker the sticky `infra-plan` pull request comment is found by.
+ */
+const COMMENT_MARKER = "<!-- infra-plan -->";
+
+/**
+ * A name that carries a backtick, a mention, a newline, a carriage return, a table pipe and the
+ * comment marker.
+ */
+const HOSTILE_NAME = `a\`b @octocat\nc${COMMENT_MARKER}|d\r`;
+
+/**
+ * What {@link HOSTILE_NAME} renders as: every breakout character stripped.
+ */
+const HOSTILE_NAME_INERT = "ab octocatc!-- infra-plan --d";
+
+/**
+ * One planned row with no bindings.
+ */
+const planned = (fqn: string, resourceType: string, action: "replace" | "update") => ({
+  action,
+  bindings: [],
+  fqn,
+  logicalId: fqn,
+  resourceType,
+});
+
+/**
+ * Count the non-overlapping occurrences of `mark` in `text`.
+ */
+const occurrences = (text: string, mark: string) => text.split(mark).length - 1;
+
+describe("plan-prod summary rendering", () => {
+  it.effect("renders a name with a backtick, a mention, a newline and the marker inert", () =>
+    Effect.gen(function* inertNames() {
+      const hostile = yield* verdictOf([
+        planned(HOSTILE_NAME, "Cloudflare.D1Database", "replace"),
+        planned("Other", HOSTILE_NAME, "update"),
+      ]);
+
+      const plain = yield* verdictOf([
+        planned("AppDb", "Cloudflare.D1Database", "replace"),
+        planned("Other", "Cloudflare.Custom", "update"),
+      ]);
+
+      const text = renderSummary(hostile);
+      const lines = text.split("\n");
+
+      assert.notInclude(text, COMMENT_MARKER);
+      assert.notInclude(text, "@");
+      assert.notInclude(text, "\r");
+      assert.strictEqual(lines.length, renderSummary(plain).split("\n").length);
+
+      assert.include(
+        lines,
+        `| \`${HOSTILE_NAME_INERT}\` | \`Cloudflare.D1Database\` | replace | blocking |`,
+      );
+      assert.include(lines, `| \`Other\` | \`${HOSTILE_NAME_INERT}\` | update | info |`);
+      assert.include(lines, `- \`${HOSTILE_NAME_INERT}\` (replace): ${D1_REPLACE_NOTE}`);
+
+      for (const line of lines.filter((entry) => entry.startsWith("| `"))) {
+        assert.strictEqual(occurrences(line, "|"), 5);
+        assert.strictEqual(occurrences(line, "`"), 4);
+      }
+
+      for (const line of lines.filter((entry) => entry.startsWith("- `"))) {
+        assert.strictEqual(occurrences(line.slice(0, line.indexOf(" (")), "`"), 2);
+      }
+    }),
+  );
+
+  it.effect("leaves the fingerprint on the raw names", () =>
+    Effect.gen(function* rawFingerprint() {
+      const hostile = yield* verdictOf([planned(HOSTILE_NAME, "Cloudflare.D1Database", "replace")]);
+
+      const stripped = yield* verdictOf([
+        planned(HOSTILE_NAME_INERT, "Cloudflare.D1Database", "replace"),
+      ]);
+
+      assert.notStrictEqual(hostile.fingerprint, stripped.fingerprint);
+    }),
+  );
 });
 
 /**
  * Decode a fixture and run `decide` on it, as the script does, against a file system that
- * records every write.
+ * records every write. `settings` adds to the two GitHub variables the script always reads.
  */
-const decideRecording = (name: string, expected: Option.Option<string>) =>
+const decideRecording = (
+  name: string,
+  expected: Option.Option<string>,
+  settings: Readonly<Record<string, string>> = {},
+) =>
   Effect.gen(function* run() {
     const writes = yield* Ref.make<ReadonlyArray<readonly [string, string]>>([]);
 
@@ -246,7 +349,11 @@ const decideRecording = (name: string, expected: Option.Option<string>) =>
     });
 
     const config = ConfigProvider.layer(
-      ConfigProvider.fromUnknown({ GITHUB_OUTPUT: "out", GITHUB_STEP_SUMMARY: "summary" }),
+      ConfigProvider.fromUnknown({
+        GITHUB_OUTPUT: "out",
+        GITHUB_STEP_SUMMARY: "summary",
+        ...settings,
+      }),
     );
 
     const text = yield* fixture(name);
@@ -287,6 +394,47 @@ describe("plan-prod outputs", () => {
 
       assert.isTrue(result._tag === "Failure");
       assert.deepStrictEqual(writes, []);
+    }),
+  );
+
+  it.effect("writes the summary text to PLAN_SUMMARY_FILE when it is set", () =>
+    Effect.gen(function* summaryFile() {
+      const expected = renderSummary(yield* verdictOfFixture("d1-replace"));
+
+      const { writes } = yield* decideRecording("d1-replace", Option.none(), {
+        PLAN_SUMMARY_FILE: "plan-summary.md",
+      });
+
+      assert.deepStrictEqual(
+        writes.filter(([path]) => path === "plan-summary.md"),
+        [["plan-summary.md", expected]],
+      );
+
+      assert.deepStrictEqual(writes.find(([path]) => path === "summary")?.[1], expected);
+      assert.include(expected, D1_REPLACE_NOTE);
+    }),
+  );
+
+  it.effect("writes only the job summary and the outputs when PLAN_SUMMARY_FILE is unset", () =>
+    Effect.gen(function* summaryFileUnset() {
+      const { writes } = yield* decideRecording("d1-replace", Option.none());
+
+      assert.deepStrictEqual(
+        writes.map(([path]) => path),
+        ["summary", "out"],
+      );
+    }),
+  );
+
+  it.effect("writes no summary file when the plan does not decode or is stale", () =>
+    Effect.gen(function* summaryFileOnFailure() {
+      const settings = { PLAN_SUMMARY_FILE: "plan-summary.md" };
+      const undecodable = yield* decideRecording("unknown-action", Option.none(), settings);
+
+      const stale = yield* decideRecording("kv-delete", Option.some("0".repeat(64)), settings);
+
+      assert.deepStrictEqual(undecodable.writes, []);
+      assert.deepStrictEqual(stale.writes, []);
     }),
   );
 });
