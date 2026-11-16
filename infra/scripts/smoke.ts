@@ -150,6 +150,21 @@ const expect = (ok: boolean, message: string) =>
   ok ? Effect.void : Effect.fail(new SmokeFailed({ message, worker: "auth" }));
 
 /**
+ * Wait until a freshly deployed stage serves `GET /auth/ok` with 200 through its public origin,
+ * retrying a 404, a 5xx or a transport error under {@link retrySchedule}. A Worker route can answer
+ * 404 for a short while after its create, so anything that calls a new stage waits on this first.
+ *
+ * @param origin - The public origin of the stage, without a trailing slash.
+ * @returns Nothing once `/auth/ok` answers 200, or a {@link SmokeFailed} naming the last status.
+ */
+export const awaitAuthReady = Effect.fn("smoke.awaitAuthReady")(function* awaitAuthReady(
+  origin: string,
+) {
+  const ok = yield* sendRetrying({ used: 0 }, HttpClientRequest.get(`${origin}/auth/ok`));
+  yield* expect(ok.status === 200, `GET /auth/ok answered ${ok.status}, expected 200.`);
+});
+
+/**
  * Check a deployed stage over HTTP: `/auth/ok` answers 200, `/auth/get-session` answers 200 `null`,
  * each listed provider's sign-in returns `prod`'s callback as `redirect_uri` (the OAuth proxy), and
  * the absent provider answers 404 `PROVIDER_NOT_FOUND`. Requests to `credential` routes stay within
@@ -170,8 +185,7 @@ export const runSmoke = Effect.fn("smoke.run")(function* runSmoke(target: SmokeT
       ),
     );
 
-  const ok = yield* sendRetrying(budget, HttpClientRequest.get(at("/auth/ok")));
-  yield* expect(ok.status === 200, `GET /auth/ok answered ${ok.status}, expected 200.`);
+  yield* awaitAuthReady(target.origin);
 
   const session = yield* sendRetrying(budget, HttpClientRequest.get(at("/auth/get-session")));
   yield* expect(
