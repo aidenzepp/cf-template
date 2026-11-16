@@ -1,3 +1,5 @@
+import { CLOUD_STAGE } from "../stages.ts";
+
 /**
  * The name the stack program passes to `Alchemy.Stack`, which is the `stack` key of every record
  * Alchemy keeps. It is not the project stack name that names the state store's Worker. A reader of
@@ -16,4 +18,4 @@ export const STATE_STACK = "app";
  * @returns `true` for a stage that uses the project store.
  */
 export const usesProjectState = (stage: string): boolean =>
-  stage === "prod" || stage === "test-ci" || stage.startsWith("staging-");
+  stage === "prod" || stage === CLOUD_STAGE || stage.startsWith("staging-");

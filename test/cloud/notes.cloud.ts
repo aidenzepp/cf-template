@@ -6,12 +6,7 @@ import { Digest } from "effect/crypto";
 import { retryPlatformNotFound } from "../../infra/scripts/smoke.ts";
 import { publicOrigin } from "../../infra/src/origin.ts";
 import { resolveStackName } from "../../infra/src/stack-name.ts";
-import { Stage } from "../../infra/stages.ts";
-
-/**
- * The only stage the cloud suite deploys.
- */
-const CLOUD_STAGE = "test-ci";
+import { CLOUD_STAGE, Stage } from "../../infra/stages.ts";
 
 /**
  * The password of the throwaway user, long enough for Better Auth's minimum.

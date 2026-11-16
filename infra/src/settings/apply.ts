@@ -30,9 +30,10 @@ export type Declare<E, R> = (
 ) => Effect.Effect<number, E, R>;
 
 /**
- * Refuse ambient provider credentials, resolve the repository, guard on admin access, detect the
- * tier, converge the provider resources with the guarded token, run the REST calls the provider
- * does not cover, and print the one report line. Nothing is written before the guard passes.
+ * Refuse ambient provider credentials, resolve the repository, print the `target: owner/repo` line,
+ * guard on admin access, detect the tier, converge the provider resources with the guarded token,
+ * run the REST calls the provider does not cover, and print the one report line. Nothing is written
+ * before the guard passes.
  *
  * @param declare - Converges the provider resources; the real one is `applyDeclaration`.
  * @returns The run.
@@ -42,6 +43,9 @@ export const applySettings = <E, R>(declare: Declare<E, R>) =>
     yield* refuseAmbientCredentials();
 
     const { owner, repo } = yield* resolveRepository();
+
+    yield* Console.log(`target: ${owner}/${repo}`);
+
     const repository = yield* guardAdmin({ owner, repo });
     const token = yield* githubToken;
     const secrets = yield* getJson(`/repos/${owner}/${repo}/actions/secrets`, SecretsResponse);

@@ -7,12 +7,7 @@ import { awaitAuthReady } from "../../infra/scripts/smoke.ts";
 import { APP_STACK_ENTRY } from "../../infra/src/app-stack.ts";
 import { publicOrigin } from "../../infra/src/origin.ts";
 import { resolveStackName } from "../../infra/src/stack-name.ts";
-import { Stage } from "../../infra/stages.ts";
-
-/**
- * The only stage `test:cloud` deploys: fixed, serialized, and kept in the project state store.
- */
-const CLOUD_STAGE = "test-ci";
+import { CLOUD_STAGE, Stage } from "../../infra/stages.ts";
 
 /**
  * The refusal to start the cloud suite, raised before any `alchemy` command runs.
