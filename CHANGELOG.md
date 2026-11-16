@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.1.2](https://github.com/aidenzepp/cf-template/compare/v0.1.1...v0.1.2) (2026-11-16)
+
+
+### Features
+
+* **infra:** write the prod plan summary to a file and render row names inert ([#416](https://github.com/aidenzepp/cf-template/issues/416)) ([7e9f273](https://github.com/aidenzepp/cf-template/commit/7e9f273fb98a874243a6c7e0e3507b25b3e12642))
+
+
+### Bug Fixes
+
+* **infra:** print the settings target before the admin guard ([#411](https://github.com/aidenzepp/cf-template/issues/411)) ([f69a253](https://github.com/aidenzepp/cf-template/commit/f69a2539a5a15fea06c62d72811915cc69b4db09))
+* **infra:** report already-gone label deletes apart from applied writes ([#413](https://github.com/aidenzepp/cf-template/issues/413)) ([f30dc79](https://github.com/aidenzepp/cf-template/commit/f30dc79c2857b22fc8a67e91976d4348ab54753e))
+* **infra:** retry the cloud stage deploy when a recreated stage is not ready ([#431](https://github.com/aidenzepp/cf-template/issues/431)) ([b55acd1](https://github.com/aidenzepp/cf-template/commit/b55acd1865879690d2fbf449bff6edd0d88c8b45))
+* **infra:** retry the platform's not-found page on a fresh stage ([#428](https://github.com/aidenzepp/cf-template/issues/428)) ([b4bf9d1](https://github.com/aidenzepp/cf-template/commit/b4bf9d145113c0fbb090d6c584d6225cb8e183c6))
+
 ## [0.1.1](https://github.com/aidenzepp/cf-template/compare/v0.1.0...v0.1.1) (2026-11-16)
 
 
