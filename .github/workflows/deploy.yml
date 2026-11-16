@@ -73,7 +73,9 @@ jobs:
   # The staging-<N> preview (#43 item 2): same-repository pull requests only, deploys on, no
   # alchemy-upgrade label, and either `closed` (the destroy), `merge-ready`, or a human author while
   # PREVIEW_ON is `every-push`. An unset PREVIEW_ON reads as `merge-ready`. On `closed` the checks
-  # are skipped, so the destroy does not wait on them.
+  # are skipped, so the destroy does not wait on them. Every other event deploys only while the pull
+  # request is open: a later `edited` or `labeled` event (release-please relabels a merged release
+  # PR) would otherwise redeploy the stage `closed` destroyed (#402).
   preview:
     needs: checks
     if: >-
@@ -83,6 +85,7 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       vars.CLOUDFLARE_DEPLOYS == 'true' &&
       !contains(github.event.pull_request.labels.*.name, 'alchemy-upgrade') &&
+      (github.event.action == 'closed' || github.event.pull_request.state == 'open') &&
       (github.event.action == 'closed' ||
         contains(github.event.pull_request.labels.*.name, 'merge-ready') ||
         (vars.PREVIEW_ON == 'every-push' && github.event.pull_request.user.type != 'Bot'))
@@ -182,6 +185,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request' &&
       github.event.action != 'closed' &&
+      github.event.pull_request.state == 'open' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       vars.CLOUDFLARE_DEPLOYS == 'true' &&
       contains(github.event.pull_request.labels.*.name, 'merge-ready') &&
