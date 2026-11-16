@@ -46,7 +46,17 @@ export default {
       sessionReads += 1;
       const mode = /(?:^|; )stub=([^;]*)/.exec(request.headers.get("cookie") ?? "")?.[1];
       if (mode === "throw") throw new Error("stub failure");
-      if (mode === "503") return new Response("down", { headers: { "retry-after": "7" }, status: 503 });
+      if (mode === "503") {
+        return new Response(
+          JSON.stringify({
+            retryAfterSeconds: 7,
+            status: 503,
+            title: "Sign-in service unavailable",
+            type: "/problems/auth-unavailable",
+          }),
+          { headers: { "content-type": "application/problem+json" }, status: 503 },
+        );
+      }
       if (mode === "401") return new Response("no", { status: 401 });
       if (mode === "bad") return Response.json({ nope: true });
       return Response.json(mode === "in" ? session : null);
@@ -357,7 +367,7 @@ const sessionState = (cookie: string, path = "/") =>
     const response = yield* web.request(path, { headers: { accept: "text/html", cookie } });
     const html = yield* text(response);
 
-    return { html, status: response.status };
+    return { html, retryAfter: response.headers.get("retry-after"), status: response.status };
   });
 
 layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
@@ -684,11 +694,12 @@ layer(WebProdLive, { timeout: 120_000 })("WebProd", (it) => {
     }),
   );
 
-  it.effect("answers a 503 session read with 503", () =>
+  it.effect("answers a 503 session read with 503 and the retry wait AuthUnavailable carries", () =>
     Effect.gen(function* unavailable() {
-      const { status } = yield* sessionState("stub=503");
+      const { retryAfter, status } = yield* sessionState("stub=503");
 
       expect(status).toBe(503);
+      expect(retryAfter).toBe("7");
     }),
   );
 
