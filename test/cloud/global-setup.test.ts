@@ -55,7 +55,9 @@ describe("the cloud setup deploy", () => {
     Effect.gen(function* succeeded() {
       const seen: Array<ReadonlyArray<string>> = [];
 
-      yield* deployOrDestroy("test-ci").pipe(Effect.provide(stubSpawner(seen, () => 0)));
+      yield* deployOrDestroy("test-ci", Effect.void).pipe(
+        Effect.provide(stubSpawner(seen, () => 0)),
+      );
 
       assert.deepStrictEqual(seen, [deploy]);
     }),
@@ -66,7 +68,7 @@ describe("the cloud setup deploy", () => {
       const seen: Array<ReadonlyArray<string>> = [];
 
       const error = yield* Effect.flip(
-        deployOrDestroy("test-ci").pipe(
+        deployOrDestroy("test-ci", Effect.void).pipe(
           Effect.provide(stubSpawner(seen, (phase) => (phase === "deploy" ? 1 : 0))),
         ),
       );
@@ -76,12 +78,27 @@ describe("the cloud setup deploy", () => {
     }),
   );
 
+  it.effect("destroys the stage when it deploys but never becomes ready", () =>
+    Effect.gen(function* notReady() {
+      const seen: Array<ReadonlyArray<string>> = [];
+
+      const error = yield* Effect.flip(
+        deployOrDestroy("test-ci", Effect.fail({ message: "GET /auth/ok answered 404" })).pipe(
+          Effect.provide(stubSpawner(seen, () => 0)),
+        ),
+      );
+
+      assert.deepStrictEqual(seen, [deploy, destroy]);
+      assert.strictEqual(error.message, "GET /auth/ok answered 404");
+    }),
+  );
+
   it.effect("returns the deploy's error when the cleanup destroy fails too", () =>
     Effect.gen(function* bothFailed() {
       const seen: Array<ReadonlyArray<string>> = [];
 
       const error = yield* Effect.flip(
-        deployOrDestroy("test-ci").pipe(Effect.provide(stubSpawner(seen, () => 1))),
+        deployOrDestroy("test-ci", Effect.void).pipe(Effect.provide(stubSpawner(seen, () => 1))),
       );
 
       assert.deepStrictEqual(seen, [deploy, destroy]);
