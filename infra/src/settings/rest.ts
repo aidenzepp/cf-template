@@ -28,9 +28,10 @@ export class RestSettingsError extends Schema.TaggedError<
 }) {}
 
 /**
- * The outcome of one call: the {@link RestSummary} counter it adds to.
+ * The outcome of one call: the {@link RestSummary} counter it adds to, or `gone` for a delete of
+ * something already gone, which adds to no counter and does not fail the run.
  */
-export type Kind = keyof RestSummary;
+export type Kind = keyof RestSummary | "gone";
 
 /**
  * A JSON request body.
@@ -91,23 +92,24 @@ interface Outcome {
 }
 
 /**
- * How {@link settle} reads a response: `gated` marks a tier-gated call, `goneIsApplied` counts 404
- * as applied, `phrases` adds message phrases that mean unavailable for this call alone.
+ * How {@link settle} reads a response: `gated` marks a tier-gated call, `allowGone` reads 404 as
+ * `gone`, `phrases` adds message phrases that mean unavailable for this call alone.
  */
 interface SettleOptions {
   readonly gated?: boolean;
-  readonly goneIsApplied?: boolean;
+  readonly allowGone?: boolean;
   readonly phrases?: ReadonlyArray<string>;
 }
 
 /**
- * Sort a response into an {@link Outcome}. 2xx applies; a 404 where `goneIsApplied` is set means
- * the thing is already gone; a 403 or 422 on a `gated` call whose message says the feature is not
- * offered ({@link PLAN_UNAVAILABLE}) is `unavailable`. Everything else is `failed` and carries the
- * response `message` (one line, 200 characters at most; never headers or the token).
+ * Sort a response into an {@link Outcome}. 2xx applies; a 404 where `allowGone` is set is `gone`:
+ * the thing was already deleted, so nothing was written and nothing failed; a 403 or 422 on a
+ * `gated` call whose message says the feature is not offered ({@link PLAN_UNAVAILABLE}) is
+ * `unavailable`. Everything else is `failed` and carries the response `message` (one line, 200
+ * characters at most; never headers or the token).
  *
  * @param response - The GitHub response.
- * @param options - `gated` marks a tier-gated call; `goneIsApplied` counts 404 as applied;
+ * @param options - `gated` marks a tier-gated call; `allowGone` reads 404 as `gone`;
  *   `phrases` adds message phrases that count as unavailable for this call alone.
  * @returns The outcome.
  */
@@ -117,8 +119,12 @@ const settle = Effect.fn("settle")(function* settle(
 ) {
   const { status } = response;
 
-  if ((status >= 200 && status < 300) || (options.goneIsApplied === true && status === 404)) {
+  if (status >= 200 && status < 300) {
     return { kind: "applied", status } satisfies Outcome;
+  }
+
+  if (options.allowGone === true && status === 404) {
+    return { kind: "gone", status } satisfies Outcome;
   }
 
   const { message = "" } = yield* HttpClientResponse.schemaBodyJson(
@@ -171,8 +177,8 @@ export const reportResponse = <E, R>(
   );
 
 /**
- * Total the outcomes of a run. Any failure ends the run in a {@link RestSettingsError} that carries
- * the same counts.
+ * Total the outcomes of a run. A `gone` outcome is in no count and does not fail the run. Any
+ * failure ends the run in a {@link RestSettingsError} that carries the same counts.
  *
  * @param kinds - One outcome per call.
  * @returns The counts, or a {@link RestSettingsError} when any call failed.
