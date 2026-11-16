@@ -266,13 +266,30 @@ describe("readDrift", () => {
 });
 
 describe("checkSettings", () => {
+  it.effect("prints the resolved target before the admin guard reads the repository", () =>
+    Effect.gen(function* targeted() {
+      const { lines, requests, run } = harness(() => checkSettings, PRO, state(), {
+        ...environment,
+        GITHUB_REPOSITORY: "o/r",
+      });
+
+      yield* Effect.flip(run);
+
+      assert.deepStrictEqual(lines, ["target: o/r"]);
+      assert.deepStrictEqual(
+        requests.map(({ call }) => call),
+        ["GET /repos/o/r"],
+      );
+    }),
+  );
+
   it.effect("exits clean and sends only GET requests", () =>
     Effect.gen(function* clean() {
       const { lines, requests, run } = harness(() => checkSettings, PRO, state(), environment);
 
       yield* run;
 
-      assert.deepStrictEqual(lines, ["check: clean"]);
+      assert.deepStrictEqual(lines, ["target: acme/widget", "check: clean"]);
       assert.isTrue(requests.every(({ call }) => call.startsWith("GET ")));
     }),
   );
@@ -290,7 +307,7 @@ describe("checkSettings", () => {
 
       assert.instanceOf(failure, DriftError);
       assert.include(lines, "UNDECLARED label sprint");
-      assert.strictEqual(lines.at(-1), `check: ${lines.length - 1} difference(s)`);
+      assert.strictEqual(lines.at(-1), `check: ${lines.length - 2} difference(s)`);
       assert.isTrue(requests.every(({ call }) => call.startsWith("GET ")));
     }),
   );
@@ -349,6 +366,7 @@ describe("applySettings check gate", () => {
       yield* run;
 
       assert.isTrue(declared.ran);
+      assert.strictEqual(lines[0], "target: acme/widget");
       assert.include(lines, "UNDECLARED label sprint");
       assert.include(lines, "check before apply: 1 difference(s)");
       assert.strictEqual(lines.at(-1), "check after apply: clean");
