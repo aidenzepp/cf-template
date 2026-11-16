@@ -11,10 +11,12 @@ import { withToken } from "./stack.ts";
  *
  * @param environment - The configuration entries; `GITHUB_TOKEN` and the repository are preset.
  * @param admin - The `permissions.admin` value the repository read returns.
- * @returns The run, the `METHOD path` of every request and the tokens `declare` received.
+ * @returns The run, the `METHOD path` of every request, the printed lines and the tokens `declare`
+ *   received.
  */
 const harness = (environment: Record<string, string>, admin: boolean) => {
   const calls: Array<string> = [];
+  const lines: Array<string> = [];
   const tokens: Array<string> = [];
 
   const client = Layer.succeed(
@@ -49,13 +51,39 @@ const harness = (environment: Record<string, string>, admin: boolean) => {
     }),
   ).pipe(
     Effect.provide([client, config]),
-    Effect.provideService(Console.Console, { ...globalThis.console, log: () => {} }),
+    Effect.provideService(Console.Console, {
+      ...globalThis.console,
+      log: (...args: ReadonlyArray<unknown>) => {
+        lines.push(args.join(" "));
+      },
+    }),
   );
 
-  return { calls, run, tokens };
+  return { calls, lines, run, tokens };
 };
 
 describe("applySettings", () => {
+  it.effect("prints the resolved target before the admin guard reads the repository", () =>
+    Effect.gen(function* targeted() {
+      const { calls, lines, run } = harness({ GITHUB_REPOSITORY: "o/r" }, true);
+
+      yield* Effect.flip(run);
+
+      assert.deepStrictEqual(lines, ["target: o/r"]);
+      assert.deepStrictEqual(calls, ["GET /repos/o/r"]);
+    }),
+  );
+
+  it.effect("prints the target first on a run that passes the guard", () =>
+    Effect.gen(function* passed() {
+      const { lines, run } = harness({}, true);
+
+      yield* Effect.ignore(run);
+
+      assert.strictEqual(lines[0], "target: acme/widget");
+    }),
+  );
+
   it.effect("stops at a failed guard before any provider or write call", () =>
     Effect.gen(function* guardFails() {
       const { calls, run, tokens } = harness({}, false);
