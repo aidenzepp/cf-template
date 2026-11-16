@@ -372,12 +372,24 @@ const destroyStage = Effect.fn("destroyStage")(function* destroyStage(stage: str
 });
 
 /**
- * Read the pull request state of a stage's number, or none on a `gh` error.
+ * Log why the sweep leaves a stage alone and answer an unknown pull request state.
+ */
+const skipStage = (stage: string, reason: string) =>
+  Effect.logWarning(`The sweep skips ${stage}: ${reason}`).pipe(Effect.as(Option.none<string>()));
+
+/**
+ * Read the pull request state of a stage's number, or none on a `gh` error. The error is logged as
+ * a warning, so a sweep that skips a stage for want of its state says why.
  */
 const readPrState = (stage: string) =>
   run("gh", ["pr", "view", stage.replace("staging-", ""), "--json", "state", "-q", ".state"]).pipe(
-    Effect.map(({ code, stdout }) => (code === 0 ? Option.some(stdout.trim()) : Option.none())),
-    Effect.orElseSucceed(() => Option.none<string>()),
+    Effect.matchEffect({
+      onFailure: (failure) => skipStage(stage, `gh pr view did not run: ${failure.message}`),
+      onSuccess: ({ code, stderr, stdout }) =>
+        code === 0
+          ? Effect.succeedSome(stdout.trim())
+          : skipStage(stage, `gh pr view exited ${code}: ${stderr.trim()}`),
+    }),
   );
 
 /**
