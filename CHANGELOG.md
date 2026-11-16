@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.1.1](https://github.com/aidenzepp/cf-template/compare/v0.1.0...v0.1.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* **infra:** deploy a preview only while its pull request is open ([#408](https://github.com/aidenzepp/cf-template/issues/408)) ([6b3f5e2](https://github.com/aidenzepp/cf-template/commit/6b3f5e270c200b5e8396193c7e3894faf5e70199))
+
 ## 0.1.0 (2026-11-16)
 
 
