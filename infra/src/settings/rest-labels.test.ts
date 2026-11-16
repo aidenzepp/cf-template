@@ -41,7 +41,7 @@ const noAnalysis =
   });
 
 describe("applyRestLabels", () => {
-  it.effect("deletes the seven default labels and treats a missing one as applied", () =>
+  it.effect("deletes the seven default labels and reports a missing one as gone, not applied", () =>
     Effect.gen(function* labels() {
       const { lines, requests, run } = harness(
         applyRestLabels,
@@ -49,7 +49,7 @@ describe("applyRestLabels", () => {
         noAnalysis(new Map([[`DELETE ${base}/labels/wontfix`, 404]])),
       );
 
-      yield* run;
+      const summary = yield* run;
 
       assert.deepStrictEqual(
         requests
@@ -57,7 +57,34 @@ describe("applyRestLabels", () => {
           .map((request) => request.call),
         DEFAULT_LABELS.map((label) => `DELETE ${base}/labels/${encodeURIComponent(label)}`),
       );
-      assert.include(lines, "applied delete-label wontfix 404");
+      assert.include(lines, "gone delete-label wontfix 404");
+      assert.notInclude(lines, "applied delete-label wontfix 404");
+      assert.strictEqual(summary.applied, 6);
+    }),
+  );
+
+  it.effect("reports seven already-gone default labels as gone and still succeeds", () =>
+    Effect.gen(function* allGone() {
+      const { lines, run } = harness(
+        applyRestLabels,
+        PRO,
+        noAnalysis(
+          new Map(
+            DEFAULT_LABELS.map((label): [string, number] => [
+              `DELETE ${base}/labels/${encodeURIComponent(label)}`,
+              404,
+            ]),
+          ),
+        ),
+      );
+
+      const summary = yield* run;
+
+      assert.deepStrictEqual(
+        lines.filter((line) => line.includes("delete-label")),
+        DEFAULT_LABELS.map((label) => `gone delete-label ${label} 404`),
+      );
+      assert.deepStrictEqual(summary, { applied: 0, failed: 0, unavailable: 0 });
     }),
   );
 

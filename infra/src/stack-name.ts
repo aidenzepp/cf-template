@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { Config, Effect, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { STACK_NAME_MAX, base32Sha256, kindOf } from "../stages.ts";
+import { CLOUD_STAGE, STACK_NAME_MAX, base32Sha256, kindOf } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 
 /**
@@ -175,4 +175,4 @@ export const resolveStackName = Effect.fn("resolveStackName")(
  * @returns True when the stage requires the pin.
  */
 export const requiresStackNamePin = (stage: StageName): boolean =>
-  kindOf(stage) === "prod" || kindOf(stage) === "staging" || stage === "test-ci";
+  kindOf(stage) === "prod" || kindOf(stage) === "staging" || stage === CLOUD_STAGE;

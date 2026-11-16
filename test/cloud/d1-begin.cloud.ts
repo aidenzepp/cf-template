@@ -2,6 +2,7 @@ import { BunHttpClient } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
 import { Config, Effect, Redacted, Schema } from "effect";
 import { HttpClient, HttpClientRequest } from "effect/http";
+import { CLOUD_STAGE } from "../../infra/stages.ts";
 
 /**
  * The slice of a D1 REST response these tests read.
@@ -60,10 +61,10 @@ const d1 = Effect.fn("d1")(function* d1(request: HttpClientRequest.HttpClientReq
 });
 
 // Runs only under `test:cloud`, with the scoped token of I-42.
-describe("the deployed test-ci D1", () => {
+describe(`the deployed ${CLOUD_STAGE} D1`, () => {
   it.effect("rejects a BEGIN statement", () =>
     Effect.gen(function* rejectsBegin() {
-      const list = yield* d1(HttpClientRequest.get("", { urlParams: { name: "test-ci" } }));
+      const list = yield* d1(HttpClientRequest.get("", { urlParams: { name: CLOUD_STAGE } }));
 
       const databases = yield* Schema.decodeUnknownEffect(
         Schema.Array(Schema.Struct({ uuid: Schema.String })),
@@ -71,7 +72,10 @@ describe("the deployed test-ci D1", () => {
 
       const uuid = databases[0]?.uuid;
 
-      assert.isDefined(uuid, `no D1 database named for test-ci was found (status ${list.status})`);
+      assert.isDefined(
+        uuid,
+        `no D1 database named for ${CLOUD_STAGE} was found (status ${list.status})`,
+      );
 
       const query = yield* d1(
         HttpClientRequest.post(`/${uuid}/query`).pipe(
