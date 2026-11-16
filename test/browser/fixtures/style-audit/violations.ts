@@ -16,6 +16,13 @@ export const VIOLATIONS = [
     rule: "color",
   },
   {
+    // 7 px is not a theme radius, and the 32 px square box is wider than 7 px, so the longer-side
+    // allowance of the full-round case does not apply.
+    html: '<div style="all: unset; display: block; width: 32px; height: 32px; border-radius: 7px"></div>',
+    name: "a 7 px radius",
+    rule: "radius",
+  },
+  {
     // A 300 px wide child, offset so it ends at 420 px: past a 390 px viewport, inside 1280 px.
     html: '<div style="all: unset; display: block; position: relative; left: 120px; width: 300px; height: 16px"></div>',
     name: "a 300 px wide child at 390 px",
