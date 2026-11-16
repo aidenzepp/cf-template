@@ -3,6 +3,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import { Cookies, HttpClient, HttpClientRequest } from "effect/http";
 import { Digest } from "effect/crypto";
+import { retryPlatformNotFound } from "../../infra/scripts/smoke.ts";
 import { publicOrigin } from "../../infra/src/origin.ts";
 import { resolveStackName } from "../../infra/src/stack-name.ts";
 import { CLOUD_STAGE, Stage } from "../../infra/stages.ts";
@@ -48,7 +49,9 @@ describe("the deployed notes flow", () => {
       Effect.gen(function* createsAndReadsNote() {
         const stage = yield* Schema.decodeEffect(Stage)(CLOUD_STAGE);
         const origin = yield* publicOrigin({ stack: yield* resolveStackName(), stage });
-        const client = yield* HttpClient.HttpClient;
+        // A fresh stage's edge can still answer the platform's not-found page after earlier
+        // correct answers; that page alone is retried, every application answer is asserted as is.
+        const client = retryPlatformNotFound(yield* HttpClient.HttpClient);
         const email = `notes-${crypto.randomUUID()}@example.test`;
 
         // A same-origin request passes the Origin check, so every call names the stage's origin.

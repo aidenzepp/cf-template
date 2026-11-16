@@ -1,8 +1,10 @@
 import { BunRuntime } from "@effect/platform-bun";
 import { Config, Console, Duration, Effect, Schedule, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientRequest } from "effect/http";
+import type { HttpClientResponse } from "effect/http";
 import { CREDENTIAL_ROUTES } from "@workspace/contract/domain/auth-endpoints";
 import { ProviderId } from "@workspace/config/auth-methods";
+import { FORWARD_PREFIXES } from "../../apps/web/src/forward-prefixes.ts";
 
 /**
  * The most requests one smoke run may send to routes of the `credential` rate-limit class, so the
@@ -48,14 +50,116 @@ export interface SmokeTarget {
 const JsonBody = Schema.fromJsonString(Schema.Unknown);
 
 /**
+ * The total time {@link sendRetrying} keeps retrying one non-credential GET, and
+ * {@link retryPlatformNotFound} one request the platform answers with its not-found page: 60
+ * seconds. A route that still answers that way after it fails with the last answer. It covers a
+ * stage's first deploy, where a Worker route can answer 404 for a short while after its create.
+ */
+const RETRY_WINDOW = Duration.seconds(60);
+
+/**
+ * The longest single wait between retries, so the exponential delays (1s, 2s, 4s, 8s, 8s, ...) keep
+ * sampling inside {@link RETRY_WINDOW}.
+ */
+const RETRY_DELAY_CAP = Duration.seconds(8);
+
+const retrySchedule = Schedule.exponential(Duration.seconds(1)).pipe(
+  Schedule.modifyDelay(({ duration }) => Effect.succeed(Duration.min(duration, RETRY_DELAY_CAP))),
+  Schedule.upTo({ duration: RETRY_WINDOW }),
+);
+
+/**
+ * The most characters of a response body a failure message quotes.
+ */
+const EXCERPT_LENGTH = 200;
+
+/**
+ * The first {@link EXCERPT_LENGTH} characters of a response's text, so a failure line shows which
+ * layer answered.
+ */
+const excerpt = (text: string) => text.slice(0, EXCERPT_LENGTH);
+
+/**
+ * The path prefixes `web` hands to `api` and `auth` before its own router sees them, from the
+ * `FORWARD_PREFIXES` globs that end in `/*`: `/api/` and `/auth/`.
+ */
+const FORWARDED_PATH_PREFIXES = FORWARD_PREFIXES.filter((prefix) => prefix.endsWith("/*")).map(
+  (prefix) => prefix.slice(0, -1),
+);
+
+/**
+ * Whether a response is the platform's own not-found page rather than an answer of the stack: a
+ * 404 with a `text/html` body on a path under `/api/` or `/auth/`. `web` forwards those paths to
+ * `api` and `auth`, which answer JSON, including their own 404s (`PROVIDER_NOT_FOUND`), so an
+ * HTML 404 there comes from an edge that does not route the stage's `web` Worker yet. A fresh
+ * stage answers it for up to about ten seconds after `web` is created, after earlier correct
+ * answers too (cloud runs 43914500046, 43951711323 and 43952738121).
+ *
+ * @param path - The request path.
+ * @param response - The response.
+ * @returns `true` for the platform's not-found page on a forwarded path.
+ */
+export const isPlatformNotFound = (path: string, response: HttpClientResponse.HttpClientResponse) =>
+  response.status === 404 &&
+  FORWARDED_PATH_PREFIXES.some((prefix) => path.startsWith(prefix)) &&
+  (response.headers["content-type"] ?? "").startsWith("text/html");
+
+/**
+ * A request under `/api/` or `/auth/` that the platform answered with its own not-found page,
+ * raised so {@link retryPlatformNotFound} can send the request again.
+ */
+export class PlatformNotFound extends Schema.TaggedError<
+  PlatformNotFound,
+  { readonly brand: unique symbol }
+>()("PlatformNotFound", {
+  message: Schema.String,
+}) {}
+
+/**
+ * Wrap a client so a request the platform answers with its not-found page (see
+ * {@link isPlatformNotFound}) is sent again under {@link retrySchedule}, logging one line per
+ * attempt, and fails with a {@link PlatformNotFound} quoting the body once the window ends. Every
+ * other answer, an application 404 included, returns at once and unchanged. The page is answered
+ * before `web` runs, so its rate limiter does not count a retried request.
+ *
+ * @param client - The client the cloud suite or the smoke sends with.
+ * @returns The same client with the bounded retry in front of every response.
+ */
+export const retryPlatformNotFound = <E, R>(client: HttpClient.HttpClient.With<E, R>) =>
+  client.pipe(
+    HttpClient.transformResponse((effect) =>
+      Effect.flatMap(effect, (response) => {
+        const path = new URL(response.request.url).pathname;
+
+        return isPlatformNotFound(path, response)
+          ? response.text.pipe(
+              Effect.orElseSucceed(() => ""),
+              Effect.flatMap((text) => {
+                const message = `${response.request.method} ${path} answered the platform's not-found page (404 text/html), not the stack: ${excerpt(text)}`;
+
+                return Console.log(`smoke retry: ${message}`).pipe(
+                  Effect.andThen(Effect.fail(new PlatformNotFound({ message }))),
+                );
+              }),
+            )
+          : Effect.succeed(response);
+      }),
+    ),
+    HttpClient.retry({
+      schedule: retrySchedule,
+      while: (error) => error instanceof PlatformNotFound,
+    }),
+  );
+
+/**
  * Send one request to the `auth` Worker through the credential budget and return its status and
- * decoded JSON body.
+ * decoded JSON body. The platform's not-found page is retried under {@link retryPlatformNotFound}.
  */
 const send = Effect.fn("smoke.send")(function* send(
   budget: { used: number },
   request: HttpClientRequest.HttpClientRequest,
 ) {
-  const client = yield* HttpClient.HttpClient;
+  const client = retryPlatformNotFound(yield* HttpClient.HttpClient);
   const url = new URL(request.url);
 
   if (CREDENTIAL_ROUTES.includes(url.pathname)) {
@@ -85,26 +189,8 @@ const send = Effect.fn("smoke.send")(function* send(
 
   const body = yield* Schema.decodeEffect(JsonBody)(text).pipe(Effect.orElseSucceed(() => text));
 
-  return { body, status: response.status };
+  return { body, excerpt: excerpt(text), status: response.status };
 });
-
-/**
- * The total time {@link sendRetrying} keeps retrying one non-credential GET: 60 seconds. A route
- * that still answers 404 or 5xx after it fails the smoke with the last status. It covers a stage's
- * first deploy, where a Worker route can answer 404 for a short while after its create.
- */
-const RETRY_WINDOW = Duration.seconds(60);
-
-/**
- * The longest single wait between retries, so the exponential delays (1s, 2s, 4s, 8s, 8s, ...) keep
- * sampling inside {@link RETRY_WINDOW}.
- */
-const RETRY_DELAY_CAP = Duration.seconds(8);
-
-const retrySchedule = Schedule.exponential(Duration.seconds(1)).pipe(
-  Schedule.modifyDelay(({ duration }) => Effect.succeed(Duration.min(duration, RETRY_DELAY_CAP))),
-  Schedule.upTo({ duration: RETRY_WINDOW }),
-);
 
 /**
  * Whether a status is one a fresh deploy can answer transiently: 404 or any 5xx.
@@ -129,7 +215,7 @@ const sendRetrying = Effect.fn("smoke.sendRetrying")(function* sendRetrying(
       (response) => !isRetryable(response.status),
       (response) =>
         new SmokeFailed({
-          message: `GET ${path} answered ${response.status}, expected a non-404, non-5xx answer within ${Duration.format(RETRY_WINDOW)}.`,
+          message: `GET ${path} answered ${response.status}, expected a non-404, non-5xx answer within ${Duration.format(RETRY_WINDOW)}: ${response.excerpt}`,
           worker: "auth",
         }),
     ),
@@ -161,14 +247,18 @@ export const awaitAuthReady = Effect.fn("smoke.awaitAuthReady")(function* awaitA
   origin: string,
 ) {
   const ok = yield* sendRetrying({ used: 0 }, HttpClientRequest.get(`${origin}/auth/ok`));
-  yield* expect(ok.status === 200, `GET /auth/ok answered ${ok.status}, expected 200.`);
+  yield* expect(
+    ok.status === 200,
+    `GET /auth/ok answered ${ok.status}, expected 200: ${ok.excerpt}`,
+  );
 });
 
 /**
  * Check a deployed stage over HTTP: `/auth/ok` answers 200, `/auth/get-session` answers 200 `null`,
  * each listed provider's sign-in returns `prod`'s callback as `redirect_uri` (the OAuth proxy), and
  * the absent provider answers 404 `PROVIDER_NOT_FOUND`. Requests to `credential` routes stay within
- * {@link CREDENTIAL_REQUEST_LIMIT}.
+ * {@link CREDENTIAL_REQUEST_LIMIT}. Every request sends again on the platform's not-found page
+ * ({@link retryPlatformNotFound}), and every failure quotes the start of the body it got.
  *
  * @param target - The origin under test, `prod`'s origin and the listed providers.
  * @returns Nothing on success, or the first {@link SmokeFailed}.
@@ -190,7 +280,7 @@ export const runSmoke = Effect.fn("smoke.run")(function* runSmoke(target: SmokeT
   const session = yield* sendRetrying(budget, HttpClientRequest.get(at("/auth/get-session")));
   yield* expect(
     session.status === 200 && session.body === null,
-    `GET /auth/get-session answered ${session.status}, expected 200 null.`,
+    `GET /auth/get-session answered ${session.status}, expected 200 null: ${session.excerpt}`,
   );
 
   for (const provider of target.providers) {
@@ -205,7 +295,7 @@ export const runSmoke = Effect.fn("smoke.run")(function* runSmoke(target: SmokeT
 
     yield* expect(
       result.status === 200 && actual === expected,
-      `Sign-in for ${provider} used redirect_uri ${String(actual)}, expected ${expected}.`,
+      `Sign-in for ${provider} used redirect_uri ${String(actual)}, expected ${expected}: ${result.excerpt}`,
     );
   }
 
@@ -213,7 +303,7 @@ export const runSmoke = Effect.fn("smoke.run")(function* runSmoke(target: SmokeT
   yield* expect(
     absent.status === 404 &&
       Schema.is(Schema.Struct({ code: Schema.Literal("PROVIDER_NOT_FOUND") }))(absent.body),
-    `Sign-in for ${ABSENT_PROVIDER} answered ${absent.status}, expected 404 PROVIDER_NOT_FOUND.`,
+    `Sign-in for ${ABSENT_PROVIDER} answered ${absent.status}, expected 404 PROVIDER_NOT_FOUND: ${absent.excerpt}`,
   );
 });
 
