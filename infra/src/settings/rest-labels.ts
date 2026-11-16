@@ -90,10 +90,11 @@ const ownRulesets = Effect.fn("ownRulesets")(function* ownRulesets(
  * line each.
  *
  * Label endpoint: "Delete a label" (`DELETE /repos/{owner}/{repo}/labels/{name}`); a 404 means the
- * label is already gone and counts as applied. Ruleset lookup lists only the repository's own
- * rulesets, paged. Ruleset endpoints: "Get a repository rulesets",
- * "Create a repository ruleset" and "Update a repository ruleset"; "List code scanning analyses
- * for a repository" decides whether an analysis exists. The ruleset step runs only when the tier
+ * label is already gone: the line reads `gone delete-label <name> 404`, the label is not counted as
+ * applied, and the run does not fail. Ruleset lookup lists only the repository's own rulesets,
+ * paged. Ruleset endpoints: "Get a repository rulesets", "Create a repository ruleset" and "Update
+ * a repository ruleset"; "List code scanning analyses for a repository" decides whether an
+ * analysis exists. The ruleset step runs only when the tier
  * has `rulesets` and `GET .../code-scanning/analyses` finds an analysis on `main`; before the first
  * analysis GitHub answers 404 (or 403 without code scanning) and the run prints
  * `PENDING code-scanning ruleset: no analysis on main yet`, which is not counted. A failed call
@@ -115,7 +116,7 @@ export const applyRestLabels = Effect.fn("applyRestLabels")(function* applyRestL
       reportResponse(
         `delete-label ${label}`,
         send("DELETE", `${repo}/labels/${encodeURIComponent(label)}`),
-        { goneIsApplied: true },
+        { allowGone: true },
       ),
     ),
   );
