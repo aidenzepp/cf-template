@@ -57,8 +57,8 @@ export type NotesHostedServices = Layer.Success<typeof NotesHosted>;
  * @param call - The call on the binding.
  * @returns The call with `RuntimeContext` taken from the current fiber.
  */
-const withHostContext = <A, E>(call: Effect.Effect<A, E, RuntimeContext>): Effect.Effect<A, E> =>
-  Effect.contextWith((context) =>
+const withHostContext = <A, E>(call: Effect.Effect<A, E, RuntimeContext>) =>
+  Effect.contextWith((context: Context.Context<never>) =>
     Option.match(Context.getOption(context, RuntimeContext), {
       onNone: () => Effect.die("The request fiber carries no RuntimeContext."),
       onSome: (host) => Effect.provideService(call, RuntimeContext, host),

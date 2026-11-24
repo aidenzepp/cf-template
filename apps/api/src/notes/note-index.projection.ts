@@ -62,7 +62,7 @@ export type NoteIndexInput = Domain.Projection.Input<
  * @param input - One input of the projection.
  * @returns The row keyed by the input's `stream` and `seq`.
  */
-const noteIndexRow = (input: NoteIndexInput): NoteIndexRow => ({
+const noteIndexRow = (input: NoteIndexInput) => ({
   at: DateTime.toEpochMillis(input.envelope.at),
   kind: input.event._tag,
   noteId: input.event.id,
