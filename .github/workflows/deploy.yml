@@ -103,8 +103,9 @@ jobs:
   # commit message, squash_merge_commit_message PR_BODY). The subject line is a fixed valid
   # placeholder, so the only commit rule that can fail is the `Co-Authored-By:` trailer ban. Then
   # `tools/pr-body/check.ts` requires an issue link and the AI disclosure block, except on a
-  # Release Please or Renovate pull request opened by a Bot (#407, #43). No secrets; the body, the
-  # head branch and the author type reach the steps only through `env:`.
+  # Release Please or Renovate pull request that matches every fact of its form (#407, #43). No
+  # secrets; the body, the head branch, the title and the author type and login reach the steps only
+  # through `env:`.
   pr-body:
     if: github.event.action != 'closed' && github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
@@ -125,9 +126,11 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
       - run: bun tools/pr-body/check.ts
         env:
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
           PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
 
   # The staging-<N> preview (#43 item 2): same-repository pull requests only, deploys on, no
   # alchemy-upgrade label, and either `closed` (the destroy), `merge-ready`, or a human author while

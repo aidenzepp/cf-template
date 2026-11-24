@@ -65,7 +65,24 @@ const release = [
 
 const noDisclosure = "A fix.\n\nCloses #12.\n\n### ELI5\n\nIt works now.";
 
-const user = { authorType: "User", branch: "fix/x" };
+const user = { authorLogin: "someone", authorType: "User", branch: "fix/x", title: "fix: x" };
+
+/**
+ * Shaped like release PR 439 and a Renovate PR: every fact the exemption reads.
+ */
+const releasePull = {
+  authorLogin: "github-actions[bot]",
+  authorType: "Bot",
+  branch: "release-please--branches--main",
+  title: "chore(main): release 0.1.3",
+};
+
+const renovatePull = {
+  authorLogin: "renovate[bot]",
+  authorType: "Bot",
+  branch: "renovate/effect-4.x",
+  title: "chore(deps): update effect to v4.1.0",
+};
 
 describe("stripCode", () => {
   it("removes fenced blocks, tilde fences and unclosed fences", () => {
@@ -148,15 +165,52 @@ describe("hasDisclosure", () => {
 });
 
 describe("isExempt", () => {
-  it("exempts a Release Please or Renovate branch opened by a Bot", () => {
-    assert.isTrue(isExempt({ authorType: "Bot", branch: "release-please--branches--main" }));
-    assert.isTrue(isExempt({ authorType: "Bot", branch: "renovate/effect-4.x" }));
+  it("exempts a real release PR and a real Renovate PR", () => {
+    assert.isTrue(isExempt(releasePull));
+    assert.isTrue(isExempt({ ...releasePull, title: "chore(main): release 1.0.0-beta.2" }));
+    assert.isTrue(isExempt(renovatePull));
   });
 
-  it("checks a person on the same branch and a Bot on another branch", () => {
-    assert.isFalse(isExempt({ authorType: "User", branch: "release-please--branches--main" }));
-    assert.isFalse(isExempt({ authorType: "User", branch: "renovate/effect-4.x" }));
-    assert.isFalse(isExempt({ authorType: "Bot", branch: "feat/x" }));
+  it("checks a person on the same branch", () => {
+    assert.isFalse(isExempt({ ...releasePull, authorType: "User" }));
+    assert.isFalse(isExempt({ ...renovatePull, authorType: "User" }));
+    assert.isFalse(isExempt({ ...renovatePull, authorLogin: "someone", authorType: "User" }));
+  });
+
+  it("checks a Bot on a branch that is neither prefix", () => {
+    assert.isFalse(isExempt({ ...releasePull, branch: "feat/x" }));
+    assert.isFalse(isExempt({ ...renovatePull, branch: "feat/x" }));
+  });
+
+  it("checks a Bot on a Renovate branch whose login is not renovate[bot]", () => {
+    assert.isFalse(isExempt({ ...renovatePull, authorLogin: "dependabot[bot]" }));
+    assert.isFalse(isExempt({ ...renovatePull, authorLogin: "renovate" }));
+    assert.isFalse(isExempt({ ...renovatePull, authorLogin: "" }));
+  });
+
+  it("checks a Bot on a Release Please branch whose title is not the release title", () => {
+    for (const title of [
+      "feat: x",
+      "",
+      "chore(main): release",
+      "chore(main): release 0.1",
+      "chore(main): release 0.1.3 (#439)",
+      "chore(main): release 0.1.3\nCloses #1",
+      "chore(deps): release 0.1.3",
+      "fix(main): release 0.1.3",
+    ]) {
+      assert.isFalse(isExempt({ ...releasePull, title }), title);
+    }
+  });
+
+  it("does not let the Renovate login stand in for the release title", () => {
+    assert.isFalse(isExempt({ ...releasePull, authorLogin: "renovate[bot]", title: "fix: x" }));
+  });
+
+  it("does not let the release title stand in for the Renovate login", () => {
+    assert.isFalse(
+      isExempt({ ...renovatePull, authorLogin: "other-app[bot]", title: releasePull.title }),
+    );
   });
 });
 
@@ -263,11 +317,31 @@ describe("check", () => {
 
   it.effect("skips the release PR and a Renovate PR, and checks a person's release branch", () =>
     Effect.gen(function* exempt() {
-      yield* check({ authorType: "Bot", body: release, branch: "release-please--branches--main" });
-      yield* check({ authorType: "Bot", body: "", branch: "renovate/effect-4.x" });
+      yield* check({ ...releasePull, body: release });
+      yield* check({ ...renovatePull, body: "" });
 
       const error = yield* Effect.flip(
-        check({ authorType: "User", body: release, branch: "release-please--branches--main" }),
+        check({ ...releasePull, authorType: "User", body: release }),
+      );
+
+      assert.instanceOf(error, PrBodyError);
+    }),
+  );
+
+  it.effect("checks a Bot on a Renovate branch that is not renovate[bot]", () =>
+    Effect.gen(function* forged() {
+      const error = yield* Effect.flip(
+        check({ ...renovatePull, authorLogin: "other-app[bot]", body: "" }),
+      );
+
+      assert.instanceOf(error, PrBodyError);
+    }),
+  );
+
+  it.effect("checks a Bot on a Release Please branch with a title that is not a release", () =>
+    Effect.gen(function* forged() {
+      const error = yield* Effect.flip(
+        check({ ...releasePull, body: "", title: "feat(api): add a thing" }),
       );
 
       assert.instanceOf(error, PrBodyError);
