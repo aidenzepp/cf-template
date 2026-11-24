@@ -669,8 +669,7 @@ export default defineConfig({
       "landmines/colocated-tests": "off",
       // Off (0 findings): the repository has no Turbo `test` task for the rule to read.
       "landmines/declared-test-inputs": "off",
-      // Off (25 findings): a size limit; AGENTS.md rules out function-decomposition policies.
-      "landmines/max-exports-per-module": "off",
+      "landmines/max-exports-per-module": "error",
       // Off (6 findings): a size limit; AGENTS.md rules out function-decomposition policies.
       "landmines/max-file-lines": "off",
       // Off (0 findings): a layout limit; AGENTS.md rules out function-decomposition policies.
