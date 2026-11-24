@@ -8,6 +8,7 @@ import { APP_STACK_ENTRY } from "../../infra/src/app-stack.ts";
 import { publicOrigin } from "../../infra/src/origin.ts";
 import { resolveStackName } from "../../infra/src/stack-name.ts";
 import { CLOUD_STAGE, Stage } from "../../infra/stages.ts";
+import { warmUp } from "./warm-up.ts";
 
 /**
  * The refusal to start the cloud suite, raised before any `alchemy` command runs.
@@ -156,7 +157,10 @@ const services = Layer.mergeAll(BunServices.layer, Digest.layerWebCrypto);
 
 /**
  * Wait until the deployed stage's public origin serves `/auth/ok`, so the first test request does
- * not reach a Worker route that still answers 404 after its create (cloud run 43905474970).
+ * not reach a Worker route that still answers 404 after its create (cloud run 43905474970), then
+ * run the notes flow once as a throwaway user ({@link warmUp}). A global setup is not bound by
+ * Vitest's `hookTimeout`, so the slow first requests of the new stage are paid here and the cases'
+ * own hooks send warm requests.
  *
  * @param stage - The validated stage.
  * @returns Nothing once the stage answers, or the origin or readiness failure.
@@ -165,6 +169,7 @@ const stageReady = Effect.fn("stageReady")(function* stageReady(stage: typeof St
   const origin = yield* publicOrigin({ stack: yield* resolveStackName(), stage });
 
   yield* awaitAuthReady(origin);
+  yield* warmUp(origin);
 });
 
 /**
