@@ -274,7 +274,7 @@ const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Json)
  * The text of a request body, when the client sent bytes or a string.
  */
 const textOf = (raw: RequestInit["body"]): string | undefined => {
-  if (raw instanceof Uint8Array) {
+  if (Predicate.isUint8Array(raw)) {
     return new TextDecoder().decode(raw);
   }
 
@@ -606,7 +606,7 @@ export const createFakeGitHub = (seed: Seed = {}) => {
   };
 
   const handle = (input: string | URL | Request, init?: RequestInit) => {
-    const url = new URL(input instanceof Request ? input.url : input);
+    const url = new URL(Predicate.hasProperty(input, "url") ? input.url : input);
     const method = init?.method ?? "GET";
     const body = readBody(init);
 
