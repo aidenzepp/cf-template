@@ -30,11 +30,27 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - run: bun run check
+      # Scratch measurement of the Vite+ task cache (#474); never merged. One combined cache step:
+      # restore the newest entry by prefix, save a fresh one per run attempt when the job passes.
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: node_modules/.vite/task-cache
+          key: vite-task-v3-${{ runner.os }}-${{ env.ImageVersion }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            vite-task-v3-${{ runner.os }}-${{ env.ImageVersion }}-
+      - name: Run the CI tasks
         env:
           RATCHET_BASE: ${{ github.event.pull_request.base.sha }}
-      - run: bun run test
-      - run: bun run build
+        run: |
+          set +e
+          ./node_modules/.bin/vp run --concurrency-limit 1 -v ci 2>&1 | tee "$RUNNER_TEMP/vp-run.log"
+          status="${PIPESTATUS[0]}"
+          hits="$(sed -n 's/^Statistics:.* \([0-9][0-9]*\) cache hits.*/\1/p' "$RUNNER_TEMP/vp-run.log")"
+          misses="$(sed -n 's/^Statistics:.* \([0-9][0-9]*\) cache misses.*/\1/p' "$RUNNER_TEMP/vp-run.log")"
+          tasks="$(sed -n 's/^Statistics: *\([0-9][0-9]*\) tasks.*/\1/p' "$RUNNER_TEMP/vp-run.log")"
+          disabled="$(sed -n 's/^Statistics:.* \([0-9][0-9]*\) cache disabled.*/\1/p' "$RUNNER_TEMP/vp-run.log")"
+          echo "TASKCACHE hits=${hits:-?} misses=${misses:-?} disabled=${disabled:-0} tasks=${tasks:-?}" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "$status"
       - if: vars.CLOUDFLARE_DEPLOYS != 'true'
         run: |
           echo 'Deploys are off: `CLOUDFLARE_DEPLOYS` is not set. Run `bun run bootstrap` (docs/spin-up.md).' >> "$GITHUB_STEP_SUMMARY"
@@ -141,6 +157,7 @@ jobs:
   preview:
     needs: checks
     if: >-
+      false &&
       !cancelled() &&
       github.event_name == 'pull_request' &&
       (needs.checks.result == 'success' || github.event.action == 'closed') &&

@@ -125,3 +125,5 @@ export class Knob<A> {
     return new Knob(key, Result.getOrThrow(checked), schema);
   }
 }
+// probe S5: shared-package edit for the #474 cache measurement
+// probe S5b: second-pass shared-package edit for the #474 cache measurement
