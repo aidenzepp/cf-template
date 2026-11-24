@@ -13,7 +13,7 @@ export class MissingKnobAnnotationError extends Schema.TaggedError<
   annotation: Schema.Literals(["description", "default"]),
   key: Schema.String,
 }) {
-  override get message(): string {
+  override get message() {
     return `Knob ${this.key} has no "${this.annotation}" annotation. Add it with Schema.annotate({ ${this.annotation}: ... }) where the knob is declared.`;
   }
 }
@@ -28,7 +28,7 @@ class KnobNotLeafError extends Schema.TaggedError<
 >()("KnobNotLeafError", {
   key: Schema.String,
 }) {
-  override get message(): string {
+  override get message() {
     return `Knob ${this.key} is not a leaf schema, so it has no one-string form.`;
   }
 }
@@ -105,7 +105,7 @@ export class Knob<A> {
    * @throws {MissingKnobAnnotationError} At module load, when `description` or `default` is absent
    *   from the schema.
    */
-  static make<A>(key: string, schema: Schema.Codec<A, unknown>): Knob<A> {
+  static make<A>(key: string, schema: Schema.Codec<A, unknown>) {
     const annotations = Schema.resolveAnnotations(schema);
 
     const checked: Result.Result<A, MissingKnobAnnotationError> = Result.fromNullishOr(
@@ -135,7 +135,7 @@ export class LiveSourceError extends Schema.TaggedError<
   cause: Schema.Unknown,
   source: Schema.String,
 }) {
-  override get message(): string {
+  override get message() {
     return `Live source ${this.source} could not be read.`;
   }
 }
@@ -179,7 +179,7 @@ const withReason = <A, E, R>(
   effect: Effect.Effect<A, E, R>,
   key: string,
   reason: "no_adapter" | "schema_rejected",
-): Effect.Effect<A, E, R> => effect.pipe(Effect.annotateLogs(`knob.${key}.reason`, reason));
+) => effect.pipe(Effect.annotateLogs(`knob.${key}.reason`, reason));
 
 /**
  * The port through which a Worker reads a knob after construction.
@@ -241,11 +241,11 @@ interface CachedRead {
  * @param options - The optional per-isolate cache.
  * @returns The port value that provides {@link LiveKnobs}.
  */
-export const fromSource = (source: LiveSource, options: FromSourceOptions = {}): LiveKnobsPort => {
+export const fromSource = (source: LiveSource, options: FromSourceOptions = {}) => {
   const cache = new Map<string, CachedRead>();
   const rejected = new Set<string>();
 
-  const readSource = (key: string): Effect.Effect<Option.Option<string>> =>
+  const readSource = (key: string) =>
     source
       .read(key)
       .pipe(
@@ -256,7 +256,7 @@ export const fromSource = (source: LiveSource, options: FromSourceOptions = {}):
         ),
       );
 
-  const readLive = (key: string): Effect.Effect<Option.Option<string>> => {
+  const readLive = (key: string) => {
     const { refreshMs } = options;
 
     if (refreshMs === undefined) {
@@ -282,7 +282,7 @@ export const fromSource = (source: LiveSource, options: FromSourceOptions = {}):
   return {
     bind: <A>(knob: Knob<A>) =>
       knob.config.pipe(
-        Effect.map((base): Effect.Effect<A> =>
+        Effect.map((base) =>
           Effect.gen(function* read() {
             const raw = yield* readLive(knob.key);
 

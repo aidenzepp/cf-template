@@ -24,7 +24,7 @@ const SignUpReply = Schema.Struct({ user: Schema.Struct({ id: Schema.String }) }
 const NOTE = { body: "Written by the cloud suite.", id: "n-1", title: "First note" };
 
 /**
- * A note as `GET /api/Note/{key}` answers it: its title, body and timestamps.
+ * A note as `GET /api/note/{key}` answers it: its title, body and timestamps.
  */
 const NoteRead = Schema.Struct({
   body: Schema.String,
@@ -88,7 +88,7 @@ class Notebook extends Context.Service<
 
       // The notebook id is the owner's user id.
       const created = yield* client.execute(
-        HttpClientRequest.post(`${origin}/api/CreateNote`).pipe(
+        HttpClientRequest.post(`${origin}/api/create-note`).pipe(
           HttpClientRequest.setHeaders({ cookie, origin }),
           HttpClientRequest.bodyJsonUnsafe({
             commandId: crypto.randomUUID(),
@@ -129,7 +129,7 @@ describe("the deployed notes flow", () => {
         // The Note view keys a note as `<notebook id>~<note id>`; `stream` and `version` make the
         // read wait until the view has applied the create.
         const read = yield* client.execute(
-          HttpClientRequest.get(`${origin}/api/Note/${userId}~${NOTE.id}`).pipe(
+          HttpClientRequest.get(`${origin}/api/note/${userId}~${NOTE.id}`).pipe(
             HttpClientRequest.setHeaders({ cookie, origin }),
             HttpClientRequest.setUrlParams({
               stream: receipt.stream,

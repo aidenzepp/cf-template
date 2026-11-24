@@ -21,7 +21,6 @@ Use these prefixes as the default vocabulary:
 - `chore:` for repository maintenance, dependency updates, generated metadata, tooling, config, or cleanup
 - `test:` for test-only changes or reusable test infrastructure
 - `docs:` for documentation-only changes
-- `style:` for presentation-only UI/CSS changes that do not alter behavior
 - `perf:` for measurable performance work
 - `build:` for package manager, bundler, compiler, or artifact pipeline changes
 - `ci:` for CI workflow changes
@@ -29,7 +28,7 @@ Use these prefixes as the default vocabulary:
 
 Prefer the most specific truthful prefix. Avoid vague subjects such as `update`, `cleanup`, `misc`, or `changes`.
 
-Optional scopes are fine when they clarify the boundary (`feat(api):`, `chore(lint):`). Do not invent noisy scopes.
+Optional scopes are fine when they clarify the boundary (`feat(api):`, `chore(tools):`). Do not invent noisy scopes.
 
 ## Split Commits By Story
 

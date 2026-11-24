@@ -20,7 +20,7 @@ const METHODS = ["get", "post", "put", "patch", "delete"] as const;
  * @param document - The document `OpenApi.fromApi(Api)` produced.
  * @returns The Markdown text of `llms.txt`.
  */
-export const llmsText = (origin: string, document: OpenApi.OpenAPISpec): string => {
+export const llmsText = (origin: string, document: OpenApi.OpenAPISpec) => {
   const operations = Object.entries(document.paths).flatMap(([path, item]) =>
     METHODS.flatMap((method) => {
       const operation = item[method];

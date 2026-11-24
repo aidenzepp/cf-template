@@ -23,7 +23,7 @@ const readTheme = Effect.gen(function* readTheme() {
  * @param key - The object's key, such as `light` or `radius`.
  * @returns The lines between the braces, or an empty string when the key is missing.
  */
-const section = (module: string, key: string): string =>
+const section = (module: string, key: string) =>
   module.split(new RegExp(`^ +${key}: \\{$`, "mu"))[1]?.split(/^ +\},?$/mu)[0] ?? "";
 
 /**
@@ -33,7 +33,7 @@ const section = (module: string, key: string): string =>
  * @param key - The object's key.
  * @returns Each entry's name and string value, in text order.
  */
-const entries = (module: string, key: string): Array<readonly [string, string]> =>
+const entries = (module: string, key: string) =>
   Array.from(
     section(module, key).matchAll(/^ +"?(?<name>[\w-]+)"?: "(?<value>[^"]*)",$/gmu),
     (match) => [match.groups?.name ?? "", match.groups?.value ?? ""] as const,

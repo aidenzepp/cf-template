@@ -23,7 +23,7 @@ const mutatingMethods = new Set([
  * Follows member accesses and TypeScript wrappers down to the identifier that owns the value, so
  * `state.items[0].name` and `state!.items` both resolve to `state`.
  */
-const rootName = (node: ESTree.Node): string | undefined => {
+const rootName: (node: ESTree.Node) => string | undefined = (node) => {
   if (node.type === "Identifier") {
     return node.name;
   }
@@ -32,33 +32,31 @@ const rootName = (node: ESTree.Node): string | undefined => {
     return rootName(node.object);
   }
 
-  if (
-    node.type === "TSNonNullExpression" ||
+  return node.type === "TSNonNullExpression" ||
     node.type === "TSAsExpression" ||
     node.type === "TSSatisfiesExpression"
-  ) {
-    return rootName(node.expression);
-  }
-
-  return undefined;
+    ? rootName(node.expression)
+    : undefined;
 };
 
 /**
  * Finds the scope that declares `name`, starting from the scope of the mutating node.
  */
-const declaringScope = (scope: Scope | null, name: string): Scope | undefined => {
-  if (scope === null) {
-    return undefined;
+const declaringScope = (scope: Scope | null, name: string) => {
+  let current = scope;
+
+  while (current !== null && !current.set.has(name)) {
+    current = current.upper;
   }
 
-  return scope.set.has(name) ? scope : declaringScope(scope.upper, name);
+  return current ?? undefined;
 };
 
 /**
  * True when `name` is a variable declared at module scope. Imports are not state: `Ref.set` and
  * `Arr.sort` call functions on a module namespace.
  */
-const isModuleVariable = (scope: Scope, name: string): boolean => {
+const isModuleVariable = (scope: Scope, name: string) => {
   const owner = declaringScope(scope, name);
 
   return (

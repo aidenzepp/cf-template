@@ -34,7 +34,7 @@ const unavailable = (fault: string) =>
  * @param defect - What the D1 binding, the adapter or the instance build threw.
  * @returns The error's class name, or a fixed word for a value that is not an error.
  */
-const faultName = (defect: Parameters<typeof Predicate.isError>[0]): string =>
+const faultName = (defect: Parameters<typeof Predicate.isError>[0]) =>
   Predicate.isError(defect) ? defect.name : "NonError";
 
 /**
@@ -60,10 +60,10 @@ const faultName = (defect: Parameters<typeof Predicate.isError>[0]): string =>
  * @param instance - Yields the Better Auth instance of the current execution.
  * @returns The `checkSession` method of {@link AuthEntrypoint}.
  */
-const makeCheckSession = (
-  instance: Effect.Effect<Pick<AuthInstance, "api">>,
-): AuthEntrypoint["checkSession"] =>
-  Effect.fn("auth.checkSession")(function* checkSession({ cookie }) {
+const makeCheckSession = (instance: Effect.Effect<Pick<AuthInstance, "api">>) =>
+  Effect.fn("auth.checkSession")(function* checkSession({
+    cookie,
+  }: Parameters<AuthEntrypoint["checkSession"]>[0]) {
     const auth = yield* instance.pipe(
       Effect.catchDefect((defect) => unavailable(faultName(defect))),
     );

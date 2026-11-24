@@ -15,15 +15,6 @@ import type { ScryptCost } from "@workspace/config/auth-password";
 export type RunEffect = <A, E>(effect: Effect.Effect<A, E>) => Promise<A>;
 
 /**
- * The stored hash parsed into its parts.
- */
-export interface ParsedHash {
-  readonly params: ScryptCost;
-  readonly salt: Uint8Array;
-  readonly key: Uint8Array;
-}
-
-/**
  * The failure of one scrypt derivation.
  */
 export class ScryptError extends Schema.TaggedError<
@@ -33,7 +24,7 @@ export class ScryptError extends Schema.TaggedError<
   cause: Schema.Unknown,
   keyLength: Schema.Int,
 }) {
-  override get message(): string {
+  override get message() {
     return `scrypt could not derive a ${this.keyLength}-byte key.`;
   }
 }
@@ -149,7 +140,7 @@ const derive = Effect.fn("auth.derive")(function* derive(
  * @param bytes - The bytes.
  * @returns The text without `=` padding.
  */
-const encode = (bytes: Uint8Array): string => Base64.encode(bytes).replace(/[=]+$/u, "");
+const encode = (bytes: Uint8Array) => Base64.encode(bytes).replace(/[=]+$/u, "");
 
 /**
  * Decode canonical unpadded standard base64.
@@ -157,7 +148,7 @@ const encode = (bytes: Uint8Array): string => Base64.encode(bytes).replace(/[=]+
  * @param text - The text.
  * @returns The bytes, or none when the text is padded, not base64 or not canonical.
  */
-const decode = (text: string): Option.Option<Uint8Array> => {
+const decode = (text: string) => {
   if (!UNPADDED_BASE64.test(text) || text.length % 4 === 1) {
     return Option.none();
   }
@@ -179,7 +170,7 @@ const decode = (text: string): Option.Option<Uint8Array> => {
  * @param stored - The stored hash.
  * @returns The parts, or none when the string is not a hash this module wrote.
  */
-export const parse = (stored: string): Option.Option<ParsedHash> => {
+export const parse = (stored: string) => {
   const [empty, scheme, cost, salt, key, ...rest] = stored.split("$");
   const match = COST_SEGMENT.exec(cost ?? "")?.groups;
 
@@ -206,7 +197,7 @@ export const parse = (stored: string): Option.Option<ParsedHash> => {
  * @returns `true` for a parsed hash whose `(ln, r, p)` differs; `false` for a match or for a
  *   string that is not a hash.
  */
-export const needsRehash = (stored: string, params: ScryptCost): boolean =>
+export const needsRehash = (stored: string, params: ScryptCost) =>
   Option.exists(
     parse(stored),
     (parsed) =>
@@ -274,8 +265,8 @@ export const verifyEffect = (input: { readonly hash: string; readonly password: 
  * @returns The two Promise adapters.
  */
 export const passwordFor = (params: ScryptCost, run: RunEffect) => ({
-  hash: (password: string): Promise<string> => run(hashEffect(params, password)),
-  verify: (input: { hash: string; password: string }): Promise<boolean> => run(verifyEffect(input)),
+  hash: (password: string) => run(hashEffect(params, password)),
+  verify: (input: { hash: string; password: string }) => run(verifyEffect(input)),
 });
 
 /**
@@ -296,59 +287,60 @@ const SignInBody = Schema.Struct({ password: Schema.String });
  * @param run - Runs an effect with the captured services.
  * @returns The plugin.
  */
-export const rehashAfterSignIn = (params: ScryptCost, run: RunEffect): BetterAuthPlugin => ({
-  hooks: {
-    after: [
-      {
-        handler: createAuthMiddleware(async (ctx) => {
-          const userId = ctx.context.newSession?.user.id;
-          const body = Schema.decodeUnknownOption(SignInBody)(ctx.body);
+export const rehashAfterSignIn = (params: ScryptCost, run: RunEffect) =>
+  ({
+    hooks: {
+      after: [
+        {
+          handler: createAuthMiddleware(async (ctx) => {
+            const userId = ctx.context.newSession?.user.id;
+            const body = Schema.decodeUnknownOption(SignInBody)(ctx.body);
 
-          if (userId === undefined || Option.isNone(body)) {
-            return;
-          }
+            if (userId === undefined || Option.isNone(body)) {
+              return;
+            }
 
-          await run(
-            Effect.gen(function* rehash() {
-              const account = yield* Effect.tryPromise({
-                catch: (cause) => new RehashAdapterError({ cause }),
-                try: () => ctx.context.internalAdapter.findCredentialAccount(userId),
-              });
+            await run(
+              Effect.gen(function* rehash() {
+                const account = yield* Effect.tryPromise({
+                  catch: (cause) => new RehashAdapterError({ cause }),
+                  try: () => ctx.context.internalAdapter.findCredentialAccount(userId),
+                });
 
-              const stored = account?.password;
+                const stored = account?.password;
 
-              if (
-                account === null ||
-                account === undefined ||
-                stored === undefined ||
-                stored === null ||
-                !needsRehash(stored, params)
-              ) {
-                return;
-              }
+                if (
+                  account === null ||
+                  account === undefined ||
+                  stored === undefined ||
+                  stored === null ||
+                  !needsRehash(stored, params)
+                ) {
+                  return;
+                }
 
-              const replacement = yield* hashEffect(params, body.value.password);
+                const replacement = yield* hashEffect(params, body.value.password);
 
-              // Compare-and-set: only the row still holding the hash just verified is rewritten, so a
-              // password changed meanwhile is never reverted.
-              yield* Effect.tryPromise({
-                catch: (cause) => new RehashAdapterError({ cause }),
-                try: () =>
-                  ctx.context.adapter.updateMany({
-                    model: "account",
-                    update: { password: replacement },
-                    where: [
-                      { field: "id", value: account.id },
-                      { field: "password", value: stored },
-                    ],
-                  }),
-              });
-            }).pipe(Effect.catchCause(() => Effect.logWarning("auth.password.rehash_failed"))),
-          );
-        }),
-        matcher: (ctx) => ctx.path === "/sign-in/email",
-      },
-    ],
-  },
-  id: "rehash-after-sign-in",
-});
+                // Compare-and-set: only the row still holding the hash just verified is rewritten, so a
+                // password changed meanwhile is never reverted.
+                yield* Effect.tryPromise({
+                  catch: (cause) => new RehashAdapterError({ cause }),
+                  try: () =>
+                    ctx.context.adapter.updateMany({
+                      model: "account",
+                      update: { password: replacement },
+                      where: [
+                        { field: "id", value: account.id },
+                        { field: "password", value: stored },
+                      ],
+                    }),
+                });
+              }).pipe(Effect.catchCause(() => Effect.logWarning("auth.password.rehash_failed"))),
+            );
+          }),
+          matcher: (ctx) => ctx.path === "/sign-in/email",
+        },
+      ],
+    },
+    id: "rehash-after-sign-in",
+  }) satisfies BetterAuthPlugin;

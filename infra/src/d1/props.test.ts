@@ -5,15 +5,15 @@ import {
   MIGRATIONS_URL as APP_MIGRATIONS_URL,
   d1Props as appProps,
   migrationsDir as appMigrationsDir,
-} from "../../apps/api/src/db/database.ts";
-import { migrationsDigest } from "../migrations-digest.ts";
-import { APP_MIGRATIONS_DIGEST } from "../../apps/api/src/db/migrations-digest.ts";
+} from "../../../apps/api/src/db/database.ts";
+import { migrationsDigest } from "../../migrations-digest.ts";
+import { APP_MIGRATIONS_DIGEST } from "../../../apps/api/src/db/migrations-digest.ts";
 import {
   MIGRATIONS_URL,
   d1Props as authProps,
   migrationsDir,
-} from "../../apps/auth/src/db/database.ts";
-import { AUTH_MIGRATIONS_DIGEST } from "../../apps/auth/src/db/migrations-digest.ts";
+} from "../../../apps/auth/src/db/database.ts";
+import { AUTH_MIGRATIONS_DIGEST } from "../../../apps/auth/src/db/migrations-digest.ts";
 
 const MIGRATIONS = "/checkout/migrations";
 

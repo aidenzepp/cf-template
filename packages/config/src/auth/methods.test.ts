@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Exit } from "effect";
-import { AUTH_METHODS, decodeAuthMethods } from "./auth-methods.ts";
+import { AUTH_METHODS, decodeAuthMethods } from "./methods.ts";
 
 /**
  * Read `AUTH_METHODS` from a provider that also holds one unrelated variable, so a schema that

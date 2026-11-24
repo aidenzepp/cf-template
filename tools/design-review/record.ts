@@ -26,7 +26,7 @@ export const recordLine =
  * @param path - A repository-relative path.
  * @returns True when the path needs a record.
  */
-export const isReviewed = (path: string): boolean =>
+export const isReviewed = (path: string) =>
   /^(?:apps\/web|packages\/ui)\//u.test(path) && !/\.test\.tsx?$/u.test(path);
 
 /**
@@ -36,7 +36,7 @@ export const isReviewed = (path: string): boolean =>
  * @param diff - The text of `git diff -U0` over the reviewed paths.
  * @returns The diff with base-dependent lines removed.
  */
-export const normalizeDiff = (diff: string): string =>
+export const normalizeDiff = (diff: string) =>
   diff
     .split("\n")
     .filter((line) => !line.startsWith("index "))
@@ -50,7 +50,7 @@ export const normalizeDiff = (diff: string): string =>
  * @param current - The diff from the merge base of the head to the head.
  * @returns True when the changes match.
  */
-export const sameChange = (recorded: string, current: string): boolean =>
+export const sameChange = (recorded: string, current: string) =>
   normalizeDiff(recorded) === normalizeDiff(current);
 
 /**

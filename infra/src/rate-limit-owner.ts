@@ -43,7 +43,7 @@ export class ForeignRateLimitRules extends Schema.TaggedError<
   variable: Schema.String,
   zone: Schema.String,
 }) {
-  override get message(): string {
+  override get message() {
     return `Refusing to deploy: the rate-limit entrypoint of zone ${this.zone} holds ${this.ruleIds.length} rule(s) whose ref is not ${this.ownRef} (${this.ruleIds.join(", ")}). A zone has one rate-limit entrypoint with one owner, and deploying would overwrite those rules. Remove or move them in the Cloudflare dashboard, or set ${this.variable} to a hostname on a zone with no rate-limit rules. If this stack was renamed, its earlier rule carries the old ref and counts as foreign.`;
   }
 }
@@ -91,7 +91,7 @@ export class RateLimitEntrypoint extends Context.Service<
  * @param hostname - The attached hostname.
  * @returns The rule's `ref`.
  */
-export const rateLimitRef = (stack: string, stage: string, hostname: string): string =>
+export const rateLimitRef = (stack: string, stage: string, hostname: string) =>
   `${stack}-${stage}-web-ratelimit-${hostname.replaceAll(".", "_")}`;
 
 /**
@@ -101,7 +101,7 @@ export const rateLimitRef = (stack: string, stage: string, hostname: string): st
  * @param stage - The decoded stage.
  * @returns The variable's name.
  */
-export const customDomainVariable = (stage: StageName): string =>
+export const customDomainVariable = (stage: StageName) =>
   kindOf(stage) === "prod" ? "CUSTOM_DOMAIN" : "STAGES_TEST_CUSTOM_DOMAIN";
 
 /**
@@ -111,7 +111,7 @@ export const customDomainVariable = (stage: StageName): string =>
  * @param ref - The `ref` of this stack's own rule.
  * @returns The ids of the foreign rules, in entrypoint order.
  */
-const foreignRuleIds = (rules: ReadonlyArray<EntrypointRule>, ref: string): ReadonlyArray<string> =>
+const foreignRuleIds = (rules: ReadonlyArray<EntrypointRule>, ref: string) =>
   rules.flatMap((rule) => (rule.ref === ref ? [] : [rule.id]));
 
 /**
