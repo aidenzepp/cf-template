@@ -172,8 +172,8 @@ const ACCOUNT_URL_FIELDS = [
   "url",
 ] as const;
 
-const urlFields = (fields: ReadonlyArray<string>, base: string): JsonRecord =>
-  Object.fromEntries(fields.map((field) => [field, `${base}/${field}`]));
+const urlFields = (fields: ReadonlyArray<string>, base: string) =>
+  Object.fromEntries(fields.map((field) => [field, `${base}/${field}`])) satisfies JsonRecord;
 
 /**
  * The account object a repository owner carries.
@@ -251,9 +251,9 @@ interface Reply {
   readonly status: number;
 }
 
-const ok = (body: Schema.Json): Reply => ({ body, status: 200 });
+const ok = (body: Schema.Json) => ({ body, status: 200 }) satisfies Reply;
 
-const created = (body: Schema.Json): Reply => ({ body, status: 201 });
+const created = (body: Schema.Json) => ({ body, status: 201 }) satisfies Reply;
 
 const noContent: Reply = { status: 204 };
 
@@ -261,19 +261,20 @@ const notFound: Reply = { body: { message: "Not Found" }, status: 404 };
 
 const invalid: Reply = { body: { message: "Validation Failed" }, status: 422 };
 
-const policyBody = (policyId: number, name: string): Schema.Json => ({
-  id: policyId,
-  name,
-  node_id: `P_${policyId}`,
-  type: "branch",
-});
+const policyBody = (policyId: number, name: string) =>
+  ({
+    id: policyId,
+    name,
+    node_id: `P_${policyId}`,
+    type: "branch",
+  }) satisfies Schema.Json;
 
 const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Json));
 
 /**
  * The text of a request body, when the client sent bytes or a string.
  */
-const textOf = (raw: RequestInit["body"]): string | undefined => {
+const textOf: (raw: RequestInit["body"]) => string | undefined = (raw) => {
   if (Predicate.isUint8Array(raw)) {
     return new TextDecoder().decode(raw);
   }
@@ -284,10 +285,10 @@ const textOf = (raw: RequestInit["body"]): string | undefined => {
 /**
  * Read a request body as JSON; no body is `null`.
  */
-const readBody = (init: RequestInit | undefined): Schema.Json =>
+const readBody = (init: RequestInit | undefined) =>
   Option.fromNullishOr(textOf(init?.body)).pipe(
     Option.flatMap(decodeJson),
-    Option.getOrElse((): Schema.Json => null),
+    Option.getOrElse<Schema.Json>(() => null),
   );
 
 /**
@@ -327,25 +328,27 @@ export const createFakeGitHub = (seed: Seed = {}) => {
     });
   }
 
-  const rulesetBody = (stored: FakeRuleset): Schema.Json => ({
-    ...stored,
-    _links: {},
-    created_at: NOW,
-    current_user_can_bypass: "never",
-    node_id: `RRS_${stored.id}`,
-    source: `${OWNER}/${REPO}`,
-    source_type: "Repository",
-    updated_at: NOW,
-  });
+  const rulesetBody = (stored: FakeRuleset) =>
+    ({
+      ...stored,
+      _links: {},
+      created_at: NOW,
+      current_user_can_bypass: "never",
+      node_id: `RRS_${stored.id}`,
+      source: `${OWNER}/${REPO}`,
+      source_type: "Repository",
+      updated_at: NOW,
+    }) satisfies Schema.Json;
 
-  const labelBody = (stored: FakeLabel): Schema.Json => ({
-    ...stored,
-    default: false,
-    node_id: `L_${stored.id}`,
-    url: `${API}${REPO_PATH}/labels/${encodeURIComponent(stored.name)}`,
-  });
+  const labelBody = (stored: FakeLabel) =>
+    ({
+      ...stored,
+      default: false,
+      node_id: `L_${stored.id}`,
+      url: `${API}${REPO_PATH}/labels/${encodeURIComponent(stored.name)}`,
+    }) satisfies Schema.Json;
 
-  const environmentBody = (name: string): Schema.Json => {
+  const environmentBody = (name: string) => {
     const environmentId = environments.get(name) ?? 0;
 
     return {
@@ -357,10 +360,14 @@ export const createFakeGitHub = (seed: Seed = {}) => {
       protection_rules: [],
       updated_at: NOW,
       url: `${API}${REPO_PATH}/environments/${name}`,
-    };
+    } satisfies Schema.Json;
   };
 
-  const rulesetRoute = (method: string, tail: ReadonlyArray<string>, body: Schema.Json): Reply => {
+  const rulesetRoute: (method: string, tail: ReadonlyArray<string>, body: Schema.Json) => Reply = (
+    method,
+    tail,
+    body,
+  ) => {
     const [first] = tail;
     const input = Schema.decodeUnknownOption(RulesetBody)(body);
 
@@ -407,11 +414,11 @@ export const createFakeGitHub = (seed: Seed = {}) => {
     return ok(rulesetBody(found));
   };
 
-  const environmentRoute = (
+  const environmentRoute: (
     method: string,
     tail: ReadonlyArray<string>,
     body: Schema.Json,
-  ): Reply => {
+  ) => Reply = (method, tail, body) => {
     const [name, segment, policy] = tail;
 
     if (name === undefined) {
@@ -457,7 +464,11 @@ export const createFakeGitHub = (seed: Seed = {}) => {
     return noContent;
   };
 
-  const labelRoute = (method: string, tail: ReadonlyArray<string>, body: Schema.Json): Reply => {
+  const labelRoute: (method: string, tail: ReadonlyArray<string>, body: Schema.Json) => Reply = (
+    method,
+    tail,
+    body,
+  ) => {
     const [encoded] = tail;
     const input = Schema.decodeUnknownOption(LabelInput)(body);
 
@@ -514,7 +525,11 @@ export const createFakeGitHub = (seed: Seed = {}) => {
     return ok(labelBody(found));
   };
 
-  const variableRoute = (method: string, tail: ReadonlyArray<string>, body: Schema.Json): Reply => {
+  const variableRoute: (method: string, tail: ReadonlyArray<string>, body: Schema.Json) => Reply = (
+    method,
+    tail,
+    body,
+  ) => {
     const [name] = tail;
     const input = Schema.decodeUnknownOption(VariableInput)(body);
 
@@ -561,7 +576,11 @@ export const createFakeGitHub = (seed: Seed = {}) => {
     return ok({ created_at: NOW, name, updated_at: NOW, value });
   };
 
-  const route = (method: string, path: string, body: Schema.Json): Reply => {
+  const route: (method: string, path: string, body: Schema.Json) => Reply = (
+    method,
+    path,
+    body,
+  ) => {
     if (path === "/user") {
       return ok({ ...account, plan: { name: "pro" } });
     }

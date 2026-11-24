@@ -122,7 +122,7 @@ const CONVERGED = new Map<string, Reply>([
  * @param search - The query string of the request.
  * @returns The reply, or `undefined` for the default.
  */
-export const converged = (call: string, search: string): Reply | undefined => {
+export const converged: (call: string, search: string) => Reply | undefined = (call, search) => {
   if (call.startsWith(`DELETE ${base}/labels/`)) {
     return { body: { message: "Not Found" }, status: 404 };
   }

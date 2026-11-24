@@ -147,7 +147,7 @@ const drift = (fake: ReturnType<typeof createFakeGitHub>) =>
 const seedFrom = (
   fake: ReturnType<typeof createFakeGitHub>,
   change: (ruleset: FakeRuleset) => RulesetInput,
-): Seed => ({ rulesets: fake.state().rulesets.map(change) });
+) => ({ rulesets: fake.state().rulesets.map(change) }) satisfies Seed;
 
 const PullRequestRule = Schema.Struct({
   parameters: Schema.StructWithRest(
@@ -163,14 +163,15 @@ const isPullRequest = Schema.is(PullRequestRule);
  * Open the `pull_request` rule to every merge method, leaving its other parameters and every other
  * rule as they are.
  */
-const widen = (rule: Schema.Json): Schema.Json =>
+const widen: (rule: Schema.Json) => Schema.Json = (rule) =>
   Schema.decodeUnknownOption(PullRequestRule)(rule).pipe(
     Option.match({
       onNone: () => rule,
-      onSome: (found): Schema.Json => ({
-        parameters: { ...found.parameters, allowed_merge_methods: ["merge", "squash", "rebase"] },
-        type: found.type,
-      }),
+      onSome: (found) =>
+        ({
+          parameters: { ...found.parameters, allowed_merge_methods: ["merge", "squash", "rebase"] },
+          type: found.type,
+        }) satisfies Schema.Json,
     }),
   );
 
@@ -188,7 +189,7 @@ const mergeMethods = (ruleset: FakeRuleset | undefined) =>
 const keysOf = (body: Schema.Json | undefined) =>
   Object.keys(
     Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Json))(body).pipe(
-      Option.getOrElse((): JsonRecord => ({})),
+      Option.getOrElse<JsonRecord>(() => ({})),
     ),
   );
 

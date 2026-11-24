@@ -287,10 +287,8 @@ const repositoryWith =
  * @param differing - Its reply.
  * @returns The `answer` function for `harness`.
  */
-const differingAt =
-  (read: string, differing: Reply) =>
-  (call: string, search: string): Reply | undefined =>
-    call === read ? differing : converged(call, search);
+const differingAt = (read: string, differing: Reply) => (call: string, search: string) =>
+  call === read ? differing : converged(call, search);
 
 describe("applyRest on a repository that already holds the declared values", () => {
   for (const [name, tier, unavailable] of [

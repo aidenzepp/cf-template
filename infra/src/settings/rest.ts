@@ -269,7 +269,10 @@ const isMap = Schema.is(Schema.Record(Schema.String, Schema.Json));
  * @param declared - The declared value, or the part of it that must hold.
  * @returns Whether `live` holds `declared`.
  */
-const holds = (live: Schema.Json | undefined, declared: Schema.Json): boolean => {
+const holds: (live: Schema.Json | undefined, declared: Schema.Json) => boolean = (
+  live,
+  declared,
+) => {
   if (isList(declared)) {
     return (
       isList(live) &&
