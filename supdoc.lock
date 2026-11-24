@@ -211,4 +211,4 @@ hash = "492e7a95f6851bc252f41a233e3b1426e37808c5e365bf28f182154ada931c13"
 [[link]]
 source = "docs/decisions/c46-capability-registry.md"
 target = "docs/capabilities.md"
-hash = "62aa087873a784a548f3f5e7fb7f598a42a2e7549790dcf1bf07ab04acf32543"
+hash = "7dc784a9c1bc2f0ba2aca828c25372a5a03ff1417f94f8350b1532607b7f20d4"
