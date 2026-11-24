@@ -40,12 +40,12 @@ Ruled with C29.
 
 ## C29h
 
-Type-aware engine behind `vp check`: tsgolint now; tsrs re-checked in each type-check-toolchain Renovate PR against triggers T1 and T2, with `"diagnostics": false` the swap's invariant.
+Type-aware engine behind `vp check`: tsrs, since Vite+ 1.7.0 (#433). Vite+ 1.7.0 ships tsrs 7.1.0-beta.tsrs2 in place of oxlint-tsgolint; `@effect/tsgo` patches it with the experimental `--tsrs` (`prepare` runs `effect-tsgo patch --oxlint --tsrs`), with `"diagnostics": false` the invariant.
 
-- T1: a stable tsrs on the pinned TypeScript.
-- T2: `@effect/tsgo` supports it and drops experimental.
+- T1: a stable tsrs on the pinned TypeScript. Not met: tsrs targets the TypeScript 7.1 beta line while 7.0.2 is pinned.
+- T2: `@effect/tsgo` supports it and drops experimental. Not met: `@effect/tsgo` 0.73.2 lists tsrs 7.1.0-beta.tsrs2 and still marks the patch experimental.
 
-The tsconfig plugin entry keeps `"diagnostics": false` unless `Effect-TS/tsgo#1025` is closed.
+The adoption accepts both as unmet: the operator's brief for #433, tsrs in place of oxlint-tsgolint, rules it. The tsconfig plugin entry keeps `"diagnostics": false` unless `Effect-TS/tsgo#1025` is closed.
 
 Approved as a proposal.
 
@@ -53,6 +53,6 @@ Approved as a proposal.
 
 Any direct `oxlint` invocation pins the engine `vp check` uses, so Oxlint 1.92+ auto-pick cannot split results.
 
-One tsrs timing baseline is recorded in the first build issue: real tree, CPU and peak RSS with load noted; synthetic tsrs figures are not quoted as a gain. The hazard turns live at the swap or when a transitive install links `tsrs-lint` into `.bin` under Oxlint 1.92 or later, which prefers it (`tsgolint.rs:1360, 1386` at `oxlint_v1.92.0`). The I-28 fixture runner and the I-29 CE2 canary carry it.
+The hazard is live: Vite+ 1.7.0 runs `tsrs-lint` by setting `OXLINT_TSGOLINT_PATH` to it, and the I-28 fixture runner and the I-29 CE2 canary set the same variable to the `tsrs-lint` of Vite+'s own install. First real timing, one uncontrolled run each on the real tree: `vp check --deny-warnings` took 12.8 s wall and 2.1 GB peak RSS with tsgolint on Vite+ 1.5.0, and 7.3 s and 0.97 GB with tsrs on 1.7.0; synthetic tsrs figures are not quoted as a gain.
 
 Approved as a proposal.

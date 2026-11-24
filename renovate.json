@@ -48,12 +48,12 @@
       ],
       "groupName": "type-check toolchain",
       "prBodyNotes": [
-        "Type-check engine re-check (C29h): T1, `npm view tsrs dist-tags.latest` has no prerelease suffix and targets the `typescript` version this repository pins; T2, this PR's `@effect/tsgo` is at least 3 days old (the release age above), lists that tsrs in its Supported Package Versions and no longer marks `--tsrs-lint` experimental. If both hold, open the engine-swap issue: it runs on the Linux CI runner and diffs the full `vp check` diagnostic set on the real tree under both engines. Whatever the result, the swap keeps `\"diagnostics\": false` in the Effect language-service plugin entry of `tsconfig.json` unless `Effect-TS/tsgo#1025` is closed."
+        "Type-check engine (C29h): `vp check` runs the tsrs that Vite+ resolves, patched by `effect-tsgo patch --oxlint --tsrs` in `prepare`. Before merging, read this PR's `@effect/tsgo` Supported Package Versions table: it must list the tsrs, Oxlint and `typescript` versions this PR installs. An `UnsupportedTargetPackageVersionError` from `prepare` or `unknown rule: effecttsgo/...` from `vp check` means it does not. T1 (a stable tsrs on the pinned `typescript`) and T2 (an `@effect/tsgo` that no longer marks `--tsrs` experimental) are accepted as unmet by #433; drop this note when both hold. `\"diagnostics\": false` stays in the Effect language-service plugin entry of `tsconfig.json` unless `Effect-TS/tsgo#1025` is closed."
       ]
     },
     { "matchPackageNames": ["bun", "@types/bun"], "groupName": "bun" },
     {
-      "matchPackageNames": ["vitest", "oxlint", "oxfmt", "oxlint-tsgolint"],
+      "matchPackageNames": ["vitest", "oxlint", "oxfmt", "tsrs"],
       "enabled": false
     },
     { "matchManagers": ["github-actions"], "groupName": "github actions" },

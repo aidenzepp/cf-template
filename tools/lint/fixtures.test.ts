@@ -29,10 +29,10 @@ const Report = Schema.fromJsonString(
 
 /**
  * Resolves the repository root, the oxlint binary and the type-aware engine, both from the
- * installed Vite+ so the fixtures and `vp check` run one engine. Vite+ pins `oxlint` and
- * `oxlint-tsgolint` as its own dependencies, so they resolve only from its package location.
- * Setting `OXLINT_TSGOLINT_PATH` on every spawn keeps a bare `oxlint` from preferring another
- * engine (`tsrs-lint`) from Oxlint 1.92 on.
+ * installed Vite+ so the fixtures and `vp check` run one engine. Vite+ pins `oxlint` and `tsrs` as
+ * its own dependencies, so they resolve only from its package location. Vite+ 1.7.0 runs
+ * `tsrs-lint` by setting `OXLINT_TSGOLINT_PATH` to it, and every spawn here sets the same variable
+ * to the same file.
  */
 const toolchain = Effect.gen(function* resolve() {
   const fs = yield* FileSystem.FileSystem;
@@ -45,11 +45,11 @@ const toolchain = Effect.gen(function* resolve() {
     yield* fs.realPath(path.join(root, "node_modules", "vite-plus")),
   );
 
-  const tsgolint = path.join(dependencies, "oxlint-tsgolint", "bin", "tsgolint.js");
+  const tsrsLint = path.join(dependencies, "tsrs", "bin", "tsrs-lint");
 
   const oxlint = path.join(dependencies, "oxlint", "bin", "oxlint");
 
-  return { oxlint, root, tsgolint };
+  return { oxlint, root, tsrsLint };
 });
 
 /**
@@ -62,7 +62,7 @@ const lintFixture = Effect.fnUntraced(function* lintFixture(
 ) {
   const path = yield* Path.Path;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const { oxlint, root, tsgolint } = yield* toolchain;
+  const { oxlint, root, tsrsLint } = yield* toolchain;
 
   const output = yield* spawner.string(
     ChildProcess.make(
@@ -75,7 +75,7 @@ const lintFixture = Effect.fnUntraced(function* lintFixture(
         path.join(dir, ".oxlintrc.json"),
         ...files.map((file) => path.join(dir, file)),
       ],
-      { cwd: root, env: { OXLINT_TSGOLINT_PATH: tsgolint }, extendEnv: true },
+      { cwd: root, env: { OXLINT_TSGOLINT_PATH: tsrsLint }, extendEnv: true },
     ),
   );
 
@@ -114,7 +114,7 @@ const reportedLines = Effect.fnUntraced(function* reportedLines(
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const { oxlint, root, tsgolint } = yield* toolchain;
+  const { oxlint, root, tsrsLint } = yield* toolchain;
 
   yield* fs.makeDirectory(path.join(root, "work"), { recursive: true });
 
@@ -134,7 +134,7 @@ const reportedLines = Effect.fnUntraced(function* reportedLines(
         configPath,
         path.join(root, "tools", "lint", "fixtures", "blank-lines", "cases.ts"),
       ],
-      { cwd: root, env: { OXLINT_TSGOLINT_PATH: tsgolint }, extendEnv: true },
+      { cwd: root, env: { OXLINT_TSGOLINT_PATH: tsrsLint }, extendEnv: true },
     ),
   );
 
@@ -172,9 +172,9 @@ describe("lint fixtures", () => {
   it.effect("the type-aware engine Vite+ uses exists", () =>
     Effect.gen(function* engine() {
       const fs = yield* FileSystem.FileSystem;
-      const { oxlint, tsgolint } = yield* toolchain;
+      const { oxlint, tsrsLint } = yield* toolchain;
 
-      assert.isTrue(yield* fs.exists(tsgolint));
+      assert.isTrue(yield* fs.exists(tsrsLint));
       assert.isTrue(yield* fs.exists(oxlint));
     }).pipe(Effect.provide(BunServices.layer)),
   );
