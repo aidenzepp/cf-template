@@ -694,6 +694,9 @@ export default defineConfig({
       // Replaced by `workspace/no-array-method-this-argument`: the same check with `Effect` ignored, since
       // `Effect.forEach(xs, f, { concurrency })` takes options, not a `thisArg`.
       "unicorn/no-array-method-this-argument": "off",
+      // Adopted from the Cloudflare Oxlint preset (#437). Ultracite core turns it off; `String.raw`
+      // keeps a backslash-heavy literal readable, so it is on again.
+      "unicorn/prefer-string-raw": "error",
       // misfires on Schema.TaggedError<X>()(...) calls and takes no options; throw is already banned in source by the Effect-native rule (AGENTS.md)
       "unicorn/throw-new-error": "off",
       "workspace/error-message-grammar": "error",
