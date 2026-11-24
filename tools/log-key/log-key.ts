@@ -52,7 +52,7 @@ export interface LogKeyRequest {
 }
 
 /**
- * Parse the arguments after `bun tools/log-key/log-key.ts`.
+ * Parse the arguments after `bun run log-key`.
  *
  * @param args - The raw arguments.
  * @returns The request, or a {@link LogKeyRefused}.

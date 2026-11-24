@@ -47,7 +47,7 @@ export type KnobRequest = { readonly stage: string } & (
 );
 
 /**
- * Parse the arguments after `bun tools/knob/knob.ts`.
+ * Parse the arguments after `bun run knob`.
  *
  * @param args - The raw arguments.
  * @returns The request, or a {@link KnobRefused}.
