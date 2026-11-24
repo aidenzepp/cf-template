@@ -701,8 +701,7 @@ export default defineConfig({
       // Landmines 0.3.0 (#434), every rule listed. A rule that is on reports nothing today. A rule
       // that is off carries its reason and the findings measured on the tree when it was left off.
       "landmines/colocated-tests": "error",
-      // Off (0 findings): the repository has no Turbo `test` task for the rule to read.
-      "landmines/declared-test-inputs": "off",
+      "landmines/declared-test-inputs": "error",
       // Off (25 findings): a size limit; AGENTS.md rules out function-decomposition policies.
       "landmines/max-exports-per-module": "off",
       // Off (6 findings): a size limit; AGENTS.md rules out function-decomposition policies.
