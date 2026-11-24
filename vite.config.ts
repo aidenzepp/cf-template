@@ -208,6 +208,10 @@ export default defineConfig({
     // off under `routes/`; two of its decisions are copied as scoped overrides instead. `effect` is
     // the `@effect/tsgo` Effect rule set: it runs in this one `vp check` pass only while
     // `effect-tsgo patch --oxlint --tsrs` has patched the toolchain, and the canary test turns red if not.
+    // Adopted from the Cloudflare Oxlint preset (#437): no whole category is on by default, so an
+    // Oxlint upgrade cannot switch on a rule unseen. The presets and this file already list every rule
+    // that runs: `vp lint --print-config` and the enabled-rule count (1384) are the same either way.
+    categories: { correctness: "off" },
     extends: [core, antiSlop, shadcn, drizzle, effect],
     ignorePatterns: [
       ".agents/**",
