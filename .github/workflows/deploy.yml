@@ -35,9 +35,9 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: node_modules/.vite/task-cache
-          key: vite-task-v2-${{ runner.os }}-${{ env.ImageVersion }}-${{ github.run_id }}-${{ github.run_attempt }}
+          key: vite-task-v3-${{ runner.os }}-${{ env.ImageVersion }}-${{ github.run_id }}-${{ github.run_attempt }}
           restore-keys: |
-            vite-task-v2-${{ runner.os }}-${{ env.ImageVersion }}-
+            vite-task-v3-${{ runner.os }}-${{ env.ImageVersion }}-
       - name: Run the CI tasks
         env:
           RATCHET_BASE: ${{ github.event.pull_request.base.sha }}
