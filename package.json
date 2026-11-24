@@ -29,7 +29,7 @@
     "test:browser": "vp test --config vite.browser.config.ts",
     "test:cloud": "ALCHEMY_TEST_STAGE=test-ci vp test --config vite.cloud.config.ts",
     "db:regenerate": "git clean -fdq apps/api/migrations && bun run db:generate",
-    "db:generate": "cd apps/api && ../../node_modules/.bin/drizzle-kit generate && bun ./scripts/migrations-digest.ts && cd ../auth && ../../node_modules/.bin/drizzle-kit generate",
+    "db:generate": "cd apps/api && ../../node_modules/.bin/drizzle-kit generate && bun ../../tools/db/migrations-digest.ts api && cd ../auth && ../../node_modules/.bin/drizzle-kit generate",
     "ratchet": "bun tools/ratchet/ratchet.ts",
     "prepare": "git rev-parse --git-dir >/dev/null 2>&1 && git config --local core.hooksPath .vite-hooks || true; effect-tsgo patch --oxlint --tsrs",
     "build": "vp run -F '@workspace/*' build && bun tools/bundle/check.ts"

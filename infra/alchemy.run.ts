@@ -65,7 +65,7 @@ const resolveIdentity = Effect.fn("resolveIdentity")(function* resolveIdentity(r
         Effect.mapError(
           () =>
             new StackNameError({
-              message: `STACK_NAME is required for stage ${stage} and is unset. Run the bootstrap stack to record it, or set it to the name \`bun infra/scripts/stack-name.ts\` prints.`,
+              message: `STACK_NAME is required for stage ${stage} and is unset. Run the bootstrap stack to record it, or set it to the name \`bun infra/src/stack-name.ts\` prints.`,
             }),
         ),
       )

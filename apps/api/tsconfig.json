@@ -5,5 +5,5 @@
     "rootDir": "../..",
     "types": ["bun", "node", "vite/client"]
   },
-  "include": ["scripts", "src"]
+  "include": ["src"]
 }

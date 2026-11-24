@@ -7,7 +7,7 @@
     "./contract": "./src/contract.ts"
   },
   "scripts": {
-    "auth:generate": "node ./node_modules/.bin/auth generate --config ./auth.config.ts --output ./src/db/schema.ts --yes && ./node_modules/.bin/drizzle-kit generate && bun ./scripts/migrations-digest.ts"
+    "auth:generate": "node ./node_modules/.bin/auth generate --config ./auth.config.ts --output ./src/db/schema.ts --yes && ./node_modules/.bin/drizzle-kit generate && bun ../../tools/db/migrations-digest.ts auth"
   },
   "dependencies": {
     "@alchemy.run/better-auth": "2.0.0-beta.85",

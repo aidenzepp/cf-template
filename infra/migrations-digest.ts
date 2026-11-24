@@ -12,7 +12,8 @@ const DIGEST_LENGTH = 12;
  * over the sorted relative paths and contents of every file under `directory`.
  *
  * A rewritten migrations directory changes the digest, which renames the non-prod app database,
- * so the replacement is create-first. Each app's digest script writes it and a test recomputes it.
+ * so the replacement is create-first. `tools/db/migrations-digest.ts` writes it and a test
+ * recomputes it.
  *
  * @param directory - The absolute path of an app's `migrations` directory.
  * @returns The digest.

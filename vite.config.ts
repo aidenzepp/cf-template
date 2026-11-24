@@ -724,9 +724,7 @@ export default defineConfig({
       "landmines/no-parameter-branch": "error",
       "landmines/no-prefix-cluster": "error",
       "landmines/no-project-max-workers": "error",
-      // Off (10 findings): apps/*/scripts and infra/scripts hold the migration digest and the
-      // stack, deploy and smoke steps that package scripts and CI call.
-      "landmines/no-scripts-directory": "off",
+      "landmines/no-scripts-directory": "error",
       "landmines/no-self-container-query": "error",
       "landmines/no-shared-signal": "error",
       "landmines/no-silent-catch": "error",
