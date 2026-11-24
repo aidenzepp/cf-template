@@ -129,6 +129,14 @@ describe("parseLinks", () => {
   it("ignores a keyword inside code", () => {
     assert.deepStrictEqual(parseLinks("Use `Closes #1`.\n\n```md\nRefs #2\n```"), []);
   });
+
+  it("finds a link in a bullet, with either marker", () => {
+    assert.deepStrictEqual(parseLinks("- Closes #450\n- Part of #19\n* Refs #407"), [
+      { issue: 450, keyword: "Closes" },
+      { issue: 19, keyword: "Part of" },
+      { issue: 407, keyword: "Refs" },
+    ]);
+  });
 });
 
 describe("hasNoIssue", () => {
@@ -136,10 +144,23 @@ describe("hasNoIssue", () => {
     assert.isTrue(hasNoIssue("Text.\n\nNo issue: a template-only cleanup.\n\nMore."));
   });
 
+  it("passes a bulleted line, with either marker", () => {
+    assert.isTrue(hasNoIssue("- No issue: a template-only cleanup."));
+    assert.isTrue(hasNoIssue("Text.\n\n* No issue: a template-only cleanup.\n\nMore."));
+  });
+
   it("fails an empty reason, a line with text before it and code", () => {
     assert.isFalse(hasNoIssue("No issue:"));
     assert.isFalse(hasNoIssue("There is No issue: here"));
     assert.isFalse(hasNoIssue("`No issue: x`\n\n```\nNo issue: y\n```"));
+  });
+
+  it("fails a bulleted line with no reason, an unrecognised marker and a bullet in code", () => {
+    assert.isFalse(hasNoIssue("- No issue:"));
+    assert.isFalse(hasNoIssue("* No issue:   "));
+    assert.isFalse(hasNoIssue("+ No issue: x"));
+    assert.isFalse(hasNoIssue("-No issue: x"));
+    assert.isFalse(hasNoIssue("```\n- No issue: y\n```"));
   });
 });
 
@@ -222,6 +243,25 @@ describe("problems", () => {
 
   it("passes No issue: with a disclosure", () => {
     assert.deepStrictEqual(problems(`No issue: a typo.\n\n${disclosure}`), []);
+  });
+
+  it("passes the bullet form of every issue line", () => {
+    for (const line of [
+      "- Closes #450",
+      "- Part of #19",
+      "* Refs #407",
+      "- No issue: a typo.",
+      "* No issue: a typo.",
+    ]) {
+      assert.deepStrictEqual(problems(`${line}\n\n${disclosure}`), [], line);
+    }
+  });
+
+  it("names a bulleted No issue with no reason", () => {
+    const found = problems(`- No issue:\n\n${disclosure}`);
+
+    assert.strictEqual(found.length, 1);
+    assert.include(found[0], "links no issue");
   });
 
   it("names a missing link and a missing disclosure", () => {
@@ -361,6 +401,15 @@ describe("pull request template", () => {
       assert.isTrue(hasDisclosure(text));
       assert.strictEqual(problems(text).length, 1);
       assert.include(problems(text)[0], "links no issue");
+
+      for (const form of [
+        "- Closes #<issue>",
+        "- Part of #<issue>",
+        "- Refs #<issue>",
+        "- No issue: <reason>",
+      ]) {
+        assert.include(text, `\`${form}\``);
+      }
     }).pipe(Effect.provide(BunServices.layer)),
   );
 });
