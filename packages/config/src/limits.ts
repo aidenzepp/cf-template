@@ -1,5 +1,5 @@
 import { Config, Schema } from "effect";
-import type { ScryptCost } from "./auth-password.ts";
+import type { ScryptCost } from "./auth/password.ts";
 import { Knob } from "./knob.ts";
 
 /**
