@@ -1,0 +1,2 @@
+/* The shadcn fixtures lint with tools/ as the package root, so the theme their tokens come from is imported here. */
+@import "../../packages/ui/src/styles/globals.css";
