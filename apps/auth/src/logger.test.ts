@@ -51,11 +51,7 @@ const collected = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
  * @param args - The extra arguments.
  * @returns The lines written.
  */
-const logged = (
-  level: "warn" | "error",
-  message: string,
-  ...args: ReadonlyArray<LogArgument>
-): Effect.Effect<ReadonlyArray<Line>> =>
+const logged = (level: "warn" | "error", message: string, ...args: ReadonlyArray<LogArgument>) =>
   Effect.gen(function* write() {
     const { lines } = yield* collected(
       Effect.gen(function* emit() {
@@ -181,7 +177,7 @@ layer(LocalAuthD1.layer)("the Better Auth logger", (live) => {
     assert.strictEqual(redactEmails("a%2540b.co"), "[email]");
     assert.strictEqual(redactEmails("a&#64;b.co"), "[email]");
     assert.strictEqual(redactEmails("a＠b.co"), "[email]");
-    assert.strictEqual(redactEmails('"a\\"b"@c.co'), "[email]");
+    assert.strictEqual(redactEmails(String.raw`"a\"b"@c.co`), "[email]");
     assert.strictEqual(redactEmails("100%"), "100%");
   });
 

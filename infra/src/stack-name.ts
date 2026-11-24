@@ -1,5 +1,5 @@
-import { BunServices } from "@effect/platform-bun";
-import { Config, Effect, Option, Schema } from "effect";
+import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { Config, Console, Effect, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { CLOUD_STAGE, STACK_NAME_MAX, base32Sha256, kindOf } from "../stages.ts";
@@ -46,9 +46,7 @@ const NO_SOURCE_MESSAGE =
  * @param text - The repository reference.
  * @returns The owner and repository, or none when the text has neither form.
  */
-export const parseRepository = (
-  text: string,
-): Option.Option<{ readonly owner: string; readonly repo: string }> => {
+export const parseRepository = (text: string) => {
   const match =
     /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?[^/]+\/(?<owner>[^/]+)\/(?<repo>[^/]+?)(?:\.git)?\/?$/iu.exec(
       text,
@@ -174,5 +172,20 @@ export const resolveStackName = Effect.fn("resolveStackName")(
  * @param stage - The decoded stage.
  * @returns True when the stage requires the pin.
  */
-export const requiresStackNamePin = (stage: StageName): boolean =>
+export const requiresStackNamePin = (stage: StageName) =>
   kindOf(stage) === "prod" || kindOf(stage) === "staging" || stage === CLOUD_STAGE;
+
+/**
+ * Print the derived stack name to stdout, or the failure message to stderr with exit code 1.
+ */
+const program = Effect.gen(function* printStackName() {
+  const name = yield* resolveStackName().pipe(
+    Effect.tapError((failure) => Console.error(failure.message)),
+  );
+
+  yield* Console.log(name);
+});
+
+if (import.meta.main) {
+  BunRuntime.runMain(program, { disableErrorReporting: true });
+}

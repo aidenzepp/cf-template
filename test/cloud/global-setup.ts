@@ -3,7 +3,7 @@ import { Config, Effect, Layer, Schedule, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { FetchHttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { awaitAuthReady } from "../../infra/scripts/smoke.ts";
+import { awaitAuthReady } from "../../infra/src/smoke.ts";
 import { APP_STACK_ENTRY } from "../../infra/src/app-stack.ts";
 import { publicOrigin } from "../../infra/src/origin.ts";
 import { resolveStackName } from "../../infra/src/stack-name.ts";
@@ -113,7 +113,7 @@ const DEPLOY_RETRY_PAUSE = "20 seconds";
 const retryDeploy = (stage: string) =>
   Schedule.spaced(DEPLOY_RETRY_PAUSE).pipe(
     Schedule.while(({ attempt, input }) =>
-      input instanceof AlchemyExited && attempt < DEPLOY_ATTEMPTS
+      Schema.is(AlchemyExited)(input) && attempt < DEPLOY_ATTEMPTS
         ? Effect.as(
             Effect.logWarning(
               `Deploy attempt ${attempt} of ${DEPLOY_ATTEMPTS} for ${stage} exited with code ${input.code}; deploying again in ${DEPLOY_RETRY_PAUSE}.`,

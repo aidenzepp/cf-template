@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import {
   Config,
@@ -11,8 +12,6 @@ import {
   Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { readPackages, versionOf } from "./bun-lock.ts";
-import type { Packages } from "./bun-lock.ts";
 
 /**
  * One upstream repository to mirror: the `bun.lock` package whose version picks the tag, and the
@@ -46,6 +45,24 @@ export const Stamp = Schema.Struct({
 type StampValue = typeof Stamp.Type;
 
 const StampJson = Schema.fromJsonString(Stamp);
+
+/**
+ * The part of `bun.lock` the anchors come from.
+ */
+const LockJson = Schema.fromJsonString(
+  Schema.Struct({
+    packages: Schema.Record(
+      Schema.String,
+      Schema.TupleWithRest(Schema.Tuple([Schema.String]), [Schema.Unknown]),
+    ),
+  }),
+);
+
+/**
+ * The `packages` table of `bun.lock`: each key maps to an array whose first element reads
+ * `<name>@<version>`.
+ */
+type Packages = typeof LockJson.Type.packages;
 
 /**
  * The negative sparse patterns: files that instruct a harness are reference data here, not
@@ -120,9 +137,43 @@ interface Stale {
 }
 
 /**
+ * Matches a string literal (kept) or a comment (dropped), so only text outside strings changes.
+ */
+const comments = /(?<kept>"(?:[^"\\]|\\.)*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//gu;
+
+/**
+ * Matches a string literal (kept) or a comma that closes an object or array (dropped).
+ */
+const trailingCommas = /(?<kept>"(?:[^"\\]|\\.)*")|,(?=\s*[}\]])/gu;
+
+/**
+ * Turns JSONC into JSON by dropping comments and trailing commas outside strings. `Bun.JSONC` does
+ * this on Bun, but the Vitest suite runs on Node, which has no `Bun` global.
+ */
+const jsoncToJson = (text: string) =>
+  text.replaceAll(comments, "$<kept>").replaceAll(trailingCommas, "$<kept>");
+
+/**
+ * Parses `bun.lock` (JSONC, with trailing commas) into its `packages` table.
+ */
+export const readPackages = Effect.fn("mirrors.readPackages")(function* readPackages(text: string) {
+  return (yield* Schema.decodeEffect(LockJson)(jsoncToJson(text))).packages;
+});
+
+/**
+ * The locked version of `anchor`: the text after the last `@` of the package's first element,
+ * which reads `<name>@<version>` (the name is read from the element because aliases resolve to
+ * another name). Nothing when the anchor is not in the lock.
+ */
+export const versionOf = (packages: Packages, anchor: string) =>
+  Option.fromNullishOr(packages[anchor]?.[0]).pipe(
+    Option.map((spec) => spec.slice(spec.lastIndexOf("@") + 1)),
+  );
+
+/**
  * The stamp a current checkout of `entry` at the locked `version` carries.
  */
-export const expectedStamp = (entry: Entry, version: string): StampValue => ({
+export const expectedStamp = (entry: Entry, version: string) => ({
   exclusions,
   sparse: entry.sparse,
   tag: entry.tag.replace("{version}", version),
@@ -132,10 +183,7 @@ export const expectedStamp = (entry: Entry, version: string): StampValue => ({
  * Compares a checkout's stamp with the expected one: a missing stamp or another tag means a fresh
  * clone, other lists mean a new sparse checkout only.
  */
-export const compareStamp = (
-  actual: Option.Option<StampValue>,
-  expected: StampValue,
-): Option.Option<Stale> => {
+export const compareStamp = (actual: Option.Option<StampValue>, expected: StampValue) => {
   if (Option.isNone(actual)) {
     return Option.some<Stale>({ action: "clone", reason: "no stamp" });
   }
@@ -197,8 +245,7 @@ const staleness = Effect.fn("mirrors.staleness")(function* staleness(
   return compareStamp(yield* readStamp(dir), expectedStamp(entry, version));
 });
 
-const skipLine = (entry: Entry): string =>
-  `${entry.name}: anchor ${entry.anchor} not in bun.lock, skipped`;
+const skipLine = (entry: Entry) => `${entry.name}: anchor ${entry.anchor} not in bun.lock, skipped`;
 
 /**
  * The offline `--check`: one report per mirror that is stale or skipped, and nothing is written.
@@ -360,8 +407,8 @@ const syncEntry = Effect.fn("mirrors.syncEntry")(function* syncEntry(
 export const syncOne = (root: string, entry: Entry, packages: Packages) =>
   syncEntry(root, entry, packages).pipe(
     Effect.match({
-      onFailure: (error): Outcome => ({ line: `${entry.name}: ${error.message}`, ok: false }),
-      onSuccess: (outcome): Outcome => outcome,
+      onFailure: (error) => ({ line: `${entry.name}: ${error.message}`, ok: false }),
+      onSuccess: (outcome) => outcome,
     }),
   );
 

@@ -10,8 +10,8 @@ import { issueNotificationAddress, prodIssueNotification } from "./src/alerts.ts
 import { declareApi } from "./src/api.ts";
 import { AUTH_DB_ID } from "../apps/auth/src/db/database.ts";
 import { declareAuth } from "./src/auth.ts";
-import { guardLocationHints } from "./src/d1-hint-guard.ts";
-import { d1LocationHint } from "./src/d1-location.ts";
+import { guardLocationHints } from "./src/d1/hint-guard.ts";
+import { d1LocationHint } from "./src/d1/location.ts";
 import { STATE_STACK, usesProjectState } from "./src/state-selection.ts";
 import { publicOrigin } from "./src/origin.ts";
 import { declareWeb } from "./src/web.ts";
@@ -30,7 +30,7 @@ export class ProdStageRefused extends Schema.TaggedError<
   phase: Schema.String,
   stage: Schema.String,
 }) {
-  override get message(): string {
+  override get message() {
     return `Stage ${this.stage} is refused for ${this.phase} unless CI=true. Deploy and destroy prod from the CI workflow, not a laptop.`;
   }
 }
@@ -65,7 +65,7 @@ const resolveIdentity = Effect.fn("resolveIdentity")(function* resolveIdentity(r
         Effect.mapError(
           () =>
             new StackNameError({
-              message: `STACK_NAME is required for stage ${stage} and is unset. Run the bootstrap stack to record it, or set it to the name \`bun infra/scripts/stack-name.ts\` prints.`,
+              message: `STACK_NAME is required for stage ${stage} and is unset. Run the bootstrap stack to record it, or set it to the name \`bun infra/src/stack-name.ts\` prints.`,
             }),
         ),
       )

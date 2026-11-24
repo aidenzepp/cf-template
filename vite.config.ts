@@ -9,13 +9,35 @@ import antiSlop from "ultracite/oxlint/anti-slop";
 
 import drizzle from "ultracite/oxlint/drizzle";
 
+import react from "ultracite/oxlint/react";
+
 import shadcn from "ultracite/oxlint/shadcn";
 
-import { importRestrictionOverrides } from "./tools/lint/overrides/import-restrictions.ts";
+import vitest from "ultracite/oxlint/vitest";
 
-import { ruleScopeOverrides } from "./tools/lint/overrides/rule-scopes.ts";
+import {
+  REACT_COMPILER_RULES,
+  RECOMMENDED_RULES,
+  TANSTACK_START_RULES,
+} from "oxlint-plugin-react-doctor";
 
-import { dataAccessMembers, runMembers } from "./tools/lint/rules/restricted-properties.ts";
+import {
+  abortGlobal,
+  platformGlobals,
+  sourceFetch,
+  webFetch,
+} from "./tools/lint/rules/restricted-globals.ts";
+
+import { nodeBuiltins, restrictImports } from "./tools/lint/rules/restrict-imports.ts";
+
+import {
+  authFetchMembers,
+  dataAccessMembers,
+  dataAccessMembersWithoutPrepare,
+  globalThisFetch,
+  registryMembers,
+  runMembers,
+} from "./tools/lint/rules/restricted-properties.ts";
 
 /**
  * Matches module declarations and calls without spacing local call groups.
@@ -46,6 +68,102 @@ const effectLogStatement = {
  *   run by `bun run check`.
  */
 const vendored = ["packages/ui/src/**", "packages/ui/components.json"];
+
+/**
+ * The source of every app and package: the files the capability registry guards
+ * (`docs/capabilities.md`). Tests lift the properties ban and `packages` tests lift the rest.
+ */
+const sourceFiles = ["apps/*/src/**", "packages/*/src/**"];
+
+/**
+ * R1: an app imports another app only through its contract, and never imports infra.
+ */
+const appRules = [
+  {
+    group: [
+      "@workspace/web",
+      "@workspace/web/*",
+      "@workspace/api",
+      "@workspace/api/*",
+      "@workspace/auth",
+      "@workspace/auth/*",
+      "!@workspace/*/contract",
+    ],
+    message: "an app imports another app only as @workspace/<app>/contract",
+  },
+  { group: ["@workspace/infra", "@workspace/infra/*"], message: "an app never imports infra" },
+];
+
+/**
+ * Everything an app source file may not import by pattern: R1, and `node:*`. Web overrides repeat
+ * it because an override replaces the options of every earlier matching override.
+ */
+const appImports = [...appRules, nodeBuiltins];
+
+/**
+ * R5: browser code imports no app contract; the server entry is the exception (ST10).
+ */
+const webContracts = {
+  group: ["@workspace/api/contract", "@workspace/auth/contract"],
+  message: "browser code imports no app contract; the server entry is the exception",
+};
+
+/**
+ * R5: `cloudflare:workers` is a server runtime module. `server.ts`, `runtime.ts` and
+ * `api-client.ts` are the ruled boundaries that read the bindings; tests may also import it.
+ */
+const workersModule = { group: ["cloudflare:workers"] };
+
+/**
+ * R5: no server functions in `web` (ST10), including from the server entry.
+ */
+const noServerFunctions = {
+  importNames: ["createServerFn"],
+  message: "no server functions in web (ST10)",
+  name: "@tanstack/react-start",
+};
+
+/**
+ * R7: services build no HTTP; handlers live in `**\/http.ts`. `worker.ts` composes the
+ * `HttpApiBuilder` layers and lifts this ban.
+ */
+const noHttpBuilder = {
+  importNames: ["HttpApiBuilder"],
+  message: "services do not build HTTP; handlers live in **/http.ts",
+  name: "effect/http-api",
+};
+
+/**
+ * R7: services import no handler module.
+ */
+const httpModules = {
+  group: ["./http", "../http", "./**/http", "../**/http"],
+  message: "services import no handler module; handlers live in **/http.ts",
+};
+
+/**
+ * R8: handlers import no database module.
+ */
+const dbModules = {
+  group: ["./db/*", "../db/*", "**/db/*"],
+  message: "handlers import no database module",
+};
+
+/**
+ * The repository's Vitest suites; the lint-rule fixtures are inputs, not suites.
+ */
+const testFiles = [
+  "apps/*/src/**/*.test.ts",
+  "packages/*/src/**/*.test.ts",
+  "infra/**/*.test.ts",
+  "tools/**/*.test.ts",
+  "test/**/*.test.ts",
+];
+
+/**
+ * The rules of the Ultracite `vitest` preset, read from its single override.
+ */
+const presetRules = vitest.overrides?.[0]?.rules ?? {};
 
 /**
  * A committed `.only` would silently skip every other test in its file; Vitest defaults `allowOnly`
@@ -90,6 +208,16 @@ export default defineConfig({
     // off under `routes/`; two of its decisions are copied as scoped overrides instead. `effect` is
     // the `@effect/tsgo` Effect rule set: it runs in this one `vp check` pass only while
     // `effect-tsgo patch --oxlint --tsrs` has patched the toolchain, and the canary test turns red if not.
+    // Not adopted from the Cloudflare Oxlint preset (#437): `import/no-namespace`, which Ultracite core
+    // also leaves off. Effect is imported by name; the one `effect/Effect` namespace import is a test
+    // that lists the module's exports. The 67 findings at adoption were `import * as` from `alchemy` and
+    // `@alchemy.run/*` (54, Alchemy's documented style), `@distilled.cloud/cloudflare/*` (9), the local
+    // Drizzle schema handed to the Better Auth adapter (2), `@effect/sql-d1/D1Client` (1) and
+    // `effect/Effect` (1).
+    // Adopted from the Cloudflare Oxlint preset (#437): no whole category is on by default, so an
+    // Oxlint upgrade cannot switch on a rule unseen. The presets and this file already list every rule
+    // that runs: `vp lint --print-config` and the enabled-rule count (1384) are the same either way.
+    categories: { correctness: "off" },
     extends: [core, antiSlop, shadcn, drizzle, effect],
     ignorePatterns: [
       ".agents/**",
@@ -110,6 +238,8 @@ export default defineConfig({
       // Landmines 0.3.0, registered for its rule lines below; the Ultracite 8.3 `landmines` preset
       // targets the 0.1.x subpaths that 0.2.0 removed, so it is not used.
       { name: "landmines", specifier: "@interfere/landmines" },
+      // The plugin carries no name of its own; the Cloudflare preset registers it as `@nkzw` too.
+      { name: "@nkzw", specifier: "@nkzw/eslint-plugin" },
       ...shadcn.jsPlugins,
     ],
     // `vp check` runs type-aware rules and the type check only when both are enabled.
@@ -126,10 +256,385 @@ export default defineConfig({
         ],
         rules: { "effecttsgo/process-env": "off" },
       },
-      ...importRestrictionOverrides,
-      ...ruleScopeOverrides,
+      // The run-family import ban covers every source file; the scoped overrides below repeat it.
+      restrictImports(["**/*.ts", "**/*.tsx"], {}),
+      // Runtime boundary: tests bridge stubs to Promise APIs.
+      restrictImports(["**/*.test.ts"], { base: false, sql: false }),
+      restrictImports(["apps/*/src/**"], { patterns: appImports }),
+      // Package source imports no `node:*` module; its tests lift that ban and the run-family ban.
+      restrictImports(["packages/*/src/**"], { patterns: [nodeBuiltins] }),
+      // `packages/db` and every `table.ts` under `packages` build SQL on purpose (schema DDL, the
+      // database module itself), so they lift the raw-SQL import ban.
+      restrictImports(["packages/db/src/**", "packages/*/src/**/table.ts"], {
+        patterns: [nodeBuiltins],
+        sql: false,
+      }),
+      restrictImports(["packages/*/src/**/*.test.ts"], { base: false, sql: false }),
+      restrictImports(["packages/contract/src/domain/**"], {
+        patterns: [
+          nodeBuiltins,
+          {
+            group: ["effect/http", "effect/http/*", "@alchemy.run/*", "../api/*", "**/api/*"],
+            message:
+              "the domain imports no HTTP server module, no Alchemy and no api module; effect/http-api is allowed because the Problem classes are the domain's error model",
+          },
+        ],
+      }),
+      restrictImports(["apps/web/src/**"], {
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts, workersModule],
+      }),
+      // The server entry reads the bindings and imports `@workspace/auth/contract` (the credential
+      // paths); it keeps the createServerFn ban.
+      // It is also a run boundary: the rate-limit check runs before the forward.
+      restrictImports(["apps/web/src/server.ts"], {
+        base: false,
+        paths: [noServerFunctions],
+        patterns: appImports,
+      }),
+      // `runtime.ts` and `api-client.ts` read the bindings: they lift only the `cloudflare:workers`
+      // group. `runtime.ts` is also the run boundary of `web`.
+      restrictImports(["apps/web/src/runtime.ts"], {
+        base: false,
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts],
+      }),
+      restrictImports(["apps/web/src/api-client.ts"], {
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts],
+      }),
+      // Tests lift the `cloudflare:workers` group and the run-family ban.
+      restrictImports(["apps/web/src/**/*.test.ts"], {
+        base: false,
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts],
+        sql: false,
+      }),
+      restrictImports(["apps/api/src/**", "apps/auth/src/**"], {
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+      }),
+      // `auth.ts` is the run boundary of `auth` (the one Effect-to-Promise seam); it keeps R1 and R7.
+      restrictImports(["apps/auth/src/auth.ts"], {
+        base: false,
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+      }),
+      // `password.ts` is the project's one scrypt call: Effect has no scrypt (its `Kdf` is PBKDF2
+      // only) and Workers serve it only through `node:crypto` (the file's own comment). It lifts
+      // only `node:*`.
+      restrictImports(["apps/auth/src/password.ts"], {
+        paths: [noHttpBuilder],
+        patterns: [...appRules, httpModules],
+      }),
+      // `worker.ts` composes `HttpApiBuilder` layers from the http modules; it keeps R1.
+      restrictImports(["apps/api/src/worker.ts", "apps/auth/src/worker.ts"], {
+        patterns: appImports,
+      }),
+      // Tests compose handlers; they keep R1 but not R7, and lift the run-family ban.
+      restrictImports(["apps/api/src/**/*.test.ts", "apps/auth/src/**/*.test.ts"], {
+        base: false,
+        patterns: appImports,
+        sql: false,
+      }),
+      // Handlers may use `HttpApiBuilder`; they keep R1 and import no database module.
+      restrictImports(["apps/api/src/**/http.ts", "apps/auth/src/**/http.ts"], {
+        patterns: [...appImports, dbModules],
+      }),
+      // The attach files import the block live Layers (#232); each repeats its app's restrictions.
+      restrictImports(["apps/api/src/blocks.ts", "apps/auth/src/blocks.ts"], {
+        blockLayers: false,
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+      }),
+      restrictImports(["apps/web/src/blocks.ts", "apps/web/src/request-layers.ts"], {
+        blockLayers: false,
+        paths: [noServerFunctions],
+        patterns: [...appImports, webContracts, workersModule],
+      }),
+      // Raw-SQL exceptions, each with its reason. `table.ts` is schema DDL (a `check(...)`
+      // constraint is SQL text); `reclaim.ts` is the guarded `DELETE ... NOT EXISTS`, a named data
+      // module; `test-harness.ts` is test support that seeds the D1 binding.
+      restrictImports(["apps/api/src/**/table.ts", "apps/auth/src/**/table.ts"], {
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+        sql: false,
+      }),
+      restrictImports(["apps/auth/src/reclaim.ts", "apps/auth/src/test-harness.ts"], {
+        paths: [noHttpBuilder],
+        patterns: [...appImports, httpModules],
+        sql: false,
+      }),
+      {
+        // The capability registry's built-in guards (`docs/capabilities.md`, work order A2) on all
+        // source. Overrides replace options, so each list below and in the overrides after this one
+        // is exact. `no-console` takes no options: logs go through `Effect.log*`.
+        files: sourceFiles,
+        rules: {
+          "no-console": "error",
+          "no-restricted-globals": ["error", abortGlobal, ...platformGlobals, sourceFetch],
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            ...registryMembers,
+          ],
+          "promise/prefer-await-to-then": "error",
+        },
+      },
+      {
+        // The data modules lift the data-access bans and keep the run-family and registry bans.
+        files: ["packages/db/src/**"],
+        rules: { "no-restricted-properties": ["error", ...runMembers, ...registryMembers] },
+      },
+      {
+        // `web` reaches `auth` only through `env.AUTH.fetch(...)` (C34), so its bare `fetch` ban
+        // carries that message. `globalThis.fetch` joins the member lists, which every override
+        // under apps/web/src repeats because overrides replace options.
+        files: ["apps/web/src/**"],
+        rules: {
+          "no-restricted-globals": ["error", abortGlobal, ...platformGlobals, webFetch],
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            ...registryMembers,
+            globalThisFetch,
+          ],
+        },
+      },
+      {
+        // The web run boundaries lift the run-family ban and keep the data-access, registry and
+        // fetch bans.
+        files: ["apps/web/src/runtime.ts", "apps/web/src/server.ts"],
+        rules: {
+          "no-restricted-properties": [
+            "error",
+            ...dataAccessMembers,
+            ...registryMembers,
+            globalThisFetch,
+          ],
+        },
+      },
+      {
+        // The auth reclaim statement is one guarded compare-and-delete: a named data module that
+        // keeps the run-family and registry bans.
+        files: ["apps/auth/src/reclaim.ts"],
+        rules: { "no-restricted-properties": ["error", ...runMembers, ...registryMembers] },
+      },
+      {
+        // `test-harness.ts` applies the migrations through the D1 binding's `prepare`.
+        files: ["apps/auth/src/test-harness.ts"],
+        rules: {
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembersWithoutPrepare,
+            ...authFetchMembers,
+          ],
+        },
+      },
+      {
+        // Lifted until #244 moves the log to Effect.logError (want 3bb9a4ad). No alert reads the
+        // `web.ratelimit.error` line any more; it reaches Workers Logs only.
+        files: ["apps/web/src/ratelimit.ts"],
+        rules: {
+          "no-console": "off",
+          "no-restricted-properties": [
+            "error",
+            ...runMembers,
+            ...dataAccessMembers,
+            ...authFetchMembers,
+            globalThisFetch,
+          ],
+          "promise/prefer-await-to-then": "off",
+        },
+      },
+      {
+        // `auth.ts` is the documented Effect-to-Promise seam: Better Auth takes a promise view
+        // of the Effect, which `.then(onFulfilled, onRejected)` consumes. `prefer-catch` is off
+        // too: `.catch` would also catch a throw from `onFulfilled`, which changes the thenable.
+        files: ["apps/auth/src/auth.ts"],
+        rules: { "promise/prefer-await-to-then": "off", "promise/prefer-catch": "off" },
+      },
+      {
+        // Alchemy Domain Stories assert recorded events with `Story.then(...)`, a step of the
+        // Story DSL, not a promise. Story files are declarative step lists and run no promises.
+        // `prefer-catch` is off too: it reads `Story.then(subject, event)` as `then(a, b)`.
+        // `prefer-top-level-await` is off too: it reads `Story.then(...)` as a promise chain.
+        files: ["**/*.story.ts"],
+        rules: {
+          "promise/prefer-await-to-then": "off",
+          "promise/prefer-catch": "off",
+          "unicorn/prefer-top-level-await": "off",
+        },
+      },
+      {
+        // The cloud suite's and the `tools` project's Vitest global setups and the browser tier's
+        // `scan` command are run boundaries: Vitest calls a plain async function, so the Effect that
+        // validates the stage and runs `alchemy`, that runs the Better Auth CLI, or that builds the
+        // harness and runs axe-core, runs here. They keep the data-access bans.
+        files: [
+          "test/cloud/global-setup.ts",
+          "tools/db/global-setup.ts",
+          "test/browser/support/browser-harness.ts",
+        ],
+        rules: { "no-restricted-properties": ["error", ...dataAccessMembers] },
+      },
+      {
+        // Tests set up and read the database on purpose, so they lift the run-family and
+        // data-access bans.
+        files: ["**/*.test.ts"],
+        rules: { "no-restricted-properties": "off" },
+      },
+      {
+        // Web tests still never reach the network through `globalThis.fetch`.
+        files: ["apps/web/src/**/*.test.ts"],
+        rules: { "no-restricted-properties": ["error", globalThisFetch] },
+      },
+      {
+        // The auth promise view is both a run boundary and a data boundary (it writes through
+        // `batch`).
+        files: ["apps/auth/src/auth.ts"],
+        rules: { "no-restricted-properties": "off" },
+      },
+      {
+        // `react` is scoped to the web components: the root preset fired `react-hooks/rules-of-hooks`
+        // on Effect `Service.use(...)` calls elsewhere.
+        files: ["apps/web/**/*.tsx"],
+        plugins: react.plugins,
+        rules: {
+          ...react.rules,
+          // Adopted from the Cloudflare Oxlint preset (#437); the preset leaves both off.
+          "react/no-unknown-property": "error",
+          "react/require-render-return": "error",
+        },
+      },
+      {
+        // React Doctor's per-file rules, scoped to `apps/web` like `react` above: the recommended set
+        // plus the TanStack Start rules the CLI adds for this framework. Project-wide rules (cycles,
+        // unused dependencies) need the CLI and do nothing under oxlint; the CLI is not installed.
+        files: ["apps/web/**/*.{ts,tsx}"],
+        // `react-hooks-js` is the React Compiler's own diagnostics (`eslint-plugin-react-hooks` 7):
+        // each rule flags code the compiler bails out of, which React Doctor's rule keys name.
+        jsPlugins: [
+          "oxlint-plugin-react-doctor",
+          { name: "react-hooks-js", specifier: "eslint-plugin-react-hooks" },
+        ],
+        rules: {
+          ...REACT_COMPILER_RULES,
+          ...RECOMMENDED_RULES,
+          ...TANSTACK_START_RULES,
+          // The two server-data guards `docs/capabilities.md` names. Neither is in a React Doctor
+          // rule set, so each is switched on here.
+          "react-doctor/no-collapse-request-error-to-empty-state": "error",
+          "react-doctor/tanstack-start-no-direct-fetch-in-loader": "error",
+        },
+      },
+      {
+        // Copied from the `tanstack` preset: file routes are mutually recursive (`Route` references the
+        // component, which calls `Route.useParams()`), so no declaration order satisfies the rule and
+        // `tsc` still catches real temporal-dead-zone crashes.
+        files: ["apps/web/src/routes/**"],
+        rules: { "no-use-before-define": "off" },
+      },
+      {
+        // Copied from the `tanstack` preset: TypeScript infers the generic parameters of
+        // `createFileRoute` and the query and mutation options from their callbacks in source order,
+        // so alphabetical keys break inference.
+        // Schema field order is the wire order of a contract and the column order of a table, so
+        // `packages/contract/src/**` and every `table.ts` keep it too.
+        files: ["apps/web/src/**", "packages/contract/src/**", "**/table.ts"],
+        rules: { "sort-keys": "off" },
+      },
+      {
+        // Adopted from the Cloudflare Oxlint preset (#437), scoped to plain JavaScript as there: the
+        // TypeScript checker already reports an undefined name in a `.ts` file. The preset's
+        // `browser` and `node` environments are scoped with it: the lint-rule tests run on Bun and
+        // the bundle fixtures stand in for browser assets.
+        env: { browser: true, node: true },
+        files: ["**/*.{js,mjs,cjs}"],
+        rules: { "no-undef": "error" },
+      },
+      {
+        // The lint-rule tests import bun:test from plain JavaScript. The type-aware checker does
+        // not load those types for an .mjs file; the tests still run under bun test.
+        files: ["tools/**/*.test.mjs"],
+        rules: {
+          "typescript/no-unsafe-argument": "off",
+          "typescript/no-unsafe-assignment": "off",
+          "typescript/no-unsafe-call": "off",
+          "typescript/no-unsafe-member-access": "off",
+          "typescript/no-unsafe-return": "off",
+        },
+      },
+      {
+        // `runtime.ts` is the named web runtime boundary: the lazy per-isolate ManagedRuntime and the
+        // browser-only hydrated copies are the module state that boundary owns (Mind ruling, I-28f).
+        files: ["apps/web/src/runtime.ts"],
+        rules: { "workspace/no-mutable-module-state": "off" },
+      },
+      {
+        // `packages/contract` defines the Problem classes, so it writes the media type. Tests assert
+        // it on the wire, and the rule's own file names it to look for it.
+        files: [
+          "packages/contract/**",
+          "**/*.test.ts",
+          "tools/lint/rules/no-hand-built-problem.ts",
+        ],
+        rules: { "workspace/no-hand-built-problem": "off" },
+      },
+      {
+        // Lifted until #245 builds these problem responses with `ProblemDetails`.
+        files: ["apps/web/src/forward.ts", "apps/web/src/ratelimit.ts"],
+        rules: { "workspace/no-hand-built-problem": "off" },
+      },
+      {
+        // `fromSource`'s per-isolate knob cache stays a `Map` (#248, #247): Effect `Cache` shares
+        // in-flight lookups, which the Workers request boundary forbids.
+        files: ["packages/config/src/knob.ts"],
+        rules: { "workspace/no-keyed-ttl-map": "off" },
+      },
+      {
+        // The Ultracite `vitest` preset, scoped to the repository's own test files. The preset's own
+        // globs also match `.mjs` suites, which run under `bun:test`, so its rules are re-scoped here
+        // instead of adopted through `extends`.
+        files: testFiles,
+        plugins: ["vitest"],
+        rules: {
+          ...presetRules,
+          // `it` is the repository's one test form (@effect/vitest exports no `test`), and the
+          // autofix to `test` renamed calls without importing it.
+          "vitest/consistent-test-it": ["error", { fn: "it", withinDescribe: "it" }],
+          // `expect` runs inside the callback of an @effect/vitest test form, which the rule does not
+          // know as a test block.
+          "vitest/no-standalone-expect": [
+            "error",
+            {
+              additionalTestBlockFunctions: [
+                "it.effect",
+                "it.scoped",
+                "it.live",
+                "it.layer",
+                "it.effect.each",
+                "layer",
+              ],
+            },
+          ],
+          // `layer(...)` suites from @effect/vitest are not describe blocks, and the describe titles
+          // here name the unit under test, which is often an imported function.
+          "vitest/prefer-describe-function-title": "off",
+          "vitest/require-top-level-describe": "off",
+        },
+      },
     ],
     rules: {
+      // Adopted from the Cloudflare Oxlint preset (#437), which takes both from `@nkzw/oxlint-config`.
+      // `instanceof` breaks across realms and bundled copies of a class; a tagged error is told apart
+      // by `_tag` and a Schema by `Schema.is`.
+      "@nkzw/no-instanceof": "error",
+      // A hook-style `use*` call with an Effect dependency array must name its dependencies.
+      "@nkzw/require-use-effect-arguments": "error",
       "@stylistic/padding-line-between-statements": [
         "error",
         { blankLine: "always", next: topLevelUnit, prev: "*" },
@@ -194,18 +699,18 @@ export default defineConfig({
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/try-catch-in-effect-gen": "off",
       "effecttsgo/unsafe-effect-type-assertion": "warn",
+      // Adopted from the Cloudflare Oxlint preset (#437); the repository had no finding at adoption.
+      // Reports a duplicate export name, which a bundler resolves silently.
+      "import/export": "error",
       // Landmines 0.3.0 (#434), every rule listed. A rule that is on reports nothing today. A rule
       // that is off carries its reason and the findings measured on the tree when it was left off.
-      // Off (0 findings): AGENTS.md puts cross-module tests in the root `test/`, and the rule would
-      // move a test that imports one owner.
-      "landmines/colocated-tests": "off",
-      // Off (0 findings): the repository has no Turbo `test` task for the rule to read.
-      "landmines/declared-test-inputs": "off",
+      "landmines/colocated-tests": "error",
+      "landmines/declared-test-inputs": "error",
       // Off (25 findings): a size limit; AGENTS.md rules out function-decomposition policies.
       "landmines/max-exports-per-module": "off",
-      "landmines/max-file-lines": "error",
-      // Off (0 findings): a layout limit; AGENTS.md rules out function-decomposition policies.
-      "landmines/max-files-per-directory": "off",
+      // Off (6 findings): a size limit; AGENTS.md rules out function-decomposition policies.
+      "landmines/max-file-lines": "off",
+      "landmines/max-files-per-directory": "error",
       "landmines/no-clipboard-read-text": "error",
       "landmines/no-cold-import-in-test": "error",
       "landmines/no-cold-start-in-test": "error",
@@ -214,24 +719,16 @@ export default defineConfig({
       "landmines/no-comments": "off",
       "landmines/no-conditional-expect": "error",
       "landmines/no-elapsed-time-bound": "error",
-      // Off (268 findings): AGENTS.md rules out type-design policies, and the annotations are
-      // documented contracts.
-      "landmines/no-explicit-return-types": "off",
+      "landmines/no-explicit-return-types": "error",
       "landmines/no-fixed-sleep": "error",
-      // Off (28 findings): 26 spawning tests in tools/ pass a 60 s timeout and the browser and
-      // cloud configs set testTimeout for page loads and requests to a deployed stage; each needs
-      // its slow setup restructured into a hook.
-      "landmines/no-flake-masking": "off",
+      "landmines/no-flake-masking": "error",
       "landmines/no-github-scripts": "error",
       "landmines/no-imported-mutation": "error",
       "landmines/no-inline-hex-encoding": "error",
       "landmines/no-parameter-branch": "error",
-      // Off (3 findings): a layout limit; AGENTS.md rules out function-decomposition policies.
-      "landmines/no-prefix-cluster": "off",
+      "landmines/no-prefix-cluster": "error",
       "landmines/no-project-max-workers": "error",
-      // Off (10 findings): apps/*/scripts and infra/scripts hold the migration digest and the
-      // stack, deploy and smoke steps that package scripts and CI call.
-      "landmines/no-scripts-directory": "off",
+      "landmines/no-scripts-directory": "error",
       "landmines/no-self-container-query": "error",
       "landmines/no-shared-signal": "error",
       "landmines/no-silent-catch": "error",
@@ -240,9 +737,39 @@ export default defineConfig({
       "landmines/no-test-doubles": "error",
       "landmines/no-unsignaled-poll": "error",
       "landmines/package-exports": "error",
-      // Off (3 findings): the root, apps/web and apps/auth manifests name bespoke tasks (`check`,
-      // `ratchet`, `build:prod-harness`) and run bun on TypeScript files on purpose.
-      "landmines/package-scripts": "off",
+      // Every script that runs a TypeScript file calls a `bin` of `@workspace/tools` or
+      // `@workspace/infra` instead; `names` lists the repository's own task names.
+      "landmines/package-scripts": [
+        "error",
+        {
+          names: [
+            "alchemy",
+            "audit",
+            "auth:generate",
+            "bootstrap",
+            "build:prod-harness",
+            "check",
+            "commitlint",
+            "credentials",
+            "db:check",
+            "db:generate",
+            "db:regenerate",
+            "design:md",
+            "fix",
+            "knob",
+            "log-key",
+            "mirrors",
+            "ratchet",
+            "renovate:validate",
+            "settings",
+            "test:browser",
+            "test:cloud",
+            "ui",
+            "ui:lock",
+            "ui:typecheck",
+          ],
+        },
+      ],
       // Off (774 findings): `@stylistic/padding-line-between-statements` above already sets the
       // blank-line policy.
       "landmines/padding-between-statements": "off",
@@ -252,18 +779,30 @@ export default defineConfig({
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],
+      // Reports a value assigned and then overwritten before any read.
+      "no-useless-assignment": "error",
+      // A `return` in `finally` swallows a thrown error and replaces the result.
+      "promise/no-return-in-finally": "error",
       // The Ultracite 8.3 `core` preset turns `sort-keys` off; the 8.1.1 preset had it at `error` with
       // default options, so this keeps the rule the repository already enforced. The scoped
       // overrides above still lift it where key order is the wire or column order.
       "sort-keys": "error",
       // Issue #11 item 10: `ReadonlyArray<T>` is the accepted array spelling.
       "typescript/array-type": ["error", { default: "generic", readonly: "generic" }],
+      // `require()` has no place in an ES module repository; the preset leaves it off.
+      "typescript/no-require-imports": "error",
       // Effect adapters return existing promises without introducing async wrappers.
       "typescript/promise-function-async": "off",
       "unicorn/filename-case": ["error", { case: "kebabCase" }],
       // Replaced by `workspace/no-array-method-this-argument`: the same check with `Effect` ignored, since
       // `Effect.forEach(xs, f, { concurrency })` takes options, not a `thisArg`.
       "unicorn/no-array-method-this-argument": "off",
+      // Adopted from the Cloudflare Oxlint preset (#437). Ultracite core turns it off; `String.raw`
+      // keeps a backslash-heavy literal readable, so it is on again.
+      "unicorn/prefer-string-raw": "error",
+      // Adopted from the Cloudflare Oxlint preset (#437): a module awaits at the top level instead of
+      // chaining a promise. The story override above lifts it.
+      "unicorn/prefer-top-level-await": "error",
       // misfires on Schema.TaggedError<X>()(...) calls and takes no options; throw is already banned in source by the Effect-native rule (AGENTS.md)
       "unicorn/throw-new-error": "off",
       "workspace/error-message-grammar": "error",
@@ -296,6 +835,7 @@ export default defineConfig({
         test: {
           ...noOnly,
           exclude: ["tools/lint/fixtures/**", "tools/ratchet/fixtures/**"],
+          globalSetup: ["tools/db/global-setup.ts"],
           include: ["tools/**/*.test.ts"],
           name: "tools",
         },

@@ -50,7 +50,7 @@ const IDENTIFIER = /^[A-Za-z_$][\w$]*$/u;
  * @param blocks - The collected blocks.
  * @returns The map the declaration belongs in.
  */
-const blockFor = (parent: AnyNode | undefined, blocks: Blocks): Map<string, string> | undefined => {
+const blockFor = (parent: AnyNode | undefined, blocks: Blocks) => {
   if (parent?.type === "atrule" && parent.name === "theme") {
     return blocks.theme;
   }
@@ -59,11 +59,7 @@ const blockFor = (parent: AnyNode | undefined, blocks: Blocks): Map<string, stri
     return blocks.root;
   }
 
-  if (parent?.type === "rule" && parent.selector === ".dark") {
-    return blocks.dark;
-  }
-
-  return undefined;
+  return parent?.type === "rule" && parent.selector === ".dark" ? blocks.dark : undefined;
 };
 
 /**
@@ -72,7 +68,7 @@ const blockFor = (parent: AnyNode | undefined, blocks: Blocks): Map<string, stri
  * @param css - The stylesheet text.
  * @returns The collected blocks, or an {@link EmailTokenError} naming the line that does not parse.
  */
-const readBlocks = (css: string): Effect.Effect<Blocks, EmailTokenError> =>
+const readBlocks = (css: string) =>
   Effect.try({
     catch: (error) =>
       new EmailTokenError({
@@ -101,12 +97,7 @@ const readBlocks = (css: string): Effect.Effect<Blocks, EmailTokenError> =>
  * @returns The `#rrggbb` color, or an {@link EmailTokenError} that starts with the block and
  *   property.
  */
-const convert = (
-  selector: string,
-  prop: string,
-  value: string,
-  surface?: string,
-): Effect.Effect<string, EmailTokenError> =>
+const convert = (selector: string, prop: string, value: string, surface?: string) =>
   oklchToHex(value, surface).pipe(
     Effect.mapError(
       (failure) => new EmailTokenError({ message: `${selector} ${prop}: ${failure.message}` }),
@@ -125,7 +116,7 @@ const convert = (
 const resolveColors = Effect.fnUntraced(function* resolveColors(
   selector: string,
   values: ReadonlyMap<string, string>,
-): Effect.fn.Return<Array<readonly [string, string]>, EmailTokenError> {
+) {
   const background = values.get(SURFACE);
 
   if (background === undefined) {
@@ -154,7 +145,7 @@ const resolveColors = Effect.fnUntraced(function* resolveColors(
  * @param value - A value such as `0.625rem` or `10px`.
  * @returns The pixel count, or nothing when the value is not a `px` or `rem` dimension.
  */
-const toPx = (value: string): number | undefined => {
+const toPx = (value: string) => {
   const dimension = DIMENSION.exec(value)?.groups;
 
   return dimension === undefined
@@ -172,11 +163,7 @@ const toPx = (value: string): number | undefined => {
  * @returns The step in pixels rounded to four decimal places, or an {@link EmailTokenError} naming
  *   the token and the accepted forms.
  */
-const resolveRadius = (
-  prop: string,
-  value: string,
-  base: number | undefined,
-): Effect.Effect<number, EmailTokenError> => {
+const resolveRadius = (prop: string, value: string, base: number | undefined) => {
   const factor = RADIUS_STEP.exec(value)?.groups?.factor;
   const px = toPx(value);
 
@@ -203,7 +190,7 @@ const resolveRadius = (
  * @param indent - The indentation of the line holding the closing brace.
  * @returns The object literal text.
  */
-const renderObject = (entries: ReadonlyArray<readonly [string, string]>, indent: string): string =>
+const renderObject = (entries: ReadonlyArray<readonly [string, string]>, indent: string) =>
   entries.length === 0
     ? "{}"
     : `{\n${entries
@@ -231,9 +218,7 @@ const renderObject = (entries: ReadonlyArray<readonly [string, string]>, indent:
  * @returns The module text, or an {@link EmailTokenError} naming the block, property and value that
  *   cannot be converted.
  */
-export const generateEmailTokens = Effect.fnUntraced(function* generateEmailTokens(
-  css: string,
-): Effect.fn.Return<string, EmailTokenError> {
+export const generateEmailTokens = Effect.fnUntraced(function* generateEmailTokens(css: string) {
   const blocks = yield* readBlocks(css);
 
   for (const prop of blocks.dark.keys()) {

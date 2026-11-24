@@ -1,8 +1,8 @@
 import { scryptSync } from "node:crypto";
 import { assert, describe, it } from "@effect/vitest";
-import { Config, ConfigProvider, Effect, Exit, Option, Schema } from "effect";
-import { AUTH_PASSWORD_SCRYPT, scryptMaxmem } from "./auth-password.ts";
-import type { ScryptCost } from "./auth-password.ts";
+import { ConfigProvider, Effect, Exit, Option, Schema } from "effect";
+import { AUTH_PASSWORD_SCRYPT, scryptMaxmem } from "./password.ts";
+import type { ScryptCost } from "./password.ts";
 
 /**
  * Read the knob from a provider that holds an unrelated variable and, when given, the knob.
@@ -73,7 +73,7 @@ describe("AUTH_PASSWORD_SCRYPT", () => {
     Effect.gen(function* malformed() {
       const error = Exit.findErrorOption(yield* read("{not json"));
 
-      assert.isTrue(Option.isSome(error) && error.value instanceof Config.ConfigError);
+      assert.isTrue(Option.isSome(error) && error.value._tag === "ConfigError");
     }),
   );
 

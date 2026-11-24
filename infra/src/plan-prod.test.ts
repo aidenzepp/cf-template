@@ -341,11 +341,7 @@ const decideRecording = (
     const writes = yield* Ref.make<ReadonlyArray<readonly [string, string]>>([]);
 
     const fsLayer = FileSystem.layerNoop({
-      writeFileString: (path, data) =>
-        Ref.update(writes, (all): ReadonlyArray<readonly [string, string]> => [
-          ...all,
-          [path, data],
-        ]),
+      writeFileString: (path, data) => Ref.update(writes, (all) => [...all, [path, data] as const]),
     });
 
     const config = ConfigProvider.layer(

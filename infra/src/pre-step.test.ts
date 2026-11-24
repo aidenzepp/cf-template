@@ -261,21 +261,19 @@ const runPreStep = (
  * The app stack's two-step listing holding this PR's stage and a closed PR's stage, `gh` reporting
  * `staging-3` closed, and task lines on stdout as the plain renderer prints them.
  */
-const listed =
-  (destroyCode: number) =>
-  (command: string, args: ReadonlyArray<string>): Reply => {
-    if (command === "gh") {
-      return { code: 0, stderr: "", stdout: "CLOSED\n" };
-    }
+const listed = (destroyCode: number) => (command: string, args: ReadonlyArray<string>) => {
+  if (command === "gh") {
+    return { code: 0, stderr: "", stdout: "CLOSED\n" };
+  }
 
-    if (args[0] === "destroy") {
-      return { code: destroyCode, stderr: "", stdout: "" };
-    }
+  if (args[0] === "destroy") {
+    return { code: destroyCode, stderr: "", stdout: "" };
+  }
 
-    return args[2] === "app"
-      ? { code: 0, stderr: "", stdout: "• Resolving\napp/prod/\napp/staging-3/\napp/staging-7/\n" }
-      : { code: 0, stderr: "", stdout: "app/\nexample-bootstrap/\n" };
-  };
+  return args[2] === "app"
+    ? { code: 0, stderr: "", stdout: "• Resolving\napp/prod/\napp/staging-3/\napp/staging-7/\n" }
+    : { code: 0, stderr: "", stdout: "app/\nexample-bootstrap/\n" };
+};
 
 describe("program", () => {
   it.effect("skips the app listing when the store holds no app stack", () =>

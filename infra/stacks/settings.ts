@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunHttpClient, BunRuntime } from "@effect/platform-bun";
 import { Console, Effect } from "effect";
 import type { HttpClient } from "effect/http";

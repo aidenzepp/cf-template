@@ -13,8 +13,8 @@ import {
   Stdio,
 } from "effect";
 import { Digest } from "effect/crypto";
-import { APP_STACK_ENTRY } from "../src/app-stack.ts";
-import { isStatefulType } from "../src/stateful-types.ts";
+import { APP_STACK_ENTRY } from "./app-stack.ts";
+import { isStatefulType } from "./stateful-types.ts";
 
 /**
  * The failure of the prod plan, with the message the workflow log shows. A failed run writes
@@ -138,7 +138,7 @@ export const BINDING_REMOVED_NOTE =
  * @param row - One planned resource.
  * @returns The row with its class and note.
  */
-const classifyRow = (row: PlanRow): ClassifiedRow => {
+const classifyRow: (row: PlanRow) => ClassifiedRow = (row) => {
   if (row.resourceType === WORKER_TYPE) {
     if (DESTRUCTIVE_ACTIONS.has(row.action)) {
       return { class: "blocking", note: Option.some(WORKER_REMOVED_NOTE), row };
@@ -176,9 +176,12 @@ const classifyRow = (row: PlanRow): ClassifiedRow => {
  * @param rows - The decoded plan rows.
  * @returns One classified row per planned resource, in plan order.
  */
-const classify = (rows: ReadonlyArray<PlanRow>): ReadonlyArray<ClassifiedRow> =>
+const classify = (rows: ReadonlyArray<PlanRow>) =>
   rows.length > 0 && rows.every((row) => row.action === "create")
-    ? rows.map((row) => ({ class: "blocking", note: Option.some(ALL_CREATE_NOTE), row }))
+    ? rows.map(
+        (row) =>
+          ({ class: "blocking", note: Option.some(ALL_CREATE_NOTE), row }) satisfies ClassifiedRow,
+      )
     : rows.map(classifyRow);
 
 /**
@@ -269,7 +272,7 @@ const MARKDOWN_BREAKOUT = /[`|@<>\r\n]/gu;
  * @param value - An `fqn` or `resourceType` from a plan row.
  * @returns The value without the characters that can break out of the cell or mention anyone.
  */
-const inert = (value: string): string => value.replaceAll(MARKDOWN_BREAKOUT, "");
+const inert = (value: string) => value.replaceAll(MARKDOWN_BREAKOUT, "");
 
 /**
  * Render the summary: the verdict line, one table row per planned resource (`fqn`,
@@ -280,7 +283,7 @@ const inert = (value: string): string => value.replaceAll(MARKDOWN_BREAKOUT, "")
  * @param verdict - The classified plan.
  * @returns The Markdown summary.
  */
-export const renderSummary = (verdict: Verdict): string => {
+export const renderSummary = (verdict: Verdict) => {
   const table = verdict.rows.map(
     ({ class: rowClass, row }) =>
       `| \`${inert(row.fqn)}\` | \`${inert(row.resourceType)}\` | ${row.action} | ${rowClass} |`,
@@ -325,7 +328,7 @@ const parseArgs = (args: ReadonlyArray<string>) => {
     : Effect.fail(
         new PlanProdError({
           message:
-            "Usage, from the repository root: bun infra/scripts/plan-prod.ts [--fingerprint <64-character lowercase sha256>].",
+            "Usage, from the repository root: bun infra/src/plan-prod.ts [--fingerprint <64-character lowercase sha256>].",
         }),
       );
 };

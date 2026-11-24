@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, Exit } from "effect";
-import { AUTH_PASSWORD_SCRYPT } from "./auth-password.ts";
+import { AUTH_PASSWORD_SCRYPT } from "./auth/password.ts";
 import {
   API_CPU_LIMIT_MS,
   CPU_LIMIT_HEADROOM,

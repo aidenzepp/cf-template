@@ -147,7 +147,7 @@ export const retryPlatformNotFound = <E, R>(client: HttpClient.HttpClient.With<E
     ),
     HttpClient.retry({
       schedule: retrySchedule,
-      while: (error) => error instanceof PlatformNotFound,
+      while: Schema.is(PlatformNotFound),
     }),
   );
 
@@ -312,7 +312,7 @@ export const runSmoke = Effect.fn("smoke.run")(function* runSmoke(target: SmokeT
  * `SMOKE_PROVIDERS` as a JSON array of provider ids (empty when unset). Exits non-zero on the
  * first failure.
  *
- * Usage: `SMOKE_ORIGIN=... PROD_ORIGIN=... bun infra/scripts/smoke.ts`.
+ * Usage: `SMOKE_ORIGIN=... PROD_ORIGIN=... bun infra/src/smoke.ts`.
  */
 const program = Effect.gen(function* smokeMain() {
   const origin = yield* Config.String("SMOKE_ORIGIN");

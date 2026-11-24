@@ -74,7 +74,7 @@ type Sample = string | number | null | { readonly [name: string]: Sample };
  * @param schema - A schema of the document.
  * @returns A value the schema accepts.
  */
-const sample = (schema: BodySchema): Sample => {
+const sample: (schema: BodySchema) => Sample = (schema) => {
   const [first] = schema.anyOf ?? [];
 
   if (first !== undefined) {
@@ -170,7 +170,7 @@ describe("the generated OpenAPI document with no cookie", () => {
         `OpenAPI operations swept: ${operations.length}: ${operations.map((o) => o.key).join(", ")}`,
       );
 
-      for (const name of ["CreateNote", "UpdateNote", "DeleteNote"]) {
+      for (const name of ["create-note", "update-note", "delete-note"]) {
         assert.isTrue(
           operations.some((operation) => operation.path === `/api/${name}`),
           `The document lists no ${name} operation.`,
@@ -178,7 +178,7 @@ describe("the generated OpenAPI document with no cookie", () => {
       }
 
       // The Note view's read and its live read (Server-Sent Events) are swept like the commands.
-      for (const key of ["GET /api/Note/{key}", "GET /api/Note/{key}/watch"]) {
+      for (const key of ["GET /api/note/{key}", "GET /api/note/{key}/watch"]) {
         assert.isTrue(
           operations.some((operation) => operation.key === key),
           `The document lists no ${key} operation.`,

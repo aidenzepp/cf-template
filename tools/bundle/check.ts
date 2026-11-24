@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Cause, Config, Console, Effect, FileSystem, Option, Path, Schema } from "effect";
 
@@ -26,10 +27,10 @@ export const Chunks = Schema.Record(
 /**
  * The files of the entry chunks and their static `imports` closure, each once, JavaScript only.
  */
-export const initialFiles = (chunks: typeof Chunks.Type): ReadonlyArray<string> => {
+export const initialFiles = (chunks: typeof Chunks.Type) => {
   const seen = new Set<string>();
 
-  const visit = (key: string): void => {
+  const visit = (key: string) => {
     if (!seen.has(key) && chunks[key] !== undefined) {
       seen.add(key);
 
@@ -55,7 +56,7 @@ export const initialFiles = (chunks: typeof Chunks.Type): ReadonlyArray<string> 
 /**
  * The lines printed on every run: the measured size beside the target, then a warning when over.
  */
-export const report = (gzipBytes: number): ReadonlyArray<string> => {
+export const report = (gzipBytes: number) => {
   const kib = gzipBytes / 1024;
   const line = `initial JS: ${kib.toFixed(1)} / ${TARGET_KIB} KiB gzipped`;
 
@@ -167,7 +168,7 @@ export const DEVTOOLS_MARKERS: ReadonlyArray<string> = [
  */
 export const devtoolsHits = (
   files: ReadonlyArray<{ readonly file: string; readonly text: string }>,
-): ReadonlyArray<string> =>
+) =>
   files.flatMap(({ file, text }) => {
     const marker = DEVTOOLS_MARKERS.find((candidate) => text.includes(candidate));
 

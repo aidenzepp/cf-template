@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Config, Effect } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
@@ -12,7 +13,7 @@ const suppressions: ReadonlyArray<string> = [];
 /**
  * The `bun audit` arguments: the moderate threshold and one `--ignore <GHSA id>` per suppression.
  */
-export const auditArguments = (ignored: ReadonlyArray<string>): ReadonlyArray<string> => [
+export const auditArguments = (ignored: ReadonlyArray<string>) => [
   "audit",
   "--audit-level=moderate",
   ...ignored.flatMap((id) => ["--ignore", id]),

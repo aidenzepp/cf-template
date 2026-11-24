@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Clock, Config, Console, Effect, Layer, Schema, Stdio } from "effect";
 import { Digest } from "effect/crypto";
@@ -46,14 +47,14 @@ export type KnobRequest = { readonly stage: string } & (
 );
 
 /**
- * Parse the arguments after `bun tools/knob/knob.ts`.
+ * Parse the arguments after `bun run knob`.
  *
  * @param args - The raw arguments.
  * @returns The request, or a {@link KnobRefused}.
  */
-export const parseRequest = (
+export const parseRequest: (
   args: ReadonlyArray<string>,
-): Effect.Effect<KnobRequest, KnobRefused> => {
+) => Effect.Effect<KnobRequest, KnobRefused> = (args) => {
   const flag = args.indexOf("--stage");
   const stage = flag === -1 ? "" : (args[flag + 1] ?? "");
 

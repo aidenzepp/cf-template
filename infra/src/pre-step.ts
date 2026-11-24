@@ -19,9 +19,9 @@ import {
 import { FetchHttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { CloudflarePlanKnob } from "@workspace/config/plan";
-import { STATE_STACK } from "../src/state-selection.ts";
+import { STATE_STACK } from "./state-selection.ts";
 import { Workers } from "../stages.ts";
-import { APP_STACK_ENTRY } from "../src/app-stack.ts";
+import { APP_STACK_ENTRY } from "./app-stack.ts";
 
 /**
  * The failure of the preview pre-step, with the message the workflow log shows.
@@ -75,7 +75,7 @@ const lines = (text: string) => text.split(/\r?\n/u).map((line) => line.trim());
  * @param stdout - The bare listing's stdout.
  * @returns `true` when an `app/` line is present.
  */
-const hasAppStack = (stdout: string): boolean => lines(stdout).includes(`${STATE_STACK}/`);
+const hasAppStack = (stdout: string) => lines(stdout).includes(`${STATE_STACK}/`);
 
 /**
  * Classify a failed listing by the store errors alchemy raises (src/State/Provisioning.ts:38-46,
@@ -84,7 +84,7 @@ const hasAppStack = (stdout: string): boolean => lines(stdout).includes(`${STATE
  * the CLI's new-version warning ("Run `...` to upgrade.", src/Cli/checkVersion.ts:131) is never
  * read as a store state.
  */
-const failedListing = (captured: Captured): StateListing => {
+const failedListing: (captured: Captured) => StateListing = (captured) => {
   const output = `${captured.stdout}\n${captured.stderr}`;
 
   if (/is out of date/u.test(output)) {
@@ -118,7 +118,10 @@ const failedListing = (captured: Captured): StateListing => {
  * @param stages - The app listing, when it ran.
  * @returns The listing state.
  */
-export const parseStateList = (stacks: Captured, stages: Option.Option<Captured>): StateListing => {
+export const parseStateList: (stacks: Captured, stages: Option.Option<Captured>) => StateListing = (
+  stacks,
+  stages,
+) => {
   if (stacks.code !== 0) {
     return failedListing(stacks);
   }
@@ -177,7 +180,7 @@ export interface CapInput {
  * @param input - The plan, the limit and the live counts of the account's other resources.
  * @returns The most `staging-<N>` stages the account holds.
  */
-export const previewCap = (input: CapInput): number => {
+export const previewCap = (input: CapInput) => {
   const included = INCLUDED[input.plan];
 
   const workers =

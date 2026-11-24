@@ -102,7 +102,7 @@ interface Resolved {
 // A key `a/b` is a second resolution of `b` nested under `a`; the package name is its last segment.
 const lastPackageName = /(?<name>@[^/]+\/[^/]+|[^/@][^/]*)$/u;
 
-const resolveLock = (lock: typeof Lock.Type): Array<Resolved> =>
+const resolveLock = (lock: typeof Lock.Type) =>
   Object.entries(lock.packages).map(([key, [id]]) => ({
     id,
     key,
@@ -110,10 +110,7 @@ const resolveLock = (lock: typeof Lock.Type): Array<Resolved> =>
     version: id.slice(id.indexOf("@", 1) + 1),
   }));
 
-const versionsOf = (
-  resolved: Array<Resolved>,
-  matches: (name: string) => boolean,
-): Array<string> => [
+const versionsOf = (resolved: Array<Resolved>, matches: (name: string) => boolean) => [
   ...new Set(resolved.flatMap(({ name, version }) => (matches(name) ? [version] : []))),
 ];
 
@@ -150,15 +147,15 @@ const lockstepFamilies = {
 
 const exactVersion = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u;
 
-const specVersion = (spec: string): string => spec.replace(/^npm:.+@/u, "");
+const specVersion = (spec: string) => spec.replace(/^npm:.+@/u, "");
 
-const isExact = (spec: string): boolean =>
+const isExact = (spec: string) =>
   spec.startsWith("workspace:") || exactVersion.test(specVersion(spec));
 
 /**
  * Every version string under `value`, with the dotted path that reaches it (overrides may nest).
  */
-const specsOf = (value: Schema.Json, path: string): Array<[string, string]> => {
+const specsOf: (value: Schema.Json, path: string) => Array<[string, string]> = (value, path) => {
   if (isString(value)) {
     return [[path, value]];
   }

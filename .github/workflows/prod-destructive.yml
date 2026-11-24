@@ -124,7 +124,7 @@ jobs:
         name: Re-plan prod
         # From the root: plan-prod imports infra/alchemy.run.ts, APP_STACK_ENTRY, the stack's entry.
         working-directory: .
-        run: bun infra/scripts/plan-prod.ts --fingerprint "$INPUT_FINGERPRINT"
+        run: bun infra/src/plan-prod.ts --fingerprint "$INPUT_FINGERPRINT"
       - name: Refuse a changed plan
         env:
           PLAN_FINGERPRINT: ${{ steps.plan.outputs.fingerprint }}
@@ -147,7 +147,7 @@ jobs:
       # infra/alchemy.run.ts from the repository root; at d0b4a33 it has no entry-file input.
       - name: Deploy prod
         run: alchemy deploy infra/alchemy.run.ts --stage prod --yes
-      - run: bun scripts/smoke.ts
+      - run: bun src/smoke.ts
         working-directory: infra
       - name: Commits in this deploy
         run: |
