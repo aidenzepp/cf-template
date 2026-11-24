@@ -79,7 +79,7 @@ const ignored: ReadonlyArray<ReadonlyArray<string>> = [
 /**
  * Strips wrappers that do not change the value (oxc `get_inner_expression`).
  */
-const inner = (node: ESTree.Expression): ESTree.Expression => {
+const inner = (node: ESTree.Expression) => {
   if (
     node.type === "ParenthesizedExpression" ||
     node.type === "TSAsExpression" ||
@@ -97,7 +97,7 @@ const inner = (node: ESTree.Expression): ESTree.Expression => {
  * The static property name of a member expression (oxc `static_property_name`); undefined when it
  * is dynamic or private.
  */
-const staticName = (member: ESTree.MemberExpression): string | undefined => {
+const staticName = (member: ESTree.MemberExpression) => {
   const { property } = member;
 
   if (!member.computed) {
@@ -108,17 +108,15 @@ const staticName = (member: ESTree.MemberExpression): string | undefined => {
     return property.value;
   }
 
-  if (property.type === "TemplateLiteral" && property.expressions.length === 0) {
-    return property.quasis[0]?.value.cooked ?? undefined;
-  }
-
-  return undefined;
+  return property.type === "TemplateLiteral" && property.expressions.length === 0
+    ? (property.quasis[0]?.value.cooked ?? undefined)
+    : undefined;
 };
 
 /**
  * The member expression a call goes through, if any (oxc `get_member_expr`).
  */
-const calleeMember = (call: ESTree.CallExpression): ESTree.MemberExpression | undefined => {
+const calleeMember = (call: ESTree.CallExpression) => {
   const callee = inner(call.callee);
 
   return callee.type === "MemberExpression" ? callee : undefined;
@@ -134,7 +132,7 @@ const isMethodCall = (
   methods: ReadonlyArray<string> | undefined,
   min: number | undefined,
   max: number | undefined,
-): boolean => {
+) => {
   const count = call.arguments.length;
 
   if ((min !== undefined && count < min) || (max !== undefined && count > max)) {
@@ -170,7 +168,7 @@ const isMethodCall = (
  * Oxc `does_expr_match_any_path`: a chain of static member accesses on an identifier equal to an
  * ignored path.
  */
-const isIgnored = (callee: ESTree.Expression): boolean => {
+const isIgnored = (callee: ESTree.Expression) => {
   const path: Array<string> = [];
   let current = callee;
 
@@ -218,7 +216,7 @@ const neverFunction: ReadonlySet<string> = new Set([
 /**
  * Oxc `is_node_not_function`: expressions that can never be a callback.
  */
-const isNotFunction = (expression: ESTree.Expression): boolean => {
+const isNotFunction = (expression: ESTree.Expression) => {
   if (neverFunction.has(expression.type)) {
     return true;
   }
@@ -248,7 +246,7 @@ const isNotFunction = (expression: ESTree.Expression): boolean => {
  * A spread is not an expression, so oxc's `as_expression().is_none_or(..)` counts it as not a
  * function.
  */
-const argumentIsNotFunction = (argument: ESTree.Argument): boolean =>
+const argumentIsNotFunction = (argument: ESTree.Argument) =>
   argument.type === "SpreadElement" || isNotFunction(argument);
 
 /**

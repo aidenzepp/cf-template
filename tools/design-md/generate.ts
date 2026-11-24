@@ -92,7 +92,7 @@ const VAR_REF = /var\((?<name>--[\w-]+)\)/gu;
  * @param blocks - The collected blocks.
  * @returns The map the declaration belongs in.
  */
-const blockFor = (parent: AnyNode | undefined, blocks: Blocks): Map<string, string> | undefined => {
+const blockFor = (parent: AnyNode | undefined, blocks: Blocks) => {
   if (parent?.type === "atrule" && parent.name === "theme") {
     return blocks.theme;
   }
@@ -101,11 +101,7 @@ const blockFor = (parent: AnyNode | undefined, blocks: Blocks): Map<string, stri
     return blocks.root;
   }
 
-  if (parent?.type === "rule" && parent.selector === ".dark") {
-    return blocks.dark;
-  }
-
-  return undefined;
+  return parent?.type === "rule" && parent.selector === ".dark" ? blocks.dark : undefined;
 };
 
 /**
@@ -115,7 +111,7 @@ const blockFor = (parent: AnyNode | undefined, blocks: Blocks): Map<string, stri
  * @param file - The file name used in a parse failure.
  * @returns The collected blocks, or a {@link DesignMdParseError}.
  */
-const readBlocks = (css: string, file: string): Effect.Effect<Blocks, DesignMdParseError> =>
+const readBlocks = (css: string, file: string) =>
   Effect.try({
     catch: (error) => {
       const line = error instanceof CssSyntaxError ? error.line : undefined;
@@ -149,11 +145,7 @@ const readBlocks = (css: string, file: string): Effect.Effect<Blocks, DesignMdPa
  * @returns The resolved value, or a {@link DesignMdResolveError} naming the token and the
  *   expression.
  */
-const resolveRadius = (
-  prop: string,
-  value: string,
-  radius: string | undefined,
-): Effect.Effect<string, DesignMdResolveError> => {
+const resolveRadius = (prop: string, value: string, radius: string | undefined) => {
   if (!prop.startsWith("--radius-") || !value.startsWith("calc(")) {
     return Effect.succeed(value);
   }
@@ -182,7 +174,7 @@ const resolveRadius = (
  * @param blocks - The collected blocks.
  * @returns The blocks with resolved radius steps, or a {@link DesignMdResolveError}.
  */
-const resolveRadii = (blocks: Blocks): Effect.Effect<Blocks, DesignMdResolveError> =>
+const resolveRadii = (blocks: Blocks) =>
   Effect.gen(function* resolveTheme() {
     const theme = new Map<string, string>();
 
@@ -227,7 +219,7 @@ const takeAliasedColor = (
   name: string,
   source: string,
   prop: string,
-): void => {
+) => {
   tokens.colors.set(name, JSON.stringify(blocks.root.get(source)));
   tokens.used.add(`@theme ${prop}`);
   tokens.used.add(`:root ${source}`);
@@ -247,7 +239,7 @@ const takeAliasedColor = (
  * @param prop - The `--text-*` property.
  * @param value - Its value.
  */
-const takeText = (tokens: Tokens, prop: string, value: string): void => {
+const takeText = (tokens: Tokens, prop: string, value: string) => {
   const [step = "", detail] = prop.slice("--text-".length).split("--");
   const entry = tokens.typography.get(step) ?? new Map<string, string>();
   const ratio = RATIO.exec(value)?.groups;
@@ -274,7 +266,7 @@ const takeText = (tokens: Tokens, prop: string, value: string): void => {
  * @param name - The typography token name.
  * @param value - The font stack, such as `'Outfit Variable', sans-serif`.
  */
-const takeFont = (tokens: Tokens, name: string, value: string): void => {
+const takeFont = (tokens: Tokens, name: string, value: string) => {
   const [first = ""] = value.split(",");
 
   tokens.typography.set(
@@ -289,7 +281,7 @@ const takeFont = (tokens: Tokens, name: string, value: string): void => {
  * @param blocks - The collected blocks.
  * @returns The tokens and the `:root` property each aliased color came from.
  */
-const takeTokens = (blocks: Blocks): Taken => {
+const takeTokens = (blocks: Blocks) => {
   const tokens: Tokens = {
     colors: new Map(),
     rounded: new Map(),
@@ -300,7 +292,7 @@ const takeTokens = (blocks: Blocks): Taken => {
 
   const aliases = new Map<string, string>();
 
-  const literal = (group: Group, prefix: string, prop: string, value: string): void => {
+  const literal = (group: Group, prefix: string, prop: string, value: string) => {
     group.set(prop.slice(prefix.length), JSON.stringify(value));
     tokens.used.add(`@theme ${prop}`);
   };
@@ -326,7 +318,7 @@ const takeTokens = (blocks: Blocks): Taken => {
     }
   }
 
-  return { aliases, tokens };
+  return { aliases, tokens } satisfies Taken;
 };
 
 /**
@@ -336,7 +328,7 @@ const takeTokens = (blocks: Blocks): Taken => {
  * @param colors - The color group, already quoted.
  * @param aliases - Each aliased `:root` property and the token it became.
  */
-const resolveReferences = (colors: Group, aliases: ReadonlyMap<string, string>): void => {
+const resolveReferences = (colors: Group, aliases: ReadonlyMap<string, string>) => {
   for (const [name, quoted] of colors) {
     const suffix = name.endsWith("-dark") ? "-dark" : "";
 
@@ -359,7 +351,7 @@ const resolveReferences = (colors: Group, aliases: ReadonlyMap<string, string>):
  * @param depth - The indentation, in spaces, of the group's key.
  * @returns The YAML lines, empty for an empty group.
  */
-const yamlGroup = (name: string, group: ReadonlyMap<string, string>, depth = 0): string => {
+const yamlGroup = (name: string, group: ReadonlyMap<string, string>, depth = 0) => {
   if (group.size === 0) {
     return "";
   }
@@ -381,7 +373,7 @@ const matches = (pattern: RegExp) => (prop: string) => pattern.test(prop);
  * @param keep - Whether a property belongs in this section.
  * @returns One bullet per property.
  */
-const prose = (leftovers: ReadonlyArray<Leftover>, keep: (prop: string) => boolean): string =>
+const prose = (leftovers: ReadonlyArray<Leftover>, keep: (prop: string) => boolean) =>
   leftovers
     .flatMap(([label, prop, value]) =>
       keep(prop) ? [`- \`${prop}\` (${label}): \`${value}\``] : [],
@@ -396,7 +388,7 @@ const prose = (leftovers: ReadonlyArray<Leftover>, keep: (prop: string) => boole
  * @param extra - Further lines, or an empty string.
  * @returns The section text.
  */
-const section = (title: string, intro: string, extra: string): string =>
+const section = (title: string, intro: string, extra: string) =>
   `## ${title}\n\n${intro}\n${extra === "" ? "" : `\n${extra}\n`}`;
 
 /**
@@ -410,7 +402,7 @@ const hasSection = matches(/^--(?:shadow|radius|font|text|spacing)/u);
  * @param blocks - The parsed custom properties.
  * @returns The `DESIGN.md` text.
  */
-const render = (blocks: Blocks): string => {
+const render = (blocks: Blocks) => {
   const { aliases, tokens } = takeTokens(blocks);
 
   resolveReferences(tokens.colors, aliases);
@@ -423,9 +415,9 @@ const render = (blocks: Blocks): string => {
     typography.size === 0 ? "" : `typography:\n${[...typography.values()].join("")}`;
 
   const leftovers = [
-    ...Array.from(blocks.theme, ([prop, value]): Leftover => ["@theme", prop, value]),
-    ...Array.from(blocks.root, ([prop, value]): Leftover => [":root", prop, value]),
-    ...Array.from(blocks.dark, ([prop, value]): Leftover => [".dark", prop, value]),
+    ...Array.from(blocks.theme, ([prop, value]) => ["@theme", prop, value] satisfies Leftover),
+    ...Array.from(blocks.root, ([prop, value]) => [":root", prop, value] satisfies Leftover),
+    ...Array.from(blocks.dark, ([prop, value]) => [".dark", prop, value] satisfies Leftover),
   ].filter(([label, prop]) => !tokens.used.has(`${label} ${prop}`));
 
   const front = [
@@ -481,7 +473,7 @@ const render = (blocks: Blocks): string => {
  * @param text - The text to scan.
  * @returns Each heading line.
  */
-const headings = (text: string): ReadonlyArray<string> => text.match(/^## .+$/gmu) ?? [];
+const headings = (text: string) => text.match(/^## .+$/gmu) ?? [];
 
 /**
  * Fail when the guidance repeats a `##` heading of the generated text.
@@ -490,10 +482,7 @@ const headings = (text: string): ReadonlyArray<string> => text.match(/^## .+$/gm
  * @param guidance - The hand-written guidance text.
  * @returns The guidance, or a {@link DesignMdGuidanceError} naming the repeated heading.
  */
-const appendGuidance = (
-  generated: string,
-  guidance: string,
-): Effect.Effect<string, DesignMdGuidanceError> => {
+const appendGuidance = (generated: string, guidance: string) => {
   const written = new Set(headings(generated));
   const repeated = headings(guidance).find((heading) => written.has(heading));
 
@@ -515,11 +504,7 @@ const appendGuidance = (
  * @returns The `DESIGN.md` text, or a {@link DesignMdParseError}, {@link DesignMdResolveError} or
  *   {@link DesignMdGuidanceError}.
  */
-export const generate = (
-  file: string,
-  css: string,
-  guidance = "",
-): Effect.Effect<string, DesignMdParseError | DesignMdResolveError | DesignMdGuidanceError> =>
+export const generate = (file: string, css: string, guidance = "") =>
   Effect.flatMap(
     Effect.map(Effect.flatMap(readBlocks(css, file), resolveRadii), render),
     (generated) => appendGuidance(generated, guidance),

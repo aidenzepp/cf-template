@@ -77,12 +77,10 @@ export class KnobKv extends Context.Service<KnobKv, KnobKvClient>()("tools/knob/
  * Wrap a failure of `operation` as a {@link KnobKvError} naming its tag and message, never its
  * request.
  */
-const failed =
-  (operation: string) =>
-  (cause: unknown): KnobKvError =>
-    new KnobKvError({
-      message: `Cloudflare ${operation} failed: ${Predicate.hasProperty(cause, "_tag") ? String(cause._tag) : "unknown error"}${Predicate.hasProperty(cause, "message") ? `, ${String(cause.message)}` : ""}.`,
-    });
+const failed = (operation: string) => (cause: unknown) =>
+  new KnobKvError({
+    message: `Cloudflare ${operation} failed: ${Predicate.hasProperty(cause, "_tag") ? String(cause._tag) : "unknown error"}${Predicate.hasProperty(cause, "message") ? `, ${String(cause.message)}` : ""}.`,
+  });
 
 /**
  * The real client: Alchemy's authenticated Cloudflare layer, which resolves the profile or the CI

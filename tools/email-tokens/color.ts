@@ -28,7 +28,7 @@ const HEX = /^#[\da-f]{6}$/u;
  * @param text - The number as written, such as `0.5` or `10%`.
  * @returns The number, with a percentage divided by 100.
  */
-const fraction = (text: string): number =>
+const fraction = (text: string) =>
   text.endsWith("%") ? Number(text.slice(0, -1)) / 100 : Number(text);
 
 /**
@@ -37,7 +37,7 @@ const fraction = (text: string): number =>
  * @param linear - The linear-light channel value.
  * @returns The gamma-encoded channel in `0..1`.
  */
-const encode = (linear: number): number => {
+const encode = (linear: number) => {
   const clamped = Math.min(1, Math.max(0, linear));
 
   return clamped <= 0.0031308 ? 12.92 * clamped : 1.055 * clamped ** (1 / 2.4) - 0.055;
@@ -58,7 +58,7 @@ const encode = (linear: number): number => {
  * @returns The red, green and blue channels in `0..1`.
  * @see https://bottosson.github.io/posts/oklab/
  */
-const toSrgb = (lightness: number, chroma: number, hue: number): ReadonlyArray<number> => {
+const toSrgb = (lightness: number, chroma: number, hue: number) => {
   const radians = (hue * Math.PI) / 180;
   const a = chroma * Math.cos(radians);
   const b = chroma * Math.sin(radians);
@@ -79,7 +79,7 @@ const toSrgb = (lightness: number, chroma: number, hue: number): ReadonlyArray<n
  * @param channels - The red, green and blue channels.
  * @returns The `#rrggbb` text, each channel rounded to the nearest of 255.
  */
-const toHex = (channels: ReadonlyArray<number>): string =>
+const toHex = (channels: ReadonlyArray<number>) =>
   `#${Hex.encode(Uint8Array.from(channels, (channel) => Math.round(Math.min(1, Math.max(0, channel)) * 255)))}`;
 
 /**
@@ -98,10 +98,10 @@ const toHex = (channels: ReadonlyArray<number>): string =>
  *   not one of the accepted forms, or when it has alpha and `surface` is missing or not `#rrggbb`.
  * @see https://www.caniemail.com/features/css-modern-color/
  */
-export const oklchToHex = (
+export const oklchToHex: (
   value: string,
   surface?: string,
-): Effect.Effect<string, EmailTokenError> => {
+) => Effect.Effect<string, EmailTokenError> = (value, surface) => {
   const parts = OKLCH.exec(value.trim())?.groups;
 
   if (parts === undefined) {
