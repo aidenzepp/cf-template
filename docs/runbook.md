@@ -76,3 +76,5 @@ Create the project state store once, from a laptop, before the first deploy: `bu
 I-38 fills the rest of this section.
 
 <!-- probe S2: docs-only edit for the #474 cache measurement -->
+
+<!-- probe S2b: second-pass docs-only edit for the #474 cache measurement -->
