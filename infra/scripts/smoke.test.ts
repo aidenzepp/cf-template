@@ -253,7 +253,9 @@ describe("isPlatformNotFound", () => {
     assert.isTrue(
       isPlatformNotFound("/auth/sign-up/email", response("/auth/sign-up/email", platform404)),
     );
-    assert.isTrue(isPlatformNotFound("/api/CreateNote", response("/api/CreateNote", platform404)));
+    assert.isTrue(
+      isPlatformNotFound("/api/create-note", response("/api/create-note", platform404)),
+    );
   });
 
   it("is not an application 404, web's own page or a success", () => {
@@ -298,12 +300,12 @@ describe("retryPlatformNotFound", () => {
     () =>
       Effect.gen(function* notRetried() {
         const seen: Array<string> = [];
-        const routes = { "/api/Note/n-1": { body: { _tag: "NotFound" }, status: 404 } };
+        const routes = { "/api/note/n-1": { body: { _tag: "NotFound" }, status: 404 } };
 
         const answer = yield* Effect.gen(function* read() {
           const client = retryPlatformNotFound(yield* HttpClient.HttpClient);
 
-          return yield* client.execute(HttpClientRequest.get(`${PREVIEW}/api/Note/n-1`));
+          return yield* client.execute(HttpClientRequest.get(`${PREVIEW}/api/note/n-1`));
         }).pipe(Effect.provide(fake(routes, seen)));
 
         assert.strictEqual(answer.status, 404);
@@ -314,8 +316,8 @@ describe("retryPlatformNotFound", () => {
             Effect.gen(function* page() {
               const client = retryPlatformNotFound(yield* HttpClient.HttpClient);
 
-              return yield* client.execute(HttpClientRequest.get(`${PREVIEW}/api/Note/n-1`));
-            }).pipe(Effect.provide(fake({ "/api/Note/n-1": platform404 }))),
+              return yield* client.execute(HttpClientRequest.get(`${PREVIEW}/api/note/n-1`));
+            }).pipe(Effect.provide(fake({ "/api/note/n-1": platform404 }))),
           ),
         );
 
