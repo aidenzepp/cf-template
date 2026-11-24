@@ -6,7 +6,7 @@ import { FORWARD_PREFIXES } from "./forward-prefixes.ts";
 /**
  * The service binding a forwarded path belongs to.
  */
-export type ForwardTarget = "API" | "AUTH";
+type ForwardTarget = "API" | "AUTH";
 
 /**
  * The headers dropped from every forwarded request: the trace-context headers (`web` injects none
