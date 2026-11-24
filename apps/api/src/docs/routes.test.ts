@@ -52,7 +52,7 @@ const serve = (docs: string | undefined) =>
   ).pipe(
     Effect.map(
       ({ handler }) =>
-        (url: string): Effect.Effect<Answer> =>
+        (url: string) =>
           Effect.gen(function* answer() {
             const response = yield* Effect.promise(() => handler(new Request(url)));
 
@@ -60,7 +60,7 @@ const serve = (docs: string | undefined) =>
               body: yield* Effect.promise(() => response.text()),
               status: response.status,
               type: response.headers.get("content-type") ?? "",
-            };
+            } satisfies Answer;
           }),
     ),
   );
@@ -71,7 +71,7 @@ const serve = (docs: string | undefined) =>
  * @param text - The Markdown text.
  * @returns The URLs, in order.
  */
-const linksOf = (text: string): ReadonlyArray<string> =>
+const linksOf = (text: string) =>
   [...text.matchAll(/\]\((?<url>[^)]+)\)/gu)].map((match) => match.groups?.url ?? "");
 
 describe("the documentation routes with DOCS_ENABLED on", () => {
@@ -104,10 +104,10 @@ describe("the documentation routes with DOCS_ENABLED on", () => {
       );
 
       assert.includeMembers(operations, [
-        "post /api/CreateNote",
-        "post /api/UpdateNote",
-        "post /api/DeleteNote",
-        "get /api/Note/{key}",
+        "post /api/create-note",
+        "post /api/update-note",
+        "post /api/delete-note",
+        "get /api/note/{key}",
       ]);
 
       for (const operation of operations) {

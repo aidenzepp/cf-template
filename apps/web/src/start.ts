@@ -15,7 +15,7 @@ const AUTH_UNAVAILABLE_MESSAGE = new AuthUnavailable({ retryAfterSeconds: 0 }).m
  * @param error - The error being serialized.
  * @returns `true` for an {@link AuthUnavailable}, on the server and after hydration.
  */
-const isAuthUnavailable = (error: Error): boolean => error.message === AUTH_UNAVAILABLE_MESSAGE;
+const isAuthUnavailable = (error: Error) => error.message === AUTH_UNAVAILABLE_MESSAGE;
 
 /**
  * The text a dehydrated error carries when it is not the declared sign-in outage.

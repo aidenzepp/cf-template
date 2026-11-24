@@ -113,7 +113,7 @@ layer(LocalAuthD1.layer)("the cookie contract under an https PUBLIC_ORIGIN", (it
         for (const url of [
           "https://evil.example/x",
           "//evil.example",
-          "/\\evil.example",
+          String.raw`/\evil.example`,
           "https://other-web.acme.workers.dev",
           `${HTTPS_ORIGIN}.evil.example`,
         ]) {
@@ -142,9 +142,7 @@ layer(LocalAuthD1.layer)("the cookie contract under an https PUBLIC_ORIGIN", (it
           { host: "https://attacker.test", origin: HTTPS_ORIGIN },
         );
 
-        const { url } = yield* Effect.promise((): Promise<{ readonly url: string }> =>
-          response.json(),
-        );
+        const { url } = yield* Effect.promise<{ readonly url: string }>(() => response.json());
 
         assert.strictEqual(
           new URL(url).searchParams.get("redirect_uri"),

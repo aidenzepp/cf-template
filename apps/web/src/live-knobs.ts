@@ -1,6 +1,5 @@
 import { Effect, Option } from "effect";
 import { LiveSourceError, fromSource } from "@workspace/config/knob";
-import type { LiveKnobsPort } from "@workspace/config/knob";
 import type { KnobsBinding } from "./env.ts";
 
 /**
@@ -22,7 +21,7 @@ const CACHE_TTL_S = 30;
  * @param binding - The `KNOBS` binding of the Worker, absent when the block is.
  * @returns The port that provides `LiveKnobs`.
  */
-export const webKnobs = (binding: KnobsBinding | undefined): LiveKnobsPort =>
+export const webKnobs = (binding: KnobsBinding | undefined) =>
   fromSource({
     name: "KNOBS",
     read: (key) =>

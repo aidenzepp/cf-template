@@ -4,6 +4,8 @@ name: Deploy
 # a privilege is false on an unset variable (`== 'true'`), so `preview` and `cloud` skip while
 # CLOUDFLARE_DEPLOYS is unset. No `${{ }}` of a PR title, a label or a comment body appears inside a
 # `run:` string; event strings reach steps through `env:`. This file never names `environment: prod`.
+# Every job but `preview` skips for a pull request that is not open, so a later `edited` or `labeled`
+# event on a merged pull request (release-please relabels each release PR) starts no check (#432).
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited, labeled, unlabeled, ready_for_review, closed]
@@ -16,7 +18,7 @@ env:
 
 jobs:
   checks:
-    if: github.event.action != 'closed'
+    if: github.event.action != 'closed' && github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -38,7 +40,7 @@ jobs:
           echo 'Deploys are off: `CLOUDFLARE_DEPLOYS` is not set. Run `bun run bootstrap` (docs/spin-up.md).' >> "$GITHUB_STEP_SUMMARY"
 
   browser:
-    if: github.event.action != 'closed'
+    if: github.event.action != 'closed' && github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     concurrency:
@@ -52,7 +54,10 @@ jobs:
       - run: bun run test:browser
 
   design-record:
-    if: github.event_name == 'pull_request' && github.event.action != 'closed'
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.action != 'closed' &&
+      github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     concurrency:
@@ -70,11 +75,13 @@ jobs:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
 
-  # The pull request title, linted by the commit rules in commitlint.config.mjs: squash merge turns
-  # the title into the commit subject. It runs at the repository root because the config reads the
-  # workspace names from package.json. No secrets; the title reaches the step only through `env:`.
+  # The merged commit subject, linted by the commit rules in commitlint.config.mjs: squash merge
+  # turns the title into the subject and appends ` (#<number>)`, so the job lints the title with that
+  # suffix and a title that would merge over the header cap fails (#429). It runs at the repository
+  # root because the config reads the workspace names from package.json. No secrets; the title
+  # reaches the step only through `env:`.
   pr-title:
-    if: github.event.action != 'closed'
+    if: github.event.action != 'closed' && github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -87,16 +94,20 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup
-      - run: printf '%s\n' "$PR_TITLE" | ./node_modules/.bin/commitlint
+      - run: printf '%s (#%s)\n' "$PR_TITLE" "$PR_NUMBER" | ./node_modules/.bin/commitlint
         env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
           PR_TITLE: ${{ github.event.pull_request.title }}
 
   # The pull request body, linted as the message squash merge builds from it (the body becomes the
   # commit message, squash_merge_commit_message PR_BODY). The subject line is a fixed valid
-  # placeholder, so the only rule that can fail here is the `Co-Authored-By:` trailer ban. No
-  # secrets; the body reaches the step only through `env:`.
+  # placeholder, so the only commit rule that can fail is the `Co-Authored-By:` trailer ban. Then
+  # `tools/pr-body/check.ts` requires an issue link and the AI disclosure block, except on a
+  # Release Please or Renovate pull request that matches every fact of its form (#407, #43). No
+  # secrets; the body, the head branch, the title and the author type and login reach the steps only
+  # through `env:`.
   pr-body:
-    if: github.event.action != 'closed'
+    if: github.event.action != 'closed' && github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     permissions:
@@ -113,6 +124,13 @@ jobs:
           printf 'chore: x\n\n%s\n' "$PR_BODY" | ./node_modules/.bin/commitlint
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
+      - run: bun tools/pr-body/check.ts
+        env:
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
+          PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BRANCH: ${{ github.event.pull_request.head.ref }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
 
   # The staging-<N> preview (#43 item 2): same-repository pull requests only, deploys on, no
   # alchemy-upgrade label, and either `closed` (the destroy), `merge-ready`, or a human author while
@@ -268,10 +286,14 @@ jobs:
 
   # The one required context (#43 item 5, DC17). Passing results: `success` for checks, browser,
   # design-record, pr-title and pr-body; cloud `success` while CLOUDFLARE_DEPLOYS is `true`,
-  # otherwise not required. It runs on the same events as checks, so it skips on `closed`.
+  # otherwise not required. It runs on the same events as checks, so it skips on `closed` and on any
+  # event for a pull request that is no longer open (#432).
   merge-gate:
     needs: [checks, browser, design-record, pr-title, pr-body, cloud]
-    if: always() && github.event.action != 'closed'
+    if: >-
+      always() &&
+      github.event.action != 'closed' &&
+      github.event.pull_request.state == 'open'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

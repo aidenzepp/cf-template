@@ -208,6 +208,16 @@ export default defineConfig({
     // off under `routes/`; two of its decisions are copied as scoped overrides instead. `effect` is
     // the `@effect/tsgo` Effect rule set: it runs in this one `vp check` pass only while
     // `effect-tsgo patch --oxlint --tsrs` has patched the toolchain, and the canary test turns red if not.
+    // Not adopted from the Cloudflare Oxlint preset (#437): `import/no-namespace`, which Ultracite core
+    // also leaves off. Effect is imported by name; the one `effect/Effect` namespace import is a test
+    // that lists the module's exports. The 67 findings at adoption were `import * as` from `alchemy` and
+    // `@alchemy.run/*` (54, Alchemy's documented style), `@distilled.cloud/cloudflare/*` (9), the local
+    // Drizzle schema handed to the Better Auth adapter (2), `@effect/sql-d1/D1Client` (1) and
+    // `effect/Effect` (1).
+    // Adopted from the Cloudflare Oxlint preset (#437): no whole category is on by default, so an
+    // Oxlint upgrade cannot switch on a rule unseen. The presets and this file already list every rule
+    // that runs: `vp lint --print-config` and the enabled-rule count (1384) are the same either way.
+    categories: { correctness: "off" },
     extends: [core, antiSlop, shadcn, drizzle, effect],
     ignorePatterns: [
       ".agents/**",
@@ -228,6 +238,8 @@ export default defineConfig({
       // Landmines 0.3.0, registered for its rule lines below; the Ultracite 8.3 `landmines` preset
       // targets the 0.1.x subpaths that 0.2.0 removed, so it is not used.
       { name: "landmines", specifier: "@interfere/landmines" },
+      // The plugin carries no name of its own; the Cloudflare preset registers it as `@nkzw` too.
+      { name: "@nkzw", specifier: "@nkzw/eslint-plugin" },
       ...shadcn.jsPlugins,
     ],
     // `vp check` runs type-aware rules and the type check only when both are enabled.
@@ -449,8 +461,13 @@ export default defineConfig({
         // Alchemy Domain Stories assert recorded events with `Story.then(...)`, a step of the
         // Story DSL, not a promise. Story files are declarative step lists and run no promises.
         // `prefer-catch` is off too: it reads `Story.then(subject, event)` as `then(a, b)`.
+        // `prefer-top-level-await` is off too: it reads `Story.then(...)` as a promise chain.
         files: ["**/*.story.ts"],
-        rules: { "promise/prefer-await-to-then": "off", "promise/prefer-catch": "off" },
+        rules: {
+          "promise/prefer-await-to-then": "off",
+          "promise/prefer-catch": "off",
+          "unicorn/prefer-top-level-await": "off",
+        },
       },
       {
         // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
@@ -482,7 +499,12 @@ export default defineConfig({
         // on Effect `Service.use(...)` calls elsewhere.
         files: ["apps/web/**/*.tsx"],
         plugins: react.plugins,
-        rules: react.rules,
+        rules: {
+          ...react.rules,
+          // Adopted from the Cloudflare Oxlint preset (#437); the preset leaves both off.
+          "react/no-unknown-property": "error",
+          "react/require-render-return": "error",
+        },
       },
       {
         // React Doctor's per-file rules, scoped to `apps/web` like `react` above: the recommended set
@@ -499,14 +521,9 @@ export default defineConfig({
           ...REACT_COMPILER_RULES,
           ...RECOMMENDED_RULES,
           ...TANSTACK_START_RULES,
-          // Findings in existing `apps/web` code at adoption (58 diagnostics). `vp check` denies
-          // warnings, so they are off until a follow-up fixes the code; then delete these lines.
-          "react-doctor/jsx-no-jsx-as-prop": "off",
-          "react-doctor/jsx-no-new-function-as-prop": "off",
           // The two server-data guards `docs/capabilities.md` names. Neither is in a React Doctor
           // rule set, so each is switched on here.
           "react-doctor/no-collapse-request-error-to-empty-state": "error",
-          "react-doctor/only-export-components": "off",
           "react-doctor/tanstack-start-no-direct-fetch-in-loader": "error",
         },
       },
@@ -525,6 +542,15 @@ export default defineConfig({
         // `packages/contract/src/**` and every `table.ts` keep it too.
         files: ["apps/web/src/**", "packages/contract/src/**", "**/table.ts"],
         rules: { "sort-keys": "off" },
+      },
+      {
+        // Adopted from the Cloudflare Oxlint preset (#437), scoped to plain JavaScript as there: the
+        // TypeScript checker already reports an undefined name in a `.ts` file. The preset's
+        // `browser` and `node` environments are scoped with it: the lint-rule tests run on Bun and
+        // the bundle fixtures stand in for browser assets.
+        env: { browser: true, node: true },
+        files: ["**/*.{js,mjs,cjs}"],
+        rules: { "no-undef": "error" },
       },
       {
         // The lint-rule tests import bun:test from plain JavaScript. The type-aware checker does
@@ -599,6 +625,12 @@ export default defineConfig({
       },
     ],
     rules: {
+      // Adopted from the Cloudflare Oxlint preset (#437), which takes both from `@nkzw/oxlint-config`.
+      // `instanceof` breaks across realms and bundled copies of a class; a tagged error is told apart
+      // by `_tag` and a Schema by `Schema.is`.
+      "@nkzw/no-instanceof": "error",
+      // A hook-style `use*` call with an Effect dependency array must name its dependencies.
+      "@nkzw/require-use-effect-arguments": "error",
       "@stylistic/padding-line-between-statements": [
         "error",
         { blankLine: "always", next: topLevelUnit, prev: "*" },
@@ -663,19 +695,18 @@ export default defineConfig({
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/try-catch-in-effect-gen": "off",
       "effecttsgo/unsafe-effect-type-assertion": "warn",
+      // Adopted from the Cloudflare Oxlint preset (#437); the repository had no finding at adoption.
+      // Reports a duplicate export name, which a bundler resolves silently.
+      "import/export": "error",
       // Landmines 0.3.0 (#434), every rule listed. A rule that is on reports nothing today. A rule
       // that is off carries its reason and the findings measured on the tree when it was left off.
-      // Off (0 findings): AGENTS.md puts cross-module tests in the root `test/`, and the rule would
-      // move a test that imports one owner.
-      "landmines/colocated-tests": "off",
-      // Off (0 findings): the repository has no Turbo `test` task for the rule to read.
-      "landmines/declared-test-inputs": "off",
+      "landmines/colocated-tests": "error",
+      "landmines/declared-test-inputs": "error",
       // Off (25 findings): a size limit; AGENTS.md rules out function-decomposition policies.
       "landmines/max-exports-per-module": "off",
       // Off (6 findings): a size limit; AGENTS.md rules out function-decomposition policies.
       "landmines/max-file-lines": "off",
-      // Off (0 findings): a layout limit; AGENTS.md rules out function-decomposition policies.
-      "landmines/max-files-per-directory": "off",
+      "landmines/max-files-per-directory": "error",
       "landmines/no-clipboard-read-text": "error",
       "landmines/no-cold-import-in-test": "error",
       "landmines/no-cold-start-in-test": "error",
@@ -684,20 +715,14 @@ export default defineConfig({
       "landmines/no-comments": "off",
       "landmines/no-conditional-expect": "error",
       "landmines/no-elapsed-time-bound": "error",
-      // Off (268 findings): AGENTS.md rules out type-design policies, and the annotations are
-      // documented contracts.
-      "landmines/no-explicit-return-types": "off",
+      "landmines/no-explicit-return-types": "error",
       "landmines/no-fixed-sleep": "error",
-      // Off (28 findings): 26 spawning tests in tools/ pass a 60 s timeout and the browser and
-      // cloud configs set testTimeout for page loads and requests to a deployed stage; each needs
-      // its slow setup restructured into a hook.
-      "landmines/no-flake-masking": "off",
+      "landmines/no-flake-masking": "error",
       "landmines/no-github-scripts": "error",
       "landmines/no-imported-mutation": "error",
       "landmines/no-inline-hex-encoding": "error",
       "landmines/no-parameter-branch": "error",
-      // Off (3 findings): a layout limit; AGENTS.md rules out function-decomposition policies.
-      "landmines/no-prefix-cluster": "off",
+      "landmines/no-prefix-cluster": "error",
       "landmines/no-project-max-workers": "error",
       "landmines/no-scripts-directory": "error",
       "landmines/no-self-container-query": "error",
@@ -720,18 +745,30 @@ export default defineConfig({
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],
+      // Reports a value assigned and then overwritten before any read.
+      "no-useless-assignment": "error",
+      // A `return` in `finally` swallows a thrown error and replaces the result.
+      "promise/no-return-in-finally": "error",
       // The Ultracite 8.3 `core` preset turns `sort-keys` off; the 8.1.1 preset had it at `error` with
       // default options, so this keeps the rule the repository already enforced. The scoped
       // overrides above still lift it where key order is the wire or column order.
       "sort-keys": "error",
       // Issue #11 item 10: `ReadonlyArray<T>` is the accepted array spelling.
       "typescript/array-type": ["error", { default: "generic", readonly: "generic" }],
+      // `require()` has no place in an ES module repository; the preset leaves it off.
+      "typescript/no-require-imports": "error",
       // Effect adapters return existing promises without introducing async wrappers.
       "typescript/promise-function-async": "off",
       "unicorn/filename-case": ["error", { case: "kebabCase" }],
       // Replaced by `workspace/no-array-method-this-argument`: the same check with `Effect` ignored, since
       // `Effect.forEach(xs, f, { concurrency })` takes options, not a `thisArg`.
       "unicorn/no-array-method-this-argument": "off",
+      // Adopted from the Cloudflare Oxlint preset (#437). Ultracite core turns it off; `String.raw`
+      // keeps a backslash-heavy literal readable, so it is on again.
+      "unicorn/prefer-string-raw": "error",
+      // Adopted from the Cloudflare Oxlint preset (#437): a module awaits at the top level instead of
+      // chaining a promise. The story override above lifts it.
+      "unicorn/prefer-top-level-await": "error",
       // misfires on Schema.TaggedError<X>()(...) calls and takes no options; throw is already banned in source by the Effect-native rule (AGENTS.md)
       "unicorn/throw-new-error": "off",
       "workspace/error-message-grammar": "error",

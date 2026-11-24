@@ -219,7 +219,7 @@ const minimalSet: Check = {
  * Splits migration SQL into statements on the `--> statement-breakpoint` markers and `;` that
  * `drizzle-kit` emits.
  */
-const statements = (sql: string): ReadonlyArray<string> =>
+const statements = (sql: string) =>
   sql
     .split(/-->\s*statement-breakpoint|;/u)
     .map((statement) => statement.trim())
@@ -228,7 +228,7 @@ const statements = (sql: string): ReadonlyArray<string> =>
 /**
  * Whether `patterns` each match a later statement than the one before, in order.
  */
-const inOrder = (all: ReadonlyArray<string>, patterns: ReadonlyArray<RegExp>): boolean => {
+const inOrder = (all: ReadonlyArray<string>, patterns: ReadonlyArray<RegExp>) => {
   let from = 0;
 
   for (const pattern of patterns) {
@@ -247,14 +247,14 @@ const inOrder = (all: ReadonlyArray<string>, patterns: ReadonlyArray<RegExp>): b
 /**
  * The table name captured by the named group `name` in `pattern`, as a list of zero or one.
  */
-const captured = (pattern: RegExp, statement: string): ReadonlyArray<string> =>
+const captured = (pattern: RegExp, statement: string) =>
   Arr.fromNullishOr(pattern.exec(statement)?.groups?.name);
 
 /**
  * The tables a migration recreates: each `__new_<t>` with the four-statement sequence `CREATE`,
  * `INSERT ... SELECT`, `DROP TABLE <t>`, `RENAME TO <t>`.
  */
-const recreated = (all: ReadonlyArray<string>): ReadonlyArray<string> =>
+const recreated = (all: ReadonlyArray<string>) =>
   all
     .flatMap((statement) => captured(/^CREATE TABLE [`"]__new_(?<name>\w+)[`"]/iu, statement))
     .filter((table) =>
@@ -279,13 +279,13 @@ const gitLines = Effect.fn("db.check.gitLines")(function* gitLines(
 /**
  * A module path without its `.ts` or `.tsx` extension, so `./table` and `./table.ts` compare equal.
  */
-const bare = (module: string): string => module.replace(/\.tsx?$/u, "");
+const bare = (module: string) => module.replace(/\.tsx?$/u, "");
 
 /**
  * Whether an import statement in `source` (type-only imports and re-exports included) names
  * `target`, a repository path, from the module at `file`. Only relative specifiers are resolved.
  */
-const imports = (path: Path.Path, source: string, file: string, target: string): boolean =>
+const imports = (path: Path.Path, source: string, file: string, target: string) =>
   [...source.matchAll(/\b(?:from|import)\s*\(?\s*["'](?<specifier>\.[^"']*)["']/gu)].some(
     (match) => bare(path.join(path.dirname(file), match.groups?.specifier ?? "")) === bare(target),
   );
@@ -492,7 +492,7 @@ const dangerousSql: Check = {
  * Whether `version`, the output of `node --version`, is at least 22.12, the floor the Better Auth
  * CLI needs.
  */
-const nodeSupported = (version: string): boolean => {
+const nodeSupported = (version: string) => {
   const found = /^v(?<major>\d+)\.(?<minor>\d+)/u.exec(version)?.groups;
   const [major, minor] = [Number(found?.major), Number(found?.minor)];
 
@@ -568,6 +568,11 @@ const authSchema: Check = {
 const checks: ReadonlyArray<Check> = [ungenerated, minimalSet, dangerousSql, authSchema];
 
 /**
+ * The names of the checks, in the order their findings print.
+ */
+export const checkNames = checks.map((check) => check.name);
+
+/**
  * Runs the checks named in `only` (all when omitted) over every database in the tree at `root` and
  * returns one `db:check <check>: <file or database>: <reason>` line per finding. `base` is the ref
  * `dangerous-sql` compares against, default `git merge-base HEAD origin/main`.
@@ -591,7 +596,10 @@ export const findings = Effect.fn("db.check.findings")(function* findings(
     checks.flatMap((check) =>
       options.only === undefined || options.only.includes(check.name)
         ? [
-            Effect.all(databases.map((database) => check.run({ base, kit, root }, database))).pipe(
+            Effect.all(
+              databases.map((database) => check.run({ base, kit, root }, database)),
+              { concurrency: "unbounded" },
+            ).pipe(
               Effect.map((perDatabase) =>
                 perDatabase
                   .flat()
@@ -601,6 +609,7 @@ export const findings = Effect.fn("db.check.findings")(function* findings(
           ]
         : [],
     ),
+    { concurrency: "unbounded" },
   );
 
   return lines.flat();

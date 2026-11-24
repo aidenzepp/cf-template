@@ -1,4 +1,4 @@
-import { AUTH_BASE_PATH } from "./auth-paths.ts";
+import { AUTH_BASE_PATH } from "./paths.ts";
 
 /**
  * How the rate limiter treats an endpoint: `credential` endpoints hash or verify a password and

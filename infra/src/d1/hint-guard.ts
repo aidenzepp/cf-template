@@ -19,7 +19,7 @@ export class D1LocationHintChanged extends Schema.TaggedError<
   database: Schema.String,
   desired: Schema.String,
 }) {
-  override get message(): string {
+  override get message() {
     return `Refusing to deploy: the ${this.database} D1 database was created with location hint ${this.created} and D1_PROD_LOCATION_HINT now asks for ${this.desired}. The hint only applies when a database is created; changing it would replace ${this.database} with an empty database. Set D1_PROD_LOCATION_HINT back to ${this.created}.`;
   }
 }
@@ -30,7 +30,7 @@ export class D1LocationHintChanged extends Schema.TaggedError<
  * @param hint - The hint, or `none` for the unset value.
  * @returns The hint, or `unset`.
  */
-const show = (hint: Option.Option<string>): string => Option.getOrElse(hint, () => "unset");
+const show = (hint: Option.Option<string>) => Option.getOrElse(hint, () => "unset");
 
 /**
  * The hint a database was created with, from its persisted Alchemy state.
@@ -38,9 +38,7 @@ const show = (hint: Option.Option<string>): string => Option.getOrElse(hint, () 
  * @param state - The persisted state of the database resource, if any.
  * @returns `none` when no database was ever recorded, otherwise `some` of the recorded hint.
  */
-export const createdHint = (
-  state: PersistedState | undefined,
-): Option.Option<Option.Option<string>> =>
+export const createdHint = (state: PersistedState | undefined) =>
   isResourceState(state) && state.props !== undefined
     ? Option.some(Option.fromNullishOr(state.props.primaryLocationHint))
     : Option.none();

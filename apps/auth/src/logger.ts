@@ -92,7 +92,7 @@ const decodeEscapes = Option.liftThrowable(decodeURIComponent);
  * @param text - A token.
  * @returns The decoded text.
  */
-const percentDecoded = (text: string): string => {
+const percentDecoded = (text: string) => {
   const withAt = text.replaceAll(PERCENT_AT, "@");
 
   return Option.getOrElse(decodeEscapes(withAt), () => withAt);
@@ -104,7 +104,7 @@ const percentDecoded = (text: string): string => {
  * @param text - A token.
  * @returns The text with `&#64;`, `&#x40;` and `&commat;` replaced by `@`.
  */
-const entityDecoded = (text: string): string => text.replaceAll(AT_ENTITY, "@");
+const entityDecoded = (text: string) => text.replaceAll(AT_ENTITY, "@");
 
 /**
  * One round of percent and entity decoding.
@@ -112,7 +112,7 @@ const entityDecoded = (text: string): string => text.replaceAll(AT_ENTITY, "@");
  * @param text - A token.
  * @returns The decoded token.
  */
-const decodedOnce = (text: string): string => entityDecoded(percentDecoded(text));
+const decodedOnce = (text: string) => entityDecoded(percentDecoded(text));
 
 /**
  * A token as a reader would see it after the usual encodings are undone: compatibility forms
@@ -122,7 +122,7 @@ const decodedOnce = (text: string): string => entityDecoded(percentDecoded(text)
  * @param token - A whitespace-free run of text.
  * @returns The token with its encodings undone.
  */
-const decodedToken = (token: string): string =>
+const decodedToken = (token: string) =>
   decodedOnce(decodedOnce(token.normalize("NFKC"))).normalize("NFKC");
 
 /**
@@ -134,7 +134,7 @@ const decodedToken = (token: string): string =>
  * @param text - A Better Auth message or argument.
  * @returns The text with each such run replaced by `[email]`.
  */
-export const redactEmails = (text: string): string => {
+export const redactEmails = (text: string) => {
   const tokens = text.replaceAll(QUOTED_LOCAL_PART, "[email]").split(WHITESPACE_RUNS);
   const decoded = tokens.map((token, index) => (index % 2 === 0 ? decodedToken(token) : token));
   const word = (index: number) => decoded[index] ?? "";
@@ -158,7 +158,7 @@ export const redactEmails = (text: string): string => {
  * @param error - The error.
  * @returns The cause.
  */
-const causeOf = (error: Error): LogArgument => {
+const causeOf = (error: Error) => {
   const { cause } = error;
 
   if (cause === undefined) {
@@ -182,7 +182,7 @@ const causeOf = (error: Error): LogArgument => {
  */
 const isPlainObject = (
   value: LogObject | ReadonlyMap<string, LogArgument> | ReadonlyArray<LogArgument>,
-): boolean => {
+) => {
   const prototype = Reflect.getPrototypeOf(value);
 
   return prototype === Object.prototype || prototype === null;
@@ -198,7 +198,7 @@ const isPlainObject = (
  * @param depth - How many more levels may be copied.
  * @returns A copy that holds no address.
  */
-const redactArgument = (argument: LogArgument, depth: number): Schema.Json => {
+const redactArgument: (argument: LogArgument, depth: number) => Schema.Json = (argument, depth) => {
   if (Predicate.isString(argument)) {
     return redactEmails(argument);
   }

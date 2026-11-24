@@ -86,9 +86,7 @@ describe("wafRateLimitRule", () => {
     );
 
     assert.isTrue(
-      ruleset.rules.every(
-        (rule) => rule.expression?.includes('http.host eq "example.test"') === true,
-      ),
+      ruleset.rules.every((rule) => rule.expression.includes('http.host eq "example.test"')),
     );
   });
 
