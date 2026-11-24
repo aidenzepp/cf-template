@@ -222,7 +222,14 @@ export default defineConfig({
       "work/**",
       ...vendored,
     ],
-    jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin", ...shadcn.jsPlugins],
+    jsPlugins: [
+      "./tools/lint/plugin.mjs",
+      "@stylistic/eslint-plugin",
+      // Landmines 0.3.0, registered for its rule lines below; the Ultracite 8.3 `landmines` preset
+      // targets the 0.1.x subpaths that 0.2.0 removed, so it is not used.
+      { name: "landmines", specifier: "@interfere/landmines" },
+      ...shadcn.jsPlugins,
+    ],
     // `vp check` runs type-aware rules and the type check only when both are enabled.
     // https://viteplus.dev/guide/check
     options: { reportUnusedDisableDirectives: "error", typeAware: true, typeCheck: true },
