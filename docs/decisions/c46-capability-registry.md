@@ -10,7 +10,7 @@ Source: the native-capability audit and the TanStack ecosystem review (operator 
 
 ## C46a
 
-Toasts: screens call sonner's `toast` directly; the `notify` pass-through and the `sonner` import ban are removed. `routes/__root.tsx` keeps the one `<Toaster>`.
+Toasts: screens call sonner's `toast` directly; the `notify` pass-through and the `sonner` import ban are removed. `RootLayout` in `apps/web/src/components/root-shell.tsx`, the root route's component, keeps the one `<Toaster>`.
 
 ## C46b
 
