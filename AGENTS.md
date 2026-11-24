@@ -1,6 +1,6 @@
 # Agent instructions
 
-This repository is an intentionally empty TypeScript project on Bun and Effect. It is a foundation for a new project, not a sample application. Add only the source the project needs under the workspace that owns it (`apps/*`, `packages/*`, `infra`); do not pre-create shared modules, packages, or example code.
+This repository is an intentionally empty TypeScript project on Bun and Effect. It is a foundation for a new project, not a sample application. Add only the source the project needs under the workspace that owns it (`apps/*`, `packages/*`, `infra`, `tools`); do not pre-create shared modules, packages, or example code.
 
 ## Policy
 
