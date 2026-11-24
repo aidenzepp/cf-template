@@ -568,6 +568,11 @@ const authSchema: Check = {
 const checks: ReadonlyArray<Check> = [ungenerated, minimalSet, dangerousSql, authSchema];
 
 /**
+ * The names of the checks, in the order their findings print.
+ */
+export const checkNames = checks.map((check) => check.name);
+
+/**
  * Runs the checks named in `only` (all when omitted) over every database in the tree at `root` and
  * returns one `db:check <check>: <file or database>: <reason>` line per finding. `base` is the ref
  * `dangerous-sql` compares against, default `git merge-base HEAD origin/main`.
@@ -591,7 +596,10 @@ export const findings = Effect.fn("db.check.findings")(function* findings(
     checks.flatMap((check) =>
       options.only === undefined || options.only.includes(check.name)
         ? [
-            Effect.all(databases.map((database) => check.run({ base, kit, root }, database))).pipe(
+            Effect.all(
+              databases.map((database) => check.run({ base, kit, root }, database)),
+              { concurrency: "unbounded" },
+            ).pipe(
               Effect.map((perDatabase) =>
                 perDatabase
                   .flat()
@@ -601,6 +609,7 @@ export const findings = Effect.fn("db.check.findings")(function* findings(
           ]
         : [],
     ),
+    { concurrency: "unbounded" },
   );
 
   return lines.flat();
