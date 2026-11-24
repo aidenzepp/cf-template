@@ -207,7 +207,7 @@ export default defineConfig({
     // adopted: it turns `sort-keys` off for the whole repository and the kebab-case filename rule
     // off under `routes/`; two of its decisions are copied as scoped overrides instead. `effect` is
     // the `@effect/tsgo` Effect rule set: it runs in this one `vp check` pass only while
-    // `effect-tsgo patch --oxlint` has patched the toolchain, and the canary test turns red if not.
+    // `effect-tsgo patch --oxlint --tsrs` has patched the toolchain, and the canary test turns red if not.
     extends: [core, antiSlop, shadcn, drizzle, effect],
     ignorePatterns: [
       ".agents/**",
@@ -433,15 +433,17 @@ export default defineConfig({
       },
       {
         // `auth.ts` is the documented Effect-to-Promise seam: Better Auth takes a promise view
-        // of the Effect, which `.then(onFulfilled, onRejected)` consumes.
+        // of the Effect, which `.then(onFulfilled, onRejected)` consumes. `prefer-catch` is off
+        // too: `.catch` would also catch a throw from `onFulfilled`, which changes the thenable.
         files: ["apps/auth/src/auth.ts"],
-        rules: { "promise/prefer-await-to-then": "off" },
+        rules: { "promise/prefer-await-to-then": "off", "promise/prefer-catch": "off" },
       },
       {
         // Alchemy Domain Stories assert recorded events with `Story.then(...)`, a step of the
         // Story DSL, not a promise. Story files are declarative step lists and run no promises.
+        // `prefer-catch` is off too: it reads `Story.then(subject, event)` as `then(a, b)`.
         files: ["**/*.story.ts"],
-        rules: { "promise/prefer-await-to-then": "off" },
+        rules: { "promise/prefer-await-to-then": "off", "promise/prefer-catch": "off" },
       },
       {
         // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
@@ -685,7 +687,7 @@ export default defineConfig({
   // Tests run on Vitest with @effect/vitest. The lint-rule tests in tools/lint import bun:test
   // and run under `bun test`; `bun run test` runs both.
   //
-  // Versions in use: Vitest 5.1.0 (bundled by Vite+ 1.5.0), Miniflare 4.20260730.0, workerd
+  // Versions in use: Vitest 5.1.0 (bundled by Vite+ 1.7.0), Miniflare 4.20260730.0, workerd
   // 1.20261026.1. `@cloudflare/vitest-pool-workers` is not used: it failed under Vitest 5.1.0 and
   // its successor cannot load an Alchemy Worker module, so tier 2 is Miniflare's local D1 plus
   // Alchemy's `dev` harness.

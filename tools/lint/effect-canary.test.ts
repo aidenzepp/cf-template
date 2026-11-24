@@ -26,9 +26,9 @@ const SPAWN_TIMEOUT_MS = 60_000;
 
 /**
  * Resolves the fixture directory, the oxlint binary and the type-aware engine, both from the
- * installed Vite+ so the fixtures and `vp check` run one engine. Setting `OXLINT_TSGOLINT_PATH` on
- * every spawn keeps a bare `oxlint` from preferring another engine (`tsrs-lint`) from Oxlint 1.92
- * on.
+ * installed Vite+ so the fixtures and `vp check` run one engine. Vite+ 1.7.0 runs that engine,
+ * `tsrs-lint`, by setting `OXLINT_TSGOLINT_PATH` to it, and every spawn here sets the same variable
+ * to the same file.
  */
 const toolchain = Effect.gen(function* resolve() {
   const fs = yield* FileSystem.FileSystem;
@@ -45,7 +45,7 @@ const toolchain = Effect.gen(function* resolve() {
     dir: path.join(root, "tools", "lint", "fixtures", "effect"),
     oxlint: path.join(dependencies, "oxlint", "bin", "oxlint"),
     root,
-    tsgolint: path.join(dependencies, "oxlint-tsgolint", "bin", "tsgolint.js"),
+    tsrsLint: path.join(dependencies, "tsrs", "bin", "tsrs-lint"),
   };
 });
 
@@ -57,7 +57,7 @@ const toolchain = Effect.gen(function* resolve() {
 const lint = Effect.fnUntraced(function* lint(files: ReadonlyArray<string>) {
   const path = yield* Path.Path;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-  const { dir, oxlint, root, tsgolint } = yield* toolchain;
+  const { dir, oxlint, root, tsrsLint } = yield* toolchain;
 
   return yield* Effect.scoped(
     Effect.gen(function* spawned() {
@@ -73,7 +73,7 @@ const lint = Effect.fnUntraced(function* lint(files: ReadonlyArray<string>) {
           ],
           {
             cwd: root,
-            env: { NO_COLOR: "1", OXLINT_TSGOLINT_PATH: tsgolint },
+            env: { NO_COLOR: "1", OXLINT_TSGOLINT_PATH: tsrsLint },
             extendEnv: true,
           },
         ),

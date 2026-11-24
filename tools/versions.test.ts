@@ -22,7 +22,20 @@ const Lock = Schema.Struct({
   ),
 });
 
+// The `vite-plus` entry carries its own dependencies, which pin the `vite` alias to a core version;
+// the hash after them is not read.
+const VitePlusEntry = Schema.TupleWithRest(
+  Schema.Tuple([
+    Schema.String,
+    Schema.String,
+    Schema.Struct({ dependencies: Schema.Struct({ vite: Schema.String }) }),
+  ]),
+  [Schema.Unknown],
+);
+
 const decodeManifest = Schema.decodeUnknownEffect(Schema.fromJsonString(Manifest));
+
+const decodeVitePlusEntry = Schema.decodeUnknownEffect(VitePlusEntry);
 
 const decodeLock = Schema.decodeUnknownEffect(Lock);
 
@@ -125,7 +138,7 @@ const lockstepFamilies = {
   "better-auth": (name: string) =>
     name === "better-auth" || (name.startsWith("@better-auth/") && name !== "@better-auth/utils"),
   // @effect/tsgo and its platform packages (@effect/tsgo-darwin-arm64, ...) share one version line
-  // (0.67.7) apart from effect.
+  // (0.73.2) apart from effect.
   effect: (name: string) =>
     name === "effect" ||
     (name.startsWith("@effect/") &&
@@ -187,18 +200,18 @@ describe("singletons", () => {
 });
 
 describe("Vite+", () => {
-  it.effect("vite-plus, the vite alias and overrides.vite name one version", () =>
+  // Since 1.7.0 the core package has its own version line (`vite-plus@1.7.0` pins
+  // `@voidzero-dev/vite-plus-core@8.3.8000`), so the alias is compared with what the locked
+  // `vite-plus` pins, not with the `vite-plus` version.
+  it.effect("the vite alias and overrides.vite are the core package vite-plus pins", () =>
     Effect.gen(function* vitePlus() {
-      const { devDependencies, overrides } = (yield* load).rootManifest;
-      const overrideVite = overrides?.vite;
+      const { lock, rootManifest } = yield* load;
+      const { devDependencies, overrides } = rootManifest;
+      const pinned = (yield* decodeVitePlusEntry(lock.packages["vite-plus"]))[2].dependencies.vite;
 
-      expect([
-        ...new Set([
-          devDependencies?.["vite-plus"],
-          specVersion(devDependencies?.vite ?? ""),
-          isString(overrideVite) ? specVersion(overrideVite) : undefined,
-        ]),
-      ]).toHaveLength(1);
+      expect([...new Set([pinned, devDependencies?.vite, overrides?.vite])]).toStrictEqual([
+        pinned,
+      ]);
     }),
   );
 });
