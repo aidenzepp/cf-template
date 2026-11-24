@@ -1,13 +1,8 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
-import {
-  DesignMdGuidanceError,
-  DesignMdParseError,
-  DesignMdResolveError,
-  generate,
-  generateFrom,
-} from "./generate.ts";
+import { DesignMdParseError, DesignMdResolveError } from "./blocks.ts";
+import { DesignMdGuidanceError, generate, generateFrom } from "./generate.ts";
 
 /**
  * The directory of this test, the repository root and the fixtures beside it.

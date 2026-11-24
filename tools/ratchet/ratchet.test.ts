@@ -3,7 +3,8 @@ import { assert, describe, it } from "@effect/vitest";
 import { Config, Context, Effect, FileSystem, Layer, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { Baseline, ignoreEntries, sumCounts } from "./ratchet.ts";
+import { ignoreEntries } from "./knip-ignores.ts";
+import { Baseline, sumCounts } from "./ratchet.ts";
 
 /**
  * The environment of every spawn: only `PATH` and `HOME`, plus a git configuration that reads no

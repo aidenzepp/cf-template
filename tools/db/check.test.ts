@@ -3,8 +3,9 @@ import { assert, it } from "@effect/vitest";
 import { Config, Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { checkNames, findings, run } from "./check.ts";
+import { checkNames, findings } from "./check.ts";
 import { AUTH_SCHEMA_FILE } from "./global-setup.ts";
+import { run } from "./run.ts";
 
 /**
  * Runs `git` in `cwd` with the environment inherited exactly as a hook would see it, and returns
