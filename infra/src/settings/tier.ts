@@ -198,7 +198,9 @@ export const detectTier = Effect.fn("detectTier")(function* detectTier(
  * Format the one report line the program prints.
  *
  * @param tier - The detected tier.
- * @param applied - The count of settings applied.
+ * @param applied - The count of settings written: the provider resources converged plus the REST
+ *   calls that changed a setting. A REST setting that already held its declared value prints
+ *   `unchanged <setting>` and is not counted.
  * @param unavailable - The count of settings the tier does not offer.
  * @returns `tier: <visibility>/<plan>; applied N; unavailable M`.
  */

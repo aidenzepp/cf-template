@@ -161,7 +161,7 @@ hash = "d6c7963bbdd2678019cc3d76cb5a846bee54631b51cd7a82884184a4ba4b85c1"
 [[link]]
 source = "AGENTS.md"
 target = ".agents/skills/conventional-commits/SKILL.md"
-hash = "89bd96a9c73582e7dcb63e394bc9de533e959201aec6e954b6bba8477925bddc"
+hash = "09afbc5e5d0d93feaaace111b118ea1fe648348eaf69118ef9d2f4eb54842faf"
 
 [[link]]
 source = "AGENTS.md"
