@@ -663,19 +663,45 @@ export default defineConfig({
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/try-catch-in-effect-gen": "off",
       "effecttsgo/unsafe-effect-type-assertion": "warn",
-      // Landmines 0.3.0: a test asserts the real behavior, never a replaced dependency, a skipped
-      // branch, a guessed wait or a raised timeout; browser and CSS tests and CI files stay honest.
+      // Landmines 0.3.0 (#434), every rule listed. A rule that is on reports nothing today. A rule
+      // that is off carries its reason and the findings measured on the tree when it was left off.
+      // Off (0 findings): AGENTS.md puts cross-module tests in the root `test/`, and the rule would
+      // move a test that imports one owner.
+      "landmines/colocated-tests": "off",
+      // Off (0 findings): the repository has no Turbo `test` task for the rule to read.
+      "landmines/declared-test-inputs": "off",
+      // Off (25 findings): a size limit; AGENTS.md rules out function-decomposition policies.
+      "landmines/max-exports-per-module": "off",
+      // Off (6 findings): a size limit; AGENTS.md rules out function-decomposition policies.
+      "landmines/max-file-lines": "off",
+      // Off (0 findings): a layout limit; AGENTS.md rules out function-decomposition policies.
+      "landmines/max-files-per-directory": "off",
       "landmines/no-clipboard-read-text": "error",
       "landmines/no-cold-import-in-test": "error",
       "landmines/no-cold-start-in-test": "error",
+      // Off (1240 findings): contradicts AGENTS.md and the document-code skill, which require JSDoc
+      // on every program unit.
+      "landmines/no-comments": "off",
       "landmines/no-conditional-expect": "error",
       "landmines/no-elapsed-time-bound": "error",
+      // Off (268 findings): AGENTS.md rules out type-design policies, and the annotations are
+      // documented contracts.
+      "landmines/no-explicit-return-types": "off",
       "landmines/no-fixed-sleep": "error",
+      // Off (28 findings): 26 spawning tests in tools/ pass a 60 s timeout and the browser and
+      // cloud configs set testTimeout for page loads and requests to a deployed stage; each needs
+      // its slow setup restructured into a hook.
+      "landmines/no-flake-masking": "off",
       "landmines/no-github-scripts": "error",
       "landmines/no-imported-mutation": "error",
       "landmines/no-inline-hex-encoding": "error",
       "landmines/no-parameter-branch": "error",
+      // Off (3 findings): a layout limit; AGENTS.md rules out function-decomposition policies.
+      "landmines/no-prefix-cluster": "off",
       "landmines/no-project-max-workers": "error",
+      // Off (10 findings): apps/*/scripts and infra/scripts hold the migration digest and the
+      // stack, deploy and smoke steps that package scripts and CI call.
+      "landmines/no-scripts-directory": "off",
       "landmines/no-self-container-query": "error",
       "landmines/no-shared-signal": "error",
       "landmines/no-silent-catch": "error",
@@ -684,6 +710,12 @@ export default defineConfig({
       "landmines/no-test-doubles": "error",
       "landmines/no-unsignaled-poll": "error",
       "landmines/package-exports": "error",
+      // Off (3 findings): the root, apps/web and apps/auth manifests name bespoke tasks (`check`,
+      // `ratchet`, `build:prod-harness`) and run bun on TypeScript files on purpose.
+      "landmines/package-scripts": "off",
+      // Off (774 findings): `@stylistic/padding-line-between-statements` above already sets the
+      // blank-line policy.
+      "landmines/padding-between-statements": "off",
       "landmines/strict-msw": "error",
       "landmines/test-dir-only-cross-functional": "error",
       "landmines/test-file-names": "error",
