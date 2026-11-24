@@ -7,29 +7,24 @@ import bootstrapStack, {
   bootstrapInputs,
   ciTokenPolicies,
 } from "../stacks/bootstrap.ts";
+import { credentials, parseArguments } from "./credentials.ts";
 import {
-  CredentialsError,
   BootstrapRecord,
+  CredentialsError,
   NO_STACK_NAME,
   PLAN_PAGE,
-  SpinUp,
-  collision,
-  credentials,
-  listsBootstrapRecord,
-  stateReadJson,
-  decidePin,
-  parseArguments,
-  permissionPreflight,
-  planOf,
-  workersPlan,
-} from "./credentials.ts";
+} from "./credentials/model.ts";
 import type {
   DeployInput,
   FrozenIdentity,
   Plan,
   ReadProbe,
   RepositoryView,
-} from "./credentials.ts";
+} from "./credentials/model.ts";
+import { collision, decidePin, listsBootstrapRecord, stateReadJson } from "./credentials/pin.ts";
+import { planOf, workersPlan } from "./credentials/plan.ts";
+import { permissionPreflight } from "./credentials/preflight.ts";
+import { SpinUp } from "./credentials/spin-up.ts";
 
 /**
  * The repository every fake run targets. The id and shapes are inferred from the GitHub REST
