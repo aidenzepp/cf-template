@@ -4,6 +4,7 @@ import { Config, Context, Effect, FileSystem, Layer, Path, Stream } from "effect
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { checkNames, findings, run } from "./check.ts";
+import { AUTH_SCHEMA_FILE } from "./global-setup.ts";
 
 /**
  * Runs `git` in `cwd` with the environment inherited exactly as a hook would see it, and returns
@@ -240,17 +241,30 @@ const prePush = Effect.fn("db.test.prePush")(function* prePush(root: string) {
 });
 
 /**
- * The findings of a check run whose tool takes longer than a test's default timeout: the Better
- * Auth CLI starts a Node process that loads the app's configuration. The layer runs it once before
- * the cases that read its lines, so the cases measure no tool run.
+ * The findings of a check run that takes longer than a test's default timeout. The layer runs it
+ * once before the cases that read its lines, so the cases measure no tool run.
  */
 class Found extends Context.Service<Found, ReadonlyArray<string>>()(
   "@workspace/test/DbCheckFound",
 ) {}
 
 /**
+ * The text `global-setup.ts` left: what the Better Auth CLI generated from the real tree.
+ */
+const generatedAuthSchema = Effect.fn("db.test.generatedAuthSchema")(
+  function* generatedAuthSchema() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const repo = yield* path.fromFileUrl(new URL("../..", import.meta.url));
+
+    return yield* fs.readFileString(path.join(repo, AUTH_SCHEMA_FILE));
+  },
+);
+
+/**
  * The check whose tool is the Better Auth CLI, which starts a Node process that loads the app's
- * configuration and so gets a layer of its own, one tool run per layer.
+ * configuration. `global-setup.ts` runs it once for the whole suite, outside any hook timeout, and
+ * the cases pass its output to the check through `authSchema`, so no case starts the CLI.
  */
 const AUTH_CHECK = "auth-schema";
 
@@ -267,37 +281,6 @@ const CleanTree = Layer.effect(
   }),
 ).pipe(Layer.provide(BunServices.layer));
 
-/**
- * {@link AUTH_CHECK} over a copy of the real tree, which must find nothing. The copy goes when the
- * cases end.
- */
-const CleanAuthSchema = Layer.effect(
-  Found,
-  Effect.gen(function* clean() {
-    return yield* findings(yield* scratchTree(), { only: [AUTH_CHECK] });
-  }),
-).pipe(Layer.provide(BunServices.layer));
-
-/**
- * The `auth-schema` check over a copy whose `apps/auth/src/db/schema.ts` is the stale-auth-schema
- * fixture. The copy goes when the cases end.
- */
-const StaleAuthSchema = Layer.effect(
-  Found,
-  Effect.gen(function* stale() {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const root = yield* scratchTree();
-
-    yield* fs.copyFile(
-      yield* path.fromFileUrl(new URL("fixtures/stale-auth-schema/schema.txt", import.meta.url)),
-      path.join(root, "apps/auth/src/db/schema.ts"),
-    );
-
-    return yield* findings(root, { only: [AUTH_CHECK] });
-  }),
-).pipe(Layer.provide(BunServices.layer));
-
 it.layer(realRepositoryUnchanged)("db:check", () => {
   it.layer(CleanTree)((cases) => {
     cases.effect("passes on a clean tree", () =>
@@ -307,13 +290,17 @@ it.layer(realRepositoryUnchanged)("db:check", () => {
     );
   });
 
-  it.layer(CleanAuthSchema)((cases) => {
-    cases.effect("auth-schema passes on a clean tree", () =>
-      Effect.gen(function* reports() {
-        assert.deepStrictEqual(yield* Found, []);
-      }),
-    );
-  });
+  it.effect("auth-schema passes on a clean tree", () =>
+    Effect.gen(function* clean() {
+      assert.deepStrictEqual(
+        yield* findings(yield* scratchTree(), {
+          authSchema: yield* generatedAuthSchema(),
+          only: [AUTH_CHECK],
+        }),
+        [],
+      );
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+  );
 
   it.effect("ungenerated fails a schema edit with no migration", () =>
     Effect.gen(function* edited() {
@@ -383,15 +370,25 @@ it.layer(realRepositoryUnchanged)("db:check", () => {
       }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
   );
 
-  it.layer(StaleAuthSchema)((cases) => {
-    cases.effect("auth-schema fails the stale-auth-schema fixture, naming the file", () =>
-      Effect.gen(function* reports() {
-        assert.deepStrictEqual(yield* Found, [
+  it.effect("auth-schema fails the stale-auth-schema fixture, naming the file", () =>
+    Effect.gen(function* stale() {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* scratchTree();
+
+      yield* fs.copyFile(
+        yield* path.fromFileUrl(new URL("fixtures/stale-auth-schema/schema.txt", import.meta.url)),
+        path.join(root, "apps/auth/src/db/schema.ts"),
+      );
+
+      assert.deepStrictEqual(
+        yield* findings(root, { authSchema: yield* generatedAuthSchema(), only: [AUTH_CHECK] }),
+        [
           "db:check auth-schema: apps/auth/src/db/schema.ts: differs from what the Better Auth CLI generates on Node; run bun run auth:generate",
-        ]);
-      }),
-    );
-  });
+        ],
+      );
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+  );
 
   it.effect("pre-push refuses an uncommitted migration, then proceeds once it is committed", () =>
     Effect.gen(function* hook() {
