@@ -140,16 +140,44 @@ export const hasDisclosure = (body: string): boolean => {
 };
 
 /**
- * Whether the pull request comes from a bot the rules skip: a Release Please branch
- * (`release-please--branches--*`) or a Renovate branch (`renovate/*`), opened by an account of
- * type `Bot`. The author type, not a login, keeps a person's branch of the same name checked.
- *
- * @param pull - The head branch name and the author's GitHub account type (`User`, `Bot`).
- * @returns True when both the branch prefix and the author type match.
+ * The title Release Please gives its pull request: `chore(main): release X.Y.Z`, with an optional
+ * prerelease suffix. It is the shape of `releaseSubject` in `commitlint.config.mjs` without the
+ * ` (#N)` suffix, which squash merge appends after the title is written.
  */
-export const isExempt = (pull: { readonly branch: string; readonly authorType: string }): boolean =>
+const releaseTitle = /^chore\(main\): release \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
+
+/**
+ * The account Renovate opens its pull requests as.
+ */
+const renovateLogin = "renovate[bot]";
+
+/**
+ * The facts about a pull request that decide whether the rules skip it.
+ */
+interface PullOrigin {
+  readonly branch: string;
+  readonly authorType: string;
+  readonly authorLogin: string;
+  readonly title: string;
+}
+
+/**
+ * Whether the pull request is one a bot opens and the rules skip. A release pull request needs a
+ * Release Please branch (`release-please--branches--*`), an author of type `Bot` and the title
+ * `chore(main): release X.Y.Z`. A Renovate pull request needs a `renovate/*` branch, an author of
+ * type `Bot` and the login `renovate[bot]`. The branch name is free for anyone to choose and every
+ * GitHub App is a `Bot`, so a branch prefix and the author type alone would exempt any app that
+ * names its branch that way; each form must match on every fact it lists, and anything else is
+ * checked.
+ *
+ * @param pull - The head branch name, the author's GitHub account type (`User`, `Bot`) and login,
+ *   and the pull request title.
+ * @returns True when every fact of one of the two forms matches.
+ */
+export const isExempt = (pull: PullOrigin): boolean =>
   pull.authorType === "Bot" &&
-  (pull.branch.startsWith("release-please--branches--") || pull.branch.startsWith("renovate/"));
+  ((pull.branch.startsWith("release-please--branches--") && releaseTitle.test(pull.title)) ||
+    (pull.branch.startsWith("renovate/") && pull.authorLogin === renovateLogin));
 
 const distinct = <A>(items: ReadonlyArray<A>): ReadonlyArray<A> =>
   items.filter((item, index) => items.indexOf(item) === index);
@@ -279,14 +307,13 @@ const render = (found: ReadonlyArray<string>): string =>
  * Fails with every problem the body has, unless the pull request is exempt. The message names
  * each problem and shows the block the body needs.
  *
- * @param pull - The body, the head branch name and the author's GitHub account type.
+ * @param pull - The body, the head branch name, the title and the author's GitHub account type
+ *   and login.
  * @returns Nothing on success.
  */
-export const check = Effect.fn("prBody.check")(function* check(pull: {
-  readonly body: string;
-  readonly branch: string;
-  readonly authorType: string;
-}) {
+export const check = Effect.fn("prBody.check")(function* check(
+  pull: PullOrigin & { readonly body: string },
+) {
   const found = isExempt(pull) ? [] : problems(pull.body);
 
   if (found.length === 0) {
