@@ -107,3 +107,4 @@ export const LONGEST_STAGE = Math.max(
   "staging-".length + STAGING_DIGITS_MAX,
   "test-".length + TEST_SLUG_MAX,
 );
+// probe S4: infra-only edit for the #474 cache measurement
