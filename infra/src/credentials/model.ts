@@ -117,10 +117,8 @@ export const PROBES: Record<ReadProbe, { readonly lists: string; readonly missin
  * @param step - What failed.
  * @returns The mapper.
  */
-export const failed =
-  (step: string) =>
-  (cause: unknown): CredentialsError =>
-    new CredentialsError({
-      cause,
-      message: `${step} failed${Predicate.hasProperty(cause, "_tag") ? ` (${String(cause._tag)})` : ""}. If the admin token expired, re-mint it with \`bun run alchemy profile edit --profile admin\` and run again. ${STEP_1}`,
-    });
+export const failed = (step: string) => (cause: unknown) =>
+  new CredentialsError({
+    cause,
+    message: `${step} failed${Predicate.hasProperty(cause, "_tag") ? ` (${String(cause._tag)})` : ""}. If the admin token expired, re-mint it with \`bun run alchemy profile edit --profile admin\` and run again. ${STEP_1}`,
+  });

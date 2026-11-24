@@ -82,7 +82,7 @@ const cloudflare = <A, E>(
   profile: string,
   step: string,
   run: (accountId: string) => Effect.Effect<A, E, CloudflareContext>,
-): Effect.Effect<A, CredentialsError> => {
+) => {
   const provider = ConfigProvider.orElse(
     ConfigProvider.fromUnknown({ ALCHEMY_PROFILE: profile }),
     ConfigProvider.fromEnv(),

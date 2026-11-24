@@ -58,7 +58,7 @@ export const planOf = (
     readonly price?: number | null;
     readonly ratePlan?: { readonly id?: string | null; readonly publicName?: string | null } | null;
   }>,
-): Option.Option<Plan> => {
+) => {
   const workers = items.find((item) =>
     `${item.ratePlan?.id ?? ""} ${item.ratePlan?.publicName ?? ""}`
       .toLowerCase()
@@ -71,5 +71,5 @@ export const planOf = (
 
   const name = `${workers.ratePlan?.id ?? ""} ${workers.ratePlan?.publicName ?? ""}`.toLowerCase();
 
-  return Option.some(name.includes("free") || (workers.price ?? 0) === 0 ? "free" : "paid");
+  return Option.some<Plan>(name.includes("free") || (workers.price ?? 0) === 0 ? "free" : "paid");
 };

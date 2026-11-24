@@ -25,13 +25,13 @@ export type PinDecision =
  * @param input.force - Whether `--force` was passed.
  * @returns The decision, or the refusal naming the repair.
  */
-export const decidePin = (input: {
+export const decidePin: (input: {
   readonly derived: string;
   readonly pin: Option.Option<string>;
   readonly record: Option.Option<FrozenIdentity>;
   readonly live: RepositoryView;
   readonly force: boolean;
-}): Effect.Effect<PinDecision, CredentialsError> => {
+}) => Effect.Effect<PinDecision, CredentialsError> = (input) => {
   const stack = Option.getOrElse(input.pin, () => input.derived);
   const live = { repository: input.live.fullName, repositoryId: input.live.id };
 
@@ -76,11 +76,11 @@ export const decidePin = (input: {
  * @param hasRecord - Whether the store holds the `<stack>-bootstrap` record.
  * @returns `clear` or `resume`, or the refusal.
  */
-export const collision = (
+export const collision: (
   stack: string,
   names: ReadonlyArray<string>,
   hasRecord: boolean,
-): Effect.Effect<"clear" | "resume", CredentialsError> => {
+) => Effect.Effect<"clear" | "resume", CredentialsError> = (stack, names, hasRecord) => {
   const store = `${stack}-state`;
   const taken = names.find((name) => name.startsWith(`${stack}-`) && name !== store);
 
@@ -114,7 +114,7 @@ export const collision = (
  * @param stack - The stack name.
  * @returns Whether the bootstrap stack is listed.
  */
-export const listsBootstrapRecord = (stdout: string, stack: string): boolean =>
+export const listsBootstrapRecord = (stdout: string, stack: string) =>
   stdout.split("\n").some((line) => line.trim() === `${stack}-bootstrap/`);
 
 /**
@@ -127,7 +127,7 @@ export const listsBootstrapRecord = (stdout: string, stack: string): boolean =>
  * @param stdout - The `alchemy state read` output.
  * @returns The JSON text, or the whole output when no line is `{`.
  */
-export const stateReadJson = (stdout: string): string => {
+export const stateReadJson = (stdout: string) => {
   const lines = stdout.split("\n");
   const start = lines.lastIndexOf("{");
 
