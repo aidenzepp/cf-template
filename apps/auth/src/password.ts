@@ -15,15 +15,6 @@ import type { ScryptCost } from "@workspace/config/auth-password";
 export type RunEffect = <A, E>(effect: Effect.Effect<A, E>) => Promise<A>;
 
 /**
- * The stored hash parsed into its parts.
- */
-export interface ParsedHash {
-  readonly params: ScryptCost;
-  readonly salt: Uint8Array;
-  readonly key: Uint8Array;
-}
-
-/**
  * The failure of one scrypt derivation.
  */
 export class ScryptError extends Schema.TaggedError<
