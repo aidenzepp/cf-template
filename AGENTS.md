@@ -17,7 +17,7 @@ If a rule appears inappropriate, explain the failing rule, why changing the code
 
 ## Workflow
 
-Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test .test.mjs` only for the Node-loaded lint-rule suites, then `vp test` (Vitest with `@effect/vitest`) for project tests: every `*.test.ts` file, including those under `tools/lint/` except `tools/lint/fixtures/**`, under a workspace's `src/`, the root `test/` or `tools/`, using `it.effect` for effectful cases. Keep focused tests beside their implementation and cross-module tests in `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
+Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test .test.mjs` only for the Node-loaded lint-rule suites, then `vp test` (Vitest with `@effect/vitest`) for project tests: every `*.test.ts` file, including those under `tools/lint/` except `tools/lint/fixtures/**`, under a workspace's `src/`, the root `test/` or `tools/`, using `it.effect` for effectful cases. Keep a test that imports one implementation module beside it or in that module's local `test/` directory (`landmines/colocated-tests` enforces this), and a test that spans modules in the root `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
 
 A worktree runs its own `bun install` before any package script, binary or patch tool (`typescript` and `@effect/tsgo` included), because package resolution walks up into the main checkout.
 
