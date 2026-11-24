@@ -727,8 +727,7 @@ export default defineConfig({
       "landmines/no-imported-mutation": "error",
       "landmines/no-inline-hex-encoding": "error",
       "landmines/no-parameter-branch": "error",
-      // Off (3 findings): a layout limit; AGENTS.md rules out function-decomposition policies.
-      "landmines/no-prefix-cluster": "off",
+      "landmines/no-prefix-cluster": "error",
       "landmines/no-project-max-workers": "error",
       // Off (10 findings): apps/*/scripts and infra/scripts hold the migration digest and the
       // stack, deploy and smoke steps that package scripts and CI call.

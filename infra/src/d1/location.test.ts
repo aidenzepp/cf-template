@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Option } from "effect";
-import { d1LocationHint } from "./d1-location.ts";
+import { d1LocationHint } from "./location.ts";
 
 /**
  * Read the knob from a config provider holding `env`.
