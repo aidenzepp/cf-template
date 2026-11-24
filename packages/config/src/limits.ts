@@ -74,7 +74,7 @@ export const limitKnobs = Config.all({
  * @param cost - The scrypt cost parameters.
  * @returns The estimated CPU per hash, in ms.
  */
-export const scryptCostMs = (cost: ScryptCost): number =>
+export const scryptCostMs = (cost: ScryptCost) =>
   (115 * (2 ** cost.ln * cost.r * cost.p)) / (2 ** 15 * 8 * 3);
 
 /**
@@ -85,7 +85,7 @@ export const scryptCostMs = (cost: ScryptCost): number =>
  * @param cost - The scrypt cost parameters of new hashes.
  * @returns The CPU limit, in ms.
  */
-export const authCpuLimitMs = (headroom: number, cost: ScryptCost): number =>
+export const authCpuLimitMs = (headroom: number, cost: ScryptCost) =>
   Math.ceil(headroom * scryptCostMs(cost));
 
 /**
