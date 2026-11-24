@@ -525,6 +525,15 @@ export default defineConfig({
         rules: { "sort-keys": "off" },
       },
       {
+        // Adopted from the Cloudflare Oxlint preset (#437), scoped to plain JavaScript as there: the
+        // TypeScript checker already reports an undefined name in a `.ts` file. The preset's
+        // `browser` and `node` environments are scoped with it: the lint-rule tests run on Bun and
+        // the bundle fixtures stand in for browser assets.
+        env: { browser: true, node: true },
+        files: ["**/*.{js,mjs,cjs}"],
+        rules: { "no-undef": "error" },
+      },
+      {
         // The lint-rule tests import bun:test from plain JavaScript. The type-aware checker does
         // not load those types for an .mjs file; the tests still run under bun test.
         files: ["tools/**/*.test.mjs"],
