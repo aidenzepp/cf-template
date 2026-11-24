@@ -433,15 +433,17 @@ export default defineConfig({
       },
       {
         // `auth.ts` is the documented Effect-to-Promise seam: Better Auth takes a promise view
-        // of the Effect, which `.then(onFulfilled, onRejected)` consumes.
+        // of the Effect, which `.then(onFulfilled, onRejected)` consumes. `prefer-catch` is off
+        // too: `.catch` would also catch a throw from `onFulfilled`, which changes the thenable.
         files: ["apps/auth/src/auth.ts"],
-        rules: { "promise/prefer-await-to-then": "off" },
+        rules: { "promise/prefer-await-to-then": "off", "promise/prefer-catch": "off" },
       },
       {
         // Alchemy Domain Stories assert recorded events with `Story.then(...)`, a step of the
         // Story DSL, not a promise. Story files are declarative step lists and run no promises.
+        // `prefer-catch` is off too: it reads `Story.then(subject, event)` as `then(a, b)`.
         files: ["**/*.story.ts"],
-        rules: { "promise/prefer-await-to-then": "off" },
+        rules: { "promise/prefer-await-to-then": "off", "promise/prefer-catch": "off" },
       },
       {
         // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
