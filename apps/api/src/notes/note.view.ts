@@ -55,7 +55,7 @@ const NoteRead = Schema.Struct({
 });
 
 /**
- * One note, read by its owner as `GET /api/Note/{key}`. A reader who does not own the notebook is
+ * One note, read by its owner as `GET /api/note/{key}`. A reader who does not own the notebook is
  * refused with `NotNotebookOwner`, and a note that does not exist or was deleted with
  * `NoteNotFound`; the owner check runs first, so a stranger learns nothing about which notes exist.
  */
