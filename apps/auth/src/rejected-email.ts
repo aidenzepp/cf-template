@@ -2,7 +2,7 @@ import { createAuthMiddleware, isAPIError } from "better-auth/api";
 import type { Redacted } from "effect";
 import { Effect, Option, Predicate, Schema } from "effect";
 import { EMAIL_KEY_FIELD, emailKey } from "./email-key.ts";
-import type { RunEffect } from "./password.ts";
+import type { RunEffect } from "./password-adapter.ts";
 
 /**
  * The paths whose rejection is logged: the two that take an address and a password.

@@ -1,7 +1,8 @@
 import { Config, ConfigProvider, Effect, Option, Schema } from "effect";
 import { CustomDomain, PublicOrigin, WEB_DEV_PORT } from "@workspace/config/public-origin";
-import { kindOf, workerName } from "../stages.ts";
+import { kindOf } from "../stages.ts";
 import type { StageName } from "../stages.ts";
+import { workerName } from "../worker-names.ts";
 
 /**
  * Read the custom domain of a stage: `CUSTOM_DOMAIN` is required on `prod`, the per-key override

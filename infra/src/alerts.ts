@@ -1,8 +1,9 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import type { Input } from "alchemy/Input";
 import { Config, Effect, Option, Schema } from "effect";
-import { Workers, workerName } from "../stages.ts";
+import { Workers } from "../stages.ts";
 import type { StageName } from "../stages.ts";
+import { workerName } from "../worker-names.ts";
 
 /**
  * An email address as far as the plan can check it: one `@`, a non-empty local part and domain,

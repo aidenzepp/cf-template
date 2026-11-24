@@ -4,7 +4,7 @@ import { createAuthMiddleware } from "better-auth/api";
 import type { RuntimeContext } from "alchemy";
 import { Clock, Context, Effect, Option, Schema } from "effect";
 import { account, passkey, user } from "./db/schema.ts";
-import type { RunEffect } from "./password.ts";
+import type { RunEffect } from "./password-adapter.ts";
 
 /**
  * Yields the Drizzle database of one execution, for the reclaim statements that the Better Auth

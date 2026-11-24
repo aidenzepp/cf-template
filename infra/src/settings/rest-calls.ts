@@ -9,9 +9,10 @@ import type { Capability } from "./tier.ts";
  * answers 200 and ignores the change on a plan without the feature, so applied needs `enabled`.
  *
  * Before the write, `GET path` reads the setting. The call is not sent, and prints `unchanged`,
- * when that read answers 2xx and its JSON holds `expected` (see `holds` in `rest.ts`); `expected`
- * is the `body` unless the call names its own. A read that fails, or answers anything else, sends
- * the call. A call with neither `expected` nor `body` is unchanged when its read answers 2xx.
+ * when that read answers 2xx and its JSON holds `expected` (see `holds` in `github-client.ts`);
+ * `expected` is the `body` unless the call names its own. A read that fails, or answers anything
+ * else, sends the call. A call with neither `expected` nor `body` is unchanged when its read
+ * answers 2xx.
  */
 export interface Call {
   readonly setting: string;

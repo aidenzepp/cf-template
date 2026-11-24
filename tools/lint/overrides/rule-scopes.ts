@@ -13,13 +13,11 @@ import {
   webFetch,
 } from "../rules/restricted-globals.ts";
 import {
-  authFetchMembers,
   dataAccessMembers,
   dataAccessMembersWithoutPrepare,
-  globalThisFetch,
-  registryMembers,
   runMembers,
 } from "../rules/restricted-properties.ts";
+import { authFetchMembers, globalThisFetch, registryMembers } from "../rules/scoped-members.ts";
 
 /**
  * The source of every app and package: the files the capability registry guards
@@ -271,7 +269,7 @@ export const ruleScopeOverrides: NonNullable<NonNullable<ViteUserConfig["lint"]>
   {
     // `fromSource`'s per-isolate knob cache stays a `Map` (#248, #247): Effect `Cache` shares
     // in-flight lookups, which the Workers request boundary forbids.
-    files: ["packages/config/src/knob.ts"],
+    files: ["packages/config/src/live-knobs.ts"],
     rules: { "workspace/no-keyed-ttl-map": "off" },
   },
   {

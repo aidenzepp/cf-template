@@ -1,21 +1,9 @@
 import { Function, Option, Predicate, Schema } from "effect";
-import {
-  API,
-  NOW,
-  OWNER,
-  REPO,
-  REPO_PATH,
-  account,
-  created,
-  invalid,
-  noContent,
-  notFound,
-  ok,
-  policyBody,
-  readBody,
-  repositoryDefaults,
-} from "./github-defaults.ts";
-import type { JsonRecord, Reply } from "./github-defaults.ts";
+import { created, invalid, noContent, notFound, ok } from "./canned-replies.ts";
+import type { Reply } from "./canned-replies.ts";
+import { API, NOW, OWNER, REPO, REPO_PATH, repositoryDefaults } from "./github-defaults.ts";
+import { readBody } from "./json-body.ts";
+import type { JsonRecord } from "./json-body.ts";
 
 /**
  * A stateful model of the GitHub REST API paths the settings stack touches: repository, rulesets,
@@ -89,6 +77,17 @@ const VariableInput = Schema.Struct({
  * The body of a deployment branch policy POST.
  */
 const PolicyInput = Schema.Struct({ name: Schema.String });
+
+/**
+ * A stored deployment branch policy, in the shape GitHub lists it.
+ */
+const policyBody = (policyId: number, name: string) =>
+  ({
+    id: policyId,
+    name,
+    node_id: `P_${policyId}`,
+    type: "branch",
+  }) satisfies Schema.Json;
 
 /**
  * The body of a repository PATCH: any fields, each a JSON value.
@@ -399,7 +398,7 @@ export const createFakeGitHub = (seed: Seed = {}) => {
     body,
   ) => {
     if (path === "/user") {
-      return ok({ ...account, plan: { name: "pro" } });
+      return ok({ ...repositoryDefaults.owner, plan: { name: "pro" } });
     }
 
     if (path === `${REPO_PATH}/actions/secrets`) {

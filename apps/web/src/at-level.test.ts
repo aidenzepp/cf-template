@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Logger } from "effect";
 import type { Config, Layer, LogLevel } from "effect";
-import { LiveKnobs, fromSource } from "@workspace/config/knob";
+import { LiveKnobs, fromSource } from "@workspace/config/live-knobs";
 import { atLevelLayer, atLiveLevel, unleveledLayer } from "./at-level.ts";
 import type { AtLevel } from "./at-level.ts";
 

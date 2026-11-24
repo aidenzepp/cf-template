@@ -219,8 +219,7 @@ export default defineConfig({
       // that is off carries its reason and the findings measured on the tree when it was left off.
       "landmines/colocated-tests": "error",
       "landmines/declared-test-inputs": "error",
-      // Off (25 findings): a size limit; AGENTS.md rules out function-decomposition policies.
-      "landmines/max-exports-per-module": "off",
+      "landmines/max-exports-per-module": "error",
       "landmines/max-file-lines": "error",
       "landmines/max-files-per-directory": "error",
       "landmines/no-clipboard-read-text": "error",

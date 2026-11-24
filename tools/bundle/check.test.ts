@@ -4,15 +4,13 @@ import { Effect, FileSystem, Path, Schema } from "effect";
 
 import {
   Chunks,
-  DevtoolsInBundleError,
-  assertNoDevtools,
-  devtoolsHits,
   TARGET_KIB,
   initialFiles,
   initialGzipBytes,
   manifestLeak,
   report,
 } from "./check.ts";
+import { DevtoolsInBundleError, assertNoDevtools, devtoolsHits } from "./devtools.ts";
 import graph from "./fixtures/chunk-graph.json" with { type: "json" };
 
 describe("initial JavaScript report", () => {

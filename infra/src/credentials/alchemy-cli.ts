@@ -1,6 +1,6 @@
 import { Effect, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { CredentialsError, failed } from "./model.ts";
+import { CredentialsError, failed } from "./error.ts";
 
 /**
  * Run `bun run alchemy` with `STACK_NAME` and the extra environment, capturing stdout. It sets

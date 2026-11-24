@@ -15,14 +15,14 @@ import {
   Schema,
 } from "effect";
 import { FetchHttpClient } from "effect/http";
+import { PRO } from "./capability-sets.ts";
 import { readDrift } from "./check.ts";
 import { declarationPlan, LABELS } from "./declare.ts";
 import type { DeclarationPlan } from "./declare.ts";
-import { PRO } from "./fake-github.ts";
 import { createFakeGitHub } from "./fake-state.ts";
 import type { Call, FakeRuleset, RulesetInput, Seed } from "./fake-state.ts";
 import { OWNER, REPO, REPO_PATH } from "./github-defaults.ts";
-import type { JsonRecord } from "./github-defaults.ts";
+import type { JsonRecord } from "./json-body.ts";
 import type { GuardedRepository } from "./repository.ts";
 import { applyDeclaration } from "./stack.ts";
 import type { Tier } from "./tier.ts";

@@ -2,14 +2,8 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, Fiber, Layer } from "effect";
 import { TestClock } from "effect/testing";
 import { HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http";
-import {
-  ABSENT_PROVIDER,
-  PlatformNotFound,
-  SmokeFailed,
-  isPlatformNotFound,
-  retryPlatformNotFound,
-  runSmoke,
-} from "./smoke.ts";
+import { ABSENT_PROVIDER, SmokeFailed, runSmoke } from "./smoke.ts";
+import { PlatformNotFound, isPlatformNotFound, retryPlatformNotFound } from "./smoke/retry.ts";
 
 const PROD = "https://prod.example.workers.dev";
 

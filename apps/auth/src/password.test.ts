@@ -2,7 +2,8 @@ import { assert, layer } from "@effect/vitest";
 import { Effect, Layer, Logger, Option, Ref } from "effect";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { Scrypt, ScryptError, hashEffect, needsRehash, parse, verifyEffect } from "./password.ts";
-import { LocalAuthD1, asExecution, authOver, signIn, signUp } from "./test-harness.ts";
+import { LocalAuthD1, asExecution, authOver } from "./test-harness.ts";
+import { signIn, signUp } from "./test-requests.ts";
 
 /**
  * The cost of a hash an older deployment stored: cheap, and under today's floors.

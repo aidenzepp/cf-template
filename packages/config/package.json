@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./knob": "./src/knob.ts",
+    "./live-knobs": "./src/live-knobs.ts",
     "./docs": "./src/docs.ts",
     "./log-level": "./src/log-level.ts",
     "./worker-requirements": "./src/worker-requirements.ts",

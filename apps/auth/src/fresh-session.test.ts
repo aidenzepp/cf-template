@@ -7,16 +7,8 @@ import {
   EXEMPT_FROM_FRESHNESS,
   FRESH_SESSION_PATHS,
 } from "./fresh-session.ts";
-import {
-  LocalAuthD1,
-  asExecution,
-  authOver,
-  cookieOf,
-  handle,
-  signIn,
-  signUp,
-  tokenOnly,
-} from "./test-harness.ts";
+import { LocalAuthD1, asExecution, authOver } from "./test-harness.ts";
+import { cookieOf, handle, signIn, signUp, tokenOnly } from "./test-requests.ts";
 
 /**
  * The default `session.freshAge` of Better Auth, in milliseconds, which this instance keeps.

@@ -5,7 +5,8 @@ import { makeDatabase } from "@workspace/db/database";
 import type { RawDatabase } from "@workspace/db/database";
 import { AUTH_ORPHAN_GRACE_SECONDS } from "@workspace/config/auth-orphan-grace";
 import { deleteOrphan } from "./reclaim.ts";
-import { LocalAuthD1, asExecution, authOver, signUp } from "./test-harness.ts";
+import { LocalAuthD1, asExecution, authOver } from "./test-harness.ts";
+import { signUp } from "./test-requests.ts";
 
 /**
  * The bindings that turn the mail add-in on, so Better Auth heals orphans itself.

@@ -2,8 +2,9 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import type { Schema } from "effect";
 import { applySettings } from "./apply.ts";
+import { PRO } from "./capability-sets.ts";
 import { DriftError, checkSettings, readDrift } from "./check.ts";
-import { PRO, base, harness } from "./fake-github.ts";
+import { base, harness } from "./fake-github.ts";
 import type { Reply } from "./fake-github.ts";
 
 /**

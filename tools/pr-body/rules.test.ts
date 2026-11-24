@@ -2,16 +2,13 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem } from "effect";
 import {
-  PrBodyError,
-  check,
   expectedDisclosure,
   hasDisclosure,
   hasNoIssue,
-  isExempt,
   parseLinks,
-  problems,
   stripCode,
-} from "./rules.ts";
+} from "./body-scan.ts";
+import { PrBodyError, check, isExempt, problems } from "./rules.ts";
 
 const disclosure = "---\n**AI disclosure:**\n- **Provider:** Anthropic\n- **Model:** Sonnet 5.5";
 

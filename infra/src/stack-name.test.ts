@@ -1,7 +1,9 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect } from "effect";
 import { Digest } from "effect/crypto";
-import { CLOUD_STAGE, STACK_NAME_MAX, base32Sha256 } from "../stages.ts";
+import { base32Sha256 } from "../base32-sha256.ts";
+import { CLOUD_STAGE } from "../stages.ts";
+import { STACK_NAME_MAX } from "../worker-names.ts";
 import { StackNameError, requiresStackNamePin, resolveStackName } from "./stack-name.ts";
 
 /**

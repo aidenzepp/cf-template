@@ -1,14 +1,8 @@
-import { Option, Predicate, Schema } from "effect";
+import type { JsonRecord } from "./json-body.ts";
 
 /**
- * The constants, repository and account defaults, reply helpers and body reader the stateful GitHub
- * model in `fake-state.ts` builds on.
+ * The constants and the repository defaults the stateful GitHub model in `fake-state.ts` builds on.
  */
-
-/**
- * A JSON object, as a plain record so it can be spread.
- */
-export type JsonRecord = Readonly<Record<string, Schema.Json>>;
 
 /**
  * The repository every fake run targets.
@@ -92,7 +86,7 @@ const urlFields = (fields: ReadonlyArray<string>, base: string) =>
 /**
  * The account object a repository owner carries.
  */
-export const account = {
+const account = {
   gravatar_id: "",
   id: 1,
   login: OWNER,
@@ -156,51 +150,3 @@ export const repositoryDefaults = {
   watchers_count: 0,
   ...urlFields(REPOSITORY_URL_FIELDS, `${API}${REPO_PATH}`),
 } satisfies JsonRecord;
-
-/**
- * A reply: a status and a JSON body.
- */
-export interface Reply {
-  readonly body?: Schema.Json;
-  readonly status: number;
-}
-
-export const ok = (body: Schema.Json) => ({ body, status: 200 }) satisfies Reply;
-
-export const created = (body: Schema.Json) => ({ body, status: 201 }) satisfies Reply;
-
-export const noContent: Reply = { status: 204 };
-
-export const notFound: Reply = { body: { message: "Not Found" }, status: 404 };
-
-export const invalid: Reply = { body: { message: "Validation Failed" }, status: 422 };
-
-export const policyBody = (policyId: number, name: string) =>
-  ({
-    id: policyId,
-    name,
-    node_id: `P_${policyId}`,
-    type: "branch",
-  }) satisfies Schema.Json;
-
-const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Json));
-
-/**
- * The text of a request body, when the client sent bytes or a string.
- */
-const textOf: (raw: RequestInit["body"]) => string | undefined = (raw) => {
-  if (Predicate.isUint8Array(raw)) {
-    return new TextDecoder().decode(raw);
-  }
-
-  return Predicate.isString(raw) ? raw : undefined;
-};
-
-/**
- * Read a request body as JSON; no body is `null`.
- */
-export const readBody = (init: RequestInit | undefined) =>
-  Option.fromNullishOr(textOf(init?.body)).pipe(
-    Option.flatMap(decodeJson),
-    Option.getOrElse<Schema.Json>(() => null),
-  );

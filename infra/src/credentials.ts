@@ -1,11 +1,12 @@
 #!/usr/bin/env bun
 import { BunHttpClient, BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect, Option } from "effect";
-import { BOOTSTRAP_SECRETS, BOOTSTRAP_VARIABLES } from "../stacks/bootstrap.ts";
+import { BOOTSTRAP_SECRETS, BOOTSTRAP_VARIABLES } from "../stacks/bootstrap-names.ts";
 import { collision, decidePin } from "./credentials/pin.ts";
 import { permissionPreflight, preflight } from "./credentials/preflight.ts";
-import { CredentialsError, NO_STACK_NAME } from "./credentials/model.ts";
+import { CredentialsError } from "./credentials/error.ts";
 import type { FrozenIdentity } from "./credentials/model.ts";
+import { NO_STACK_NAME } from "./credentials/runbook.ts";
 import { SpinUp } from "./credentials/spin-up.ts";
 import { SpinUpLive } from "./credentials/spin-up-live.ts";
 import { resolveRepository } from "./settings/repository.ts";

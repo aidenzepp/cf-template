@@ -2,16 +2,8 @@ import { assert, layer } from "@effect/vitest";
 import { Effect, Logger, Redacted, Ref, References } from "effect";
 import { emailKey } from "./email-key.ts";
 import { CheckSession } from "./session.ts";
-import {
-  LocalAuthD1,
-  TEST_EMAIL_KEY_SECRET,
-  asExecution,
-  authOver,
-  cookieOf,
-  handle,
-  signIn,
-  signUp,
-} from "./test-harness.ts";
+import { LocalAuthD1, TEST_EMAIL_KEY_SECRET, asExecution, authOver } from "./test-harness.ts";
+import { cookieOf, handle, signIn, signUp } from "./test-requests.ts";
 
 /**
  * One log line as the test logger saw it: the message and the annotations as JSON text.

@@ -10,17 +10,7 @@ const LockSchema = Schema.Record(Schema.String, Schema.String);
 /**
  * A lock as decoded from `components.lock.json`.
  */
-export type Lock = typeof LockSchema.Type;
-
-/**
- * The tree whose files the lock covers.
- */
-export const componentsDirectory = "packages/ui/src/components/ui";
-
-/**
- * The committed lock file.
- */
-export const lockFile = "packages/ui/components.lock.json";
+type Lock = typeof LockSchema.Type;
 
 /**
  * Raised when the component tree and the committed lock disagree. The message names every added,

@@ -1,7 +1,8 @@
 import { CloudflarePlanKnob } from "@workspace/config/plan";
 import { Effect, Option } from "effect";
-import { CredentialsError, PLAN_PAGE, PREREQUISITES } from "./model.ts";
+import { CredentialsError } from "./error.ts";
 import type { Plan } from "./model.ts";
+import { PLAN_PAGE, PREREQUISITES } from "./runbook.ts";
 import { SpinUp } from "./spin-up.ts";
 
 /**

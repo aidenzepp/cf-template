@@ -2,8 +2,10 @@ import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Config, Console, Effect, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { CLOUD_STAGE, STACK_NAME_MAX, base32Sha256, kindOf } from "../stages.ts";
+import { base32Sha256 } from "../base32-sha256.ts";
+import { CLOUD_STAGE, kindOf } from "../stages.ts";
 import type { StageName } from "../stages.ts";
+import { STACK_NAME_MAX } from "../worker-names.ts";
 
 /**
  * The failure of stack-name derivation: every source is absent, or the derived name is not a

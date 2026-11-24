@@ -100,7 +100,7 @@ const check = (
  * @param rawStage - The `--stage` value.
  * @returns The namespace, or a failure before any write.
  */
-export const resolveNamespace = Effect.fn("knob.resolveNamespace")(function* resolveNamespace(
+const resolveNamespace = Effect.fn("knob.resolveNamespace")(function* resolveNamespace(
   rawStage: string,
 ) {
   const stage = yield* Schema.decodeEffect(Stage)(rawStage).pipe(
@@ -189,7 +189,7 @@ export const execute = Effect.fn("knob.execute")(function* execute(request: Knob
   if (request.command === "set" && request.stage === "prod" && request.key === "DOCS_ENABLED") {
     return yield* new KnobRefused({
       message:
-        "DOCS_ENABLED is read at deploy time only on prod. Change it in infra/stages.ts and deploy. Nothing was written.",
+        "DOCS_ENABLED is read at deploy time only on prod. Change it in infra/stage-values.ts and deploy. Nothing was written.",
     });
   }
 
