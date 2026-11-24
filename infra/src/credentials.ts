@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { CloudflareApiLive } from "@alchemy.run/cloudflare/Providers";
 import * as cfAccounts from "@distilled.cloud/cloudflare/accounts";

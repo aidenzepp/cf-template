@@ -3,7 +3,7 @@ import { Config, Effect, Layer, Schedule, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { FetchHttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { awaitAuthReady } from "../../infra/scripts/smoke.ts";
+import { awaitAuthReady } from "../../infra/src/smoke.ts";
 import { APP_STACK_ENTRY } from "../../infra/src/app-stack.ts";
 import { publicOrigin } from "../../infra/src/origin.ts";
 import { resolveStackName } from "../../infra/src/stack-name.ts";

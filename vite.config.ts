@@ -728,9 +728,7 @@ export default defineConfig({
       "landmines/no-parameter-branch": "error",
       "landmines/no-prefix-cluster": "error",
       "landmines/no-project-max-workers": "error",
-      // Off (10 findings): apps/*/scripts and infra/scripts hold the migration digest and the
-      // stack, deploy and smoke steps that package scripts and CI call.
-      "landmines/no-scripts-directory": "off",
+      "landmines/no-scripts-directory": "error",
       "landmines/no-self-container-query": "error",
       "landmines/no-shared-signal": "error",
       "landmines/no-silent-catch": "error",
@@ -739,9 +737,39 @@ export default defineConfig({
       "landmines/no-test-doubles": "error",
       "landmines/no-unsignaled-poll": "error",
       "landmines/package-exports": "error",
-      // Off (3 findings): the root, apps/web and apps/auth manifests name bespoke tasks (`check`,
-      // `ratchet`, `build:prod-harness`) and run bun on TypeScript files on purpose.
-      "landmines/package-scripts": "off",
+      // Every script that runs a TypeScript file calls a `bin` of `@workspace/tools` or
+      // `@workspace/infra` instead; `names` lists the repository's own task names.
+      "landmines/package-scripts": [
+        "error",
+        {
+          names: [
+            "alchemy",
+            "audit",
+            "auth:generate",
+            "bootstrap",
+            "build:prod-harness",
+            "check",
+            "commitlint",
+            "credentials",
+            "db:check",
+            "db:generate",
+            "db:regenerate",
+            "design:md",
+            "fix",
+            "knob",
+            "log-key",
+            "mirrors",
+            "ratchet",
+            "renovate:validate",
+            "settings",
+            "test:browser",
+            "test:cloud",
+            "ui",
+            "ui:lock",
+            "ui:typecheck",
+          ],
+        },
+      ],
       // Off (774 findings): `@stylistic/padding-line-between-statements` above already sets the
       // blank-line policy.
       "landmines/padding-between-statements": "off",

@@ -19,7 +19,7 @@ bun run alchemy <command> --stage <stage> infra/alchemy.run.ts
   `alchemy.run.ts` in the current directory and the repository has none at its root.
 - Cloudflare auth is the Alchemy default profile. Never read, print, copy or log profile
   contents or tokens, and never export a raw `CLOUDFLARE_API_TOKEN` to work around it.
-- `--yes` is allowed only through `bun infra/scripts/test-stage.ts <deploy|destroy> <stage>`.
+- `--yes` is allowed only through `bun infra/src/test-stage.ts <deploy|destroy> <stage>`.
   The script refuses, before any `alchemy` call, unless the stage matches
   `^test-[a-z0-9-]+$` and the stack program keeps it on local state (`usesProjectState` is
   false). `test-ci`, `dev`, `prod` and `staging-<N>` are refused. Never pass `--yes` to
@@ -36,7 +36,7 @@ bun run alchemy <command> --stage <stage> infra/alchemy.run.ts
 | `test-<slug>`, `dev` | Alchemy local state in `.alchemy/` (ignored by git) |
 | `prod`, `staging-<N>`, `test-ci` | the project store `Cloudflare.state({ workerName: "<stack>-state" })` |
 
-`<stack>` is printed by `bun infra/scripts/stack-name.ts`. The store is bootstrapped by the
+`<stack>` is printed by `bun infra/src/stack-name.ts`. The store is bootstrapped by the
 maintainer with the `admin` profile, never by a laptop deploy. A stage destroy does not
 remove the store.
 
@@ -48,9 +48,9 @@ with local state. It is the only stage `dev` accepts.
 ## Round trip on `test-<slug>`
 
 1. Record the before counts (below).
-2. `bun infra/scripts/test-stage.ts deploy test-<slug>`
+2. `bun infra/src/test-stage.ts deploy test-<slug>`
 3. Make the few requests the proof needs. No load, volume or soak.
-4. `bun infra/scripts/test-stage.ts destroy test-<slug>`
+4. `bun infra/src/test-stage.ts destroy test-<slug>`
 5. Record the after counts. Every count must equal its before count. A leftover blocks the
    report: name it exactly and delete only what this unit created.
 
