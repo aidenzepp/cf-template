@@ -207,7 +207,7 @@ export default defineConfig({
     // adopted: it turns `sort-keys` off for the whole repository and the kebab-case filename rule
     // off under `routes/`; two of its decisions are copied as scoped overrides instead. `effect` is
     // the `@effect/tsgo` Effect rule set: it runs in this one `vp check` pass only while
-    // `effect-tsgo patch --oxlint` has patched the toolchain, and the canary test turns red if not.
+    // `effect-tsgo patch --oxlint --tsrs` has patched the toolchain, and the canary test turns red if not.
     extends: [core, antiSlop, shadcn, drizzle, effect],
     ignorePatterns: [
       ".agents/**",
@@ -687,7 +687,7 @@ export default defineConfig({
   // Tests run on Vitest with @effect/vitest. The lint-rule tests in tools/lint import bun:test
   // and run under `bun test`; `bun run test` runs both.
   //
-  // Versions in use: Vitest 5.1.0 (bundled by Vite+ 1.5.0), Miniflare 4.20260730.0, workerd
+  // Versions in use: Vitest 5.1.0 (bundled by Vite+ 1.7.0), Miniflare 4.20260730.0, workerd
   // 1.20261026.1. `@cloudflare/vitest-pool-workers` is not used: it failed under Vitest 5.1.0 and
   // its successor cannot load an Alchemy Worker module, so tier 2 is Miniflare's local D1 plus
   // Alchemy's `dev` harness.
