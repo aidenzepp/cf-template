@@ -6,7 +6,8 @@ import type { GuardedRepository } from "./repository.ts";
 import type { Capability, Tier } from "./tier.ts";
 
 /**
- * The counts of one run, in the shape `reportLine` prints (`applied`, `unavailable`).
+ * The counts of one run, in the shape `reportLine` prints (`applied`, `unavailable`). A call that
+ * changed nothing (`unchanged`) or deleted something already gone (`gone`) is in neither.
  */
 interface RestSummary {
   readonly applied: number;
@@ -28,10 +29,11 @@ export class RestSettingsError extends Schema.TaggedError<
 }) {}
 
 /**
- * The outcome of one call: the {@link RestSummary} counter it adds to, or `gone` for a delete of
- * something already gone, which adds to no counter and does not fail the run.
+ * The outcome of one call: the {@link RestSummary} counter it adds to, `gone` for a delete of
+ * something already gone, or `unchanged` for a setting that already held its declared value and was
+ * not written. `gone` and `unchanged` add to no counter and do not fail the run.
  */
-export type Kind = keyof RestSummary | "gone";
+export type Kind = keyof RestSummary | "gone" | "unchanged";
 
 /**
  * A JSON request body.
@@ -43,6 +45,11 @@ export type RequestBody = Schema.JsonObject;
  * call is not sent and is reported `unavailable`. `phrases` are extra unavailable wordings for this
  * call alone. `confirm` names a `security_and_analysis` key to read back after a 2xx: GitHub
  * answers 200 and ignores the change on a plan without the feature, so applied needs `enabled`.
+ *
+ * Before the write, `GET path` reads the setting. The call is not sent, and prints `unchanged`,
+ * when that read answers 2xx and its JSON holds `expected` (see {@link holds}); `expected` is the
+ * `body` unless the call names its own. A read that fails, or answers anything else, sends the
+ * call. A call with neither `expected` nor `body` is unchanged when its read answers 2xx.
  */
 interface Call {
   readonly setting: string;
@@ -50,6 +57,7 @@ interface Call {
   readonly method: HttpMethod;
   readonly path: string;
   readonly body?: RequestBody;
+  readonly expected?: RequestBody;
   readonly phrases?: ReadonlyArray<string>;
   readonly confirm?: string;
 }
@@ -157,6 +165,15 @@ export const report = (kind: Kind, setting: string, status: number | "tier", det
   ).pipe(Effect.as(kind));
 
 /**
+ * Print the line of a setting that already held its declared value and was not written.
+ *
+ * @param setting - The setting's name.
+ * @returns The `unchanged` kind, after the line is printed.
+ */
+export const reportUnchanged = (setting: string) =>
+  Console.log(`unchanged ${setting}`).pipe(Effect.as<Kind>("unchanged"));
+
+/**
  * Settle one response, print its outcome line, and return the kind. A transport failure is
  * `failed`.
  *
@@ -177,8 +194,8 @@ export const reportResponse = <E, R>(
   );
 
 /**
- * Total the outcomes of a run. A `gone` outcome is in no count and does not fail the run. Any
- * failure ends the run in a {@link RestSettingsError} that carries the same counts.
+ * Total the outcomes of a run. A `gone` or `unchanged` outcome is in no count and does not fail the
+ * run. Any failure ends the run in a {@link RestSettingsError} that carries the same counts.
  *
  * @param kinds - One outcome per call.
  * @returns The counts, or a {@link RestSettingsError} when any call failed.
@@ -225,6 +242,66 @@ export const restClient = Effect.gen(function* restClient() {
         : HttpClientRequest.make(method)(path).pipe(HttpClientRequest.bodyJsonUnsafe(body)),
     );
 });
+
+/**
+ * The GitHub REST sender {@link restClient} builds.
+ */
+export type Send = Effect.Success<typeof restClient>;
+
+/**
+ * The guards {@link holds} branches on: a JSON array, and a JSON object.
+ */
+const isList = Schema.is(Schema.Array(Schema.Json));
+
+const isMap = Schema.is(Schema.Record(Schema.String, Schema.Json));
+
+/**
+ * Whether a live JSON value holds everything a declaration names. An object holds when each key of
+ * the declaration holds in it (keys the declaration does not name are ignored), an array holds when
+ * it has the same length and each item holds, and anything else holds when strictly equal.
+ *
+ * @param live - The JSON GitHub answered.
+ * @param declared - The declared value, or the part of it that must hold.
+ * @returns Whether `live` holds `declared`.
+ */
+const holds = (live: Schema.Json | undefined, declared: Schema.Json): boolean => {
+  if (isList(declared)) {
+    return (
+      isList(live) &&
+      live.length === declared.length &&
+      declared.every((item, index) => holds(live[index], item))
+    );
+  }
+
+  return isMap(declared)
+    ? isMap(live) && Object.entries(declared).every(([key, value]) => holds(live[key], value))
+    : live === declared;
+};
+
+/**
+ * Read a setting and say whether it already holds the declared value, so the write can be skipped.
+ * The read must answer 2xx. With `declared` its JSON must also hold it ({@link holds}); without it,
+ * the 2xx alone is the answer (`GET .../vulnerability-alerts` answers 204 when on, 404 when off).
+ * A read that fails for any reason, such as a transport error, a 403, an empty or undecodable body,
+ * answers no: the write then runs as it would without the read.
+ *
+ * @param send - The REST sender.
+ * @param path - The path the setting is read from with `GET`.
+ * @param declared - The part of the response that must hold, if the status alone does not say.
+ * @returns Whether the setting already holds the declared value.
+ */
+export const alreadyHolds = (send: Send, path: string, declared?: RequestBody) =>
+  send("GET", path).pipe(
+    Effect.flatMap(HttpClientResponse.filterStatusOk),
+    Effect.flatMap((response) =>
+      declared === undefined
+        ? Effect.succeed(true)
+        : HttpClientResponse.schemaBodyJson(Schema.Json)(response).pipe(
+            Effect.map((live) => holds(live, declared)),
+          ),
+    ),
+    Effect.orElseSucceed(() => false),
+  );
 
 /**
  * Build the repository settings calls, in the order they run: only what `@alchemy.run/github`
@@ -282,6 +359,7 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
       setting: "dependabot-alerts",
     },
     {
+      expected: { enabled: false },
       method: "DELETE",
       need: "dependabotAlerts",
       path: `${repo}/automated-security-fixes`,
@@ -296,6 +374,7 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
       setting: "codeql-default-setup",
     },
     {
+      expected: { enabled: true },
       method: "PUT",
       need: "privateVulnerabilityReporting",
       path: `${repo}/private-vulnerability-reporting`,
@@ -335,7 +414,7 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
  * @param confirm - The `security_and_analysis` key to verify.
  * @returns The kind, after the outcome line is printed.
  */
-const applyConfirmed = (send: Effect.Success<typeof restClient>, call: Call, confirm: string) =>
+const applyConfirmed = (send: Send, call: Call, confirm: string) =>
   send(call.method, call.path, call.body).pipe(
     Effect.flatMap((response) => settle(response, { gated: true, phrases: call.phrases })),
     Effect.filterOrElse(
@@ -371,23 +450,34 @@ const applyConfirmed = (send: Effect.Success<typeof restClient>, call: Call, con
   );
 
 /**
- * Send one call and print its outcome line, reading the repository back when the call names a
- * `confirm` key.
+ * Read the setting, and print `unchanged` without writing when it already holds the declared
+ * value. Otherwise send the call and print its outcome line, reading the repository back when the
+ * call names a `confirm` key.
  *
  * @param send - The REST sender.
  * @param call - The call.
  * @returns The kind, after the outcome line is printed.
  */
-const sendCall = (send: Effect.Success<typeof restClient>, call: Call) =>
-  call.confirm === undefined
-    ? reportResponse(call.setting, send(call.method, call.path, call.body), {
-        gated: call.need !== undefined,
-        phrases: call.phrases,
-      })
-    : applyConfirmed(send, call, call.confirm);
+const sendCall = (send: Send, call: Call) =>
+  alreadyHolds(send, call.path, call.expected ?? call.body).pipe(
+    Effect.flatMap((unchanged) => {
+      if (unchanged) {
+        return reportUnchanged(call.setting);
+      }
+
+      return call.confirm === undefined
+        ? reportResponse(call.setting, send(call.method, call.path, call.body), {
+            gated: call.need !== undefined,
+            phrases: call.phrases,
+          })
+        : applyConfirmed(send, call, call.confirm);
+    }),
+  );
 
 /**
  * Run every repository settings call the tier allows, print one outcome line each, and total them.
+ * A setting that already holds its declared value is read first, not written, and prints
+ * `unchanged <setting>`; it is not in the `applied` count.
  *
  * A failed call never stops the rest. A transport failure counts as `failed`. When any call failed
  * the run ends in a {@link RestSettingsError} carrying the counts.
