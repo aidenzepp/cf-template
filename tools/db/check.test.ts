@@ -3,7 +3,8 @@ import { assert, it } from "@effect/vitest";
 import { Config, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { findings, run } from "./check.ts";
+import { findings } from "./check.ts";
+import { run } from "./run.ts";
 
 /**
  * Runs `git` in `cwd` with the environment inherited exactly as a hook would see it, and returns

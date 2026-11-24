@@ -3,7 +3,8 @@ import { assert, describe, it } from "@effect/vitest";
 import { Config, Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { Baseline, ignoreEntries, sumCounts } from "./ratchet.ts";
+import { ignoreEntries } from "./knip-ignores.ts";
+import { Baseline, sumCounts } from "./ratchet.ts";
 
 /**
  * The timeout of each case, which spawns git and `bun` several times.

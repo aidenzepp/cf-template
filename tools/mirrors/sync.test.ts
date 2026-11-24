@@ -2,7 +2,8 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 
-import { checkMirrors, exec, readPackages, syncOne, writeIndex } from "./mirror.ts";
+import { readPackages } from "./bun-lock.ts";
+import { checkMirrors, exec, syncOne, writeIndex } from "./mirror.ts";
 
 const entry = {
   anchor: "pkg",
