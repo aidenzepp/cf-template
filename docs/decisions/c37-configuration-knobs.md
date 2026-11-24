@@ -4,7 +4,7 @@ Configuration tiers; one schema per knob.
 
 ## C37p
 
-Per-stage tier (b) knob values in `infra/stages.ts` as one `Stages` record (ST4).
+Per-stage tier (b) knob values in `infra/stage-values.ts` as one `Stages` record (ST4).
 
 C33f keeps them out of `.env.example`.
 
