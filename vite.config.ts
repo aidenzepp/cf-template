@@ -688,10 +688,7 @@ export default defineConfig({
       // documented contracts.
       "landmines/no-explicit-return-types": "off",
       "landmines/no-fixed-sleep": "error",
-      // Off (28 findings): 26 spawning tests in tools/ pass a 60 s timeout and the browser and
-      // cloud configs set testTimeout for page loads and requests to a deployed stage; each needs
-      // its slow setup restructured into a hook.
-      "landmines/no-flake-masking": "off",
+      "landmines/no-flake-masking": "error",
       "landmines/no-github-scripts": "error",
       "landmines/no-imported-mutation": "error",
       "landmines/no-inline-hex-encoding": "error",
