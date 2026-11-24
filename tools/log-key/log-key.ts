@@ -57,9 +57,7 @@ export interface LogKeyRequest {
  * @param args - The raw arguments.
  * @returns The request, or a {@link LogKeyRefused}.
  */
-export const parseRequest = (
-  args: ReadonlyArray<string>,
-): Effect.Effect<LogKeyRequest, LogKeyRefused> => {
+export const parseRequest = (args: ReadonlyArray<string>) => {
   const flag = args.indexOf("--stage");
   const stage = flag === -1 ? "" : (args[flag + 1] ?? "");
   const rest = args.filter((_, index) => index !== flag && index !== flag + 1);

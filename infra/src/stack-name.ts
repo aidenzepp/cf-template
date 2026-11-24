@@ -46,9 +46,7 @@ const NO_SOURCE_MESSAGE =
  * @param text - The repository reference.
  * @returns The owner and repository, or none when the text has neither form.
  */
-export const parseRepository = (
-  text: string,
-): Option.Option<{ readonly owner: string; readonly repo: string }> => {
+export const parseRepository = (text: string) => {
   const match =
     /^[a-z][a-z0-9+.-]*:\/\/(?:[^@/]+@)?[^/]+\/(?<owner>[^/]+)\/(?<repo>[^/]+?)(?:\.git)?\/?$/iu.exec(
       text,
@@ -174,7 +172,7 @@ export const resolveStackName = Effect.fn("resolveStackName")(
  * @param stage - The decoded stage.
  * @returns True when the stage requires the pin.
  */
-export const requiresStackNamePin = (stage: StageName): boolean =>
+export const requiresStackNamePin = (stage: StageName) =>
   kindOf(stage) === "prod" || kindOf(stage) === "staging" || stage === CLOUD_STAGE;
 
 /**

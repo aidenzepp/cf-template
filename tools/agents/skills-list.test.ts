@@ -28,7 +28,7 @@ const TRACKED_PATH_MESSAGE =
  * @param agents - The text of `AGENTS.md`.
  * @returns The set of link targets in that section.
  */
-const listedSkills = (agents: string): Set<string> => {
+const listedSkills = (agents: string) => {
   const section = agents.split("\n## Skills\n")[1]?.split("\n## ")[0] ?? "";
 
   return new Set(
@@ -47,7 +47,7 @@ const listedSkills = (agents: string): Set<string> => {
  * @param files - Repository-relative tracked paths, as `git ls-files` prints them.
  * @returns The tracked paths that match.
  */
-const trackedToolPaths = (files: ReadonlyArray<string>): ReadonlyArray<string> =>
+const trackedToolPaths = (files: ReadonlyArray<string>) =>
   files.filter((file) => {
     const segments = file.split("/");
     const name = segments.at(-1) ?? "";

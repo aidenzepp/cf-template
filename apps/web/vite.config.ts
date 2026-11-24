@@ -20,7 +20,7 @@ const HARNESS_TREE = "node_modules/.cache/web-harness/route-tree.gen.ts";
  * static-asset directory: Vite's own `build.manifest` writes `dist/client/.vite/manifest.json`
  * there, and the deploy runs this same config, so the manifest would be served publicly.
  */
-const chunkGraph = (): Plugin => {
+const chunkGraph = () => {
   let client = "{}";
 
   return {
@@ -45,7 +45,7 @@ const chunkGraph = (): Plugin => {
       }
     },
     name: "chunk-graph",
-  };
+  } satisfies Plugin;
 };
 
 export default defineConfig({

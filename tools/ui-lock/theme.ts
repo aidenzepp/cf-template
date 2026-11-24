@@ -165,7 +165,7 @@ class ThemeMismatchError extends Schema.TaggedError<
  * The start and end offsets of the `selector` block in `css`, the closing brace included, or
  * `undefined` when the block is missing.
  */
-const blockRange = (css: string, selector: string): readonly [number, number] | undefined => {
+const blockRange = (css: string, selector: string) => {
   const start = css.indexOf(`\n${selector} {`);
   const end = css.indexOf("\n}", start);
 
@@ -175,7 +175,7 @@ const blockRange = (css: string, selector: string): readonly [number, number] | 
 /**
  * The `--name: value;` declarations of the `selector` block in `css`, as an ordered list of pairs.
  */
-const declarations = (css: string, selector: string): ReadonlyArray<readonly [string, string]> => {
+const declarations = (css: string, selector: string) => {
   const range = blockRange(css, selector);
 
   return range === undefined
@@ -188,7 +188,7 @@ const declarations = (css: string, selector: string): ReadonlyArray<readonly [st
 /**
  * The lines of `css` outside its `:root` and `.dark` blocks.
  */
-const outsideLines = (css: string): ReadonlyArray<string> => {
+const outsideLines = (css: string) => {
   let text = css;
 
   for (const selector of Object.values(selectors)) {
@@ -205,7 +205,7 @@ const outsideLines = (css: string): ReadonlyArray<string> => {
  * variable, then one per line outside the theme blocks that stock has and `css` lacks, or the
  * reverse.
  */
-export const diffTheme = (css: string): ReadonlyArray<string> => {
+export const diffTheme = (css: string) => {
   const variables = (["light", "dark"] as const).flatMap((mode) => {
     const selector = selectors[mode];
     const actual = Object.fromEntries(declarations(css, selector));

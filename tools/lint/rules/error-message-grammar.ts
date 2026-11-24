@@ -29,7 +29,7 @@ const emoji = /\p{Extended_Pictographic}/u;
 /**
  * Whether the name of a class extended by `Schema.TaggedError` or `Data.TaggedError`.
  */
-const isTaggedErrorBase = (node: ESTree.Node | null | undefined): boolean => {
+const isTaggedErrorBase: (node: ESTree.Node | null | undefined) => boolean = (node) => {
   if (node?.type === "CallExpression") {
     const { callee } = node;
 
@@ -49,23 +49,21 @@ const isTaggedErrorBase = (node: ESTree.Node | null | undefined): boolean => {
 /**
  * The literal text of a string or template literal, with each `${}` hole left empty.
  */
-const literalText = (node: ESTree.Node): string | undefined => {
+const literalText = (node: ESTree.Node) => {
   if (node.type === "Literal" && Predicate.isString(node.value)) {
     return node.value;
   }
 
-  if (node.type === "TemplateLiteral") {
-    return node.quasis.map((quasi) => quasi.value.cooked ?? quasi.value.raw).join("");
-  }
-
-  return undefined;
+  return node.type === "TemplateLiteral"
+    ? node.quasis.map((quasi) => quasi.value.cooked ?? quasi.value.raw).join("")
+    : undefined;
 };
 
 /**
  * True when the whole message only forwards a cause: `String(x)`, `x.message`, `${x}` or
  * `x.toString()`.
  */
-const forwardsCause = (node: ESTree.Node): boolean => {
+const forwardsCause = (node: ESTree.Node) => {
   if (node.type === "TemplateLiteral") {
     return node.expressions.length === 1 && literalText(node) === "";
   }
@@ -95,7 +93,7 @@ const forwardsCause = (node: ESTree.Node): boolean => {
 /**
  * The message of `new X({ message })` or the first argument of `new Error(message)`.
  */
-const messageValue = (node: ESTree.NewExpression): ESTree.Node | undefined => {
+const messageValue = (node: ESTree.NewExpression) => {
   const [first] = node.arguments;
 
   if (first?.type !== "ObjectExpression") {

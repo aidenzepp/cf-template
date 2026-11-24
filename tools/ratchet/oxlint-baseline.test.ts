@@ -4,11 +4,6 @@ import { Config, Effect, FileSystem, Path, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 /**
- * The timeout of each case, which spawns the linter a few times.
- */
-const SPAWN_TIMEOUT_MS = 60_000;
-
-/**
  * The baseline file the linter writes: per file, per rule, a count.
  */
 const Baseline = Schema.fromJsonString(
@@ -116,81 +111,69 @@ const staleSample = Effect.fn("oxlint-baseline.test.staleSample")(function* stal
 });
 
 describe("the oxlint baseline the ratchet relies on", () => {
-  it.effect(
-    "a violation the baseline does not cover fails",
-    () =>
-      Effect.scoped(
-        Effect.gen(function* fresh() {
-          const fs = yield* FileSystem.FileSystem;
-          const path = yield* Path.Path;
-          const dir = yield* sample();
+  it.effect("a violation the baseline does not cover fails", () =>
+    Effect.scoped(
+      Effect.gen(function* fresh() {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const dir = yield* sample();
 
-          yield* lint(dir, ["--suppress-all"]);
-          yield* fs.writeFileString(path.join(dir, "c.ts"), "debugger;\ndebugger;\n");
+        yield* lint(dir, ["--suppress-all"]);
+        yield* fs.writeFileString(path.join(dir, "c.ts"), "debugger;\ndebugger;\n");
 
-          const { code, output } = yield* lint(dir);
+        const { code, output } = yield* lint(dir);
 
-          assert.strictEqual(code, 1, output);
-          assert.include(output, "new violations not covered by the suppressions file");
-        }),
-      ).pipe(Effect.provide(BunServices.layer)),
-    SPAWN_TIMEOUT_MS,
+        assert.strictEqual(code, 1, output);
+        assert.include(output, "new violations not covered by the suppressions file");
+      }),
+    ).pipe(Effect.provide(BunServices.layer)),
   );
 
-  it.effect(
-    "a baseline entry with no violation left fails",
-    () =>
-      Effect.scoped(
-        Effect.gen(function* stale() {
-          const { code, output } = yield* lint(yield* staleSample());
+  it.effect("a baseline entry with no violation left fails", () =>
+    Effect.scoped(
+      Effect.gen(function* stale() {
+        const { code, output } = yield* lint(yield* staleSample());
 
-          assert.strictEqual(code, 1, output);
-          assert.include(output, "suppressions that do not occur anymore");
-        }),
-      ).pipe(Effect.provide(BunServices.layer)),
-    SPAWN_TIMEOUT_MS,
+        assert.strictEqual(code, 1, output);
+        assert.include(output, "suppressions that do not occur anymore");
+      }),
+    ).pipe(Effect.provide(BunServices.layer)),
   );
 
-  it.effect(
-    "pruning lowers the baselined count",
-    () =>
-      Effect.scoped(
-        Effect.gen(function* pruned() {
-          const dir = yield* staleSample();
+  it.effect("pruning lowers the baselined count", () =>
+    Effect.scoped(
+      Effect.gen(function* pruned() {
+        const dir = yield* staleSample();
 
-          assert.strictEqual(yield* baselined(dir), 4);
+        assert.strictEqual(yield* baselined(dir), 4);
 
-          const prune = yield* lint(dir, ["--prune-suppressions"]);
+        const prune = yield* lint(dir, ["--prune-suppressions"]);
 
-          assert.strictEqual(prune.code, 0, prune.output);
-          assert.strictEqual(yield* baselined(dir), 3);
-          assert.strictEqual((yield* lint(dir)).code, 0);
-        }),
-      ).pipe(Effect.provide(BunServices.layer)),
-    SPAWN_TIMEOUT_MS,
+        assert.strictEqual(prune.code, 0, prune.output);
+        assert.strictEqual(yield* baselined(dir), 3);
+        assert.strictEqual((yield* lint(dir)).code, 0);
+      }),
+    ).pipe(Effect.provide(BunServices.layer)),
   );
 
-  it.effect(
-    "--suppress-all writes the baseline file",
-    () =>
-      Effect.scoped(
-        Effect.gen(function* written() {
-          const fs = yield* FileSystem.FileSystem;
-          const path = yield* Path.Path;
-          const dir = yield* sample();
-          const file = path.join(dir, "oxlint-suppressions.json");
+  it.effect("--suppress-all writes the baseline file", () =>
+    Effect.scoped(
+      Effect.gen(function* written() {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const dir = yield* sample();
+        const file = path.join(dir, "oxlint-suppressions.json");
 
-          assert.isFalse(yield* fs.exists(file));
-          assert.strictEqual((yield* lint(dir)).code, 1);
+        assert.isFalse(yield* fs.exists(file));
+        assert.strictEqual((yield* lint(dir)).code, 1);
 
-          const { code, output } = yield* lint(dir, ["--suppress-all"]);
+        const { code, output } = yield* lint(dir, ["--suppress-all"]);
 
-          assert.strictEqual(code, 0, output);
-          assert.isTrue(yield* fs.exists(file));
-          assert.strictEqual(yield* baselined(dir), 4);
-          assert.strictEqual((yield* lint(dir)).code, 0);
-        }),
-      ).pipe(Effect.provide(BunServices.layer)),
-    SPAWN_TIMEOUT_MS,
+        assert.strictEqual(code, 0, output);
+        assert.isTrue(yield* fs.exists(file));
+        assert.strictEqual(yield* baselined(dir), 4);
+        assert.strictEqual((yield* lint(dir)).code, 0);
+      }),
+    ).pipe(Effect.provide(BunServices.layer)),
   );
 });

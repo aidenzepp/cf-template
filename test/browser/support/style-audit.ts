@@ -23,7 +23,7 @@ const LAST_STEP = 96;
  * @param theme - The text of Tailwind's `theme.css`.
  * @returns The steps in CSS px, or an empty list when the theme has no unit in rem.
  */
-const spacingSteps = (theme: string): ReadonlyArray<number> => {
+const spacingSteps = (theme: string) => {
   const { rem: unit } = /--spacing:\s*(?<rem>[\d.]+)rem\s*;/u.exec(theme)?.groups ?? {};
 
   if (unit === undefined) {
@@ -121,7 +121,7 @@ const RADIUS_TOKEN = /--radius-[\w-]+:\s*(?<value>[^;]+);/gu;
  * @param css - The text of `globals.css`.
  * @returns The value of each radius token, in declaration order.
  */
-const themeRadii = (css: string): ReadonlyArray<string> =>
+const themeRadii = (css: string) =>
   [...css.matchAll(RADIUS_TOKEN)].flatMap(({ groups }) => {
     const { value = "" } = groups ?? {};
 
@@ -221,7 +221,7 @@ declare const getComputedStyle: (element: Element) => Style;
  * @param text - The computed length.
  * @returns The number of px.
  */
-const pixels = (text: string): number => Number(text.replace(/px$/u, ""));
+const pixels = (text: string) => Number(text.replace(/px$/u, ""));
 
 /**
  * A short CSS path of an element, for a finding: up to four steps from `body`.
@@ -229,7 +229,7 @@ const pixels = (text: string): number => Number(text.replace(/px$/u, ""));
  * @param element - The element.
  * @returns The path, such as `body:nth-child(2) > p:nth-child(4)`.
  */
-const nameOf = (element: Element): string => {
+const nameOf = (element: Element) => {
   const steps: Array<string> = [];
   let current: Element | null = element;
 
@@ -252,7 +252,7 @@ const nameOf = (element: Element): string => {
  * @param scale - What 100% is.
  * @returns The channel's value.
  */
-const channel = (text: string, scale: number): number => {
+const channel = (text: string, scale: number) => {
   if (text === "none") {
     return 0;
   }
@@ -302,7 +302,7 @@ const srgbToOklab = (parts: ReadonlyArray<string>, scale: number) => {
  * @param text - The computed color.
  * @returns The OKLab lightness, a, b and alpha, or nothing for another form.
  */
-const toOklab = (text: string): readonly [number, number, number, number] | undefined => {
+const toOklab = (text: string) => {
   const groups = /^(?<fn>rgba?|oklch|oklab|color)\((?<body>.*)\)$/u.exec(text.trim())?.groups;
   const [main = "", slash] = (groups?.body ?? "").split("/");
   const parts = main.replaceAll(",", " ").trim().split(/\s+/u);
@@ -322,11 +322,9 @@ const toOklab = (text: string): readonly [number, number, number, number] | unde
     return [channel(first, 1), chroma * Math.cos(hue), chroma * Math.sin(hue), alpha];
   }
 
-  if (space !== "rgb" && space !== "rgba" && space !== "srgb") {
-    return undefined;
-  }
-
-  return [...srgbToOklab([first, second, third], space === "srgb" ? 1 : 255), alpha];
+  return space === "rgb" || space === "rgba" || space === "srgb"
+    ? [...srgbToOklab([first, second, third], space === "srgb" ? 1 : 255), alpha]
+    : undefined;
 };
 
 /**
@@ -337,7 +335,7 @@ const toOklab = (text: string): readonly [number, number, number, number] | unde
  * @param theme - The theme colors of the active theme, in OKLab.
  * @returns True when the color is tokened.
  */
-const isTokened = (text: string, theme: ReadonlyArray<ReadonlyArray<number>>): boolean => {
+const isTokened = (text: string, theme: ReadonlyArray<ReadonlyArray<number>>) => {
   const lab = toOklab(text);
 
   if (lab === undefined) {
@@ -362,7 +360,7 @@ const isTokened = (text: string, theme: ReadonlyArray<ReadonlyArray<number>>): b
  * @param element - The element.
  * @returns The property and computed color of each paint.
  */
-const paintsOf = (element: Element): ReadonlyArray<readonly [string, string]> => {
+const paintsOf = (element: Element) => {
   const style = getComputedStyle(element);
 
   const paints: Array<readonly [string, string]> = [
@@ -410,7 +408,7 @@ const paintsOf = (element: Element): ReadonlyArray<readonly [string, string]> =>
  * @param steps - The spacing steps, in CSS px.
  * @returns Each offending property and value.
  */
-const offSetSpacing = (element: Element, steps: ReadonlyArray<number>): ReadonlyArray<string> => {
+const offSetSpacing = (element: Element, steps: ReadonlyArray<number>) => {
   const map = element.computedStyleMap();
 
   return [
@@ -445,7 +443,7 @@ const offSetSpacing = (element: Element, steps: ReadonlyArray<number>): Readonly
  * @param values - The radius token values, as CSS text.
  * @returns The value of each token in CSS px.
  */
-const radiusSteps = (values: ReadonlyArray<string>): ReadonlyArray<number> => {
+const radiusSteps = (values: ReadonlyArray<string>) => {
   const probe = document.createElement("div");
 
   document.body.append(probe);
@@ -473,7 +471,7 @@ const radiusSteps = (values: ReadonlyArray<string>): ReadonlyArray<number> => {
  * @param longer - The longer side of the element's box, in CSS px.
  * @returns True when the radius is tokened.
  */
-const isTokenedRadius = (radius: string, steps: ReadonlyArray<number>, longer: number): boolean => {
+const isTokenedRadius = (radius: string, steps: ReadonlyArray<number>, longer: number) => {
   if (radius.endsWith("%")) {
     const percent = Number(radius.slice(0, -1));
 
@@ -492,7 +490,7 @@ const isTokenedRadius = (radius: string, steps: ReadonlyArray<number>, longer: n
  * @param steps - The pixel value of each radius token.
  * @returns Each offending property and computed value.
  */
-const offTokenRadii = (element: Element, steps: ReadonlyArray<number>): ReadonlyArray<string> => {
+const offTokenRadii = (element: Element, steps: ReadonlyArray<number>) => {
   const style = getComputedStyle(element);
   const box = element.getBoundingClientRect();
   const longer = Math.max(box.width, box.height);
@@ -518,7 +516,7 @@ const offTokenRadii = (element: Element, steps: ReadonlyArray<number>): Readonly
  * @param elements - The visible elements.
  * @returns A finding per element past the viewport.
  */
-const scrollFindings = (elements: ReadonlyArray<Element>): ReadonlyArray<Finding> => {
+const scrollFindings = (elements: ReadonlyArray<Element>) => {
   const viewport = document.documentElement.clientWidth;
   const { scrollWidth } = document.documentElement;
 
@@ -550,11 +548,7 @@ const scrollFindings = (elements: ReadonlyArray<Element>): ReadonlyArray<Finding
  * @param boxes - The bounding box of each target.
  * @returns True when the target is crowded.
  */
-const isCrowded = (
-  index: number,
-  targets: ReadonlyArray<Element>,
-  boxes: ReadonlyArray<Box>,
-): boolean => {
+const isCrowded = (index: number, targets: ReadonlyArray<Element>, boxes: ReadonlyArray<Box>) => {
   const element = targets[index];
   const box = boxes[index];
 
@@ -598,7 +592,7 @@ const isCrowded = (
  * @param elements - The visible elements.
  * @returns A finding per undersized target no exception covers.
  */
-const targetFindings = (elements: ReadonlyArray<Element>): ReadonlyArray<Finding> => {
+const targetFindings = (elements: ReadonlyArray<Element>) => {
   const targets = elements.filter(
     (element) =>
       element.matches(
@@ -638,7 +632,7 @@ const targetFindings = (elements: ReadonlyArray<Element>): ReadonlyArray<Finding
  * @param input - The theme colors, the radius token values and the spacing steps.
  * @returns What the visible elements broke.
  */
-const auditInPage = (input: AuditInput): ReadonlyArray<Finding> => {
+const auditInPage = (input: AuditInput) => {
   const dark = document.documentElement.classList.contains("dark");
 
   const theme = (dark ? input.dark : input.light).flatMap((value) => {
@@ -654,7 +648,7 @@ const auditInPage = (input: AuditInput): ReadonlyArray<Finding> => {
       element.checkVisibility({ visibilityProperty: true }) && element.getClientRects().length > 0,
   );
 
-  const styled = elements.flatMap((element): ReadonlyArray<Finding> => {
+  const styled = elements.flatMap((element) => {
     const untokened = paintsOf(element).filter(([, value]) => !isTokened(value, theme));
     const offSet = offSetSpacing(element, input.steps);
     const offRadii = offTokenRadii(element, radii);

@@ -113,7 +113,7 @@ const DEPLOY_RETRY_PAUSE = "20 seconds";
 const retryDeploy = (stage: string) =>
   Schedule.spaced(DEPLOY_RETRY_PAUSE).pipe(
     Schedule.while(({ attempt, input }) =>
-      input instanceof AlchemyExited && attempt < DEPLOY_ATTEMPTS
+      Schema.is(AlchemyExited)(input) && attempt < DEPLOY_ATTEMPTS
         ? Effect.as(
             Effect.logWarning(
               `Deploy attempt ${attempt} of ${DEPLOY_ATTEMPTS} for ${stage} exited with code ${input.code}; deploying again in ${DEPLOY_RETRY_PAUSE}.`,

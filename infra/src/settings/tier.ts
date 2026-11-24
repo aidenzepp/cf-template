@@ -138,10 +138,7 @@ export const detectPlan = Effect.fn("detectPlan")(
  * @param plan - The lower-case plan name.
  * @returns The capabilities the tier offers.
  */
-const capabilitiesFor = (
-  visibility: Tier["visibility"],
-  plan: string,
-): ReadonlyArray<Capability> => {
+const capabilitiesFor = (visibility: Tier["visibility"], plan: string) => {
   if (visibility === "public") {
     return PUBLIC;
   }
@@ -155,7 +152,7 @@ const capabilitiesFor = (
  * @param capabilities - The tier's capabilities.
  * @returns `ruleset` first, then `classic`, else `none`.
  */
-const protectionFor = (capabilities: ReadonlySet<Capability>): Tier["branchProtection"] => {
+const protectionFor = (capabilities: ReadonlySet<Capability>) => {
   if (capabilities.has("rulesets")) {
     return "ruleset";
   }
@@ -198,7 +195,9 @@ export const detectTier = Effect.fn("detectTier")(function* detectTier(
  * Format the one report line the program prints.
  *
  * @param tier - The detected tier.
- * @param applied - The count of settings applied.
+ * @param applied - The count of settings written: the provider resources converged plus the REST
+ *   calls that changed a setting. A REST setting that already held its declared value prints
+ *   `unchanged <setting>` and is not counted.
  * @param unavailable - The count of settings the tier does not offer.
  * @returns `tier: <visibility>/<plan>; applied N; unavailable M`.
  */
@@ -206,5 +205,4 @@ export const reportLine = (
   tier: Pick<Tier, "visibility" | "plan">,
   applied: number,
   unavailable: number,
-): string =>
-  `tier: ${tier.visibility}/${tier.plan}; applied ${applied}; unavailable ${unavailable}`;
+) => `tier: ${tier.visibility}/${tier.plan}; applied ${applied}; unavailable ${unavailable}`;

@@ -9,7 +9,7 @@ This repository is an intentionally empty TypeScript project on Bun and Effect. 
 - Fix code instead of weakening policy. Do not turn off rules, add broad disable comments, or skip checks without explicit approval.
 - Use Effect error channels; built-in try/catch is prohibited by lint.
 - Name files and directories in kebab-case. `unicorn/filename-case` and `workspace/kebab-case-paths` enforce it.
-- Do not add function-decomposition, type-design, or require-doc-comment lint policies.
+- Do not add require-doc-comment lint policies; the Landmines `no-comments` rule stays off until the `document-code` rewrite (#461).
 - Preserve the pinned dependency versions. Add a dependency only with a stated reason; a library that `docs/capabilities.md` lists needs only the name of its registry row.
 - Before writing code, walk the ladder: a Cloudflare platform capability, then an Alchemy resource or binding, then an Effect module, service or layer, then an installed dependency or the stack's standard library (check `docs/capabilities.md`), then code in this repository, and only then an external service.
 
@@ -17,13 +17,15 @@ If a rule appears inappropriate, explain the failing rule, why changing the code
 
 ## Workflow
 
-Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test .test.mjs` only for the Node-loaded lint-rule suites, then `vp test` (Vitest with `@effect/vitest`) for project tests: every `*.test.ts` file, including those under `tools/lint/` except `tools/lint/fixtures/**`, under a workspace's `src/`, the root `test/` or `tools/`, using `it.effect` for effectful cases. Keep focused tests beside their implementation and cross-module tests in `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
+Run `bun run check`, then `bun run test`, before completing implementation. `bun run test` runs `bun test .test.mjs` only for the Node-loaded lint-rule suites, then `vp test` (Vitest with `@effect/vitest`) for project tests: every `*.test.ts` file, including those under `tools/lint/` except `tools/lint/fixtures/**`, under a workspace's `src/`, the root `test/` or `tools/`, using `it.effect` for effectful cases. Keep a test that imports one implementation module beside it or in that module's local `test/` directory (`landmines/colocated-tests` enforces this), and a test that spans modules in the root `test/`. Delete `passWithNoTests` from `vite.config.ts` once the first test exists.
 
 A worktree runs its own `bun install` before any package script, binary or patch tool (`typescript` and `@effect/tsgo` included), because package resolution walks up into the main checkout.
 
 `bun run fix` prunes the lint baseline; after moving or renaming a file with baselined violations, re-baseline with `vp lint --suppress-all`; the guard proves the per-rule totals did not rise; a rise is a policy change and follows the explain-and-ask procedure.
 
 A pre-push hook (`.vite-hooks/pre-push`, installed by `bun install`) runs the same checks and blocks the push if any fail. Fix the problems rather than bypassing it with `--no-verify` or `VP_GIT_HOOKS=0`.
+
+Work that spans several pull requests is tracked with GitHub sub-issues. The parent issue holds the plan, each chunk is a sub-issue, and each pull request says `- Closes #<sub-issue>` as a bullet in its Issue section, so the parent shows progress natively. A pull request that delivers part of one issue says `- Part of #<issue>`.
 
 ## Effect-native source and tests
 
