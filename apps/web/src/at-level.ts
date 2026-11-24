@@ -43,9 +43,7 @@ export const atLevelLayer = (port: LiveKnobsPort, source: ConfigProvider.ConfigP
  * @param effect - The effect to run.
  * @returns The effect, filtered at the live level.
  */
-export const atLiveLevel = <A, E, R>(
-  effect: Effect.Effect<A, E, R>,
-): Effect.Effect<A, E, R | AtLevel> =>
+export const atLiveLevel = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
   Effect.gen(function* withLevel() {
     const at = yield* AtLevel;
 

@@ -51,7 +51,7 @@ export const stackNameText = createIsomorphicFn()
  *
  * @param text - The stack name `infra` bound.
  */
-export const hydrateStackName = (text: string): void => {
+export const hydrateStackName = (text: string) => {
   hydratedStackName = text;
 };
 
@@ -61,7 +61,7 @@ export const hydrateStackName = (text: string): void => {
  *
  * @param text - The text `infra` bound.
  */
-export const hydrateOrphanGrace = (text: string): void => {
+export const hydrateOrphanGrace = (text: string) => {
   hydratedOrphanGrace = text;
 };
 
@@ -70,7 +70,7 @@ export const hydrateOrphanGrace = (text: string): void => {
  *
  * @param text - The JSON text `infra` bound.
  */
-export const hydrateAuthMethods = (text: string): void => {
+export const hydrateAuthMethods = (text: string) => {
   hydratedAuthMethods = text;
 };
 
@@ -122,7 +122,7 @@ export const run = <A, E>(
     ManagedRuntime.ManagedRuntime.Services<ReturnType<typeof makeRuntime>>
   >,
   options?: { readonly signal?: AbortSignal },
-): Promise<A> => {
+) => {
   runtime ??= makeRuntime();
 
   // A defect that is not an `Error` (a string passed to `die`) would reject with that bare value,

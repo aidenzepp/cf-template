@@ -39,7 +39,7 @@ const TARGETS: Readonly<Record<(typeof FORWARD_PREFIXES)[number], ForwardTarget>
  * @param pattern - An entry of {@link FORWARD_PREFIXES}.
  * @returns `true` when the pattern owns the path.
  */
-const matches = (pathname: string, pattern: string): boolean =>
+const matches = (pathname: string, pattern: string) =>
   pattern.endsWith("/*") ? pathname.startsWith(pattern.slice(0, -1)) : pathname === pattern;
 
 /**
@@ -48,7 +48,7 @@ const matches = (pathname: string, pattern: string): boolean =>
  * @param pathname - The path of the request, without its query.
  * @returns The binding name, or `undefined` for a path TanStack handles.
  */
-export const forwardTarget = (pathname: string): ForwardTarget | undefined => {
+export const forwardTarget = (pathname: string) => {
   const prefix = FORWARD_PREFIXES.find((pattern) => matches(pathname, pattern));
 
   return prefix === undefined ? undefined : TARGETS[prefix];
@@ -60,7 +60,7 @@ export const forwardTarget = (pathname: string): ForwardTarget | undefined => {
  * @param headers - The headers of the failed request.
  * @returns `true` for `Sec-Fetch-Mode: navigate` or an `Accept` that names `text/html`.
  */
-const wantsHtml = (headers: Headers): boolean =>
+const wantsHtml = (headers: Headers) =>
   headers.get("sec-fetch-mode") === "navigate" ||
   (headers.get("accept") ?? "").includes("text/html");
 
@@ -72,7 +72,7 @@ const wantsHtml = (headers: Headers): boolean =>
  * @param request - The request whose forward failed.
  * @returns The 502 response.
  */
-const badGateway = (request: Request): Response => {
+const badGateway = (request: Request) => {
   const vary = { vary: "Sec-Fetch-Mode, Accept" };
 
   return wantsHtml(request.headers)
