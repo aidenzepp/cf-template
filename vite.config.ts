@@ -475,7 +475,12 @@ export default defineConfig({
         // on Effect `Service.use(...)` calls elsewhere.
         files: ["apps/web/**/*.tsx"],
         plugins: react.plugins,
-        rules: react.rules,
+        rules: {
+          ...react.rules,
+          // Adopted from the Cloudflare Oxlint preset (#437); the preset leaves both off.
+          "react/no-unknown-property": "error",
+          "react/require-render-return": "error",
+        },
       },
       {
         // React Doctor's per-file rules, scoped to `apps/web` like `react` above: the recommended set
@@ -656,15 +661,24 @@ export default defineConfig({
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/try-catch-in-effect-gen": "off",
       "effecttsgo/unsafe-effect-type-assertion": "warn",
+      // Adopted from the Cloudflare Oxlint preset (#437); the repository had no finding at adoption.
+      // Reports a duplicate export name, which a bundler resolves silently.
+      "import/export": "error",
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],
+      // Reports a value assigned and then overwritten before any read.
+      "no-useless-assignment": "error",
+      // A `return` in `finally` swallows a thrown error and replaces the result.
+      "promise/no-return-in-finally": "error",
       // The Ultracite 8.3 `core` preset turns `sort-keys` off; the 8.1.1 preset had it at `error` with
       // default options, so this keeps the rule the repository already enforced. The scoped
       // overrides above still lift it where key order is the wire or column order.
       "sort-keys": "error",
       // Issue #11 item 10: `ReadonlyArray<T>` is the accepted array spelling.
       "typescript/array-type": ["error", { default: "generic", readonly: "generic" }],
+      // `require()` has no place in an ES module repository; the preset leaves it off.
+      "typescript/no-require-imports": "error",
       // Effect adapters return existing promises without introducing async wrappers.
       "typescript/promise-function-async": "off",
       "unicorn/filename-case": ["error", { case: "kebabCase" }],
