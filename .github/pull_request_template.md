@@ -4,7 +4,7 @@ What changes and why.
 
 ## Issue
 
-Write one line: `Closes #<issue>` (closes the issue when this merges), `Part of #<issue>` or `Refs #<issue>` (links it and leaves it open), or `No issue: <reason>`.
+Write one bullet: `- Closes #<issue>` (closes the issue when this merges), `- Part of #<issue>` or `- Refs #<issue>` (links it and leaves it open), or `- No issue: <reason>`.
 
 ## Native capability check
 
