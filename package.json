@@ -62,7 +62,7 @@
     "drizzle-kit": "1.0.0-rc.5",
     "eslint-plugin-react-hooks": "7.1.1",
     "knip": "6.44.2",
-    "oxlint-plugin-react-doctor": "0.9.18",
+    "oxlint-plugin-react-doctor": "0.9.23",
     "playwright": "1.65.0",
     "postcss": "8.5.32",
     "supdoc": "0.6.0",
