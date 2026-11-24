@@ -216,7 +216,7 @@ describe("the adapter", () => {
       const body = createNote({ body: "x".repeat(2048), id: "n-1", title: "big" });
 
       yield* assertBlank(
-        yield* send(json("/api/CreateNote", "POST", body)),
+        yield* send(json("/api/create-note", "POST", body)),
         413,
         "Content Too Large",
       );
@@ -228,7 +228,7 @@ describe("the adapter", () => {
       const send = yield* serve(defaults);
 
       yield* assertBlank(
-        yield* send(json("/api/CreateNote", "POST", "title=x", "text/plain")),
+        yield* send(json("/api/create-note", "POST", "title=x", "text/plain")),
         415,
         "Unsupported Media Type",
       );
@@ -272,7 +272,7 @@ describe("the adapter", () => {
       const send = yield* serve({ ...defaults, signedIn: false });
 
       const response = yield* send(
-        json("/api/CreateNote", "POST", createNote({ body: "", id: "n-1", title: "t" })),
+        json("/api/create-note", "POST", createNote({ body: "", id: "n-1", title: "t" })),
       );
 
       assert.strictEqual(response.status, 401);
@@ -293,7 +293,7 @@ describe("note size caps", () => {
 
       const rejected = yield* send(
         json(
-          "/api/CreateNote",
+          "/api/create-note",
           "POST",
           createNote({ body: "b", id: "n-1", title: "t".repeat(NOTE_TITLE_MAX_LENGTH + 1) }),
         ),
@@ -308,7 +308,7 @@ describe("note size caps", () => {
       });
 
       const created = yield* send(
-        json("/api/CreateNote", "POST", createNote({ body: "b", id: "n-1", title: "t" })),
+        json("/api/create-note", "POST", createNote({ body: "b", id: "n-1", title: "t" })),
       );
 
       assert.isBelow(created.status, 300);
@@ -347,7 +347,7 @@ describe("PROBLEM_DETAILS_INCLUDE", () => {
         for (const includeDetails of [false, true]) {
           const send = yield* serve({ includeDetails });
           const body = Array.isArray(value) ? JSON.stringify(value) : createNote(value);
-          const response = yield* send(json("/api/CreateNote", "POST", body));
+          const response = yield* send(json("/api/create-note", "POST", body));
           const text = yield* Effect.promise(() => response.text());
 
           assert.strictEqual(response.status, 400);
@@ -367,10 +367,10 @@ describe("Notebook rejections", () => {
     Effect.gen(function* duplicate() {
       const send = yield* serve({ includeDetails: false });
 
-      yield* send(json("/api/CreateNote", "POST", createNote(note)));
+      yield* send(json("/api/create-note", "POST", createNote(note)));
 
       yield* assertRejection(
-        yield* send(json("/api/CreateNote", "POST", createNote(note, "c-2"))),
+        yield* send(json("/api/create-note", "POST", createNote(note, "c-2"))),
         {
           id: "n-1",
           status: 409,
@@ -386,7 +386,7 @@ describe("Notebook rejections", () => {
       const send = yield* serve({ includeDetails: false });
 
       yield* assertRejection(
-        yield* send(json("/api/CreateNote", "POST", createNote(note, "c-1", "bob"))),
+        yield* send(json("/api/create-note", "POST", createNote(note, "c-1", "bob"))),
         { status: 403, title: "Forbidden", type: "/problems/not-notebook-owner" },
       );
     }).pipe(Effect.scoped),
@@ -399,11 +399,11 @@ describe("Notebook rejections", () => {
       for (let index = 0; index < NOTES_MAX_PER_OWNER; index += 1) {
         const id = `n-${index}`;
 
-        yield* send(json("/api/CreateNote", "POST", createNote({ ...note, id }, `c-${index}`)));
+        yield* send(json("/api/create-note", "POST", createNote({ ...note, id }, `c-${index}`)));
       }
 
       yield* assertRejection(
-        yield* send(json("/api/CreateNote", "POST", createNote({ ...note, id: "n-x" }, "c-x"))),
+        yield* send(json("/api/create-note", "POST", createNote({ ...note, id: "n-x" }, "c-x"))),
         {
           limit: NOTES_MAX_PER_OWNER,
           status: 409,
@@ -419,7 +419,7 @@ describe("Notebook rejections", () => {
       const send = yield* serve({ includeDetails: false });
 
       yield* assertRejection(
-        yield* send(json("/api/DeleteNote", "POST", createNote({ id: "n-9" }))),
+        yield* send(json("/api/delete-note", "POST", createNote({ id: "n-9" }))),
         { id: "n-9", status: 404, title: "Not Found", type: "/problems/note-not-found" },
       );
     }).pipe(Effect.scoped),
