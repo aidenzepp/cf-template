@@ -56,7 +56,10 @@ export const entrypointRules = <E, R>(
   phase.pipe(
     Effect.map((entrypoint) => entrypoint.rules ?? []),
     Effect.catchIf(
-      (error) => error instanceof rulesets.RulesetNotFound && error.code === ABSENT_ENTRYPOINT_CODE,
+      (error) =>
+        Predicate.isTagged(error, "RulesetNotFound") &&
+        Predicate.hasProperty(error, "code") &&
+        error.code === ABSENT_ENTRYPOINT_CODE,
       () => Effect.succeed([]),
     ),
     Effect.map((rules) =>

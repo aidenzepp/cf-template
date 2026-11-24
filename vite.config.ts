@@ -222,7 +222,13 @@ export default defineConfig({
       "work/**",
       ...vendored,
     ],
-    jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin", ...shadcn.jsPlugins],
+    jsPlugins: [
+      "./tools/lint/plugin.mjs",
+      "@stylistic/eslint-plugin",
+      // The plugin carries no name of its own; the Cloudflare preset registers it as `@nkzw` too.
+      { name: "@nkzw", specifier: "@nkzw/eslint-plugin" },
+      ...shadcn.jsPlugins,
+    ],
     // `vp check` runs type-aware rules and the type check only when both are enabled.
     // https://viteplus.dev/guide/check
     options: { reportUnusedDisableDirectives: "error", typeAware: true, typeCheck: true },
@@ -611,6 +617,12 @@ export default defineConfig({
       },
     ],
     rules: {
+      // Adopted from the Cloudflare Oxlint preset (#437), which takes both from `@nkzw/oxlint-config`.
+      // `instanceof` breaks across realms and bundled copies of a class; a tagged error is told apart
+      // by `_tag` and a Schema by `Schema.is`.
+      "@nkzw/no-instanceof": "error",
+      // A hook-style `use*` call with an Effect dependency array must name its dependencies.
+      "@nkzw/require-use-effect-arguments": "error",
       "@stylistic/padding-line-between-statements": [
         "error",
         { blankLine: "always", next: topLevelUnit, prev: "*" },
