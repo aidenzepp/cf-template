@@ -208,6 +208,12 @@ export default defineConfig({
     // off under `routes/`; two of its decisions are copied as scoped overrides instead. `effect` is
     // the `@effect/tsgo` Effect rule set: it runs in this one `vp check` pass only while
     // `effect-tsgo patch --oxlint --tsrs` has patched the toolchain, and the canary test turns red if not.
+    // Not adopted from the Cloudflare Oxlint preset (#437): `import/no-namespace`, which Ultracite core
+    // also leaves off. Effect is imported by name; the one `effect/Effect` namespace import is a test
+    // that lists the module's exports. The 67 findings at adoption were `import * as` from `alchemy` and
+    // `@alchemy.run/*` (54, Alchemy's documented style), `@distilled.cloud/cloudflare/*` (9), the local
+    // Drizzle schema handed to the Better Auth adapter (2), `@effect/sql-d1/D1Client` (1) and
+    // `effect/Effect` (1).
     // Adopted from the Cloudflare Oxlint preset (#437): no whole category is on by default, so an
     // Oxlint upgrade cannot switch on a rule unseen. The presets and this file already list every rule
     // that runs: `vp lint --print-config` and the enabled-rule count (1384) are the same either way.
