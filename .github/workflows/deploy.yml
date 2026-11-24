@@ -327,8 +327,8 @@ jobs:
   # keyword. Same-repository pull requests only. It is not in merge-gate's needs: it runs after the
   # merge, so no required check waits on it. It checks out the default branch, so the code it runs is
   # not the pull request's, and the default token needs only `issues: write`. The comment carries a
-  # hidden marker, so a re-run posts nothing. The title, body, branch and author type reach the step
-  # only through `env:`.
+  # hidden marker, so a re-run posts nothing. The title, body, branch and author type and login reach
+  # the step only through `env:`.
   merge-note:
     if: >-
       github.event.action == 'closed' &&
@@ -352,6 +352,7 @@ jobs:
         env:
           GH_REPO: ${{ github.repository }}
           GH_TOKEN: ${{ github.token }}
+          PR_AUTHOR_LOGIN: ${{ github.event.pull_request.user.login }}
           PR_AUTHOR_TYPE: ${{ github.event.pull_request.user.type }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_BRANCH: ${{ github.event.pull_request.head.ref }}

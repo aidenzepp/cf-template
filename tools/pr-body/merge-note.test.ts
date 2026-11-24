@@ -107,6 +107,7 @@ const run = (
   const seen: Array<ReadonlyArray<string>> = [];
 
   const config = {
+    PR_AUTHOR_LOGIN: "someone",
     PR_AUTHOR_TYPE: "User",
     PR_BODY: "",
     PR_BRANCH: "feat/x",
@@ -239,12 +240,15 @@ describe("merge-note program", () => {
   it.effect("skips a release PR and a Renovate PR without calling gh", () =>
     Effect.gen(function* exempt() {
       const release = yield* run({
+        PR_AUTHOR_LOGIN: "github-actions[bot]",
         PR_AUTHOR_TYPE: "Bot",
         PR_BODY: "Refs #5.",
         PR_BRANCH: "release-please--branches--main",
+        PR_TITLE: "chore(main): release 0.1.3",
       });
 
       const renovate = yield* run({
+        PR_AUTHOR_LOGIN: "renovate[bot]",
         PR_AUTHOR_TYPE: "Bot",
         PR_BODY: "Refs #5.",
         PR_BRANCH: "renovate/effect-4.x",
@@ -252,6 +256,27 @@ describe("merge-note program", () => {
 
       assert.strictEqual(release.seen.length + renovate.seen.length, 0);
       assert.deepStrictEqual([...release.posted, ...renovate.posted], []);
+    }),
+  );
+
+  it.effect("notes a Bot whose login or title does not match its branch form", () =>
+    Effect.gen(function* forged() {
+      const renovate = yield* run({
+        PR_AUTHOR_LOGIN: "other-app[bot]",
+        PR_AUTHOR_TYPE: "Bot",
+        PR_BODY: "Refs #5.",
+        PR_BRANCH: "renovate/effect-4.x",
+      });
+
+      const release = yield* run({
+        PR_AUTHOR_LOGIN: "other-app[bot]",
+        PR_AUTHOR_TYPE: "Bot",
+        PR_BODY: "Refs #6.",
+        PR_BRANCH: "release-please--branches--main",
+      });
+
+      assert.deepStrictEqual(renovate.posted, [5]);
+      assert.deepStrictEqual(release.posted, [6]);
     }),
   );
 

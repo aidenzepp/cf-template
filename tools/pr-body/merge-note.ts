@@ -131,11 +131,12 @@ const noteIssue = Effect.fn("mergeNote.noteIssue")(function* noteIssue(
 });
 
 /**
- * Comments `#<number> merged: <title>.` once on each issue a merged pull request links under
- * `Part of` or `Refs`. GitHub records a `Closes` itself, so that issue gets nothing, and a Release
- * Please or Renovate pull request is skipped. The comment starts with a hidden marker, and an issue
- * that already has it is left alone, so a re-run posts nothing. The pull request fields come from
- * the environment (`PR_BODY`, `PR_TITLE`, `PR_NUMBER`, `PR_BRANCH`, `PR_AUTHOR_TYPE`).
+ * Comments `#<number> merged: <title>.` once on each issue a merged pull request links under `Part
+ * of` or `Refs`. GitHub records a `Closes` itself, so that issue gets nothing, and a pull request
+ * that `isExempt` names (Release Please or Renovate) is skipped. The comment starts with a hidden
+ * marker, and an issue that already has it is left alone, so a re-run posts nothing. The pull
+ * request fields come from the environment (`PR_BODY`, `PR_TITLE`, `PR_NUMBER`, `PR_BRANCH`,
+ * `PR_AUTHOR_TYPE`, `PR_AUTHOR_LOGIN`).
  *
  * @returns The issues it commented on, in order.
  */
@@ -145,8 +146,9 @@ export const program = Effect.gen(function* mergeNoteProgram() {
   const number = yield* Config.Int("PR_NUMBER");
   const branch = yield* Config.String("PR_BRANCH");
   const authorType = yield* Config.String("PR_AUTHOR_TYPE");
+  const authorLogin = yield* Config.String("PR_AUTHOR_LOGIN");
 
-  if (isExempt({ authorType, branch })) {
+  if (isExempt({ authorLogin, authorType, branch, title })) {
     yield* Console.log("A release or Renovate pull request; no note.");
 
     return [];
