@@ -29,20 +29,23 @@ export type DomainConfig =
  * @param stage - The decoded stage.
  * @returns The hostname form when the stage honours a hostname, else the `workers.dev` form.
  */
-export const domainFor = Effect.fn("domainFor")(function* domainFor(
-  stage: StageName,
-): Effect.fn.Return<DomainConfig, Effect.Error<ReturnType<typeof customDomain>>> {
+export const domainFor = Effect.fn("domainFor")(function* domainFor(stage: StageName) {
   const value = yield* customDomain(stage);
 
   if (Option.isSome(value) && value.value !== "workers-dev") {
-    return { domain: value.value, hostname: value.value, kind: "hostname", workersDev: false };
+    return {
+      domain: value.value,
+      hostname: value.value,
+      kind: "hostname",
+      workersDev: false,
+    } satisfies DomainConfig;
   }
 
   return {
     domain: null,
     kind: "workers-dev",
     workersDev: { enabled: true, previewsEnabled: false },
-  };
+  } satisfies DomainConfig;
 });
 
 /**
@@ -70,22 +73,23 @@ export const wafRateLimitRule = (
     readonly mitigationSeconds: number;
   },
   ref: string,
-): Omit<Cloudflare.Ruleset.RulesetProps, "zone"> => ({
-  description: `Rate limit requests to ${hostname} outside /assets/ before a Worker is invoked`,
-  phase: "http_ratelimit",
-  rules: [
-    {
-      action: "block",
-      description: `Block an IP above ${values.requests} requests per ${values.periodSeconds} s outside /assets/`,
-      enabled: true,
-      expression: `http.host eq "${hostname}" and not starts_with(http.request.uri.path, "/assets/")`,
-      ratelimit: {
-        characteristics: ["ip.src"],
-        mitigationTimeout: values.mitigationSeconds,
-        period: values.periodSeconds,
-        requestsPerPeriod: values.requests,
+) =>
+  ({
+    description: `Rate limit requests to ${hostname} outside /assets/ before a Worker is invoked`,
+    phase: "http_ratelimit",
+    rules: [
+      {
+        action: "block",
+        description: `Block an IP above ${values.requests} requests per ${values.periodSeconds} s outside /assets/`,
+        enabled: true,
+        expression: `http.host eq "${hostname}" and not starts_with(http.request.uri.path, "/assets/")`,
+        ratelimit: {
+          characteristics: ["ip.src"],
+          mitigationTimeout: values.mitigationSeconds,
+          period: values.periodSeconds,
+          requestsPerPeriod: values.requests,
+        },
+        ref,
       },
-      ref,
-    },
-  ],
-});
+    ],
+  }) satisfies Omit<Cloudflare.Ruleset.RulesetProps, "zone">;

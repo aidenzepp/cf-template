@@ -2,7 +2,6 @@ import { Console, Effect, Schema } from "effect";
 import { HttpClientResponse } from "effect/http";
 import type { GuardedRepository } from "./repository.ts";
 import { report, reportResponse, restClient, summarize } from "./rest.ts";
-import type { Kind } from "./rest.ts";
 import type { Tier } from "./tier.ts";
 
 /**
@@ -156,11 +155,7 @@ export const applyRestLabels = Effect.fn("applyRestLabels")(function* applyRestL
         { gated: true },
       ),
     ];
-  }).pipe(
-    Effect.catch(() =>
-      report("failed", RULESET, 0).pipe(Effect.map((kind): Array<Kind> => [kind])),
-    ),
-  );
+  }).pipe(Effect.catch(() => report("failed", RULESET, 0).pipe(Effect.map((kind) => [kind]))));
 
   const ruleset = tier.capabilities.has("rulesets")
     ? yield* upsert
