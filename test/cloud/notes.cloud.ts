@@ -7,16 +7,7 @@ import { retryPlatformNotFound } from "../../infra/src/smoke.ts";
 import { publicOrigin } from "../../infra/src/origin.ts";
 import { resolveStackName } from "../../infra/src/stack-name.ts";
 import { CLOUD_STAGE, Stage } from "../../infra/stages.ts";
-
-/**
- * The password of the throwaway user, long enough for Better Auth's minimum.
- */
-const PASSWORD = "correct horse battery";
-
-/**
- * The slice of a Better Auth sign-up reply this flow reads: the new user's id.
- */
-const SignUpReply = Schema.Struct({ user: Schema.Struct({ id: Schema.String }) });
+import { PASSWORD, Receipt, SignUpReply } from "./warm-up.ts";
 
 /**
  * The note the flow creates and reads back.
@@ -33,21 +24,13 @@ const NoteRead = Schema.Struct({
   updatedAt: Schema.String,
 });
 
-/**
- * The receipt of a Domain command over HTTP: the stream and version the write landed at.
- */
-const Receipt = Schema.Struct({
-  reply: Schema.Unknown,
-  stream: Schema.String,
-  version: Schema.Finite,
-});
-
 const services = BunHttpClient.layer.pipe(Layer.provideMerge(Digest.layerWebCrypto));
 
 /**
  * A fresh user signed up on the deployed stage and the first note that user created, made once
  * before the cases that read them. Each is a real request to the stage, so the cases that follow
- * send one request apiece and the setup runs under the hook's timeout.
+ * send one request apiece. The one-time costs of a new stage were paid by the global setup's
+ * `warmUp`, so this setup sends warm requests and runs under the hook's timeout.
  */
 class Notebook extends Context.Service<
   Notebook,
