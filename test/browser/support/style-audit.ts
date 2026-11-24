@@ -773,9 +773,7 @@ const audit = Effect.fn("audit")(function* audit(
       );
     }
 
-    yield* promised("Loading the page", () =>
-      page.goto(isPath ? `${origin}${target}` : target, { waitUntil: "networkidle" }),
-    );
+    yield* promised("Loading the page", () => page.goto(isPath ? `${origin}${target}` : target));
 
     if (isPath) {
       yield* promised("Waiting for hydration", () => page.waitForFunction(HYDRATED));
