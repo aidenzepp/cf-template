@@ -17,9 +17,10 @@ const trailer = /^Co-Authored-By:/imu;
 const header = /^[a-z]+(?:\([^(),/\\]+\))?!?: \S.*$/u;
 
 /**
- * The release-please subject: `release X.Y.Z`, with an optional prerelease suffix.
+ * The release-please subject: `release X.Y.Z`, with an optional prerelease suffix and an optional
+ * ` (#N)` pull request suffix, which squash merge appends and the `pr-title` job lints.
  */
-const releaseSubject = /^release \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/u;
+const releaseSubject = /^release \d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?: \(#\d+\))?$/u;
 
 /**
  * The scopes any commit may use, beside the workspace directory names.
