@@ -1,0 +1,436 @@
+import { BunServices } from "@effect/platform-bun";
+import { assert, describe, it } from "@effect/vitest";
+import { Array as Arr, ConfigProvider, Effect, FileSystem, Layer, Option, Ref } from "effect";
+import {
+  ALL_CREATE_NOTE,
+  BINDING_REMOVED_NOTE,
+  D1_REPLACE_NOTE,
+  EMPTY_PLAN_NOTE,
+  WORKER_REMOVED_NOTE,
+  checkFingerprint,
+  decide,
+  renderSummary,
+  rowsOfJson,
+  rowsOfPlan,
+  verdictOf,
+} from "./plan-prod.ts";
+
+/**
+ * Read one plan fixture, derived from the Alchemy source, as text.
+ */
+const fixture = (name: string) =>
+  Effect.gen(function* read() {
+    const fs = yield* FileSystem.FileSystem;
+
+    return yield* fs.readFileString(
+      new URL(`fixtures/plans/${name}.json`, import.meta.url).pathname,
+    );
+  }).pipe(Effect.provide(BunServices.layer));
+
+/**
+ * The verdict of one fixture.
+ */
+const verdictOfFixture = (name: string) =>
+  fixture(name).pipe(Effect.flatMap(rowsOfJson), Effect.flatMap(verdictOf));
+
+/**
+ * One `Api` Worker row, with one removed binding when `removed` is true.
+ */
+const worker = (action: "replace" | "update", removed: boolean) => ({
+  action,
+  bindings: removed ? [{ action: "delete" as const, sid: "Notebook" }] : [],
+  fqn: "Api",
+  logicalId: "Api",
+  resourceType: "Cloudflare.Worker",
+});
+
+/**
+ * The `sha256` of empty input, the fingerprint of a plan with no blocking rows.
+ */
+const EMPTY_INPUT_DIGEST = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+
+describe("plan-prod classifier", () => {
+  it.effect("reads an all-noop plan as not destructive", () =>
+    Effect.gen(function* allNoop() {
+      const verdict = yield* verdictOfFixture("all-noop");
+
+      assert.isFalse(verdict.destructive);
+      assert.isTrue(verdict.rows.every((entry) => entry.class === "noop"));
+    }),
+  );
+
+  it.effect("blocks a D1 replace with the retain line", () =>
+    Effect.gen(function* d1Replace() {
+      const verdict = yield* verdictOfFixture("d1-replace");
+      const blocking = verdict.rows.filter((entry) => entry.class === "blocking");
+
+      assert.isTrue(verdict.destructive);
+      assert.deepStrictEqual(
+        blocking.map((entry) => entry.row.fqn),
+        ["AppDb"],
+      );
+      assert.deepStrictEqual(blocking[0]?.note, Option.some(D1_REPLACE_NOTE));
+      assert.include(renderSummary(verdict), D1_REPLACE_NOTE);
+    }),
+  );
+
+  it.effect("blocks a prod plan whose rows are all create", () =>
+    Effect.gen(function* allCreate() {
+      const verdict = yield* verdictOfFixture("all-create");
+
+      assert.isTrue(verdict.destructive);
+      assert.isTrue(verdict.rows.every((entry) => entry.class === "blocking"));
+      assert.include(renderSummary(verdict), ALL_CREATE_NOTE);
+    }),
+  );
+
+  it.effect("blocks a KV namespace delete and keeps a Worker update as info", () =>
+    Effect.gen(function* kvDelete() {
+      const verdict = yield* verdictOfFixture("kv-delete");
+      const classes = Object.fromEntries(verdict.rows.map((entry) => [entry.row.fqn, entry.class]));
+
+      assert.isTrue(verdict.destructive);
+      assert.strictEqual(classes.KnobsNamespace, "blocking");
+      assert.strictEqual(classes.Api, "info");
+    }),
+  );
+
+  it.effect("blocks a Worker replace, and a Worker update that removes a binding", () =>
+    Effect.gen(function* durableObjects() {
+      const replaced = yield* verdictOf([worker("replace", false)]);
+      const dropped = yield* verdictOf([worker("update", true)]);
+      const updated = yield* verdictOf([worker("update", false)]);
+
+      assert.isTrue(replaced.destructive);
+      assert.include(renderSummary(replaced), WORKER_REMOVED_NOTE);
+      assert.isTrue(dropped.destructive);
+      assert.include(renderSummary(dropped), BINDING_REMOVED_NOTE);
+      assert.isFalse(updated.destructive);
+      assert.strictEqual(updated.rows[0]?.class, "info");
+    }),
+  );
+
+  it.effect("holds a plan with no rows and says why", () =>
+    Effect.gen(function* emptyPlan() {
+      const verdict = yield* verdictOf(yield* rowsOfJson("[]"));
+
+      assert.isTrue(verdict.destructive);
+      assert.include(renderSummary(verdict), EMPTY_PLAN_NOTE);
+    }),
+  );
+
+  it.effect("decodes a first create whose fromProviderMode is present and undefined", () =>
+    Effect.gen(function* firstCreate() {
+      const [row] = yield* rowsOfJson(yield* fixture("first-create"));
+
+      const rows = yield* rowsOfPlan([
+        { ...row, fromProviderMode: undefined, providerMode: "live" },
+      ]);
+
+      assert.deepStrictEqual(rows, [row]);
+      assert.strictEqual(rows[0]?.action, "create");
+    }),
+  );
+
+  it.effect("ignores fields the classifier does not read", () =>
+    Effect.gen(function* extraFields() {
+      const text = JSON.stringify([
+        { ...worker("update", false), fromProviderMode: "local", futureField: 1, providerMode: 7 },
+      ]);
+
+      assert.deepStrictEqual(yield* rowsOfJson(text), [worker("update", false)]);
+    }),
+  );
+
+  it.effect("fails on an action outside the known set", () =>
+    Effect.gen(function* unknownRowAction() {
+      const error = yield* Effect.flip(rowsOfJson(yield* fixture("unknown-action")));
+
+      assert.strictEqual(error._tag, "PlanProdError");
+      assert.include(error.message, `[0]["action"]`);
+    }),
+  );
+
+  it.effect("fails to decode missing or unparsable plan output", () =>
+    Effect.gen(function* missingOutput() {
+      const missing = yield* Effect.flip(rowsOfJson(""));
+      const garbage = yield* Effect.flip(rowsOfJson("not a plan"));
+
+      assert.strictEqual(missing._tag, "PlanProdError");
+      assert.strictEqual(garbage._tag, "PlanProdError");
+    }),
+  );
+
+  it.effect("blocks an orphaned row persisted under a pre-rename stateful type", () =>
+    Effect.gen(function* legacyNames() {
+      const verdict = yield* verdictOf(
+        ["Cloudflare.KVNamespace", "Cloudflare.R2Bucket", "Cloudflare.Queue"].map(
+          (resourceType) => ({
+            action: "orphaned" as const,
+            bindings: [],
+            fqn: resourceType,
+            logicalId: resourceType,
+            resourceType,
+          }),
+        ),
+      );
+
+      assert.isTrue(verdict.destructive);
+      assert.deepStrictEqual(
+        verdict.rows.map((entry) => entry.class),
+        ["blocking", "blocking", "blocking"],
+      );
+    }),
+  );
+
+  it.effect("reads a replace of an unlisted type and an adoption as notices", () =>
+    Effect.gen(function* notices() {
+      const verdict = yield* verdictOf([
+        {
+          action: "replace",
+          bindings: [],
+          fqn: "ApiRoute",
+          logicalId: "ApiRoute",
+          resourceType: "Cloudflare.Workers.Route",
+        },
+        {
+          action: "adopted",
+          bindings: [],
+          fqn: "Web",
+          logicalId: "Web",
+          resourceType: "Cloudflare.Website",
+        },
+      ]);
+
+      assert.isFalse(verdict.destructive);
+      assert.deepStrictEqual(
+        verdict.rows.map((entry) => entry.class),
+        ["notice", "notice"],
+      );
+    }),
+  );
+
+  it.effect("fingerprints the blocking rows the same in any order", () =>
+    Effect.gen(function* stable() {
+      const rows = yield* rowsOfJson(yield* fixture("all-create"));
+      const first = yield* verdictOf(rows);
+      const second = yield* verdictOf(Arr.reverse(rows));
+
+      assert.match(first.fingerprint, /^[0-9a-f]{64}$/u);
+      assert.strictEqual(first.fingerprint, second.fingerprint);
+    }),
+  );
+
+  it.effect("refuses a stale fingerprint and names both digests", () =>
+    Effect.gen(function* staleDigest() {
+      const verdict = yield* verdictOfFixture("kv-delete");
+      const held = "0".repeat(64);
+      const error = yield* Effect.flip(checkFingerprint(verdict, Option.some(held)));
+
+      assert.strictEqual(error._tag, "PlanProdError");
+      assert.include(error.message, held);
+      assert.include(error.message, verdict.fingerprint);
+    }),
+  );
+
+  it.effect("fingerprints a plan with no blocking rows as the digest of empty input", () =>
+    Effect.gen(function* emptyDigest() {
+      const noop = yield* verdictOfFixture("all-noop");
+      const empty = yield* verdictOf([]);
+
+      assert.strictEqual(noop.fingerprint, EMPTY_INPUT_DIGEST);
+      assert.strictEqual(empty.fingerprint, EMPTY_INPUT_DIGEST);
+    }),
+  );
+});
+
+/**
+ * The hidden marker the sticky `infra-plan` pull request comment is found by.
+ */
+const COMMENT_MARKER = "<!-- infra-plan -->";
+
+/**
+ * A name that carries a backtick, a mention, a newline, a carriage return, a table pipe and the
+ * comment marker.
+ */
+const HOSTILE_NAME = `a\`b @octocat\nc${COMMENT_MARKER}|d\r`;
+
+/**
+ * What {@link HOSTILE_NAME} renders as: every breakout character stripped.
+ */
+const HOSTILE_NAME_INERT = "ab octocatc!-- infra-plan --d";
+
+/**
+ * One planned row with no bindings.
+ */
+const planned = (fqn: string, resourceType: string, action: "replace" | "update") => ({
+  action,
+  bindings: [],
+  fqn,
+  logicalId: fqn,
+  resourceType,
+});
+
+/**
+ * Count the non-overlapping occurrences of `mark` in `text`.
+ */
+const occurrences = (text: string, mark: string) => text.split(mark).length - 1;
+
+describe("plan-prod summary rendering", () => {
+  it.effect("renders a name with a backtick, a mention, a newline and the marker inert", () =>
+    Effect.gen(function* inertNames() {
+      const hostile = yield* verdictOf([
+        planned(HOSTILE_NAME, "Cloudflare.D1Database", "replace"),
+        planned("Other", HOSTILE_NAME, "update"),
+      ]);
+
+      const plain = yield* verdictOf([
+        planned("AppDb", "Cloudflare.D1Database", "replace"),
+        planned("Other", "Cloudflare.Custom", "update"),
+      ]);
+
+      const text = renderSummary(hostile);
+      const lines = text.split("\n");
+
+      assert.notInclude(text, COMMENT_MARKER);
+      assert.notInclude(text, "@");
+      assert.notInclude(text, "\r");
+      assert.strictEqual(lines.length, renderSummary(plain).split("\n").length);
+
+      assert.include(
+        lines,
+        `| \`${HOSTILE_NAME_INERT}\` | \`Cloudflare.D1Database\` | replace | blocking |`,
+      );
+      assert.include(lines, `| \`Other\` | \`${HOSTILE_NAME_INERT}\` | update | info |`);
+      assert.include(lines, `- \`${HOSTILE_NAME_INERT}\` (replace): ${D1_REPLACE_NOTE}`);
+
+      for (const line of lines.filter((entry) => entry.startsWith("| `"))) {
+        assert.strictEqual(occurrences(line, "|"), 5);
+        assert.strictEqual(occurrences(line, "`"), 4);
+      }
+
+      for (const line of lines.filter((entry) => entry.startsWith("- `"))) {
+        assert.strictEqual(occurrences(line.slice(0, line.indexOf(" (")), "`"), 2);
+      }
+    }),
+  );
+
+  it.effect("leaves the fingerprint on the raw names", () =>
+    Effect.gen(function* rawFingerprint() {
+      const hostile = yield* verdictOf([planned(HOSTILE_NAME, "Cloudflare.D1Database", "replace")]);
+
+      const stripped = yield* verdictOf([
+        planned(HOSTILE_NAME_INERT, "Cloudflare.D1Database", "replace"),
+      ]);
+
+      assert.notStrictEqual(hostile.fingerprint, stripped.fingerprint);
+    }),
+  );
+});
+
+/**
+ * Decode a fixture and run `decide` on it, as the script does, against a file system that
+ * records every write. `settings` adds to the two GitHub variables the script always reads.
+ */
+const decideRecording = (
+  name: string,
+  expected: Option.Option<string>,
+  settings: Readonly<Record<string, string>> = {},
+) =>
+  Effect.gen(function* run() {
+    const writes = yield* Ref.make<ReadonlyArray<readonly [string, string]>>([]);
+
+    const fsLayer = FileSystem.layerNoop({
+      writeFileString: (path, data) => Ref.update(writes, (all) => [...all, [path, data] as const]),
+    });
+
+    const config = ConfigProvider.layer(
+      ConfigProvider.fromUnknown({
+        GITHUB_OUTPUT: "out",
+        GITHUB_STEP_SUMMARY: "summary",
+        ...settings,
+      }),
+    );
+
+    const text = yield* fixture(name);
+
+    const result = yield* Effect.exit(
+      rowsOfJson(text).pipe(
+        Effect.flatMap((rows) => decide(rows, expected)),
+        Effect.provide(Layer.mergeAll(fsLayer, config)),
+      ),
+    );
+
+    return { result, writes: yield* Ref.get(writes) };
+  });
+
+describe("plan-prod outputs", () => {
+  it.effect("writes destructive and fingerprint together for a decoded plan", () =>
+    Effect.gen(function* written() {
+      const { writes } = yield* decideRecording("d1-replace", Option.none());
+      const output = writes.find(([path]) => path === "out")?.[1] ?? "";
+
+      assert.match(output, /^destructive=true\nfingerprint=[0-9a-f]{64}\n$/u);
+      assert.isTrue(writes.some(([path]) => path === "summary"));
+    }),
+  );
+
+  it.effect("writes neither output when an action does not decode", () =>
+    Effect.gen(function* unknownAction() {
+      const { result, writes } = yield* decideRecording("unknown-action", Option.none());
+
+      assert.isTrue(result._tag === "Failure");
+      assert.deepStrictEqual(writes, []);
+    }),
+  );
+
+  it.effect("writes neither output when the fingerprint is stale", () =>
+    Effect.gen(function* staleRun() {
+      const { result, writes } = yield* decideRecording("kv-delete", Option.some("0".repeat(64)));
+
+      assert.isTrue(result._tag === "Failure");
+      assert.deepStrictEqual(writes, []);
+    }),
+  );
+
+  it.effect("writes the summary text to PLAN_SUMMARY_FILE when it is set", () =>
+    Effect.gen(function* summaryFile() {
+      const expected = renderSummary(yield* verdictOfFixture("d1-replace"));
+
+      const { writes } = yield* decideRecording("d1-replace", Option.none(), {
+        PLAN_SUMMARY_FILE: "plan-summary.md",
+      });
+
+      assert.deepStrictEqual(
+        writes.filter(([path]) => path === "plan-summary.md"),
+        [["plan-summary.md", expected]],
+      );
+
+      assert.deepStrictEqual(writes.find(([path]) => path === "summary")?.[1], expected);
+      assert.include(expected, D1_REPLACE_NOTE);
+    }),
+  );
+
+  it.effect("writes only the job summary and the outputs when PLAN_SUMMARY_FILE is unset", () =>
+    Effect.gen(function* summaryFileUnset() {
+      const { writes } = yield* decideRecording("d1-replace", Option.none());
+
+      assert.deepStrictEqual(
+        writes.map(([path]) => path),
+        ["summary", "out"],
+      );
+    }),
+  );
+
+  it.effect("writes no summary file when the plan does not decode or is stale", () =>
+    Effect.gen(function* summaryFileOnFailure() {
+      const settings = { PLAN_SUMMARY_FILE: "plan-summary.md" };
+      const undecodable = yield* decideRecording("unknown-action", Option.none(), settings);
+
+      const stale = yield* decideRecording("kv-delete", Option.some("0".repeat(64)), settings);
+
+      assert.deepStrictEqual(undecodable.writes, []);
+      assert.deepStrictEqual(stale.writes, []);
+    }),
+  );
+});

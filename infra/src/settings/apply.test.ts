@@ -3,7 +3,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Console, Effect, Layer, Redacted } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { applySettings } from "./apply.ts";
-import { AdminGuardError, AmbientCredentialsError } from "./repository-errors.ts";
+import { AdminGuardError, AmbientCredentialsError } from "./repository.ts";
 import { withToken } from "./stack.ts";
 
 /**

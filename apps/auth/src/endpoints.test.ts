@@ -27,7 +27,7 @@ const Endpoint = Schema.Struct({
  * @param api - The instance's endpoint map.
  * @returns The registered paths.
  */
-const registeredPaths = (api: Effect.Success<AuthInstance["auth"]>["api"]): ReadonlyArray<string> =>
+const registeredPaths = (api: Effect.Success<AuthInstance["auth"]>["api"]) =>
   Object.values(api)
     .flatMap((endpoint) => {
       const parsed = Schema.decodeUnknownOption(Endpoint)({
@@ -47,7 +47,7 @@ const registeredPaths = (api: Effect.Success<AuthInstance["auth"]>["api"]): Read
  * @param paths - Registered paths.
  * @returns The paths with no class.
  */
-const unclassified = (paths: ReadonlyArray<string>): ReadonlyArray<string> =>
+const unclassified = (paths: ReadonlyArray<string>) =>
   paths.filter((path) => !Object.hasOwn(ENDPOINT_CLASSES, path));
 
 /**

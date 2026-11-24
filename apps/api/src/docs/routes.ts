@@ -3,18 +3,22 @@ import { HttpRouter, HttpServerResponse, Url } from "effect/http";
 import { HttpApiMiddleware, HttpApiScalar, OpenApi } from "effect/http-api";
 import * as DomainHttp from "@alchemy.run/domain/Http";
 import { DocsEnabledKnob, DocsLiveRead } from "@workspace/config/docs";
-import { LiveKnobs } from "@workspace/config/live-knobs";
+import { LiveKnobs } from "@workspace/config/knob";
 import { Api } from "@workspace/contract/api/api";
 import { DOCS_PATH, LLMS_PATH, OPENAPI_PATH } from "@workspace/contract/api/docs-paths";
 import { NotebookApi } from "../notes/notebook.api.ts";
+import { kebabPaths } from "./kebab-paths.ts";
 import { llmsText } from "./llms.ts";
 
 /**
- * The Notebook Api published as a plain HTTP group: one `POST /<Command>` per command and
- * `GET /Note/{key}` (with its `watch`, `events`, `list` and `snapshot` routes) for the `Note` view,
- * built by `toHttpApi` from the Domain Api, so the model is the one source of its paths and errors.
+ * The Notebook Api published as a plain HTTP group: one `POST /<command>` per command
+ * (`/create-note`, `/update-note`, `/delete-note`) and `GET /note/{key}` (with its `watch`,
+ * `events`, `list` and `snapshot` routes) for the `Note` view, built by `toHttpApi` from the Domain
+ * Api, so the model is the one source of its names and errors. `toHttpApi` takes each path from the
+ * model's PascalCase names, so {@link kebabPaths} rewrites them to the kebab-case every route of
+ * the Worker uses.
  */
-export const NotebookHttp = DomainHttp.toHttpApi(NotebookApi);
+export const NotebookHttp = kebabPaths(DomainHttp.toHttpApi(NotebookApi));
 
 /**
  * The Notebook group as the Worker hosts it: under `/api`, wrapped in `ProblemDetails` like the

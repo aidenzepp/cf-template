@@ -10,9 +10,8 @@ import {
   References,
   Schema,
 } from "effect";
-import { fromSource, LiveKnobs } from "./live-knobs.ts";
-import { Knob, MissingKnobAnnotationError } from "./knob.ts";
-import type { LiveSource } from "./live-knobs.ts";
+import { fromSource, Knob, LiveKnobs, MissingKnobAnnotationError } from "./knob.ts";
+import type { LiveSource } from "./knob.ts";
 
 /**
  * A log line as the test logger captures it: its level and the `knob.MODE.reason` annotation.
@@ -58,7 +57,7 @@ const captureLogs = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 /**
  * A live source that answers every read with `value`.
  */
-const sourceOf = (value: string): LiveSource => ({
+const sourceOf = (value: string) => ({
   name: "test-source",
   read: () => Effect.succeedSome(value),
 });

@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect, FileSystem, Option, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";

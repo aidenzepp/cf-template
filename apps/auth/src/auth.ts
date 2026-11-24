@@ -31,8 +31,8 @@ import { createAuthMiddleware } from "better-auth/api";
 import { requireFreshSession } from "./fresh-session.ts";
 import { betterAuthLogger } from "./logger.ts";
 import { passkeyPlugin } from "./passkeys.ts";
-import { passwordFor, rehashAfterSignIn } from "./password-adapter.ts";
-import type { RunEffect } from "./password-adapter.ts";
+import { passwordFor, rehashAfterSignIn } from "./password.ts";
+import type { RunEffect } from "./password.ts";
 import { socialProviders } from "./providers.ts";
 import { ReclaimDatabase, reclaimOrphanBeforeSignUp } from "./reclaim.ts";
 import { logRejectedEmail } from "./rejected-email.ts";
@@ -231,7 +231,7 @@ const isNested = (member: unknown): member is object => Predicate.isObject(membe
  * @param runPromise - Runs an Effect with the captured services.
  * @returns A proxy that behaves as a Promise-returning database.
  */
-const promiseView = <T extends object>(target: T, runPromise: RunPromise): T =>
+const promiseView = <T extends object>(target: T, runPromise: RunPromise) =>
   new Proxy(target, {
     get: (source, key) => {
       if (key === "then" && isRunnable(source)) {
@@ -295,9 +295,7 @@ const adapterFor = Effect.fnUntraced(function* adapterFor(binding: RawDatabase) 
  *   `Cloudflare.D1.QueryDatabase(...).raw` does.
  * @returns A layer providing `BetterAuth.Database` and `ReclaimDatabase`.
  */
-export const authDatabaseLayer = (
-  raw: Effect.Effect<RawDatabase, never, RuntimeContext>,
-): Layer.Layer<Database | ReclaimDatabase> =>
+export const authDatabaseLayer = (raw: Effect.Effect<RawDatabase, never, RuntimeContext>) =>
   Layer.mergeAll(
     Layer.succeed(
       Database,

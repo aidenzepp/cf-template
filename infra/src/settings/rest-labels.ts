@@ -1,8 +1,14 @@
 import { Console, Effect, Schema } from "effect";
 import { HttpClientResponse } from "effect/http";
 import type { GuardedRepository } from "./repository.ts";
-import { restClient } from "./rest.ts";
-import { report, reportResponse, summarize } from "./rest-outcome.ts";
+import {
+  alreadyHolds,
+  report,
+  reportResponse,
+  reportUnchanged,
+  restClient,
+  summarize,
+} from "./rest.ts";
 import type { Tier } from "./tier.ts";
 
 /**
@@ -97,7 +103,9 @@ const ownRulesets = Effect.fn("ownRulesets")(function* ownRulesets(
  * analysis exists. The ruleset step runs only when the tier
  * has `rulesets` and `GET .../code-scanning/analyses` finds an analysis on `main`; before the first
  * analysis GitHub answers 404 (or 403 without code scanning) and the run prints
- * `PENDING code-scanning ruleset: no analysis on main yet`, which is not counted. A failed call
+ * `PENDING code-scanning ruleset: no analysis on main yet`, which is not counted. A ruleset that
+ * already holds {@link CODE_SCANNING_RULESET} (read with `GET .../rulesets/{id}`) is not rewritten
+ * and prints `unchanged code-scanning-ruleset`, also not counted. A failed call
  * never stops the rest; any failure ends the run in a `RestSettingsError` carrying the counts.
  *
  * @param repository - The guarded repository.
@@ -146,6 +154,13 @@ export const applyRestLabels = Effect.fn("applyRestLabels")(function* applyRestL
     const found = (yield* ownRulesets(send, path)).find(
       (ruleset) => ruleset.name === CODE_SCANNING_RULESET.name,
     );
+
+    if (
+      found !== undefined &&
+      (yield* alreadyHolds(send, `${path}/${found.id}`, CODE_SCANNING_RULESET))
+    ) {
+      return [yield* reportUnchanged(RULESET)];
+    }
 
     return [
       yield* reportResponse(

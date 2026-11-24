@@ -1,8 +1,7 @@
 import { assert, it, layer } from "@effect/vitest";
 import { Effect, Schema } from "effect";
 import { passkeyOptions } from "./passkeys.ts";
-import { LocalAuthD1, asExecution, authOver } from "./test-harness.ts";
-import { cookieOf, handle, signUp } from "./test-requests.ts";
+import { LocalAuthD1, asExecution, authOver, cookieOf, handle, signUp } from "./test-harness.ts";
 
 /**
  * A public origin that differs from the dev default the options module and the harness fall back

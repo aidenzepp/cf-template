@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Layer, Logger } from "effect";
 import type { LogLevel } from "effect";
-import { LiveKnobs, fromSource } from "@workspace/config/live-knobs";
+import { LiveKnobs, fromSource } from "@workspace/config/knob";
 import type AuthWorker from "./worker.ts";
 import { AuthDeployment, authProps, authTelemetry, makeAtLevel } from "./worker.ts";
 

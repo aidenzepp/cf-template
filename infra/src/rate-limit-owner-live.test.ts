@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { RateLimitEntrypointError } from "./zone-entrypoint.ts";
+import { RateLimitEntrypointError } from "./rate-limit-owner.ts";
 import { readZoneEntrypoint } from "./rate-limit-owner-live.ts";
 
 const zone = { id: "zone-1", name: "example.test" };

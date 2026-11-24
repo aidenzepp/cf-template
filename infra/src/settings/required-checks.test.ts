@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 import { CLOUD_STAGE } from "../../stages.ts";
-import { REQUIRED_CHECKS } from "./declare-constants.ts";
+import { REQUIRED_CHECKS } from "./declare.ts";
 
 /**
  * Split one workflow file into its jobs. It reads the two-space job keys under the top-level
@@ -12,9 +12,7 @@ import { REQUIRED_CHECKS } from "./declare-constants.ts";
  * @param text - The workflow file.
  * @returns Each job's id and its lines after the key, in file order.
  */
-const jobBlocks = (
-  text: string,
-): ReadonlyArray<{ readonly id: string; readonly lines: ReadonlyArray<string> }> => {
+const jobBlocks = (text: string) => {
   const lines = text.split("\n");
   const start = lines.indexOf("jobs:");
 
@@ -48,7 +46,7 @@ const jobBlocks = (
  * @param text - The workflow file.
  * @returns The contexts, in file order.
  */
-const jobContexts = (text: string): ReadonlyArray<string> =>
+const jobContexts = (text: string) =>
   jobBlocks(text).map(({ id, lines }) => {
     const name = lines
       .map((line) => /^ {4}name:\s*["']?(?<name>.+?)["']?\s*$/u.exec(line)?.groups?.name)
@@ -65,9 +63,7 @@ const jobContexts = (text: string): ReadonlyArray<string> =>
  * @param text - The workflow file.
  * @returns Each such job's id and its group, `undefined` when the job names none.
  */
-const cloudJobGroups = (
-  text: string,
-): ReadonlyArray<{ readonly id: string; readonly group: string | undefined }> =>
+const cloudJobGroups = (text: string) =>
   jobBlocks(text)
     .filter(({ lines }) =>
       lines.some((line) => /^\s*(?:-\s+)?run:\s*bun run test:cloud(?:\s|$)/u.test(line)),

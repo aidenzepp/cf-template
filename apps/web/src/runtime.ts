@@ -47,22 +47,31 @@ export const stackNameText = createIsomorphicFn()
   .client(() => hydratedStackName);
 
 /**
- * Remember the `AUTH_METHODS`, `AUTH_ORPHAN_GRACE_SECONDS` and `STACK_NAME` text the server
- * dehydrated, before the browser renders a page and builds its runtime.
+ * Remember the `STACK_NAME` text the server dehydrated, before the browser renders a page.
  *
- * @param texts - The text `infra` bound, as the router dehydrates it.
- * @param texts.authMethods - The `AUTH_METHODS` JSON text.
- * @param texts.orphanGrace - The `AUTH_ORPHAN_GRACE_SECONDS` text.
- * @param texts.stackName - The `STACK_NAME` text.
+ * @param text - The stack name `infra` bound.
  */
-export const hydrateTexts = (texts: {
-  readonly authMethods: string;
-  readonly orphanGrace: string;
-  readonly stackName: string;
-}): void => {
-  hydratedAuthMethods = texts.authMethods;
-  hydratedOrphanGrace = texts.orphanGrace;
-  hydratedStackName = texts.stackName;
+export const hydrateStackName = (text: string) => {
+  hydratedStackName = text;
+};
+
+/**
+ * Remember the `AUTH_ORPHAN_GRACE_SECONDS` text the server dehydrated, before the browser's runtime
+ * is built.
+ *
+ * @param text - The text `infra` bound.
+ */
+export const hydrateOrphanGrace = (text: string) => {
+  hydratedOrphanGrace = text;
+};
+
+/**
+ * Remember the `AUTH_METHODS` text the server dehydrated, before the browser's runtime is built.
+ *
+ * @param text - The JSON text `infra` bound.
+ */
+export const hydrateAuthMethods = (text: string) => {
+  hydratedAuthMethods = text;
 };
 
 /**
@@ -113,7 +122,7 @@ export const run = <A, E>(
     ManagedRuntime.ManagedRuntime.Services<ReturnType<typeof makeRuntime>>
   >,
   options?: { readonly signal?: AbortSignal },
-): Promise<A> => {
+) => {
   runtime ??= makeRuntime();
 
   // A defect that is not an `Error` (a string passed to `die`) would reject with that bare value,

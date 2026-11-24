@@ -1,7 +1,7 @@
 import type { RpcCallError } from "alchemy/Rpc";
 import { Context, Duration, Effect, Layer, Predicate, Schema } from "effect";
 import { HttpServerRequest } from "effect/http";
-import { LiveKnobs } from "@workspace/config/live-knobs";
+import { LiveKnobs } from "@workspace/config/knob";
 import { AuthUnavailable } from "@workspace/contract/domain/auth-errors";
 import type { EncodedSession } from "@workspace/auth/contract";
 import { Session } from "@workspace/contract/domain/session";

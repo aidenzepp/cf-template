@@ -1,15 +1,8 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Effect, FileSystem, Path, Schema } from "effect";
-import { CssSyntaxError, parse } from "postcss";
-import type { AnyNode } from "postcss";
-
-/**
- * The stylesheet does not parse. The message names the file and the line.
- */
-export class DesignMdParseError extends Schema.TaggedError<
-  DesignMdParseError,
-  { readonly brand: unique symbol }
->()("DesignMdParseError", { message: Schema.String }) {}
+import { readBlocks, resolveRadii } from "./blocks.ts";
+import type { Blocks } from "./blocks.ts";
 
 /**
  * The guidance file repeats a heading the generator writes. The message names the heading.
@@ -18,24 +11,6 @@ export class DesignMdGuidanceError extends Schema.TaggedError<
   DesignMdGuidanceError,
   { readonly brand: unique symbol }
 >()("DesignMdGuidanceError", { message: Schema.String }) {}
-
-/**
- * A `--radius-*` step is a `calc()` the generator cannot turn into a plain dimension. The message
- * names the token and the expression.
- */
-export class DesignMdResolveError extends Schema.TaggedError<
-  DesignMdResolveError,
-  { readonly brand: unique symbol }
->()("DesignMdResolveError", { message: Schema.String }) {}
-
-/**
- * The custom properties of the blocks the generator reads: `@theme`, `:root` and `.dark`.
- */
-interface Blocks {
-  readonly dark: Map<string, string>;
-  readonly root: Map<string, string>;
-  readonly theme: Map<string, string>;
-}
 
 /**
  * A custom property no token group takes, kept for the prose: its block label, name and value.
@@ -58,19 +33,6 @@ const ALIAS = /^var\((?<name>--[\w-]+)\)$/u;
 const RATIO = /^calc\(\s*(?<top>[\d.]+)\s*\/\s*(?<bottom>[\d.]+)\s*\)$/u;
 
 /**
- * A radius step written as `calc()` of `var(--radius)` and a plain number: `var(--radius) * N`, `N
- *
- * - Var(--radius)`or`var(--radius) / N`.
- */
-const RADIUS_CALC =
-  /^calc\(\s*(?:var\(--radius\)\s*(?<op>[*/])\s*(?<after>[\d.]+)|(?<before>[\d.]+)\s*\*\s*var\(--radius\))\s*\)$/u;
-
-/**
- * A plain dimension: a number and a unit, such as `0.625rem`.
- */
-const DIMENSION = /^(?<amount>[\d.]+)(?<unit>[a-z%]+)$/u;
-
-/**
  * The `@theme` font properties that become typography tokens, and the token each becomes. The names
  * are the categories the design.md spec recommends (`body-*`, `headline-*`); a token carries only
  * `fontFamily` because the theme declares no size for a family.
@@ -84,114 +46,6 @@ const FONT_TOKENS: ReadonlyMap<string, string> = new Map([
  * Every `var()` reference in a value.
  */
 const VAR_REF = /var\((?<name>--[\w-]+)\)/gu;
-
-/**
- * The block a custom property declaration sits in, or nothing for a block the generator ignores.
- *
- * @param parent - The declaration's parent node.
- * @param blocks - The collected blocks.
- * @returns The map the declaration belongs in.
- */
-const blockFor = (parent: AnyNode | undefined, blocks: Blocks): Map<string, string> | undefined => {
-  if (parent?.type === "atrule" && parent.name === "theme") {
-    return blocks.theme;
-  }
-
-  if (parent?.type === "rule" && parent.selector === ":root") {
-    return blocks.root;
-  }
-
-  if (parent?.type === "rule" && parent.selector === ".dark") {
-    return blocks.dark;
-  }
-
-  return undefined;
-};
-
-/**
- * Collect the custom properties of the blocks the generator reads.
- *
- * @param css - The stylesheet text.
- * @param file - The file name used in a parse failure.
- * @returns The collected blocks, or a {@link DesignMdParseError}.
- */
-const readBlocks = (css: string, file: string): Effect.Effect<Blocks, DesignMdParseError> =>
-  Effect.try({
-    catch: (error) => {
-      const line = error instanceof CssSyntaxError ? error.line : undefined;
-
-      const reason =
-        error instanceof CssSyntaxError ? error.reason : "the stylesheet does not parse";
-
-      return new DesignMdParseError({ message: `${file}:${line ?? 0}: ${reason}` });
-    },
-    try: () => {
-      const blocks: Blocks = { dark: new Map(), root: new Map(), theme: new Map() };
-
-      parse(css, { from: file }).walkDecls((decl) => {
-        if (decl.prop.startsWith("--")) {
-          blockFor(decl.parent, blocks)?.set(decl.prop, decl.value);
-        }
-      });
-
-      return blocks;
-    },
-  });
-
-/**
- * Resolve one `@theme` value. A `--radius-*` step written as `calc()` of `var(--radius)` and a
- * plain number becomes a dimension in the unit of the `:root` `--radius`, rounded to four decimal
- * places with trailing zeros trimmed. Every other value passes through unchanged.
- *
- * @param prop - The `@theme` property.
- * @param value - Its value.
- * @param radius - The `:root` `--radius` value, when the stylesheet declares one.
- * @returns The resolved value, or a {@link DesignMdResolveError} naming the token and the
- *   expression.
- */
-const resolveRadius = (
-  prop: string,
-  value: string,
-  radius: string | undefined,
-): Effect.Effect<string, DesignMdResolveError> => {
-  if (!prop.startsWith("--radius-") || !value.startsWith("calc(")) {
-    return Effect.succeed(value);
-  }
-
-  const step = RADIUS_CALC.exec(value)?.groups;
-  const base = DIMENSION.exec(radius ?? "")?.groups;
-
-  if (step === undefined || base === undefined) {
-    return Effect.fail(
-      new DesignMdResolveError({
-        message: `${prop}: cannot resolve "${value}" against :root --radius "${radius ?? "(missing)"}"; only calc(var(--radius) * N), calc(N * var(--radius)) and calc(var(--radius) / N) with a plain --radius dimension resolve`,
-      }),
-    );
-  }
-
-  const amount = Number(base.amount);
-  const factor = Number(step.after ?? step.before);
-  const product = step.op === "/" ? amount / factor : amount * factor;
-
-  return Effect.succeed(`${Number(product.toFixed(4))}${base.unit}`);
-};
-
-/**
- * Resolve every `--radius-*` `calc()` step of the `@theme` block into a plain dimension.
- *
- * @param blocks - The collected blocks.
- * @returns The blocks with resolved radius steps, or a {@link DesignMdResolveError}.
- */
-const resolveRadii = (blocks: Blocks): Effect.Effect<Blocks, DesignMdResolveError> =>
-  Effect.gen(function* resolveTheme() {
-    const theme = new Map<string, string>();
-
-    for (const [prop, value] of blocks.theme) {
-      theme.set(prop, yield* resolveRadius(prop, value, blocks.root.get("--radius")));
-    }
-
-    return { ...blocks, theme };
-  });
 
 /**
  * The tokens the generator takes from the blocks, and the properties it took them from.
@@ -227,7 +81,7 @@ const takeAliasedColor = (
   name: string,
   source: string,
   prop: string,
-): void => {
+) => {
   tokens.colors.set(name, JSON.stringify(blocks.root.get(source)));
   tokens.used.add(`@theme ${prop}`);
   tokens.used.add(`:root ${source}`);
@@ -247,7 +101,7 @@ const takeAliasedColor = (
  * @param prop - The `--text-*` property.
  * @param value - Its value.
  */
-const takeText = (tokens: Tokens, prop: string, value: string): void => {
+const takeText = (tokens: Tokens, prop: string, value: string) => {
   const [step = "", detail] = prop.slice("--text-".length).split("--");
   const entry = tokens.typography.get(step) ?? new Map<string, string>();
   const ratio = RATIO.exec(value)?.groups;
@@ -274,7 +128,7 @@ const takeText = (tokens: Tokens, prop: string, value: string): void => {
  * @param name - The typography token name.
  * @param value - The font stack, such as `'Outfit Variable', sans-serif`.
  */
-const takeFont = (tokens: Tokens, name: string, value: string): void => {
+const takeFont = (tokens: Tokens, name: string, value: string) => {
   const [first = ""] = value.split(",");
 
   tokens.typography.set(
@@ -289,7 +143,7 @@ const takeFont = (tokens: Tokens, name: string, value: string): void => {
  * @param blocks - The collected blocks.
  * @returns The tokens and the `:root` property each aliased color came from.
  */
-const takeTokens = (blocks: Blocks): Taken => {
+const takeTokens = (blocks: Blocks) => {
   const tokens: Tokens = {
     colors: new Map(),
     rounded: new Map(),
@@ -300,7 +154,7 @@ const takeTokens = (blocks: Blocks): Taken => {
 
   const aliases = new Map<string, string>();
 
-  const literal = (group: Group, prefix: string, prop: string, value: string): void => {
+  const literal = (group: Group, prefix: string, prop: string, value: string) => {
     group.set(prop.slice(prefix.length), JSON.stringify(value));
     tokens.used.add(`@theme ${prop}`);
   };
@@ -326,7 +180,7 @@ const takeTokens = (blocks: Blocks): Taken => {
     }
   }
 
-  return { aliases, tokens };
+  return { aliases, tokens } satisfies Taken;
 };
 
 /**
@@ -336,7 +190,7 @@ const takeTokens = (blocks: Blocks): Taken => {
  * @param colors - The color group, already quoted.
  * @param aliases - Each aliased `:root` property and the token it became.
  */
-const resolveReferences = (colors: Group, aliases: ReadonlyMap<string, string>): void => {
+const resolveReferences = (colors: Group, aliases: ReadonlyMap<string, string>) => {
   for (const [name, quoted] of colors) {
     const suffix = name.endsWith("-dark") ? "-dark" : "";
 
@@ -359,7 +213,7 @@ const resolveReferences = (colors: Group, aliases: ReadonlyMap<string, string>):
  * @param depth - The indentation, in spaces, of the group's key.
  * @returns The YAML lines, empty for an empty group.
  */
-const yamlGroup = (name: string, group: ReadonlyMap<string, string>, depth = 0): string => {
+const yamlGroup = (name: string, group: ReadonlyMap<string, string>, depth = 0) => {
   if (group.size === 0) {
     return "";
   }
@@ -381,7 +235,7 @@ const matches = (pattern: RegExp) => (prop: string) => pattern.test(prop);
  * @param keep - Whether a property belongs in this section.
  * @returns One bullet per property.
  */
-const prose = (leftovers: ReadonlyArray<Leftover>, keep: (prop: string) => boolean): string =>
+const prose = (leftovers: ReadonlyArray<Leftover>, keep: (prop: string) => boolean) =>
   leftovers
     .flatMap(([label, prop, value]) =>
       keep(prop) ? [`- \`${prop}\` (${label}): \`${value}\``] : [],
@@ -396,7 +250,7 @@ const prose = (leftovers: ReadonlyArray<Leftover>, keep: (prop: string) => boole
  * @param extra - Further lines, or an empty string.
  * @returns The section text.
  */
-const section = (title: string, intro: string, extra: string): string =>
+const section = (title: string, intro: string, extra: string) =>
   `## ${title}\n\n${intro}\n${extra === "" ? "" : `\n${extra}\n`}`;
 
 /**
@@ -410,7 +264,7 @@ const hasSection = matches(/^--(?:shadow|radius|font|text|spacing)/u);
  * @param blocks - The parsed custom properties.
  * @returns The `DESIGN.md` text.
  */
-const render = (blocks: Blocks): string => {
+const render = (blocks: Blocks) => {
   const { aliases, tokens } = takeTokens(blocks);
 
   resolveReferences(tokens.colors, aliases);
@@ -423,9 +277,9 @@ const render = (blocks: Blocks): string => {
     typography.size === 0 ? "" : `typography:\n${[...typography.values()].join("")}`;
 
   const leftovers = [
-    ...Array.from(blocks.theme, ([prop, value]): Leftover => ["@theme", prop, value]),
-    ...Array.from(blocks.root, ([prop, value]): Leftover => [":root", prop, value]),
-    ...Array.from(blocks.dark, ([prop, value]): Leftover => [".dark", prop, value]),
+    ...Array.from(blocks.theme, ([prop, value]) => ["@theme", prop, value] satisfies Leftover),
+    ...Array.from(blocks.root, ([prop, value]) => [":root", prop, value] satisfies Leftover),
+    ...Array.from(blocks.dark, ([prop, value]) => [".dark", prop, value] satisfies Leftover),
   ].filter(([label, prop]) => !tokens.used.has(`${label} ${prop}`));
 
   const front = [
@@ -481,7 +335,7 @@ const render = (blocks: Blocks): string => {
  * @param text - The text to scan.
  * @returns Each heading line.
  */
-const headings = (text: string): ReadonlyArray<string> => text.match(/^## .+$/gmu) ?? [];
+const headings = (text: string) => text.match(/^## .+$/gmu) ?? [];
 
 /**
  * Fail when the guidance repeats a `##` heading of the generated text.
@@ -490,10 +344,7 @@ const headings = (text: string): ReadonlyArray<string> => text.match(/^## .+$/gm
  * @param guidance - The hand-written guidance text.
  * @returns The guidance, or a {@link DesignMdGuidanceError} naming the repeated heading.
  */
-const appendGuidance = (
-  generated: string,
-  guidance: string,
-): Effect.Effect<string, DesignMdGuidanceError> => {
+const appendGuidance = (generated: string, guidance: string) => {
   const written = new Set(headings(generated));
   const repeated = headings(guidance).find((heading) => written.has(heading));
 
@@ -515,11 +366,7 @@ const appendGuidance = (
  * @returns The `DESIGN.md` text, or a {@link DesignMdParseError}, {@link DesignMdResolveError} or
  *   {@link DesignMdGuidanceError}.
  */
-export const generate = (
-  file: string,
-  css: string,
-  guidance = "",
-): Effect.Effect<string, DesignMdParseError | DesignMdResolveError | DesignMdGuidanceError> =>
+export const generate = (file: string, css: string, guidance = "") =>
   Effect.flatMap(
     Effect.map(Effect.flatMap(readBlocks(css, file), resolveRadii), render),
     (generated) => appendGuidance(generated, guidance),

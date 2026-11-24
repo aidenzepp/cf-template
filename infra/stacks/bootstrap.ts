@@ -2,7 +2,13 @@ import * as Cloudflare from "@alchemy.run/cloudflare";
 import * as GitHub from "@alchemy.run/github";
 import * as Alchemy from "alchemy";
 import { Config, Effect, Layer, Option, Redacted, Schema } from "effect";
-import { BOOTSTRAP_VARIABLES } from "./bootstrap-names.ts";
+
+/**
+ * The fixed stage of the bootstrap stack. It is this file's own literal: the stack never imports or
+ * decodes the app stage Schema of `infra/stages.ts`, so the app stack's `prod` refusal does not
+ * apply here.
+ */
+export const BOOTSTRAP_STAGE = "prod";
 
 /**
  * The permission groups of the scoped CI token, by their names in Alchemy's permission-group
@@ -29,6 +35,21 @@ export const CI_TOKEN_PERMISSION_GROUPS = [
   // Each Worker's IssueAutomation (workers.createObservabilityIssueAutomation).
   "Workers Observability Write",
 ] as const satisfies ReadonlyArray<Cloudflare.ApiToken.PermissionGroupName>;
+
+/**
+ * The repository secrets the bootstrap stack writes.
+ */
+export const BOOTSTRAP_SECRETS = ["CLOUDFLARE_API_TOKEN", "CLOUDFLARE_ACCOUNT_ID"] as const;
+
+/**
+ * The repository variables the bootstrap stack writes.
+ */
+export const BOOTSTRAP_VARIABLES = [
+  "STACK_NAME",
+  "CUSTOM_DOMAIN",
+  "CLOUDFLARE_DEPLOYS",
+  "CLOUDFLARE_WORKERS_SUBDOMAIN",
+] as const;
 
 /**
  * A stack name: lower case letters, digits and `-`, 3 to 29 characters, starting and ending with a

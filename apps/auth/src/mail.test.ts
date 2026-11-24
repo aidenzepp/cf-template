@@ -2,8 +2,7 @@ import { assert, layer } from "@effect/vitest";
 import { Deferred, Effect, Ref } from "effect";
 import type { Mailer } from "@workspace/config/mailer";
 import { MailerError } from "@workspace/config/mailer";
-import { LocalAuthD1, asExecution, authOver } from "./test-harness.ts";
-import { handle, signUp } from "./test-requests.ts";
+import { LocalAuthD1, asExecution, authOver, handle, signUp } from "./test-harness.ts";
 
 /**
  * Ask for a password reset mail for `email` and read the response.

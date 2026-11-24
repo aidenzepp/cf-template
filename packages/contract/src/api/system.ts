@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 import { HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
-import { AuthUnavailable } from "../domain/auth-errors.ts";
+import { AuthUnavailable } from "../domain/auth/errors.ts";
 import { Session } from "../domain/session.ts";
 
 /**

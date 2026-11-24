@@ -21,7 +21,7 @@ const environment = {
  * @param body - The JSON body.
  * @returns The reply.
  */
-const ok = (body: Schema.Json): Reply => ({ body, status: 200 });
+const ok = (body: Schema.Json) => ({ body, status: 200 });
 
 /**
  * The live state of a private Pro repository that matches the declaration, with overrides per
@@ -64,6 +64,8 @@ const state = (overrides: Record<string, Reply> = {}) => {
         "documentation",
         "merge-ready",
         "want",
+        "autorelease: pending",
+        "autorelease: tagged",
       ].map((name) => ({ name })),
     ),
     [`GET ${base}/rulesets`]: ok([{ id: 7, name: "main" }]),
@@ -121,6 +123,28 @@ describe("readDrift", () => {
     }),
   );
 
+  it.effect("does not list the release-please labels as UNDECLARED", () =>
+    Effect.gen(function* releaseLabels() {
+      const lines = yield* drift({
+        [`GET ${base}/labels`]: ok(
+          [
+            "autorelease: pending",
+            "autorelease: tagged",
+            "bug",
+            "convention",
+            "dependencies",
+            "documentation",
+            "enhancement",
+            "merge-ready",
+            "want",
+          ].map((name) => ({ name })),
+        ),
+      });
+
+      assert.deepStrictEqual(lines, []);
+    }),
+  );
+
   it.effect("lists a hand-created label, ruleset and environment as UNDECLARED", () =>
     Effect.gen(function* undeclared() {
       const lines = yield* drift({
@@ -136,6 +160,8 @@ describe("readDrift", () => {
             "documentation",
             "merge-ready",
             "want",
+            "autorelease: pending",
+            "autorelease: tagged",
             "sprint",
           ].map((name) => ({ name })),
         ),
@@ -335,6 +361,8 @@ const applying = (stays: boolean) => {
             "documentation",
             "merge-ready",
             "want",
+            "autorelease: pending",
+            "autorelease: tagged",
             "sprint",
           ].map((name) => ({ name })),
         )

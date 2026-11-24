@@ -1,5 +1,4 @@
-import { Stages } from "../stage-values.ts";
-import { kindOf } from "../stages.ts";
+import { Stages, kindOf } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 
 /**
@@ -8,8 +7,7 @@ import type { StageName } from "../stages.ts";
  * @param stage - The decoded stage.
  * @returns The `HEAD_SAMPLING_RATE` of the stage's kind in `Stages`, from `0` to `1`.
  */
-export const headSamplingRate = (stage: StageName): number =>
-  Stages[kindOf(stage)].HEAD_SAMPLING_RATE;
+export const headSamplingRate = (stage: StageName) => Stages[kindOf(stage)].HEAD_SAMPLING_RATE;
 
 /**
  * Whether a stage records Workers traces and Workers Issues, the one place both are decided. The
@@ -20,7 +18,7 @@ export const headSamplingRate = (stage: StageName): number =>
  * @param stage - The decoded stage.
  * @returns `false` for the `test` kind, `true` for `prod`, `staging` and `local`.
  */
-export const recordsDiagnostics = (stage: StageName): boolean => kindOf(stage) !== "test";
+export const recordsDiagnostics = (stage: StageName) => kindOf(stage) !== "test";
 
 /**
  * The `observability` prop of `api` and `auth`: Alchemy's default logs, kept because an explicit

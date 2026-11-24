@@ -10,4 +10,4 @@ export const SERVER_API_BASE_URL = "http://api.internal";
  *
  * @returns The origin of the current page.
  */
-export const browserApiBaseUrl = (): string => location.origin;
+export const browserApiBaseUrl = () => location.origin;

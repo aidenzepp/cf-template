@@ -91,7 +91,7 @@ const TaggedBody = Schema.fromJsonString(
  * @param response - The response about to be sent.
  * @returns The text, or none when the body is not buffered.
  */
-const bodyText = (response: HttpServerResponse.HttpServerResponse): Option.Option<string> =>
+const bodyText = (response: HttpServerResponse.HttpServerResponse) =>
   response.body._tag === "Uint8Array"
     ? Option.some(response.body.text ?? new TextDecoder().decode(response.body.body))
     : Option.none();
@@ -103,7 +103,7 @@ const bodyText = (response: HttpServerResponse.HttpServerResponse): Option.Optio
  * @param tag - The error's `_tag`.
  * @returns The problem type.
  */
-const taggedType = (tag: string): string =>
+const taggedType = (tag: string) =>
   `/problems/${tag.replaceAll(/(?<=[\da-z])(?=[A-Z])/gu, "-").toLowerCase()}`;
 
 /**
@@ -112,7 +112,7 @@ const taggedType = (tag: string): string =>
  * @param response - The response about to be sent.
  * @returns `true` when its content type is `application/problem+json`.
  */
-const isProblem = (response: HttpServerResponse.HttpServerResponse): boolean =>
+const isProblem = (response: HttpServerResponse.HttpServerResponse) =>
   response.headers["content-type"]?.startsWith(ProblemDetails.contentType) ?? false;
 
 /**
@@ -121,7 +121,7 @@ const isProblem = (response: HttpServerResponse.HttpServerResponse): boolean =>
  * @param response - A response with an `application/problem+json` content type.
  * @returns The `type`, or none when the body is not a buffered JSON object that has one.
  */
-const problemType = (response: HttpServerResponse.HttpServerResponse): Option.Option<string> =>
+const problemType = (response: HttpServerResponse.HttpServerResponse) =>
   Option.map(
     Option.flatMap(bodyText(response), Schema.decodeUnknownOption(ProblemType)),
     ({ type }) => type,

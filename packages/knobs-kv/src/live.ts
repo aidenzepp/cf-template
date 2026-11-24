@@ -1,8 +1,7 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { RemovalPolicy, RuntimeContext } from "alchemy";
 import { Context, Effect, Layer, Option } from "effect";
-import { LiveKnobs, LiveSourceError, fromSource } from "@workspace/config/live-knobs";
-import type { LiveKnobsPort } from "@workspace/config/live-knobs";
+import { LiveKnobs, LiveSourceError, fromSource } from "@workspace/config/knob";
 
 /**
  * How long a read result, success or failure, is reused before the next request reads the key
@@ -31,7 +30,7 @@ const KNOBS_NAMESPACE_ID = "KnobsKv";
  * @param stage - The decoded stage name.
  * @returns The namespace title.
  */
-export const knobsNamespaceTitle = (stackName: string, stage: string): string =>
+export const knobsNamespaceTitle = (stackName: string, stage: string) =>
   `${stackName}-${stage}-knobs`;
 
 /**
@@ -58,8 +57,8 @@ export const knobsNamespace = (stackName: string, stage: string) =>
  * @param call - The read on the binding.
  * @returns The read with `RuntimeContext` taken from the current fiber.
  */
-const withHostContext = <A, E>(call: Effect.Effect<A, E, RuntimeContext>): Effect.Effect<A, E> =>
-  Effect.contextWith((context) =>
+const withHostContext = <A, E>(call: Effect.Effect<A, E, RuntimeContext>) =>
+  Effect.contextWith((context: Context.Context<never>) =>
     Option.match(Context.getOption(context, RuntimeContext), {
       onNone: () => Effect.die("The request fiber carries no RuntimeContext."),
       onSome: (host) => Effect.provideService(call, RuntimeContext, host),
@@ -84,9 +83,7 @@ const SOURCE_NAME = "knobs namespace";
  * @param read - Read the string stored under a key; `null` when it holds none.
  * @returns The port value that provides `LiveKnobs`.
  */
-export const makeKnobsPort = <E>(
-  read: (key: string) => Effect.Effect<string | null, E>,
-): LiveKnobsPort =>
+export const makeKnobsPort = <E>(read: (key: string) => Effect.Effect<string | null, E>) =>
   fromSource(
     {
       name: SOURCE_NAME,

@@ -5,8 +5,8 @@ import { BunServices } from "@effect/platform-bun";
 import { AuthProvidersLive } from "alchemy/Auth/Registry";
 import { Effect, Layer, Option, Predicate } from "effect";
 import { FetchHttpClient } from "effect/http";
-import { RateLimitEntrypoint, RateLimitEntrypointError } from "./zone-entrypoint.ts";
-import type { EntrypointRule, ZoneEntrypoint, ZoneRef } from "./zone-entrypoint.ts";
+import { RateLimitEntrypoint, RateLimitEntrypointError } from "./rate-limit-owner.ts";
+import type { EntrypointRule, ZoneRef } from "./rate-limit-owner.ts";
 
 /**
  * What every refusal of the guard ends with: the credentials the two reads need.
@@ -24,12 +24,10 @@ const ABSENT_ENTRYPOINT_CODE = 10_003;
  * Wrap a failure of `operation` as a {@link RateLimitEntrypointError} naming its tag, code and
  * message, never its request.
  */
-const failed =
-  (operation: string) =>
-  (cause: unknown): RateLimitEntrypointError =>
-    new RateLimitEntrypointError({
-      message: `Refusing to deploy: Cloudflare ${operation} failed: ${Predicate.hasProperty(cause, "_tag") ? String(cause._tag) : "unknown error"}${Predicate.hasProperty(cause, "code") ? ` (code ${String(cause.code)})` : ""}${Predicate.hasProperty(cause, "message") ? `, ${String(cause.message)}` : ""}. ${NEEDS}`,
-    });
+const failed = (operation: string) => (cause: unknown) =>
+  new RateLimitEntrypointError({
+    message: `Refusing to deploy: Cloudflare ${operation} failed: ${Predicate.hasProperty(cause, "_tag") ? String(cause._tag) : "unknown error"}${Predicate.hasProperty(cause, "code") ? ` (code ${String(cause.code)})` : ""}${Predicate.hasProperty(cause, "message") ? `, ${String(cause.message)}` : ""}. ${NEEDS}`,
+  });
 
 /**
  * The rules of an entrypoint read, with an absent entrypoint as no rules.
@@ -52,11 +50,14 @@ export const entrypointRules = <E, R>(
     E,
     R
   >,
-): Effect.Effect<ReadonlyArray<EntrypointRule>, E, R> =>
+) =>
   phase.pipe(
     Effect.map((entrypoint) => entrypoint.rules ?? []),
     Effect.catchIf(
-      (error) => error instanceof rulesets.RulesetNotFound && error.code === ABSENT_ENTRYPOINT_CODE,
+      (error) =>
+        Predicate.isTagged(error, "RulesetNotFound") &&
+        Predicate.hasProperty(error, "code") &&
+        error.code === ABSENT_ENTRYPOINT_CODE,
       () => Effect.succeed([]),
     ),
     Effect.map((rules) =>
@@ -95,7 +96,7 @@ export const readZoneEntrypoint = Effect.fn("readZoneEntrypoint")(function* read
   source: EntrypointSource,
   hostname: string,
   variable: string,
-): Effect.fn.Return<ZoneEntrypoint, RateLimitEntrypointError> {
+) {
   const found = yield* source.findZone(hostname);
 
   if (Option.isNone(found)) {

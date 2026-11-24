@@ -72,7 +72,7 @@ const ScriptsManifest = Schema.Struct({ scripts: Schema.Record(Schema.String, Sc
  * @param script - A `package.json` script.
  * @returns The assigned value without quotes, or `undefined` when the script never assigns it.
  */
-const assignedCloudStage = (script: string): string | undefined =>
+const assignedCloudStage = (script: string) =>
   /(?:^|\s)ALCHEMY_TEST_STAGE=["']?(?<stage>[^"'\s]+)["']?(?:\s|$)/u.exec(script)?.groups?.stage;
 
 describe("the Alchemy package set", () => {

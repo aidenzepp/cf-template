@@ -1,7 +1,13 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Option } from "effect";
-import { ACTIONS_INTEGRATION_ID, LABELS, REQUIRED_CHECKS } from "./declare-constants.ts";
-import { declarationPlan, planWarnings, reviewerAppId } from "./declare.ts";
+import {
+  ACTIONS_INTEGRATION_ID,
+  LABELS,
+  REQUIRED_CHECKS,
+  declarationPlan,
+  planWarnings,
+  reviewerAppId,
+} from "./declare.ts";
 import { PRO, PUBLIC } from "./fake-github.ts";
 import type { GuardedRepository } from "./repository.ts";
 import type { Tier } from "./tier.ts";
@@ -101,12 +107,17 @@ describe("declarationPlan", () => {
     assert.deepStrictEqual(plan.repository.name, "widget");
   });
 
-  it("always declares the seven labels and the four tier variables", () => {
+  it("always declares the nine labels and the four tier variables", () => {
     const plan = planFor("private", freeTier);
 
     assert.deepStrictEqual(
       plan.labels.map((entry) => entry.name),
       [...LABELS],
+    );
+    assert.strictEqual(plan.labels.length, 9);
+    assert.deepStrictEqual(
+      plan.labels.map((entry) => entry.name).filter((name) => name.startsWith("autorelease: ")),
+      ["autorelease: pending", "autorelease: tagged"],
     );
 
     assert.deepStrictEqual(

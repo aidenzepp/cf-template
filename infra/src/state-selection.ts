@@ -17,5 +17,5 @@ export const STATE_STACK = "app";
  * @param stage - The decoded stage.
  * @returns `true` for a stage that uses the project store.
  */
-export const usesProjectState = (stage: string): boolean =>
+export const usesProjectState = (stage: string) =>
   stage === "prod" || stage === CLOUD_STAGE || stage.startsWith("staging-");

@@ -1,9 +1,11 @@
 import { BunServices } from "@effect/platform-bun";
 import { assert, it } from "@effect/vitest";
-import { Config, Effect, FileSystem, Layer, Path, Stream } from "effect";
+import { Config, Context, Effect, FileSystem, Layer, Path, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { findings, run } from "./check.ts";
+import { checkNames, findings } from "./check.ts";
+import { AUTH_SCHEMA_FILE } from "./global-setup.ts";
+import { run } from "./run.ts";
 
 /**
  * Runs `git` in `cwd` with the environment inherited exactly as a hook would see it, and returns
@@ -239,66 +241,107 @@ const prePush = Effect.fn("db.test.prePush")(function* prePush(root: string) {
   );
 });
 
-const timeout = { timeout: 120_000 };
+/**
+ * The findings of a check run that takes longer than a test's default timeout. The layer runs it
+ * once before the cases that read its lines, so the cases measure no tool run.
+ */
+class Found extends Context.Service<Found, ReadonlyArray<string>>()(
+  "@workspace/test/DbCheckFound",
+) {}
+
+/**
+ * The text `global-setup.ts` left: what the Better Auth CLI generated from the real tree.
+ */
+const generatedAuthSchema = Effect.fn("db.test.generatedAuthSchema")(
+  function* generatedAuthSchema() {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const repo = yield* path.fromFileUrl(new URL("../..", import.meta.url));
+
+    return yield* fs.readFileString(path.join(repo, AUTH_SCHEMA_FILE));
+  },
+);
+
+/**
+ * The check whose tool is the Better Auth CLI, which starts a Node process that loads the app's
+ * configuration. `global-setup.ts` runs it once for the whole suite, outside any hook timeout, and
+ * the cases pass its output to the check through `authSchema`, so no case starts the CLI.
+ */
+const AUTH_CHECK = "auth-schema";
+
+/**
+ * Every check but {@link AUTH_CHECK} over a copy of the real tree, which must find nothing. The
+ * copy goes when the cases end.
+ */
+const CleanTree = Layer.effect(
+  Found,
+  Effect.gen(function* clean() {
+    return yield* findings(yield* scratchTree(), {
+      only: checkNames.filter((name) => name !== AUTH_CHECK),
+    });
+  }),
+).pipe(Layer.provide(BunServices.layer));
 
 it.layer(realRepositoryUnchanged)("db:check", () => {
-  it.effect(
-    "passes on a clean tree",
-    () =>
-      Effect.gen(function* clean() {
-        assert.deepStrictEqual(yield* findings(yield* scratchTree()), []);
-      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
-    timeout,
+  it.layer(CleanTree)((cases) => {
+    cases.effect("passes on a clean tree", () =>
+      Effect.gen(function* reports() {
+        assert.deepStrictEqual(yield* Found, []);
+      }),
+    );
+  });
+
+  it.effect("auth-schema passes on a clean tree", () =>
+    Effect.gen(function* clean() {
+      assert.deepStrictEqual(
+        yield* findings(yield* scratchTree(), {
+          authSchema: yield* generatedAuthSchema(),
+          only: [AUTH_CHECK],
+        }),
+        [],
+      );
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
   );
 
-  it.effect(
-    "ungenerated fails a schema edit with no migration",
-    () =>
-      Effect.gen(function* edited() {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const root = yield* scratchTree();
-        const table = path.join(root, "apps/api/src/notes/table.ts");
-        const source = yield* fs.readFileString(table);
-        const anchor = 'kind: text("kind").notNull(),';
+  it.effect("ungenerated fails a schema edit with no migration", () =>
+    Effect.gen(function* edited() {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* scratchTree();
+      const table = path.join(root, "apps/api/src/notes/table.ts");
+      const source = yield* fs.readFileString(table);
+      const anchor = 'kind: text("kind").notNull(),';
 
-        assert.include(source, anchor);
+      assert.include(source, anchor);
 
-        yield* fs.writeFileString(
-          table,
-          source.replace(anchor, `${anchor}\n    extra: text("extra"),`),
-        );
+      yield* fs.writeFileString(
+        table,
+        source.replace(anchor, `${anchor}\n    extra: text("extra"),`),
+      );
 
-        const lines = yield* findings(root);
+      const lines = yield* findings(root, { only: ["ungenerated"] });
 
-        assert.isTrue(lines.some((line) => line.startsWith("db:check ungenerated: apps/api: ")));
-        assert.isFalse(lines.some((line) => line.includes("apps/auth")));
-      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
-    timeout,
+      assert.isTrue(lines.some((line) => line.startsWith("db:check ungenerated: apps/api: ")));
+      assert.isFalse(lines.some((line) => line.includes("apps/auth")));
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
   );
 
-  it.effect(
-    "dangerous-sql fails the recorded recreate of a referenced table",
-    () =>
-      Effect.gen(function* recreate() {
-        assert.match(
-          yield* fixtureFindings("recreate", "apps/auth"),
-          /^db:check dangerous-sql: apps\/auth\/migrations\/[^/]+\/migration\.sql: recreates user,/u,
-        );
-      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
-    timeout,
+  it.effect("dangerous-sql fails the recorded recreate of a referenced table", () =>
+    Effect.gen(function* recreate() {
+      assert.match(
+        yield* fixtureFindings("recreate", "apps/auth"),
+        /^db:check dangerous-sql: apps\/auth\/migrations\/[^/]+\/migration\.sql: recreates user,/u,
+      );
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
   );
 
-  it.effect(
-    "dangerous-sql fails ADD COLUMN NOT NULL without DEFAULT",
-    () =>
-      Effect.gen(function* notNull() {
-        assert.match(
-          yield* fixtureFindings("not-null-no-default", "apps/auth"),
-          /^db:check dangerous-sql: apps\/auth\/migrations\/[^/]+\/migration\.sql: ADD COLUMN NOT NULL without DEFAULT/u,
-        );
-      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
-    timeout,
+  it.effect("dangerous-sql fails ADD COLUMN NOT NULL without DEFAULT", () =>
+    Effect.gen(function* notNull() {
+      assert.match(
+        yield* fixtureFindings("not-null-no-default", "apps/auth"),
+        /^db:check dangerous-sql: apps\/auth\/migrations\/[^/]+\/migration\.sql: ADD COLUMN NOT NULL without DEFAULT/u,
+      );
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
   );
 
   it.effect(
@@ -326,104 +369,95 @@ it.layer(realRepositoryUnchanged)("db:check", () => {
           [],
         );
       }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
-    timeout,
   );
 
-  it.effect(
-    "auth-schema fails the stale-auth-schema fixture, naming the file",
-    () =>
-      Effect.gen(function* stale() {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const root = yield* scratchTree();
+  it.effect("auth-schema fails the stale-auth-schema fixture, naming the file", () =>
+    Effect.gen(function* stale() {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* scratchTree();
 
-        yield* fs.copyFile(
-          yield* path.fromFileUrl(
-            new URL("fixtures/stale-auth-schema/schema.txt", import.meta.url),
-          ),
-          path.join(root, "apps/auth/src/db/schema.ts"),
-        );
+      yield* fs.copyFile(
+        yield* path.fromFileUrl(new URL("fixtures/stale-auth-schema/schema.txt", import.meta.url)),
+        path.join(root, "apps/auth/src/db/schema.ts"),
+      );
 
-        assert.deepStrictEqual(yield* findings(root, { only: ["auth-schema"] }), [
+      assert.deepStrictEqual(
+        yield* findings(root, { authSchema: yield* generatedAuthSchema(), only: [AUTH_CHECK] }),
+        [
           "db:check auth-schema: apps/auth/src/db/schema.ts: differs from what the Better Auth CLI generates on Node; run bun run auth:generate",
+        ],
+      );
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
+  );
+
+  it.effect("pre-push refuses an uncommitted migration, then proceeds once it is committed", () =>
+    Effect.gen(function* hook() {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const repo = yield* path.fromFileUrl(new URL("../..", import.meta.url));
+
+      yield* fs.makeDirectory(path.join(repo, "work"), { recursive: true });
+
+      const root = yield* fs.makeTempDirectoryScoped({
+        directory: path.join(repo, "work"),
+        prefix: "db-check-hook-",
+      });
+
+      const git = (...args: ReadonlyArray<string>) =>
+        run(root, "git", [
+          "-C",
+          root,
+          "-c",
+          "user.name=test",
+          "-c",
+          "user.email=test@example.com",
+          "-c",
+          "commit.gpgsign=false",
+          ...args,
         ]);
-      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
-    timeout,
+
+      const migration = path.join(root, "apps/x/migrations/20260101000000_new");
+
+      yield* git("init", "-q");
+      yield* git("commit", "-q", "--allow-empty", "-m", "base");
+      yield* fs.makeDirectory(migration, { recursive: true });
+      yield* fs.writeFileString(
+        path.join(migration, "migration.sql"),
+        "CREATE TABLE `x` (`id` text);\n",
+      );
+
+      assert.deepStrictEqual(yield* prePush(root), {
+        code: 1,
+        stderr: "uncommitted migrations under apps/*/migrations/; commit them before pushing",
+      });
+
+      yield* git("add", "apps/x/migrations");
+      yield* git("commit", "-q", "-m", "migration");
+
+      assert.deepStrictEqual(yield* prePush(root), { code: 0, stderr: "" });
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
   );
 
-  it.effect(
-    "pre-push refuses an uncommitted migration, then proceeds once it is committed",
-    () =>
-      Effect.gen(function* hook() {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const repo = yield* path.fromFileUrl(new URL("../..", import.meta.url));
+  it.effect("minimal-set fails the edited-migration fixture, naming the file", () =>
+    Effect.gen(function* handEdited() {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const root = yield* scratchTree();
+      const migrations = path.join(root, "apps/api/migrations");
+      const [name] = yield* fs.readDirectory(migrations);
 
-        yield* fs.makeDirectory(path.join(repo, "work"), { recursive: true });
+      yield* fs.copyFile(
+        yield* path.fromFileUrl(
+          new URL("fixtures/edited-migration/migration.sql", import.meta.url),
+        ),
+        path.join(migrations, name ?? "", "migration.sql"),
+      );
 
-        const root = yield* fs.makeTempDirectoryScoped({
-          directory: path.join(repo, "work"),
-          prefix: "db-check-hook-",
-        });
-
-        const git = (...args: ReadonlyArray<string>) =>
-          run(root, "git", [
-            "-C",
-            root,
-            "-c",
-            "user.name=test",
-            "-c",
-            "user.email=test@example.com",
-            "-c",
-            "commit.gpgsign=false",
-            ...args,
-          ]);
-
-        const migration = path.join(root, "apps/x/migrations/20260101000000_new");
-
-        yield* git("init", "-q");
-        yield* git("commit", "-q", "--allow-empty", "-m", "base");
-        yield* fs.makeDirectory(migration, { recursive: true });
-        yield* fs.writeFileString(
-          path.join(migration, "migration.sql"),
-          "CREATE TABLE `x` (`id` text);\n",
-        );
-
-        assert.deepStrictEqual(yield* prePush(root), {
-          code: 1,
-          stderr: "uncommitted migrations under apps/*/migrations/; commit them before pushing",
-        });
-
-        yield* git("add", "apps/x/migrations");
-        yield* git("commit", "-q", "-m", "migration");
-
-        assert.deepStrictEqual(yield* prePush(root), { code: 0, stderr: "" });
-      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
-    timeout,
-  );
-
-  it.effect(
-    "minimal-set fails the edited-migration fixture, naming the file",
-    () =>
-      Effect.gen(function* handEdited() {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const root = yield* scratchTree();
-        const migrations = path.join(root, "apps/api/migrations");
-        const [name] = yield* fs.readDirectory(migrations);
-
-        yield* fs.copyFile(
-          yield* path.fromFileUrl(
-            new URL("fixtures/edited-migration/migration.sql", import.meta.url),
-          ),
-          path.join(migrations, name ?? "", "migration.sql"),
-        );
-
-        assert.match(
-          (yield* findings(root)).join("\n"),
-          /^db:check minimal-set: apps\/api\/migrations\/[^/]+\/migration\.sql: /mu,
-        );
-      }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
-    timeout,
+      assert.match(
+        (yield* findings(root, { only: ["minimal-set"] })).join("\n"),
+        /^db:check minimal-set: apps\/api\/migrations\/[^/]+\/migration\.sql: /mu,
+      );
+    }).pipe(Effect.scoped, Effect.provide(BunServices.layer)),
   );
 });

@@ -10,7 +10,17 @@ const LockSchema = Schema.Record(Schema.String, Schema.String);
 /**
  * A lock as decoded from `components.lock.json`.
  */
-type Lock = typeof LockSchema.Type;
+export type Lock = typeof LockSchema.Type;
+
+/**
+ * The tree whose files the lock covers.
+ */
+export const componentsDirectory = "packages/ui/src/components/ui";
+
+/**
+ * The committed lock file.
+ */
+export const lockFile = "packages/ui/components.lock.json";
 
 /**
  * Raised when the component tree and the committed lock disagree. The message names every added,
@@ -78,7 +88,7 @@ export const readTree = Effect.fn("ui-lock.readTree")(function* readTree(directo
 /**
  * The lines describing how `actual` differs from `expected`: one per added, removed or edited file.
  */
-export const diffLock = (expected: Lock, actual: Lock): ReadonlyArray<string> => [
+export const diffLock = (expected: Lock, actual: Lock) => [
   ...Object.keys(actual)
     .filter((name) => !(name in expected))
     .map((name) => `added: ${name}`),

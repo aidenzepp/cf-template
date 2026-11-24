@@ -3,9 +3,17 @@ import { ConfigProvider, Effect, Exit, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
 import { LogLevelKnob } from "@workspace/config/log-level";
-import { LONGEST_STAGE, Stage, kindOf } from "../stages.ts";
-import { STACK_NAME_MAX, WorkerNameTooLongError, Workers, workerName } from "../worker-names.ts";
-import { Stages, stageValues } from "../stage-values.ts";
+import {
+  LONGEST_STAGE,
+  STACK_NAME_MAX,
+  Stage,
+  Stages,
+  WorkerNameTooLongError,
+  Workers,
+  kindOf,
+  stageValues,
+  workerName,
+} from "../stages.ts";
 
 /**
  * Decode a stage string with the stage Schema.

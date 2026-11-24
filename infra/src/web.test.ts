@@ -11,8 +11,7 @@ import {
   Ref,
   Schema,
 } from "effect";
-import { ForeignRateLimitRules } from "./rate-limit-owner.ts";
-import { RateLimitEntrypoint } from "./zone-entrypoint.ts";
+import { ForeignRateLimitRules, RateLimitEntrypoint } from "./rate-limit-owner.ts";
 import { WEB_MEMO, WEB_WORKSPACE_PACKAGES, guardedDomain, webRootDir } from "./web.ts";
 
 const zone = { id: "zone-1", name: "example.test" };

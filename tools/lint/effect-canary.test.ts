@@ -19,12 +19,6 @@ const addedRules: ReadonlyArray<string> = [
 ];
 
 /**
- * The timeout of each case, which spawns the linter once: a few seconds alone, more than the 5 s
- * default on a loaded machine.
- */
-const SPAWN_TIMEOUT_MS = 60_000;
-
-/**
  * Resolves the fixture directory, the oxlint binary and the type-aware engine, both from the
  * installed Vite+ so the fixtures and `vp check` run one engine. Vite+ 1.7.0 runs that engine,
  * `tsrs-lint`, by setting `OXLINT_TSGOLINT_PATH` to it, and every spawn here sets the same variable
@@ -90,65 +84,50 @@ const lint = Effect.fnUntraced(function* lint(files: ReadonlyArray<string>) {
 });
 
 describe("Effect rules run inside the lint pass", () => {
-  it.effect(
-    "the canary's floating Effect fails with effecttsgo(floating-effect)",
-    () =>
-      Effect.gen(function* canary() {
-        const { code, output } = yield* lint(["canary.ts"]);
+  it.effect("the canary's floating Effect fails with effecttsgo(floating-effect)", () =>
+    Effect.gen(function* canary() {
+      const { code, output } = yield* lint(["canary.ts"]);
 
-        assert.strictEqual(code, 1, output);
-        assert.include(output, "effecttsgo(floating-effect)");
-      }).pipe(Effect.provide(BunServices.layer)),
-    SPAWN_TIMEOUT_MS,
+      assert.strictEqual(code, 1, output);
+      assert.include(output, "effecttsgo(floating-effect)");
+    }).pipe(Effect.provide(BunServices.layer)),
   );
 
   for (const rule of addedRules) {
-    it.effect(
-      `${rule}.fires.ts reports effecttsgo(${rule})`,
-      () =>
-        Effect.gen(function* fires() {
-          const { code, output } = yield* lint([`${rule}.fires.ts`]);
+    it.effect(`${rule}.fires.ts reports effecttsgo(${rule})`, () =>
+      Effect.gen(function* fires() {
+        const { code, output } = yield* lint([`${rule}.fires.ts`]);
 
-          assert.strictEqual(code, 1, output);
-          assert.include(output, `effecttsgo(${rule})`);
-        }).pipe(Effect.provide(BunServices.layer)),
-      SPAWN_TIMEOUT_MS,
+        assert.strictEqual(code, 1, output);
+        assert.include(output, `effecttsgo(${rule})`);
+      }).pipe(Effect.provide(BunServices.layer)),
     );
 
-    it.effect(
-      `${rule}.passes.ts reports nothing`,
-      () =>
-        Effect.gen(function* passes() {
-          const { code, output } = yield* lint([`${rule}.passes.ts`]);
-
-          assert.strictEqual(code, 0, output);
-          assert.notInclude(output, "effecttsgo(");
-        }).pipe(Effect.provide(BunServices.layer)),
-      SPAWN_TIMEOUT_MS,
-    );
-  }
-
-  it.effect(
-    "an oxlint-disable-next-line directive suppresses an Effect finding",
-    () =>
-      Effect.gen(function* suppressed() {
-        const { code, output } = yield* lint(["directive-suppresses.ts"]);
+    it.effect(`${rule}.passes.ts reports nothing`, () =>
+      Effect.gen(function* passes() {
+        const { code, output } = yield* lint([`${rule}.passes.ts`]);
 
         assert.strictEqual(code, 0, output);
         assert.notInclude(output, "effecttsgo(");
       }).pipe(Effect.provide(BunServices.layer)),
-    SPAWN_TIMEOUT_MS,
+    );
+  }
+
+  it.effect("an oxlint-disable-next-line directive suppresses an Effect finding", () =>
+    Effect.gen(function* suppressed() {
+      const { code, output } = yield* lint(["directive-suppresses.ts"]);
+
+      assert.strictEqual(code, 0, output);
+      assert.notInclude(output, "effecttsgo(");
+    }).pipe(Effect.provide(BunServices.layer)),
   );
 
-  it.effect(
-    "the same directive over a clean line fails as an unused directive",
-    () =>
-      Effect.gen(function* unused() {
-        const { code, output } = yield* lint(["directive-unused.ts"]);
+  it.effect("the same directive over a clean line fails as an unused directive", () =>
+    Effect.gen(function* unused() {
+      const { code, output } = yield* lint(["directive-unused.ts"]);
 
-        assert.strictEqual(code, 1, output);
-        assert.include(output, "Unused oxlint-disable directive");
-      }).pipe(Effect.provide(BunServices.layer)),
-    SPAWN_TIMEOUT_MS,
+      assert.strictEqual(code, 1, output);
+      assert.include(output, "Unused oxlint-disable directive");
+    }).pipe(Effect.provide(BunServices.layer)),
   );
 });

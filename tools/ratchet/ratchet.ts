@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import {
   Array as Arr,
@@ -12,6 +13,7 @@ import {
   Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
+import { ignoreEntries } from "./knip-ignores.ts";
 
 /**
  * The message printed, with exit code 2, when no base commit resolves.
@@ -32,7 +34,7 @@ const KNIP = "knip.jsonc";
  * Joins the parts of a directive's spelling. The scan counts literal substrings, so a source file
  * that wrote a directive out whole would count itself; the spellings below are assembled instead.
  */
-const spell = (...parts: ReadonlyArray<string>): string => parts.join("");
+const spell = (...parts: ReadonlyArray<string>) => parts.join("");
 
 /**
  * The suppression directives the scan counts, as literal substrings of tracked source.
@@ -90,7 +92,7 @@ export const Baseline = Schema.Record(
  * ratchet reads as an answer, or printed a count that is not a non-negative integer. The message
  * keeps git's own stderr.
  */
-class GitFailed extends Schema.TaggedError<GitFailed, { readonly brand: unique symbol }>()(
+export class GitFailed extends Schema.TaggedError<GitFailed, { readonly brand: unique symbol }>()(
   "GitFailed",
   {
     message: Schema.String,
@@ -100,17 +102,17 @@ class GitFailed extends Schema.TaggedError<GitFailed, { readonly brand: unique s
 /**
  * The failure of `RATCHET_BASE`: it is set but names no commit.
  */
-class BaseNotCommit extends Schema.TaggedError<BaseNotCommit, { readonly brand: unique symbol }>()(
-  "BaseNotCommit",
-  {
-    message: Schema.String,
-  },
-) {}
+export class BaseNotCommit extends Schema.TaggedError<
+  BaseNotCommit,
+  { readonly brand: unique symbol }
+>()("BaseNotCommit", {
+  message: Schema.String,
+}) {}
 
 /**
  * The failure of a counted file: it does not parse, or it has not the expected shape.
  */
-class CountedFileInvalid extends Schema.TaggedError<
+export class CountedFileInvalid extends Schema.TaggedError<
   CountedFileInvalid,
   { readonly brand: unique symbol }
 >()("CountedFileInvalid", { message: Schema.String }) {}
@@ -119,7 +121,7 @@ class CountedFileInvalid extends Schema.TaggedError<
  * The counts of one tree. A missing baseline counts as zero (#16: absent equals zero). Only the
  * knip counter is `None` when the tree lacks its file, and a `None` takes no part in a comparison.
  */
-interface Counts {
+export interface Counts {
   readonly directives: Readonly<Record<string, number>>;
   readonly knipIgnores: Option.Option<number>;
   readonly rules: Readonly<Record<string, number>>;
@@ -129,7 +131,7 @@ interface Counts {
  * What a run decided: the exit code and the lines to print. Code 1 means a count rose; code 2 means
  * the ratchet could not count.
  */
-interface Outcome {
+export interface Outcome {
   readonly code: 0 | 1 | 2;
   readonly lines: ReadonlyArray<string>;
 }
@@ -137,7 +139,7 @@ interface Outcome {
 /**
  * Collapses a failure message to the one line the ratchet prints.
  */
-const oneLine = (message: string): string => message.trim().replaceAll("\n", " ");
+const oneLine = (message: string) => message.trim().replaceAll("\n", " ");
 
 /**
  * Runs `git <args>` in the current directory, with colour off whatever the configuration says, and
@@ -175,7 +177,7 @@ const gitOutput = Effect.fn("ratchet.gitOutput")(function* gitOutput(args: Reado
 /**
  * Whether `value` is the all-zero object name a push event names for a new branch.
  */
-const isNullSha = (value: string): boolean => /^0+$/u.test(value);
+const isNullSha = (value: string) => /^0+$/u.test(value);
 
 /**
  * Resolves the base commit: `RATCHET_BASE` when set to something other than empty or an all-zero
@@ -212,7 +214,7 @@ const resolveBase = Effect.fn("ratchet.resolveBase")(function* resolveBase() {
  * Parses the count after the last colon of one `git grep -c` line, failing with {@link GitFailed}
  * when it is not a non-negative integer.
  */
-const parseCount = (line: string): Effect.Effect<number, GitFailed> => {
+const parseCount = (line: string) => {
   const raw = line.slice(line.lastIndexOf(":") + 1);
 
   return /^\d+$/u.test(raw)
@@ -223,7 +225,7 @@ const parseCount = (line: string): Effect.Effect<number, GitFailed> => {
 /**
  * Sums the per-file counts `git grep -c` prints, one `[<ref>:]<path>:<count>` line per file.
  */
-export const sumCounts = (stdout: string): Effect.Effect<number, GitFailed> =>
+export const sumCounts = (stdout: string) =>
   Effect.forEach(
     stdout.split("\n").filter((line) => line !== ""),
     parseCount,
@@ -259,11 +261,7 @@ const directiveLines = Effect.fn("ratchet.directiveLines")(function* directiveLi
  * accepts the trailing commas the formatter writes into `knip.jsonc`; `effect/encoding/Jsonc` does
  * not.
  */
-const decodeFile = <A, I>(
-  file: string,
-  text: string,
-  schema: Schema.Codec<A, I>,
-): Effect.Effect<A, CountedFileInvalid> => {
+const decodeFile = <A, I>(file: string, text: string, schema: Schema.Codec<A, I>) => {
   const invalid = () =>
     new CountedFileInvalid({
       message: `${file} is not valid JSON with the expected shape; restore it from git or regenerate it`,
@@ -288,57 +286,6 @@ const ruleTotals = (baseline: typeof Baseline.Type) => {
   }
 
   return Rec.fromEntries(totals);
-};
-
-/**
- * Whether a parsed knip value is an object, whose keys the walk reads.
- */
-const isNode = Schema.is(Schema.Record(Schema.String, Schema.Json));
-
-/**
- * Whether a parsed knip value is an array, which an `ignore*` key may hold.
- */
-const isList = Schema.is(Schema.Array(Schema.Json));
-
-/**
- * Whether a parsed knip value is a string, which counts as one entry wherever it sits.
- */
-const isText = Schema.is(Schema.String);
-
-/**
- * The entries beneath an `ignore*` key: a string leaf anywhere counts 1, and so does every array
- * item that is not itself an array or object. Booleans outside an array are settings, not entries.
- */
-const leaves = (value: Schema.Json, inList: boolean): number => {
-  if (isList(value)) {
-    return value.reduce((total: number, item) => total + leaves(item, true), 0);
-  }
-
-  if (isNode(value)) {
-    return Object.values(value).reduce((total: number, item) => total + leaves(item, false), 0);
-  }
-
-  return inList || isText(value) ? 1 : 0;
-};
-
-/**
- * The entries beneath every `ignore*` key in a parsed knip configuration, at any depth: a string,
- * an array or an object such as `ignoreIssues`.
- */
-export const ignoreEntries = (value: Schema.Json): number => {
-  if (isList(value)) {
-    return value.reduce((total: number, item) => total + ignoreEntries(item), 0);
-  }
-
-  if (!isNode(value)) {
-    return 0;
-  }
-
-  return Object.entries(value).reduce(
-    (total: number, [key, item]) =>
-      total + (key.startsWith("ignore") ? leaves(item, false) : ignoreEntries(item)),
-    0,
-  );
 };
 
 /**
@@ -395,7 +342,7 @@ const count = Effect.fn("ratchet.count")(function* count(root: string, ref: Opti
  * either side; the knip counter compares only when both trees hold `knip.jsonc`, and fails when
  * only the base does; the ceiling-zero directive fails on `head` alone.
  */
-const compare = (head: Counts, base: Counts): ReadonlyArray<string> => {
+export const compare = (head: Counts, base: Counts) => {
   const rules = Object.entries(head.rules).flatMap(([rule, total]) => {
     const before = base.rules[rule] ?? 0;
 
@@ -463,7 +410,7 @@ const strayKnipConfig = Effect.fn("ratchet.strayKnipConfig")(function* strayKnip
  * count rose, 1 when one did, 2 when no base resolves, the base is not a commit, git fails or a
  * counted file is invalid.
  */
-const ratchet = Effect.fn("ratchet.run")(
+export const ratchet = Effect.fn("ratchet.run")(
   function* ratchet() {
     const root = (yield* gitOutput(["rev-parse", "--show-toplevel"])).trim();
     const base = yield* resolveBase();

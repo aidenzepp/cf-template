@@ -1,46 +1,54 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { PRO, PUBLIC, base, harness } from "./fake-github.ts";
-import { applyRest } from "./rest.ts";
-import { RestSettingsError } from "./rest-outcome.ts";
+import { PRO, PUBLIC, base, converged, harness } from "./fake-github.ts";
+import type { Recorded, Reply } from "./fake-github.ts";
+import { RestSettingsError, applyRest } from "./rest.ts";
 
 /**
- * The `security_and_analysis` object with both features at one status.
+ * Answer the repository read as one where both features are off until each one's `PATCH` has been
+ * sent, and read as `after` from then on. Every other call keeps the default.
  *
- * @param status - `enabled` or `disabled`.
- * @returns The object GitHub returns for a repository.
+ * @param after - What the repository read says once the feature's `PATCH` is recorded.
+ * @returns The `answer` function for `harness`.
  */
-const pair = (status: "enabled" | "disabled") => ({
-  security_and_analysis: {
-    secret_scanning: { status },
-    secret_scanning_push_protection: { status },
-  },
-});
+const afterWrite =
+  (after: "enabled" | "disabled") =>
+  (call: string, _search: string, recorded: ReadonlyArray<Recorded>) => {
+    const status = (key: string) =>
+      recorded.some(
+        (request) =>
+          request.call === `PATCH ${base}` && JSON.stringify(request.body).includes(`"${key}":`),
+      )
+        ? after
+        : "disabled";
+
+    return call === `GET ${base}`
+      ? {
+          body: {
+            security_and_analysis: {
+              secret_scanning: { status: status("secret_scanning") },
+              secret_scanning_push_protection: {
+                status: status("secret_scanning_push_protection"),
+              },
+            },
+          },
+          status: 200,
+        }
+      : undefined;
+  };
 
 /**
- * The repository read-back: secret scanning and push protection both `enabled`.
+ * The repository read-back: secret scanning and push protection `enabled` once written.
  */
-const enabled = pair("enabled");
+const readBack = afterWrite("enabled");
 
 /**
- * Answer the read-back `GET` with {@link enabled}; every other call keeps the default.
- *
- * @param call - The `METHOD path` of the request.
- * @returns The canned read-back reply, or `undefined`.
- */
-const readBack = (call: string) =>
-  call === `GET ${base}` ? { body: enabled, status: 200 } : undefined;
-
-/**
- * A public-tier run whose read-back reports both features at one status.
+ * A public-tier run whose read-back reports both features at one status once written.
  *
  * @param status - What the repository read-back says.
  * @returns The harness for {@link applyRest}.
  */
-const reply = (status: "enabled" | "disabled") =>
-  harness(applyRest, PUBLIC, (call) =>
-    call === `GET ${base}` ? { body: pair(status), status: 200 } : undefined,
-  );
+const reply = (status: "enabled" | "disabled") => harness(applyRest, PUBLIC, afterWrite(status));
 
 describe("applyRest", () => {
   it.effect("sends every call with its method, path and body on the public tier", () =>
@@ -131,7 +139,7 @@ describe("applyRest", () => {
       const { lines, run } = harness(
         applyRest,
         PUBLIC,
-        (call) => replies.get(call) ?? readBack(call),
+        (call, search, recorded) => replies.get(call) ?? readBack(call, search, recorded),
       );
 
       const summary = yield* run;
@@ -147,14 +155,14 @@ describe("applyRest", () => {
       const message = "Validation Failed: approval_policy is invalid.";
       const forbidden = "Resource not accessible by personal access token.";
 
-      const { lines, run } = harness(applyRest, PUBLIC, (call) => {
+      const { lines, run } = harness(applyRest, PUBLIC, (call, search, recorded) => {
         if (call === `PUT ${base}/actions/permissions/fork-pr-contributor-approval`) {
           return { body: { message }, status: 422 };
         }
 
         return call === `PUT ${base}/private-vulnerability-reporting`
           ? { body: { message: forbidden }, status: 403 }
-          : readBack(call);
+          : readBack(call, search, recorded);
       });
 
       const error = yield* Effect.flip(run);
@@ -175,8 +183,8 @@ describe("applyRest", () => {
         const wording = "Code scanning is not enabled for this repository. Please enable it.";
 
         const run403 = (message: string) =>
-          harness(applyRest, PUBLIC, (call) =>
-            call === path ? { body: { message }, status: 403 } : readBack(call),
+          harness(applyRest, PUBLIC, (call, search, recorded) =>
+            call === path ? { body: { message }, status: 403 } : readBack(call, search, recorded),
           );
 
         const notEnabled = yield* run403(wording).run;
@@ -217,4 +225,196 @@ describe("applyRest", () => {
       );
     }),
   );
+});
+
+const SETTINGS = [
+  "merge-extras",
+  "secret-scanning",
+  "push-protection",
+  "dependabot-alerts",
+  "dependabot-security-updates-off",
+  "codeql-default-setup",
+  "private-vulnerability-reporting",
+  "sha-pinning-required",
+  "workflow-permissions",
+  "fork-approval",
+] as const;
+
+/**
+ * Answer the repository read as one that holds every declared value except the `stale` ones. A
+ * stale `security_and_analysis` feature reads `disabled` until its `PATCH` is recorded.
+ *
+ * @param stale - The repository fields that differ: `allow_update_branch`, `secret_scanning` or
+ *   `secret_scanning_push_protection`.
+ * @returns The `answer` function for `harness`, which falls back to {@link converged}.
+ */
+const repositoryWith =
+  (stale: ReadonlyArray<string>) =>
+  (call: string, search: string, recorded: ReadonlyArray<Recorded>) => {
+    if (call !== `GET ${base}`) {
+      return converged(call, search);
+    }
+
+    const written = (key: string) =>
+      recorded.some(
+        (request) =>
+          request.call === `PATCH ${base}` && JSON.stringify(request.body).includes(`"${key}":`),
+      );
+
+    const feature = (key: string) => ({
+      status: stale.includes(key) && !written(key) ? "disabled" : "enabled",
+    });
+
+    return {
+      body: {
+        allow_update_branch: !stale.includes("allow_update_branch"),
+        pull_request_creation_policy: "collaborators_only",
+        security_and_analysis: {
+          secret_scanning: feature("secret_scanning"),
+          secret_scanning_push_protection: feature("secret_scanning_push_protection"),
+        },
+        squash_merge_commit_message: "PR_BODY",
+        squash_merge_commit_title: "PR_TITLE",
+      },
+      status: 200,
+    };
+  };
+
+/**
+ * Answer as {@link converged} except for one read.
+ *
+ * @param read - The `GET path` that differs.
+ * @param differing - Its reply.
+ * @returns The `answer` function for `harness`.
+ */
+const differingAt = (read: string, differing: Reply) => (call: string, search: string) =>
+  call === read ? differing : converged(call, search);
+
+describe("applyRest on a repository that already holds the declared values", () => {
+  for (const [name, tier, unavailable] of [
+    ["public", PUBLIC, 0],
+    ["private Pro", PRO, 5],
+  ] as const) {
+    it.effect(`reads each ${name} setting, writes none and counts none as applied`, () =>
+      Effect.gen(function* unchanged() {
+        const { lines, requests, run } = harness(applyRest, tier, converged);
+        const summary = yield* run;
+
+        assert.deepStrictEqual(summary, { applied: 0, failed: 0, unavailable });
+        assert.isFalse(lines.some((line) => line.startsWith("applied ")));
+        assert.strictEqual(
+          lines.filter((line) => line.startsWith("unchanged ")).length,
+          10 - unavailable,
+        );
+        assert.isTrue(requests.every((request) => request.call.startsWith("GET ")));
+      }),
+    );
+  }
+
+  it.effect("prints unchanged for each of the ten settings, in order", () =>
+    Effect.gen(function* ordered() {
+      const { lines, run } = harness(applyRest, PUBLIC, converged);
+
+      yield* run;
+      assert.deepStrictEqual(
+        lines,
+        SETTINGS.map((setting) => `unchanged ${setting}`),
+      );
+    }),
+  );
+
+  it.effect("writes again after a failed read, as it did before it read", () =>
+    Effect.gen(function* unreadable() {
+      const { lines, run } = harness(applyRest, PUBLIC, (call, search) =>
+        call === `GET ${base}/actions/permissions` ? { status: 500 } : converged(call, search),
+      );
+
+      const summary = yield* run;
+
+      assert.deepStrictEqual(summary, { applied: 1, failed: 0, unavailable: 0 });
+      assert.include(lines, "applied sha-pinning-required 204");
+    }),
+  );
+});
+
+describe("applyRest when one setting differs", () => {
+  const cases = [
+    ["merge-extras", `PATCH ${base}`, repositoryWith(["allow_update_branch"])],
+    ["secret-scanning", `PATCH ${base}`, repositoryWith(["secret_scanning"])],
+    ["push-protection", `PATCH ${base}`, repositoryWith(["secret_scanning_push_protection"])],
+    [
+      "dependabot-alerts",
+      `PUT ${base}/vulnerability-alerts`,
+      differingAt(`GET ${base}/vulnerability-alerts`, { status: 404 }),
+    ],
+    [
+      "dependabot-security-updates-off",
+      `DELETE ${base}/automated-security-fixes`,
+      differingAt(`GET ${base}/automated-security-fixes`, {
+        body: { enabled: true, paused: false },
+        status: 200,
+      }),
+    ],
+    [
+      "codeql-default-setup",
+      `PATCH ${base}/code-scanning/default-setup`,
+      differingAt(`GET ${base}/code-scanning/default-setup`, {
+        body: { query_suite: "default", state: "not-configured" },
+        status: 200,
+      }),
+    ],
+    [
+      "private-vulnerability-reporting",
+      `PUT ${base}/private-vulnerability-reporting`,
+      differingAt(`GET ${base}/private-vulnerability-reporting`, {
+        body: { enabled: false },
+        status: 200,
+      }),
+    ],
+    [
+      "sha-pinning-required",
+      `PUT ${base}/actions/permissions`,
+      differingAt(`GET ${base}/actions/permissions`, {
+        body: { enabled: true, sha_pinning_required: false },
+        status: 200,
+      }),
+    ],
+    [
+      "workflow-permissions",
+      `PUT ${base}/actions/permissions/workflow`,
+      differingAt(`GET ${base}/actions/permissions/workflow`, {
+        body: { can_approve_pull_request_reviews: false, default_workflow_permissions: "write" },
+        status: 200,
+      }),
+    ],
+    [
+      "fork-approval",
+      `PUT ${base}/actions/permissions/fork-pr-contributor-approval`,
+      differingAt(`GET ${base}/actions/permissions/fork-pr-contributor-approval`, {
+        body: { approval_policy: "first_time_contributors" },
+        status: 200,
+      }),
+    ],
+  ] as const;
+
+  for (const [setting, write, answer] of cases) {
+    it.effect(`prints applied for ${setting} alone and unchanged for the other nine`, () =>
+      Effect.gen(function* differs() {
+        const { lines, requests, run } = harness(applyRest, PUBLIC, answer);
+        const summary = yield* run;
+
+        assert.deepStrictEqual(summary, { applied: 1, failed: 0, unavailable: 0 });
+        assert.deepStrictEqual(
+          lines,
+          SETTINGS.map((name) => (name === setting ? `applied ${name} 204` : `unchanged ${name}`)),
+        );
+        assert.deepStrictEqual(
+          requests
+            .filter((request) => !request.call.startsWith("GET "))
+            .map((request) => request.call),
+          [write],
+        );
+      }),
+    );
+  }
 });

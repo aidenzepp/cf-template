@@ -2,9 +2,8 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem, Option, Path, Schema } from "effect";
 
-import { Mirrors, Stamp, compareStamp, exclusions, expectedStamp } from "./stamp.ts";
-import { checkMirrors } from "./mirror.ts";
 import { readPackages, versionOf } from "./bun-lock.ts";
+import { Mirrors, Stamp, checkMirrors, compareStamp, exclusions, expectedStamp } from "./mirror.ts";
 
 /**
  * A lock in the shape `bun.lock` has: JSONC with comments and trailing commas, an aliased entry

@@ -10,7 +10,7 @@ import { RequestGuard } from "@workspace/config/web-guard";
  * @param request - The inbound request.
  * @returns The response that refuses the request, else `undefined`.
  */
-export const refusal = (request: Request): Effect.Effect<Response | undefined> =>
+export const refusal = (request: Request) =>
   Effect.serviceOption(RequestGuard).pipe(
     Effect.flatMap(
       Option.match({

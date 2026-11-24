@@ -1,6 +1,5 @@
 import { Effect, LogLevel, References, Schema } from "effect";
-import { Knob } from "./knob.ts";
-import { LiveKnobs } from "./live-knobs.ts";
+import { Knob, LiveKnobs } from "./knob.ts";
 
 /**
  * The minimum level a Worker logs at, read as `LOG_LEVEL` and defaulting to `Info`.
@@ -38,5 +37,5 @@ export const liveLogLevel = Effect.gen(function* bindLogLevel() {
  */
 export const atLogLevel =
   (level: Effect.Effect<LogLevel.LogLevel>) =>
-  <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
+  <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     Effect.provideServiceEffect(effect, References.MinimumLogLevel, level);

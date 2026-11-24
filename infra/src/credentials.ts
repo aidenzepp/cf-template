@@ -1,13 +1,15 @@
+#!/usr/bin/env bun
 import { BunHttpClient, BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect, Option } from "effect";
-import { BOOTSTRAP_SECRETS, BOOTSTRAP_VARIABLES } from "../stacks/bootstrap-names.ts";
+import { BOOTSTRAP_SECRETS, BOOTSTRAP_VARIABLES } from "../stacks/bootstrap.ts";
+import { collision, decidePin } from "./credentials/pin.ts";
+import { permissionPreflight, preflight } from "./credentials/preflight.ts";
+import { CredentialsError, NO_STACK_NAME } from "./credentials/model.ts";
+import type { FrozenIdentity } from "./credentials/model.ts";
+import { SpinUp } from "./credentials/spin-up.ts";
+import { SpinUpLive } from "./credentials/spin-up-live.ts";
 import { resolveRepository } from "./settings/repository.ts";
 import { resolveStackName } from "./stack-name.ts";
-import { SpinUpLive } from "./live-spin-up.ts";
-import { permissionPreflight, preflight } from "./preflight.ts";
-import { CredentialsError, NO_STACK_NAME, SpinUp } from "./spin-up.ts";
-import { collision, decidePin } from "./stack-pin.ts";
-import type { FrozenIdentity } from "./credentials-types.ts";
 
 /**
  * The variables and secrets this half writes that the repository does not have.
@@ -28,7 +30,7 @@ const missingValues = (variables: ReadonlyMap<string, string>, secrets: Readonly
  * @param slug - The repository `owner/name`.
  * @returns Nothing, or the failure naming the missing values.
  */
-const readBack = Effect.fn("readBack")(function* readBack(slug: string) {
+export const readBack = Effect.fn("readBack")(function* readBack(slug: string) {
   const spinUp = yield* SpinUp;
   const variables = yield* spinUp.variables(slug);
   const missing = missingValues(variables, yield* spinUp.secrets(slug));

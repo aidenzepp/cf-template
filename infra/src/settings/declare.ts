@@ -6,9 +6,43 @@ import type {
   VariableProps,
 } from "@alchemy.run/github";
 import { Config, Option } from "effect";
-import { ACTIONS_INTEGRATION_ID, LABELS, REQUIRED_CHECKS } from "./declare-constants.ts";
 import type { GuardedRepository } from "./repository.ts";
 import type { Tier } from "./tier.ts";
+
+/**
+ * The GitHub Actions app id that stamps the required status checks.
+ */
+export const ACTIONS_INTEGRATION_ID = 15_368;
+
+/**
+ * The required status check contexts of the `main` ruleset, in declaration order.
+ *
+ * Each Actions context names a job a workflow under `.github/workflows` runs today, so no pull
+ * request waits on a check nothing reports; `required-checks.test.ts` enforces it. A context joins
+ * in the pull request that adds its job: `merge-gate` with the merge-gate job, and `pr-title`,
+ * `pr-body` and `convention-guard` with the pull-request workflows of #43. `reviewer-agent` is
+ * stamped by an app, not a workflow, and is declared only when `GITHUB_REVIEWER_APP_ID` is set.
+ */
+export const REQUIRED_CHECKS = ["checks", "browser", "merge-gate", "reviewer-agent"] as const;
+
+/**
+ * The labels the declaration names; every other label is a deletion candidate for part 3.
+ *
+ * `autorelease: pending` and `autorelease: tagged` are the two labels release-please puts on its
+ * release pull requests. It creates them itself with GitHub's default color and no description, so
+ * they are declared by name alone and `--check` does not report them as `UNDECLARED`.
+ */
+export const LABELS = [
+  "convention",
+  "dependencies",
+  "bug",
+  "enhancement",
+  "documentation",
+  "merge-ready",
+  "want",
+  "autorelease: pending",
+  "autorelease: tagged",
+] as const;
 
 /**
  * The descriptions the declaration sets. A label with none keeps whatever description it has on
@@ -52,33 +86,31 @@ export const reviewerAppId = Config.Int("GITHUB_REVIEWER_APP_ID").pipe(Config.op
  * @param reviewer - The `reviewer-agent` app id, when set.
  * @returns The ruleset: PR required, strict checks, squash only, linear history, no bypass.
  */
-const mainRuleset = (
-  repository: GuardedRepository,
-  reviewer: Option.Option<number>,
-): RulesetProps => ({
-  conditions: { include: ["~DEFAULT_BRANCH"] },
-  deletion: true,
-  name: "main",
-  nonFastForward: true,
-  owner: repository.owner,
-  pullRequest: {
-    allowedMergeMethods: ["squash"],
-    requiredApprovingReviewCount: 0,
-    requiredReviewThreadResolution: true,
-  },
-  repository: repository.name,
-  requiredLinearHistory: true,
-  requiredStatusChecks: {
-    checks: REQUIRED_CHECKS.flatMap((context): ReadonlyArray<RequiredCheck> => {
-      if (context !== "reviewer-agent") {
-        return [{ context, integrationId: ACTIONS_INTEGRATION_ID }];
-      }
+const mainRuleset = (repository: GuardedRepository, reviewer: Option.Option<number>) =>
+  ({
+    conditions: { include: ["~DEFAULT_BRANCH"] },
+    deletion: true,
+    name: "main",
+    nonFastForward: true,
+    owner: repository.owner,
+    pullRequest: {
+      allowedMergeMethods: ["squash"],
+      requiredApprovingReviewCount: 0,
+      requiredReviewThreadResolution: true,
+    },
+    repository: repository.name,
+    requiredLinearHistory: true,
+    requiredStatusChecks: {
+      checks: REQUIRED_CHECKS.flatMap<RequiredCheck>((context) => {
+        if (context !== "reviewer-agent") {
+          return [{ context, integrationId: ACTIONS_INTEGRATION_ID }];
+        }
 
-      return Option.isSome(reviewer) ? [{ context, integrationId: reviewer.value }] : [];
-    }),
-    strictRequiredStatusChecksPolicy: true,
-  },
-});
+        return Option.isSome(reviewer) ? [{ context, integrationId: reviewer.value }] : [];
+      }),
+      strictRequiredStatusChecksPolicy: true,
+    },
+  }) satisfies RulesetProps;
 
 /**
  * Whether `prod-destructive` gets the owner as its required reviewer: public repositories only,
@@ -87,7 +119,7 @@ const mainRuleset = (
  * @param repository - The guarded repository.
  * @returns True when the owner login is declared as the reviewer.
  */
-const ownerReviews = (repository: GuardedRepository): boolean =>
+const ownerReviews = (repository: GuardedRepository) =>
   repository.visibility === "public" && repository.ownerType === "User";
 
 /**
@@ -97,7 +129,7 @@ const ownerReviews = (repository: GuardedRepository): boolean =>
  * @returns `prod` and `prod-destructive`, both limited to `main`, the latter with a reviewer only
  *   under {@link ownerReviews}.
  */
-const environments = (repository: GuardedRepository): ReadonlyArray<EnvironmentProps> => {
+const environments = (repository: GuardedRepository) => {
   const scope = {
     deploymentBranchPolicy: { customBranchPolicies: ["main"] },
     owner: repository.owner,
@@ -121,7 +153,7 @@ const environments = (repository: GuardedRepository): ReadonlyArray<EnvironmentP
  * @param tier - The detected tier.
  * @returns Merge methods and delete-on-merge under `mergeSettings`, auto-merge under `autoMerge`.
  */
-const repositoryProps = (repository: GuardedRepository, tier: Tier): RepositoryProps => {
+const repositoryProps = (repository: GuardedRepository, tier: Tier) => {
   const base = { name: repository.name, owner: repository.owner };
 
   const merge = tier.capabilities.has("mergeSettings")
@@ -154,7 +186,7 @@ export const planWarnings = (
   repository: GuardedRepository,
   tier: Tier,
   reviewer: Option.Option<number>,
-): ReadonlyArray<string> => [
+) => [
   ...(tier.branchProtection === "ruleset" && Option.isNone(reviewer)
     ? ["UNAVAILABLE reviewer-agent check: GITHUB_REVIEWER_APP_ID not set"]
     : []),
@@ -169,7 +201,7 @@ export const planWarnings = (
  * The repository declares governed fields only, never `isTemplate`, visibility or description.
  * Merge methods and delete-on-merge need the `mergeSettings` capability, auto-merge the `autoMerge`
  * one. The ruleset exists only when `BRANCH_PROTECTION` is `ruleset`, the environments only where
- * `ENVIRONMENTS` is true. The four tier variables and six labels always exist.
+ * `ENVIRONMENTS` is true. The four tier variables and nine labels always exist.
  *
  * @param repository - The guarded repository.
  * @param tier - The detected tier.
@@ -180,10 +212,10 @@ export const declarationPlan = (
   repository: GuardedRepository,
   tier: Tier,
   reviewer: Option.Option<number>,
-): DeclarationPlan => {
+) => {
   const scope = { owner: repository.owner, repository: repository.name };
 
-  return {
+  const plan: DeclarationPlan = {
     environments: tier.environments ? environments(repository) : [],
     labels: LABELS.map((name) => {
       const description = LABEL_DESCRIPTIONS[name];
@@ -201,4 +233,6 @@ export const declarationPlan = (
       ] as const
     ).map(([name, value]) => ({ ...scope, name, value })),
   };
+
+  return plan;
 };

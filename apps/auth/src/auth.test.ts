@@ -5,8 +5,16 @@ import { EffectSQLiteD1Database } from "drizzle-orm/effect-d1";
 import { Context, Effect, FileSystem, Option, Path, Schema, Tracer } from "effect";
 import { makeDatabase } from "@workspace/db/database";
 import { AuthService, adapterOptions } from "./auth.ts";
-import { LocalAuthD1, asExecution, authOver } from "./test-harness.ts";
-import { cookieOf, handle, tokenOnly, signIn, signUp } from "./test-requests.ts";
+import {
+  LocalAuthD1,
+  asExecution,
+  authOver,
+  cookieOf,
+  handle,
+  tokenOnly,
+  signIn,
+  signUp,
+} from "./test-harness.ts";
 
 /**
  * The packages the promise view is proven against. The test fails when `apps/auth/package.json`

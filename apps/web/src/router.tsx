@@ -1,5 +1,12 @@
 import { createRouter } from "@tanstack/react-router";
-import { authMethodsText, hydrateTexts, orphanGraceText, stackNameText } from "./runtime.ts";
+import {
+  authMethodsText,
+  hydrateAuthMethods,
+  hydrateOrphanGrace,
+  hydrateStackName,
+  orphanGraceText,
+  stackNameText,
+} from "./runtime.ts";
 import { NotFoundPage, RouteErrorPage } from "./components/system-pages.tsx";
 import { routeTree } from "./route-tree.gen.ts";
 
@@ -20,7 +27,11 @@ export const getRouter = () =>
       orphanGrace: orphanGraceText(),
       stackName: stackNameText(),
     }),
-    hydrate: hydrateTexts,
+    hydrate: ({ authMethods, orphanGrace, stackName }) => {
+      hydrateAuthMethods(authMethods);
+      hydrateOrphanGrace(orphanGrace);
+      hydrateStackName(stackName);
+    },
     routeTree,
   });
 

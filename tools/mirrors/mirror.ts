@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import {
   Config,
@@ -13,17 +14,45 @@ import {
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { readPackages, versionOf } from "./bun-lock.ts";
 import type { Packages } from "./bun-lock.ts";
-import { Mirrors, Stamp, compareStamp, exclusions, expectedStamp } from "./stamp.ts";
-import type { Entry } from "./stamp.ts";
+
+/**
+ * One upstream repository to mirror: the `bun.lock` package whose version picks the tag, and the
+ * sparse patterns that bound the checkout. `{version}` in `tag` is replaced by the locked version.
+ */
+export const Mirror = Schema.Struct({
+  anchor: Schema.String,
+  name: Schema.String,
+  repository: Schema.String,
+  sparse: Schema.Array(Schema.String),
+  tag: Schema.String,
+  verify: Schema.String,
+});
+
+type Entry = typeof Mirror.Type;
+
+/**
+ * The text of `mirrors.json`.
+ */
+export const Mirrors = Schema.fromJsonString(Schema.Array(Mirror));
+
+/**
+ * What a finished checkout records, so a warm run can tell whether anything changed.
+ */
+export const Stamp = Schema.Struct({
+  exclusions: Schema.Array(Schema.String),
+  sparse: Schema.Array(Schema.String),
+  tag: Schema.String,
+});
 
 type StampValue = typeof Stamp.Type;
 
-/**
- * What a mirror needs to become current: a fresh clone, or only a new sparse list.
- */
-type Stale = Option.Option.Value<ReturnType<typeof compareStamp>>;
-
 const StampJson = Schema.fromJsonString(Stamp);
+
+/**
+ * The negative sparse patterns: files that instruct a harness are reference data here, not
+ * instructions.
+ */
+export const exclusions = ["!CLAUDE.md", "!**/.agents/", "!**/.claude/", "!**/skills/"];
 
 const stampName = ".mirror-stamp.json";
 
@@ -60,12 +89,12 @@ const indexIntro = [
 /**
  * A failure the mirrors command reports as one line.
  */
-class MirrorError extends Schema.TaggedError<MirrorError, { readonly brand: unique symbol }>()(
-  "MirrorError",
-  {
-    message: Schema.String,
-  },
-) {}
+export class MirrorError extends Schema.TaggedError<
+  MirrorError,
+  { readonly brand: unique symbol }
+>()("MirrorError", {
+  message: Schema.String,
+}) {}
 
 /**
  * The result of syncing one mirror: its printed line and whether it ended well.
@@ -82,6 +111,45 @@ interface Report {
   readonly line: string;
   readonly stale: boolean;
 }
+
+/**
+ * What a mirror needs to become current: a fresh clone, or only a new sparse list.
+ */
+interface Stale {
+  readonly action: "clone" | "sparse";
+  readonly reason: string;
+}
+
+/**
+ * The stamp a current checkout of `entry` at the locked `version` carries.
+ */
+export const expectedStamp = (entry: Entry, version: string) => ({
+  exclusions,
+  sparse: entry.sparse,
+  tag: entry.tag.replace("{version}", version),
+});
+
+/**
+ * Compares a checkout's stamp with the expected one: a missing stamp or another tag means a fresh
+ * clone, other lists mean a new sparse checkout only.
+ */
+export const compareStamp = (actual: Option.Option<StampValue>, expected: StampValue) => {
+  if (Option.isNone(actual)) {
+    return Option.some<Stale>({ action: "clone", reason: "no stamp" });
+  }
+
+  if (actual.value.tag !== expected.tag) {
+    return Option.some<Stale>({
+      action: "clone",
+      reason: `tag ${actual.value.tag}, lock wants ${expected.tag}`,
+    });
+  }
+
+  return JSON.stringify([actual.value.sparse, actual.value.exclusions]) ===
+    JSON.stringify([expected.sparse, expected.exclusions])
+    ? Option.none()
+    : Option.some<Stale>({ action: "sparse", reason: "sparse patterns or exclusions changed" });
+};
 
 /**
  * Where a mirror's checkout lives.
@@ -127,8 +195,7 @@ const staleness = Effect.fn("mirrors.staleness")(function* staleness(
   return compareStamp(yield* readStamp(dir), expectedStamp(entry, version));
 });
 
-const skipLine = (entry: Entry): string =>
-  `${entry.name}: anchor ${entry.anchor} not in bun.lock, skipped`;
+const skipLine = (entry: Entry) => `${entry.name}: anchor ${entry.anchor} not in bun.lock, skipped`;
 
 /**
  * The offline `--check`: one report per mirror that is stale or skipped, and nothing is written.
@@ -290,8 +357,8 @@ const syncEntry = Effect.fn("mirrors.syncEntry")(function* syncEntry(
 export const syncOne = (root: string, entry: Entry, packages: Packages) =>
   syncEntry(root, entry, packages).pipe(
     Effect.match({
-      onFailure: (error): Outcome => ({ line: `${entry.name}: ${error.message}`, ok: false }),
-      onSuccess: (outcome): Outcome => outcome,
+      onFailure: (error) => ({ line: `${entry.name}: ${error.message}`, ok: false }),
+      onSuccess: (outcome) => outcome,
     }),
   );
 
@@ -343,7 +410,10 @@ export const writeIndex = Effect.fn("mirrors.writeIndex")(function* writeIndex(
  * when any mirror is stale; otherwise every mirror is synced, the index is written, and the total
  * size and wall time are printed. Returns the process exit code.
  */
-const program = Effect.fn("mirrors.program")(function* program(root: string, check: boolean) {
+export const program = Effect.fn("mirrors.program")(function* program(
+  root: string,
+  check: boolean,
+) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 

@@ -18,7 +18,7 @@ const ModeKnob = Knob.make("MODE", Mode);
 const storeOf = (...answers: ReadonlyArray<string | null>) => {
   const reads: Array<string> = [];
 
-  const read = (key: string): Effect.Effect<string | null, string> =>
+  const read = (key: string) =>
     Effect.yieldNow.pipe(
       Effect.andThen(
         Effect.suspend(() => {

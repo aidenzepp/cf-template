@@ -36,7 +36,7 @@ interface Row {
  * Reads the rows of the registry table: the lines after the `Concern` header and its separator.
  * A cell is split on every `|` that is not escaped as `\|`.
  */
-const parseRows = (text: string): ReadonlyArray<Row> =>
+const parseRows = (text: string) =>
   text
     .split("\n")
     .filter(
@@ -59,7 +59,7 @@ const parseRows = (text: string): ReadonlyArray<Row> =>
         ({ groups }) => groups?.key ?? "",
       );
 
-      return { concern: cells[0] ?? "", guard, keys, pending };
+      return { concern: cells[0] ?? "", guard, keys, pending } satisfies Row;
     });
 
 /**
@@ -71,7 +71,7 @@ type RuleSetting = NonNullable<NonNullable<typeof config.lint>["rules"]>[string]
  * Whether one rule setting turns the rule on: a severity of `off` or `0`, bare or first in an
  * array, leaves it off.
  */
-const isOn = (setting: RuleSetting): boolean => {
+const isOn = (setting: RuleSetting) => {
   const level = Schema.is(Schema.Array(Schema.Unknown))(setting) ? setting[0] : setting;
 
   return level !== "off" && level !== 0;
@@ -80,7 +80,7 @@ const isOn = (setting: RuleSetting): boolean => {
 /**
  * The rule keys the lint configuration turns on, at the base or in any override.
  */
-const configuredKeys = (): ReadonlySet<string> => {
+const configuredKeys = () => {
   const { lint } = config;
   const settings = [lint?.rules, ...(lint?.overrides ?? []).map((override) => override.rules)];
 

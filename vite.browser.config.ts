@@ -59,6 +59,5 @@ export default defineConfig({
       "test/browser/**/*.browser.ts",
       ...FIXTURES.filter((fixture) => process.argv.includes(fixture)),
     ],
-    testTimeout: 120_000,
   },
 });

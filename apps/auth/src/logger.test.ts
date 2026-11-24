@@ -3,8 +3,7 @@ import { Effect, Logger, Ref, References } from "effect";
 import { constVoid } from "effect/Function";
 import { betterAuthLogger, redactEmails } from "./logger.ts";
 import type { LogArgument } from "./logger.ts";
-import { LocalAuthD1, asExecution, authOver } from "./test-harness.ts";
-import { signUp } from "./test-requests.ts";
+import { LocalAuthD1, asExecution, authOver, signUp } from "./test-harness.ts";
 
 /**
  * One log line as the test logger saw it: the level, and the message and annotations as JSON text.
@@ -52,11 +51,7 @@ const collected = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
  * @param args - The extra arguments.
  * @returns The lines written.
  */
-const logged = (
-  level: "warn" | "error",
-  message: string,
-  ...args: ReadonlyArray<LogArgument>
-): Effect.Effect<ReadonlyArray<Line>> =>
+const logged = (level: "warn" | "error", message: string, ...args: ReadonlyArray<LogArgument>) =>
   Effect.gen(function* write() {
     const { lines } = yield* collected(
       Effect.gen(function* emit() {
@@ -182,7 +177,7 @@ layer(LocalAuthD1.layer)("the Better Auth logger", (live) => {
     assert.strictEqual(redactEmails("a%2540b.co"), "[email]");
     assert.strictEqual(redactEmails("a&#64;b.co"), "[email]");
     assert.strictEqual(redactEmails("a＠b.co"), "[email]");
-    assert.strictEqual(redactEmails('"a\\"b"@c.co'), "[email]");
+    assert.strictEqual(redactEmails(String.raw`"a\"b"@c.co`), "[email]");
     assert.strictEqual(redactEmails("100%"), "100%");
   });
 

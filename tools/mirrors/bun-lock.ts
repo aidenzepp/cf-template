@@ -32,7 +32,7 @@ const trailingCommas = /(?<kept>"(?:[^"\\]|\\.)*")|,(?=\s*[}\]])/gu;
  * Turns JSONC into JSON by dropping comments and trailing commas outside strings. `Bun.JSONC` does
  * this on Bun, but the Vitest suite runs on Node, which has no `Bun` global.
  */
-const jsoncToJson = (text: string): string =>
+const jsoncToJson = (text: string) =>
   text.replaceAll(comments, "$<kept>").replaceAll(trailingCommas, "$<kept>");
 
 /**
@@ -47,7 +47,7 @@ export const readPackages = Effect.fn("mirrors.readPackages")(function* readPack
  * which reads `<name>@<version>` (the name is read from the element because aliases resolve to
  * another name). Nothing when the anchor is not in the lock.
  */
-export const versionOf = (packages: Packages, anchor: string): Option.Option<string> =>
+export const versionOf = (packages: Packages, anchor: string) =>
   Option.fromNullishOr(packages[anchor]?.[0]).pipe(
     Option.map((spec) => spec.slice(spec.lastIndexOf("@") + 1)),
   );
