@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.1.3](https://github.com/aidenzepp/cf-template/compare/v0.1.2...v0.1.3) (2026-11-24)
+
+
+### Features
+
+* **tools:** accept bulleted issue lines in the pr-body check and adopt sub-issues ([#475](https://github.com/aidenzepp/cf-template/issues/475)) ([84b0293](https://github.com/aidenzepp/cf-template/commit/84b02938bf65af3ca3fec25019d9420d7cf67433))
+* **ui:** install every component in the shadcn base-rhea registry ([#438](https://github.com/aidenzepp/cf-template/issues/438)) ([fec90e6](https://github.com/aidenzepp/cf-template/commit/fec90e659b39d3584caf5bcb3096a562f40c3222))
+
+
+### Bug Fixes
+
+* **infra:** declare the release bot autorelease labels in the settings list ([#462](https://github.com/aidenzepp/cf-template/issues/462)) ([c8b20a9](https://github.com/aidenzepp/cf-template/commit/c8b20a9a647ad7a931aadabc6567a3d7fc5692ad))
+* **infra:** print unchanged for REST settings that already hold the declared value ([#443](https://github.com/aidenzepp/cf-template/issues/443)) ([ef41ab8](https://github.com/aidenzepp/cf-template/commit/ef41ab813f022476b5bee9ae9f0976af96c6dfa1))
+
 ## [0.1.2](https://github.com/aidenzepp/cf-template/compare/v0.1.1...v0.1.2) (2026-11-16)
 
 
