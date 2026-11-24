@@ -126,3 +126,4 @@ export class Knob<A> {
   }
 }
 // probe S5: shared-package edit for the #474 cache measurement
+// probe S5b: second-pass shared-package edit for the #474 cache measurement
