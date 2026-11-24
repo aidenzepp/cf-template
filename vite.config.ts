@@ -659,6 +659,10 @@ export default defineConfig({
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],
+      // The Ultracite 8.3 `core` preset turns `sort-keys` off; the 8.1.1 preset had it at `error` with
+      // default options, so this keeps the rule the repository already enforced. The scoped
+      // overrides above still lift it where key order is the wire or column order.
+      "sort-keys": "error",
       // Issue #11 item 10: `ReadonlyArray<T>` is the accepted array spelling.
       "typescript/array-type": ["error", { default: "generic", readonly: "generic" }],
       // Effect adapters return existing promises without introducing async wrappers.
