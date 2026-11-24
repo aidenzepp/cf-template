@@ -1,5 +1,5 @@
 import { assert, describe, expect, it } from "@effect/vitest";
-import { Effect } from "effect";
+import { Effect, Layer } from "effect";
 import { commands, page, server } from "vite-plus/test/browser";
 import type { BrowserCommands } from "vite-plus/test/internal/browser";
 import { VIOLATIONS } from "./fixtures/style-audit/violations.ts";
@@ -192,73 +192,82 @@ const SCREENS = [
 
 const SCHEMES = ["light", "dark"] as const;
 
+/**
+ * The harness, started once before the first case: the first scan builds the production bundle of
+ * `web` and starts Miniflare, which takes longer than a case should, so the layer scans a page and
+ * discards it and every case measures only its own page.
+ */
+const warmHarness = Layer.effectDiscard(scan("/", undefined, "light"));
+
 describe("the first screens", () => {
-  for (const colorScheme of SCHEMES) {
-    for (const { cookie, heading, name, path, slug } of SCREENS) {
-      it.effect(`${name} has no axe violations once hydrated in ${colorScheme}`, () =>
-        Effect.gen(function* scanScreen() {
-          const { dark, passes, stackName, text, title, violations } = yield* scan(
-            path,
-            cookie,
-            colorScheme,
-          );
-
-          assert.isNotEmpty(stackName);
-          assert.include(text, heading ?? stackName);
-
-          if (heading === undefined) {
-            assert.strictEqual(title, stackName);
-          }
-
-          assert.isAbove(passes, 0);
-          assert.strictEqual(dark, colorScheme === "dark");
-          assert.deepStrictEqual(
-            violations.map(({ id }) => id),
-            [],
-          );
-        }),
-      );
-
-      // The baselines are Linux screenshots, written by `.github/workflows/browser-baselines.yml`.
-      it.effect.skipIf(server.platform !== "linux")(
-        `${name} matches its screenshots at 390 and 1280 px in ${colorScheme}`,
-        () =>
-          Effect.gen(function* compareScreen() {
-            const { screenshots } = yield* scan(path, cookie, colorScheme);
-
-            assert.deepStrictEqual(
-              screenshots.map(({ width }) => width),
-              [390, 1280],
+  it.layer(warmHarness)((cases) => {
+    for (const colorScheme of SCHEMES) {
+      for (const { cookie, heading, name, path, slug } of SCREENS) {
+        cases.effect(`${name} has no axe violations once hydrated in ${colorScheme}`, () =>
+          Effect.gen(function* scanScreen() {
+            const { dark, passes, stackName, text, title, violations } = yield* scan(
+              path,
+              cookie,
+              colorScheme,
             );
 
-            for (const { png, width } of screenshots) {
-              yield* matchScreenshot(`${slug}-${colorScheme}-${width}`, png);
+            assert.isNotEmpty(stackName);
+            assert.include(text, heading ?? stackName);
+
+            if (heading === undefined) {
+              assert.strictEqual(title, stackName);
             }
+
+            assert.isAbove(passes, 0);
+            assert.strictEqual(dark, colorScheme === "dark");
+            assert.deepStrictEqual(
+              violations.map(({ id }) => id),
+              [],
+            );
           }),
-      );
+        );
 
-      it.effect(`${name} passes the style audit in ${colorScheme}`, () =>
-        Effect.gen(function* auditScreen() {
-          const { dark, findings } = yield* audit(path, cookie, colorScheme, undefined);
+        // The baselines are Linux screenshots, written by `.github/workflows/browser-baselines.yml`.
+        cases.effect.skipIf(server.platform !== "linux")(
+          `${name} matches its screenshots at 390 and 1280 px in ${colorScheme}`,
+          () =>
+            Effect.gen(function* compareScreen() {
+              const { screenshots } = yield* scan(path, cookie, colorScheme);
 
-          assert.strictEqual(dark, colorScheme === "dark");
-          assert.deepStrictEqual(findings.map(line), []);
-        }),
-      );
+              assert.deepStrictEqual(
+                screenshots.map(({ width }) => width),
+                [390, 1280],
+              );
+
+              for (const { png, width } of screenshots) {
+                yield* matchScreenshot(`${slug}-${colorScheme}-${width}`, png);
+              }
+            }),
+        );
+
+        cases.effect(`${name} passes the style audit in ${colorScheme}`, () =>
+          Effect.gen(function* auditScreen() {
+            const { dark, findings } = yield* audit(path, cookie, colorScheme, undefined);
+
+            assert.strictEqual(dark, colorScheme === "dark");
+            assert.deepStrictEqual(findings.map(line), []);
+          }),
+        );
+      }
+
+      for (const { html, name, rule } of VIOLATIONS) {
+        cases.effect(`the style audit flags ${name} once in ${colorScheme}`, () =>
+          Effect.gen(function* auditFixture() {
+            const { findings } = yield* audit("/", undefined, colorScheme, html);
+
+            assert.deepStrictEqual(
+              findings.map(({ rule: broken }) => broken),
+              [rule],
+              findings.map(line).join("\n"),
+            );
+          }),
+        );
+      }
     }
-
-    for (const { html, name, rule } of VIOLATIONS) {
-      it.effect(`the style audit flags ${name} once in ${colorScheme}`, () =>
-        Effect.gen(function* auditFixture() {
-          const { findings } = yield* audit("/", undefined, colorScheme, html);
-
-          assert.deepStrictEqual(
-            findings.map(({ rule: broken }) => broken),
-            [rule],
-            findings.map(line).join("\n"),
-          );
-        }),
-      );
-    }
-  }
+  });
 });

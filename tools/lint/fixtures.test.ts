@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 
 import { assert, describe, it } from "@effect/vitest";
 
-import { Array as Arr, Effect, FileSystem, Order, Path, Schema } from "effect";
+import { Array as Arr, Context, Effect, FileSystem, Layer, Order, Path, Schema } from "effect";
 
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -147,10 +147,75 @@ const reportedLines = Effect.fnUntraced(function* reportedLines(
 });
 
 /**
- * The timeout of the rule-fixture test, which spawns the linter once per fixture directory in
- * sequence: about 1.5 s alone, more than the 5 s default on a loaded machine.
+ * One expectation about a fixture file: the diagnostics the fixture's own configuration should
+ * report on it, and the number it reported.
  */
-const SPAWN_TIMEOUT_MS = 60_000;
+interface FixtureCount {
+  readonly actual: number;
+  readonly expected: number;
+  readonly label: string;
+}
+
+/**
+ * Lints every rule fixture directory, `fire.ts` and `pass.ts` together and an exempt-directory
+ * `pass` file alone, and returns what each file should report beside what it reported.
+ *
+ * @param name - The fixture directory's name under `tools/lint/fixtures`.
+ * @returns The expectations about the directory's files.
+ */
+const lintRuleFixture = Effect.fnUntraced(function* lintRuleFixture(name: string) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const { root } = yield* toolchain;
+  const dir = path.join(root, "tools", "lint", "fixtures", name);
+
+  if (!(yield* fs.exists(path.join(dir, ".oxlintrc.json")))) {
+    return [];
+  }
+
+  // A JSX fixture is `fire.tsx` and `pass.tsx`; every other fixture is `.ts`.
+  const extension = (yield* fs.exists(path.join(dir, "fire.tsx"))) ? "tsx" : "ts";
+  const fire = `fire.${extension}`;
+  const pass = `pass.${extension}`;
+  const count = yield* lintFixture(dir, [fire, pass]);
+
+  const counts: ReadonlyArray<FixtureCount> = [
+    { actual: count(fire), expected: 1, label: `${name}/${fire}` },
+    { actual: count(pass), expected: 0, label: `${name}/${pass}` },
+  ];
+
+  // An exempt-directory fixture also holds `components/ui/pass.<ext>`, which must stay silent.
+  const exempt = path.join("components", "ui", pass);
+
+  if (!(yield* fs.exists(path.join(dir, exempt)))) {
+    return counts;
+  }
+
+  const exemptCount = yield* lintFixture(dir, [exempt]);
+
+  return [...counts, { actual: exemptCount(pass), expected: 0, label: `${name}/${exempt}` }];
+});
+
+/**
+ * What linting every rule fixture directory reported, run once before the first case. The linter
+ * spawns once per directory, about 6 s in all alone, so the spawns run together in the layer and
+ * the case only compares counts.
+ */
+class RuleFixtures extends Context.Service<RuleFixtures, ReadonlyArray<FixtureCount>>()(
+  "@workspace/test/LintRuleFixtures",
+) {
+  static readonly layer = Layer.effect(
+    RuleFixtures,
+    Effect.gen(function* lintAll() {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const { root } = yield* toolchain;
+      const names = yield* fs.readDirectory(path.join(root, "tools", "lint", "fixtures"));
+
+      return (yield* Effect.forEach(names, lintRuleFixture, { concurrency: 8 })).flat();
+    }),
+  ).pipe(Layer.provide(BunServices.layer));
+}
 
 describe("lint fixtures", () => {
   it.effect("the stylistic padding rule reports every line require-readable-spacing reports", () =>
@@ -179,41 +244,15 @@ describe("lint fixtures", () => {
     }).pipe(Effect.provide(BunServices.layer)),
   );
 
-  it.effect(
-    "each rule fixture fires once on fire.ts and never on pass.ts",
-    () =>
+  it.layer(RuleFixtures.layer)((cases) => {
+    cases.effect("each rule fixture fires once on fire.ts and never on pass.ts", () =>
       Effect.gen(function* rules() {
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const { root } = yield* toolchain;
-        const fixtures = path.join(root, "tools", "lint", "fixtures");
-
-        for (const name of yield* fs.readDirectory(fixtures)) {
-          const dir = path.join(fixtures, name);
-
-          if (yield* fs.exists(path.join(dir, ".oxlintrc.json"))) {
-            // A JSX fixture is `fire.tsx` and `pass.tsx`; every other fixture is `.ts`.
-            const extension = (yield* fs.exists(path.join(dir, "fire.tsx"))) ? "tsx" : "ts";
-            const fire = `fire.${extension}`;
-            const pass = `pass.${extension}`;
-            const count = yield* lintFixture(dir, [fire, pass]);
-
-            assert.strictEqual(count(fire), 1, `${name}/${fire}`);
-            assert.strictEqual(count(pass), 0, `${name}/${pass}`);
-
-            // An exempt-directory fixture also holds `components/ui/pass.<ext>`, which must stay silent.
-            const exempt = path.join("components", "ui", pass);
-
-            if (yield* fs.exists(path.join(dir, exempt))) {
-              const exemptCount = yield* lintFixture(dir, [exempt]);
-
-              assert.strictEqual(exemptCount(pass), 0, `${name}/${exempt}`);
-            }
-          }
+        for (const { actual, expected, label } of yield* RuleFixtures) {
+          assert.strictEqual(actual, expected, label);
         }
-      }).pipe(Effect.provide(BunServices.layer)),
-    SPAWN_TIMEOUT_MS,
-  );
+      }),
+    );
+  });
 
   it.effect("a package import that leaves rootDir fails the installed tsc with TS6059", () =>
     Effect.gen(function* escape() {
