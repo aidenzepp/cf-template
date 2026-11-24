@@ -684,9 +684,7 @@ export default defineConfig({
       "landmines/no-comments": "off",
       "landmines/no-conditional-expect": "error",
       "landmines/no-elapsed-time-bound": "error",
-      // Off (268 findings): AGENTS.md rules out type-design policies, and the annotations are
-      // documented contracts.
-      "landmines/no-explicit-return-types": "off",
+      "landmines/no-explicit-return-types": "error",
       "landmines/no-fixed-sleep": "error",
       // Off (28 findings): 26 spawning tests in tools/ pass a 60 s timeout and the browser and
       // cloud configs set testTimeout for page loads and requests to a deployed stage; each needs
