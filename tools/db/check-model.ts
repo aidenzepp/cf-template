@@ -20,8 +20,10 @@ export interface Finding {
 
 /**
  * Where a run happens: the tree being checked and the `drizzle-kit` binary that checks it.
+ * `authSchema` is the text the Better Auth CLI generates, when the caller already ran it.
  */
 export interface Context {
+  readonly authSchema: string | undefined;
   readonly base: string | undefined;
   readonly kit: string;
   readonly root: string;

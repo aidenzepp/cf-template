@@ -19,7 +19,7 @@ const isText = Schema.is(Schema.String);
  * The entries beneath an `ignore*` key: a string leaf anywhere counts 1, and so does every array
  * item that is not itself an array or object. Booleans outside an array are settings, not entries.
  */
-const leaves = (value: Schema.Json, inList: boolean): number => {
+const leaves: (value: Schema.Json, inList: boolean) => number = (value, inList) => {
   if (isList(value)) {
     return value.reduce((total: number, item) => total + leaves(item, true), 0);
   }
@@ -35,7 +35,7 @@ const leaves = (value: Schema.Json, inList: boolean): number => {
  * The entries beneath every `ignore*` key in a parsed knip configuration, at any depth: a string,
  * an array or an object such as `ignoreIssues`.
  */
-export const ignoreEntries = (value: Schema.Json): number => {
+export const ignoreEntries: (value: Schema.Json) => number = (value) => {
   if (isList(value)) {
     return value.reduce((total: number, item) => total + ignoreEntries(item), 0);
   }

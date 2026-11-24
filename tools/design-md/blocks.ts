@@ -48,7 +48,7 @@ const DIMENSION = /^(?<amount>[\d.]+)(?<unit>[a-z%]+)$/u;
  * @param blocks - The collected blocks.
  * @returns The map the declaration belongs in.
  */
-const blockFor = (parent: AnyNode | undefined, blocks: Blocks): Map<string, string> | undefined => {
+const blockFor = (parent: AnyNode | undefined, blocks: Blocks) => {
   if (parent?.type === "atrule" && parent.name === "theme") {
     return blocks.theme;
   }
@@ -57,11 +57,7 @@ const blockFor = (parent: AnyNode | undefined, blocks: Blocks): Map<string, stri
     return blocks.root;
   }
 
-  if (parent?.type === "rule" && parent.selector === ".dark") {
-    return blocks.dark;
-  }
-
-  return undefined;
+  return parent?.type === "rule" && parent.selector === ".dark" ? blocks.dark : undefined;
 };
 
 /**
@@ -71,7 +67,7 @@ const blockFor = (parent: AnyNode | undefined, blocks: Blocks): Map<string, stri
  * @param file - The file name used in a parse failure.
  * @returns The collected blocks, or a {@link DesignMdParseError}.
  */
-export const readBlocks = (css: string, file: string): Effect.Effect<Blocks, DesignMdParseError> =>
+export const readBlocks = (css: string, file: string) =>
   Effect.try({
     catch: (error) => {
       const line = error instanceof CssSyntaxError ? error.line : undefined;
@@ -105,11 +101,7 @@ export const readBlocks = (css: string, file: string): Effect.Effect<Blocks, Des
  * @returns The resolved value, or a {@link DesignMdResolveError} naming the token and the
  *   expression.
  */
-const resolveRadius = (
-  prop: string,
-  value: string,
-  radius: string | undefined,
-): Effect.Effect<string, DesignMdResolveError> => {
+const resolveRadius = (prop: string, value: string, radius: string | undefined) => {
   if (!prop.startsWith("--radius-") || !value.startsWith("calc(")) {
     return Effect.succeed(value);
   }
@@ -138,7 +130,7 @@ const resolveRadius = (
  * @param blocks - The collected blocks.
  * @returns The blocks with resolved radius steps, or a {@link DesignMdResolveError}.
  */
-export const resolveRadii = (blocks: Blocks): Effect.Effect<Blocks, DesignMdResolveError> =>
+export const resolveRadii = (blocks: Blocks) =>
   Effect.gen(function* resolveTheme() {
     const theme = new Map<string, string>();
 

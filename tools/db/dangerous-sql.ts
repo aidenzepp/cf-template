@@ -21,7 +21,7 @@ const Snapshot = Schema.fromJsonString(
  * Splits migration SQL into statements on the `--> statement-breakpoint` markers and `;` that
  * `drizzle-kit` emits.
  */
-const statements = (sql: string): ReadonlyArray<string> =>
+const statements = (sql: string) =>
   sql
     .split(/-->\s*statement-breakpoint|;/u)
     .map((statement) => statement.trim())
@@ -30,7 +30,7 @@ const statements = (sql: string): ReadonlyArray<string> =>
 /**
  * Whether `patterns` each match a later statement than the one before, in order.
  */
-const inOrder = (all: ReadonlyArray<string>, patterns: ReadonlyArray<RegExp>): boolean => {
+const inOrder = (all: ReadonlyArray<string>, patterns: ReadonlyArray<RegExp>) => {
   let from = 0;
 
   for (const pattern of patterns) {
@@ -49,14 +49,14 @@ const inOrder = (all: ReadonlyArray<string>, patterns: ReadonlyArray<RegExp>): b
 /**
  * The table name captured by the named group `name` in `pattern`, as a list of zero or one.
  */
-const captured = (pattern: RegExp, statement: string): ReadonlyArray<string> =>
+const captured = (pattern: RegExp, statement: string) =>
   Arr.fromNullishOr(pattern.exec(statement)?.groups?.name);
 
 /**
  * The tables a migration recreates: each `__new_<t>` with the four-statement sequence `CREATE`,
  * `INSERT ... SELECT`, `DROP TABLE <t>`, `RENAME TO <t>`.
  */
-const recreated = (all: ReadonlyArray<string>): ReadonlyArray<string> =>
+const recreated = (all: ReadonlyArray<string>) =>
   all
     .flatMap((statement) => captured(/^CREATE TABLE [`"]__new_(?<name>\w+)[`"]/iu, statement))
     .filter((table) =>
@@ -70,13 +70,13 @@ const recreated = (all: ReadonlyArray<string>): ReadonlyArray<string> =>
 /**
  * A module path without its `.ts` or `.tsx` extension, so `./table` and `./table.ts` compare equal.
  */
-const bare = (module: string): string => module.replace(/\.tsx?$/u, "");
+const bare = (module: string) => module.replace(/\.tsx?$/u, "");
 
 /**
  * Whether an import statement in `source` (type-only imports and re-exports included) names
  * `target`, a repository path, from the module at `file`. Only relative specifiers are resolved.
  */
-const imports = (path: Path.Path, source: string, file: string, target: string): boolean =>
+const imports = (path: Path.Path, source: string, file: string, target: string) =>
   [...source.matchAll(/\b(?:from|import)\s*\(?\s*["'](?<specifier>\.[^"']*)["']/gu)].some(
     (match) => bare(path.join(path.dirname(file), match.groups?.specifier ?? "")) === bare(target),
   );
