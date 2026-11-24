@@ -21,11 +21,13 @@ import {
 import { FetchHttpClient } from "effect/http";
 import type { HttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { BOOTSTRAP_STAGE } from "../../stacks/bootstrap.ts";
+import { BOOTSTRAP_STAGE } from "../../stacks/bootstrap-names.ts";
 import { getJson } from "../settings/repository.ts";
 import { alchemy, alchemyAttached } from "./alchemy-cli.ts";
-import { BootstrapRecord, CredentialsError, PROBES, failed } from "./model.ts";
+import { CredentialsError, failed } from "./error.ts";
+import { BootstrapRecord } from "./model.ts";
 import type { FrozenIdentity, RepositoryView } from "./model.ts";
+import { PROBES } from "./runbook.ts";
 import { planOf } from "./plan.ts";
 import { listsBootstrapRecord, stateReadJson } from "./pin.ts";
 import { SpinUp } from "./spin-up.ts";

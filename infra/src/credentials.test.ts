@@ -1,19 +1,14 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Console, Effect, Option, Schema } from "effect";
 import bootstrapStack, {
-  BOOTSTRAP_SECRETS,
-  BOOTSTRAP_VARIABLES,
   CI_TOKEN_PERMISSION_GROUPS,
   bootstrapInputs,
   ciTokenPolicies,
 } from "../stacks/bootstrap.ts";
+import { BOOTSTRAP_SECRETS, BOOTSTRAP_VARIABLES } from "../stacks/bootstrap-names.ts";
 import { credentials, parseArguments } from "./credentials.ts";
-import {
-  BootstrapRecord,
-  CredentialsError,
-  NO_STACK_NAME,
-  PLAN_PAGE,
-} from "./credentials/model.ts";
+import { CredentialsError } from "./credentials/error.ts";
+import { BootstrapRecord } from "./credentials/model.ts";
 import type {
   DeployInput,
   FrozenIdentity,
@@ -24,6 +19,7 @@ import type {
 import { collision, decidePin, listsBootstrapRecord, stateReadJson } from "./credentials/pin.ts";
 import { planOf, workersPlan } from "./credentials/plan.ts";
 import { permissionPreflight } from "./credentials/preflight.ts";
+import { NO_STACK_NAME, PLAN_PAGE } from "./credentials/runbook.ts";
 import { SpinUp } from "./credentials/spin-up.ts";
 
 /**

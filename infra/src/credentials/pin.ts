@@ -1,6 +1,7 @@
 import { Effect, Option } from "effect";
-import { CredentialsError, STEP_22 } from "./model.ts";
+import { CredentialsError } from "./error.ts";
 import type { FrozenIdentity, RepositoryView } from "./model.ts";
+import { STEP_22 } from "./runbook.ts";
 
 /**
  * What sub-step 2 decides: the stack to use, whether to run the collision check, and the identity

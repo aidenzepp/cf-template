@@ -1,5 +1,6 @@
 import { Effect, Option } from "effect";
-import { CredentialsError, PREREQUISITES, PROBES, STEP_1 } from "./model.ts";
+import { CredentialsError } from "./error.ts";
+import { PREREQUISITES, PROBES, STEP_1 } from "./runbook.ts";
 import { requirePaid } from "./plan.ts";
 import { SpinUp } from "./spin-up.ts";
 

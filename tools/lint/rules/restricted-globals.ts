@@ -1,4 +1,4 @@
-import { fetchMessage } from "./restricted-properties.ts";
+import { fetchMessage } from "./scoped-members.ts";
 
 /**
  * The `no-restricted-globals` entries of source code that name no registry exception: abort

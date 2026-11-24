@@ -44,14 +44,6 @@ export class LogKeyRefused extends Schema.TaggedError<
 }) {}
 
 /**
- * One parsed command line.
- */
-export interface LogKeyRequest {
-  readonly email: string;
-  readonly stage: string;
-}
-
-/**
  * Parse the arguments after `bun run log-key`.
  *
  * @param args - The raw arguments.

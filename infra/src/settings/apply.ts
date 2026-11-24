@@ -3,15 +3,10 @@ import type { Redacted } from "effect";
 import { failOnDrift, reportDrift } from "./check.ts";
 import { declarationPlan, planWarnings, reviewerAppId } from "./declare.ts";
 import type { DeclarationPlan } from "./declare.ts";
-import {
-  getJson,
-  githubToken,
-  guardAdmin,
-  refuseAmbientCredentials,
-  resolveRepository,
-} from "./repository.ts";
+import { getJson, guardAdmin, resolveRepository } from "./repository.ts";
 import { applyRest } from "./rest.ts";
 import { applyRestLabels } from "./rest-labels.ts";
+import { githubToken, refuseAmbientCredentials } from "./run-credentials.ts";
 import { detectTier, reportLine } from "./tier.ts";
 
 /**

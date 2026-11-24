@@ -1,8 +1,9 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { PRO, base, converged, harness } from "./fake-github.ts";
+import { RestSettingsError } from "./call-outcome.ts";
+import { PRO } from "./capability-sets.ts";
+import { base, converged, harness } from "./fake-github.ts";
 import { DEFAULT_LABELS, applyRestLabels } from "./rest-labels.ts";
-import { RestSettingsError } from "./rest.ts";
 
 const analyses = `GET ${base}/code-scanning/analyses`;
 

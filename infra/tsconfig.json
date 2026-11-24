@@ -3,5 +3,14 @@
   "compilerOptions": {
     "rootDir": ".."
   },
-  "include": ["alchemy.run.ts", "stages.ts", "migrations-digest.ts", "stacks", "src"]
+  "include": [
+    "alchemy.run.ts",
+    "base32-sha256.ts",
+    "migrations-digest.ts",
+    "stage-values.ts",
+    "stages.ts",
+    "worker-names.ts",
+    "stacks",
+    "src"
+  ]
 }

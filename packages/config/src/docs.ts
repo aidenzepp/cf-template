@@ -3,7 +3,7 @@ import { Knob } from "./knob.ts";
 
 /**
  * Whether `api` serves its OpenAPI document, the Scalar reference page and `llms.txt`. While it is
- * `false` all three answer 404, as an unrouted path does. `infra/stages.ts`
+ * `false` all three answer 404, as an unrouted path does. `infra/stage-values.ts`
  * turns it on for every stage kind except `prod`. On a stage where {@link DocsLiveRead} is off,
  * the deploy-time value is the only one read.
  */

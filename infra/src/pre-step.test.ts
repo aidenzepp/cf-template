@@ -2,16 +2,9 @@ import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, FileSystem, Layer, Option, Path, Sink, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { BunServices } from "@effect/platform-bun";
-import {
-  AccountCounts,
-  PreStepError,
-  enforceCap,
-  parseStateList,
-  planSweep,
-  previewCap,
-  program,
-} from "./pre-step.ts";
-import type { Captured } from "./pre-step.ts";
+import { AccountCounts, PreStepError, enforceCap, previewCap, program } from "./pre-step.ts";
+import { parseStateList, planSweep } from "./pre-step/stage-listing.ts";
+import type { Captured } from "./pre-step/stage-listing.ts";
 
 /**
  * Read a derived listing fixture: its `exit:` line, then the text under `--- stdout` and

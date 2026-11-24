@@ -21,7 +21,8 @@ import {
   ApiWorkerIsolateLayers,
 } from "./blocks.ts";
 import { ApiDocsRoutes, NotebookHttp, ServedApi } from "./docs/routes.ts";
-import { NoteIndexLive, NoteIndexStoreD1 } from "./notes/note-index.projection.ts";
+import { NoteIndexStoreD1 } from "./notes/note-index-store.d1.ts";
+import { NoteIndexLive } from "./notes/note-index.projection.ts";
 import { NotesModel } from "./notes/notes.model.ts";
 import { OriginCheck } from "./origin-check.ts";
 import { ProblemAdapter, layerProblemDetails } from "./problem-details.ts";
@@ -30,7 +31,7 @@ import { SessionLive } from "./session-middleware.ts";
 /**
  * The services built once per isolate, as the isolate layers of `blocks.ts` provide them.
  */
-export type ApiIsolateServices = Layer.Success<typeof ApiWorkerIsolateLayers>;
+type ApiIsolateServices = Layer.Success<typeof ApiWorkerIsolateLayers>;
 
 /**
  * The notes model hosted on Durable Objects: one class per aggregate, declared while the layer is
@@ -44,7 +45,7 @@ const NotesHosted = NotesModel.layer(NoteIndexLive.pipe(Layer.provide(NoteIndexS
 /**
  * The services of the hosted notes model, built once in Worker init.
  */
-export type NotesHostedServices = Layer.Success<typeof NotesHosted>;
+type NotesHostedServices = Layer.Success<typeof NotesHosted>;
 
 /**
  * Run a call on the `auth` binding with the host context of the request in progress.
@@ -115,7 +116,7 @@ const apiObservability = Layer.unwrap(
  * The entrypoint of the `api` Worker: it exposes no RPC method, and its `fetch` is the program's
  * own.
  */
-export interface ApiEntrypoint extends MainRpc<RuntimeContext> {
+interface ApiEntrypoint extends MainRpc<RuntimeContext> {
   readonly fetch: Http.HttpEffect;
 }
 

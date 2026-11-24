@@ -1,6 +1,6 @@
 import { Array as Arr, Effect, FileSystem, Order, Path } from "effect";
 import { Digest } from "effect/crypto";
-import { base32Sha256 } from "./stages.ts";
+import { base32Sha256 } from "./base32-sha256.ts";
 
 /**
  * How many base32 characters of the digest the database name carries.

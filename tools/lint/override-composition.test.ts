@@ -2,13 +2,11 @@ import { assert, describe, it } from "@effect/vitest";
 import { Schema } from "effect";
 import config from "../../vite.config.ts";
 import {
-  authFetchMembers,
   dataAccessMembers,
   dataAccessMembersWithoutPrepare,
-  globalThisFetch,
-  registryMembers,
   runMembers,
 } from "./rules/restricted-properties.ts";
+import { authFetchMembers, globalThisFetch, registryMembers } from "./rules/scoped-members.ts";
 import {
   basePaths,
   libraryPatterns,

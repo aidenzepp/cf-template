@@ -3,7 +3,8 @@ import { Effect, Logger, Ref, References } from "effect";
 import { constVoid } from "effect/Function";
 import { betterAuthLogger, redactEmails } from "./logger.ts";
 import type { LogArgument } from "./logger.ts";
-import { LocalAuthD1, asExecution, authOver, signUp } from "./test-harness.ts";
+import { LocalAuthD1, asExecution, authOver } from "./test-harness.ts";
+import { signUp } from "./test-requests.ts";
 
 /**
  * One log line as the test logger saw it: the level, and the message and annotations as JSON text.

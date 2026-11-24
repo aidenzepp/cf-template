@@ -10,8 +10,9 @@ import {
   References,
   Schema,
 } from "effect";
-import { fromSource, Knob, LiveKnobs, MissingKnobAnnotationError } from "./knob.ts";
-import type { LiveSource } from "./knob.ts";
+import { Knob, MissingKnobAnnotationError } from "./knob.ts";
+import { LiveKnobs, fromSource } from "./live-knobs.ts";
+import type { LiveSource } from "./live-knobs.ts";
 
 /**
  * A log line as the test logger captures it: its level and the `knob.MODE.reason` annotation.

@@ -3,7 +3,8 @@ import { assert, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 
 import { checkTheme, diffTheme, themeFile, writeTheme } from "./theme.ts";
-import { checkLock, componentsDirectory, diffLock, hashFiles, lockFile, readTree } from "./lock.ts";
+import { checkLock, diffLock, hashFiles, readTree } from "./lock.ts";
+import { componentsDirectory, lockFile } from "./lock-paths.ts";
 
 const encoder = new TextEncoder();
 

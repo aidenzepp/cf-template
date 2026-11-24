@@ -1,14 +1,8 @@
 import { Console, Effect, Schema } from "effect";
 import { HttpClientResponse } from "effect/http";
+import { report, reportResponse, reportUnchanged, summarize } from "./call-outcome.ts";
+import { alreadyHolds, restClient } from "./github-client.ts";
 import type { GuardedRepository } from "./repository.ts";
-import {
-  alreadyHolds,
-  report,
-  reportResponse,
-  reportUnchanged,
-  restClient,
-  summarize,
-} from "./rest.ts";
 import type { Tier } from "./tier.ts";
 
 /**

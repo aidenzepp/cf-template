@@ -5,8 +5,8 @@ import { BunServices } from "@effect/platform-bun";
 import { AuthProvidersLive } from "alchemy/Auth/Registry";
 import { Effect, Layer, Option, Predicate } from "effect";
 import { FetchHttpClient } from "effect/http";
-import { RateLimitEntrypoint, RateLimitEntrypointError } from "./rate-limit-owner.ts";
-import type { EntrypointRule, ZoneRef } from "./rate-limit-owner.ts";
+import { RateLimitEntrypoint, RateLimitEntrypointError } from "./rate-limit-owner/entrypoint.ts";
+import type { EntrypointRule, ZoneRef } from "./rate-limit-owner/entrypoint.ts";
 
 /**
  * What every refusal of the guard ends with: the credentials the two reads need.

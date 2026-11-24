@@ -2,12 +2,12 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import {
   ForeignRateLimitRules,
-  RateLimitEntrypoint,
   customDomainVariable,
   guardRateLimitOwner,
   rateLimitRef,
 } from "./rate-limit-owner.ts";
-import type { EntrypointRule } from "./rate-limit-owner.ts";
+import { RateLimitEntrypoint } from "./rate-limit-owner/entrypoint.ts";
+import type { EntrypointRule } from "./rate-limit-owner/entrypoint.ts";
 import { entrypointRules } from "./rate-limit-owner-live.ts";
 import { RulesetNotFound } from "@distilled.cloud/cloudflare/rulesets";
 

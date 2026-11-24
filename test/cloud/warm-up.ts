@@ -1,7 +1,7 @@
 import { Effect, Schema } from "effect";
 import { Cookies, HttpClient, HttpClientRequest } from "effect/http";
 import type { HttpClientResponse } from "effect/http";
-import { retryPlatformNotFound } from "../../infra/src/smoke.ts";
+import { retryPlatformNotFound } from "../../infra/src/smoke/retry.ts";
 
 /**
  * The password of a throwaway user, long enough for Better Auth's minimum.

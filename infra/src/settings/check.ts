@@ -2,9 +2,10 @@ import { Array as Arr, Console, Effect, Order, Schema } from "effect";
 import { resolveStackName } from "../stack-name.ts";
 import { declarationPlan, reviewerAppId } from "./declare.ts";
 import type { DeclarationPlan } from "./declare.ts";
-import { getJson, guardAdmin, refuseAmbientCredentials, resolveRepository } from "./repository.ts";
+import { getJson, guardAdmin, resolveRepository } from "./repository.ts";
 import type { GuardedRepository } from "./repository.ts";
 import { CODE_SCANNING_RULESET } from "./rest-labels.ts";
+import { refuseAmbientCredentials } from "./run-credentials.ts";
 import { detectTier } from "./tier.ts";
 
 /**

@@ -1,8 +1,10 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { PRO, PUBLIC, base, converged, harness } from "./fake-github.ts";
+import { RestSettingsError } from "./call-outcome.ts";
+import { PRO, PUBLIC } from "./capability-sets.ts";
+import { base, converged, harness } from "./fake-github.ts";
 import type { Recorded, Reply } from "./fake-github.ts";
-import { RestSettingsError, applyRest } from "./rest.ts";
+import { applyRest } from "./rest.ts";
 
 /**
  * Answer the repository read as one where both features are off until each one's `PATCH` has been

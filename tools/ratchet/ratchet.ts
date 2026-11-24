@@ -92,7 +92,7 @@ export const Baseline = Schema.Record(
  * ratchet reads as an answer, or printed a count that is not a non-negative integer. The message
  * keeps git's own stderr.
  */
-export class GitFailed extends Schema.TaggedError<GitFailed, { readonly brand: unique symbol }>()(
+class GitFailed extends Schema.TaggedError<GitFailed, { readonly brand: unique symbol }>()(
   "GitFailed",
   {
     message: Schema.String,
@@ -102,17 +102,17 @@ export class GitFailed extends Schema.TaggedError<GitFailed, { readonly brand: u
 /**
  * The failure of `RATCHET_BASE`: it is set but names no commit.
  */
-export class BaseNotCommit extends Schema.TaggedError<
-  BaseNotCommit,
-  { readonly brand: unique symbol }
->()("BaseNotCommit", {
-  message: Schema.String,
-}) {}
+class BaseNotCommit extends Schema.TaggedError<BaseNotCommit, { readonly brand: unique symbol }>()(
+  "BaseNotCommit",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The failure of a counted file: it does not parse, or it has not the expected shape.
  */
-export class CountedFileInvalid extends Schema.TaggedError<
+class CountedFileInvalid extends Schema.TaggedError<
   CountedFileInvalid,
   { readonly brand: unique symbol }
 >()("CountedFileInvalid", { message: Schema.String }) {}
@@ -121,7 +121,7 @@ export class CountedFileInvalid extends Schema.TaggedError<
  * The counts of one tree. A missing baseline counts as zero (#16: absent equals zero). Only the
  * knip counter is `None` when the tree lacks its file, and a `None` takes no part in a comparison.
  */
-export interface Counts {
+interface Counts {
   readonly directives: Readonly<Record<string, number>>;
   readonly knipIgnores: Option.Option<number>;
   readonly rules: Readonly<Record<string, number>>;
@@ -131,7 +131,7 @@ export interface Counts {
  * What a run decided: the exit code and the lines to print. Code 1 means a count rose; code 2 means
  * the ratchet could not count.
  */
-export interface Outcome {
+interface Outcome {
   readonly code: 0 | 1 | 2;
   readonly lines: ReadonlyArray<string>;
 }
@@ -342,7 +342,7 @@ const count = Effect.fn("ratchet.count")(function* count(root: string, ref: Opti
  * either side; the knip counter compares only when both trees hold `knip.jsonc`, and fails when
  * only the base does; the ceiling-zero directive fails on `head` alone.
  */
-export const compare = (head: Counts, base: Counts) => {
+const compare = (head: Counts, base: Counts) => {
   const rules = Object.entries(head.rules).flatMap(([rule, total]) => {
     const before = base.rules[rule] ?? 0;
 
@@ -410,7 +410,7 @@ const strayKnipConfig = Effect.fn("ratchet.strayKnipConfig")(function* strayKnip
  * count rose, 1 when one did, 2 when no base resolves, the base is not a commit, git fails or a
  * counted file is invalid.
  */
-export const ratchet = Effect.fn("ratchet.run")(
+const ratchet = Effect.fn("ratchet.run")(
   function* ratchet() {
     const root = (yield* gitOutput(["rev-parse", "--show-toplevel"])).trim();
     const base = yield* resolveBase();

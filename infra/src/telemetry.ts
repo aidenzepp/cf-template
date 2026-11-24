@@ -1,4 +1,5 @@
-import { Stages, kindOf } from "../stages.ts";
+import { Stages } from "../stage-values.ts";
+import { kindOf } from "../stages.ts";
 import type { StageName } from "../stages.ts";
 
 /**

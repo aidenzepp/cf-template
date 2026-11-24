@@ -1,5 +1,6 @@
 import { Effect, LogLevel, References, Schema } from "effect";
-import { Knob, LiveKnobs } from "./knob.ts";
+import { Knob } from "./knob.ts";
+import { LiveKnobs } from "./live-knobs.ts";
 
 /**
  * The minimum level a Worker logs at, read as `LOG_LEVEL` and defaulting to `Info`.

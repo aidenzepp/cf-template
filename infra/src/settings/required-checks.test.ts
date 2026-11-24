@@ -2,7 +2,7 @@ import { BunServices } from "@effect/platform-bun";
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, FileSystem, Path } from "effect";
 import { CLOUD_STAGE } from "../../stages.ts";
-import { REQUIRED_CHECKS } from "./declare.ts";
+import { REQUIRED_CHECKS } from "./required-checks.ts";
 
 /**
  * Split one workflow file into its jobs. It reads the two-space job keys under the top-level

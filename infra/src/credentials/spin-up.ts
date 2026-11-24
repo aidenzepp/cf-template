@@ -1,13 +1,7 @@
 import { Context } from "effect";
 import type { Effect, Option } from "effect";
-import type {
-  CredentialsError,
-  DeployInput,
-  FrozenIdentity,
-  Plan,
-  ReadProbe,
-  RepositoryView,
-} from "./model.ts";
+import type { CredentialsError } from "./error.ts";
+import type { DeployInput, FrozenIdentity, Plan, ReadProbe, RepositoryView } from "./model.ts";
 
 /**
  * The reads and writes the credentials half performs. Tests provide a fake; `SpinUpLive` in
