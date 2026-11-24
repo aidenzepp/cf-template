@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
-import { PRO, base, harness } from "./fake-github.ts";
+import { PRO, base, converged, harness } from "./fake-github.ts";
 import { DEFAULT_LABELS, applyRestLabels } from "./rest-labels.ts";
 import { RestSettingsError } from "./rest.ts";
 
@@ -170,6 +170,47 @@ describe("applyRestLabels", () => {
       assert.instanceOf(error, RestSettingsError);
       assert.strictEqual(error.failed, 1);
       assert.isTrue(failing.requests.some((request) => request.call === analyses));
+    }),
+  );
+});
+
+describe("applyRestLabels on a repository that already holds the declared values", () => {
+  it.effect("reports the labels gone and the ruleset unchanged, and counts none as applied", () =>
+    Effect.gen(function* settled() {
+      const { lines, requests, run } = harness(applyRestLabels, PRO, converged);
+      const summary = yield* run;
+
+      assert.deepStrictEqual(summary, { applied: 0, failed: 0, unavailable: 0 });
+      assert.isFalse(lines.some((line) => line.startsWith("applied ")));
+      assert.deepStrictEqual(lines, [
+        ...DEFAULT_LABELS.map((label) => `gone delete-label ${label} 404`),
+        "unchanged code-scanning-ruleset",
+      ]);
+      assert.isFalse(
+        requests.some(
+          (request) => request.call.startsWith("PUT ") || request.call.startsWith("POST "),
+        ),
+      );
+    }),
+  );
+
+  it.effect("rewrites the ruleset, and only it, when the live one differs", () =>
+    Effect.gen(function* differs() {
+      const { lines, requests, run } = harness(applyRestLabels, PRO, (call, search) =>
+        call === `GET ${base}/rulesets/7`
+          ? {
+              body: { enforcement: "disabled", id: 7, name: "code-scanning", target: "branch" },
+              status: 200,
+            }
+          : converged(call, search),
+      );
+
+      const summary = yield* run;
+
+      assert.deepStrictEqual(summary, { applied: 1, failed: 0, unavailable: 0 });
+      assert.include(lines, "applied code-scanning-ruleset 204");
+      assert.isFalse(lines.some((line) => line.startsWith("unchanged ")));
+      assert.isTrue(requests.some((request) => request.call === `PUT ${base}/rulesets/7`));
     }),
   );
 });

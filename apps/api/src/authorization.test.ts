@@ -115,13 +115,13 @@ const serve = (
   });
 
 /**
- * A `POST /api/CreateNote` command for Ada's notebook: a route the `Session` middleware guards.
+ * A `POST /api/create-note` command for Ada's notebook: a route the `Session` middleware guards.
  *
  * @param headers - Extra request headers, such as `cookie`.
  * @returns The request.
  */
 const notesRequest = (headers?: Record<string, string>) =>
-  new Request("http://api.test/api/CreateNote", {
+  new Request("http://api.test/api/create-note", {
     body: JSON.stringify({
       commandId: "c-1",
       input: { body: "", id: "n-1", title: "Title" },
