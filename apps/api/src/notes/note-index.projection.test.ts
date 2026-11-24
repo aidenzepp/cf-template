@@ -1,6 +1,6 @@
 import * as Domain from "@alchemy.run/domain";
-import { describe, expect, it, vi } from "@effect/vitest";
-import { Effect, Exit, Layer, Ref } from "effect";
+import { describe, expect, it } from "@effect/vitest";
+import { Console, Effect, Exit, Layer, Ref } from "effect";
 import { UserId } from "@workspace/contract/domain/session";
 import { CurrentActor } from "../session-middleware.ts";
 import { CreateNote, DeleteNote, NotebookId, UpdateNote } from "./note.command.ts";
@@ -81,6 +81,25 @@ const replay = (layer: Layer.Layer<NoteIndexStore>, inputs: ReadonlyArray<NoteIn
     Effect.provide(layer),
   );
 
+/**
+ * A console that records what `error` receives and writes nothing, provided to the effect under
+ * test as the Effect `Console` service.
+ *
+ * @returns The console to provide and the arguments each `error` call received, in order.
+ */
+const recordingConsole = Effect.sync(() => {
+  const lines: Array<unknown> = [];
+
+  const recorder: Console.Console = {
+    ...globalThis.console,
+    error: (...args: ReadonlyArray<unknown>) => {
+      lines.push(...args);
+    },
+  };
+
+  return { lines, recorder };
+});
+
 // The in-memory platform delivers to projections on the real clock, so these run with `it.live`.
 describe("the note index", () => {
   it.live("writes one row per event, keyed by stream and seq", () =>
@@ -126,40 +145,28 @@ describe("the note index", () => {
     Effect.gen(function* failedRun() {
       const failing = Layer.succeed(NoteIndexStore, { upsert: () => Effect.die("store down") });
       const { inputs } = yield* hostedRun;
+      const { lines, recorder } = yield* recordingConsole;
 
-      const spy = yield* Effect.acquireRelease(
-        Effect.sync(() => vi.spyOn(console, "error").mockReturnValue()),
-        (installed) =>
-          Effect.sync(() => {
-            installed.mockRestore();
-          }),
+      const exit = yield* Effect.exit(
+        replay(failing, inputs).pipe(Effect.provideService(Console.Console, recorder)),
       );
 
-      const exit = yield* Effect.exit(replay(failing, inputs));
-
       expect(Exit.isFailure(exit)).toBeTruthy();
-      expect(spy.mock.calls.map(String)).toStrictEqual([
+      expect(lines.map(String)).toStrictEqual([
         '{"consumer":"NoteIndex","event":"domain.run.failed","kind":"projection","outcome":"failed"}',
       ]);
-    }).pipe(Effect.scoped),
+    }),
   );
 
   it.live("writes no failure line when a run succeeds", () =>
     Effect.gen(function* succeededRun() {
       const store = yield* memoryStore;
       const { inputs } = yield* hostedRun;
+      const { lines, recorder } = yield* recordingConsole;
 
-      const spy = yield* Effect.acquireRelease(
-        Effect.sync(() => vi.spyOn(console, "error").mockReturnValue()),
-        (installed) =>
-          Effect.sync(() => {
-            installed.mockRestore();
-          }),
-      );
+      yield* replay(store.layer, inputs).pipe(Effect.provideService(Console.Console, recorder));
 
-      yield* replay(store.layer, inputs);
-
-      expect(spy.mock.calls).toStrictEqual([]);
-    }).pipe(Effect.scoped),
+      expect(lines).toStrictEqual([]);
+    }),
   );
 });

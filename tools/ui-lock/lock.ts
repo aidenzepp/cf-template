@@ -1,4 +1,5 @@
 import { Array as Arr, Effect, FileSystem, Order, Path, Schema } from "effect";
+import { Hex } from "effect/encoding";
 
 /**
  * The lock: each file name under `packages/ui/src/components/ui/` mapped to the SHA-256 of its
@@ -53,7 +54,7 @@ const hashBytes = Effect.fn("ui-lock.hashBytes")(function* hashBytes(bytes: Uint
     try: () => crypto.subtle.digest("SHA-256", new Uint8Array(bytes)),
   });
 
-  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+  return Hex.encode(new Uint8Array(digest));
 });
 
 /**

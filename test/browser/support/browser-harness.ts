@@ -236,9 +236,7 @@ const scan = Effect.fn("scan")(function* scan(
       );
     }
 
-    yield* promised("Loading the page", () =>
-      page.goto(isPath ? `${origin}${target}` : target, { waitUntil: "networkidle" }),
-    );
+    yield* promised("Loading the page", () => page.goto(isPath ? `${origin}${target}` : target));
 
     if (isPath) {
       yield* promised("Waiting for hydration", () => page.waitForFunction(HYDRATED));

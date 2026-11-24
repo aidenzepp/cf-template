@@ -1,4 +1,5 @@
 import { Effect, Schema } from "effect";
+import { Hex } from "effect/encoding";
 
 /**
  * A theme value cannot become an email-safe value. The message names the token or value and the
@@ -79,13 +80,7 @@ const toSrgb = (lightness: number, chroma: number, hue: number): ReadonlyArray<n
  * @returns The `#rrggbb` text, each channel rounded to the nearest of 255.
  */
 const toHex = (channels: ReadonlyArray<number>): string =>
-  `#${channels
-    .map((channel) =>
-      Math.round(Math.min(1, Math.max(0, channel)) * 255)
-        .toString(16)
-        .padStart(2, "0"),
-    )
-    .join("")}`;
+  `#${Hex.encode(Uint8Array.from(channels, (channel) => Math.round(Math.min(1, Math.max(0, channel)) * 255)))}`;
 
 /**
  * Convert an `oklch()` color to an opaque six-digit sRGB hex color, which every email client
