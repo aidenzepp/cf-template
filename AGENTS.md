@@ -25,6 +25,8 @@ A worktree runs its own `bun install` before any package script, binary or patch
 
 A pre-push hook (`.vite-hooks/pre-push`, installed by `bun install`) runs the same checks and blocks the push if any fail. Fix the problems rather than bypassing it with `--no-verify` or `VP_GIT_HOOKS=0`.
 
+Work that spans several pull requests is tracked with GitHub sub-issues. The parent issue holds the plan, each chunk is a sub-issue, and each pull request says `- Closes #<sub-issue>` as a bullet in its Issue section, so the parent shows progress natively. A pull request that delivers part of one issue says `- Part of #<issue>`.
+
 ## Effect-native source and tests
 
 All source and tests are Effect-native (operator ruling). No `throw`, `try/catch`, raw Promise chains, `Promise.allSettled`, `fetch`, `node:` imports or `Bun.` file calls in source; no new `bun:test` files. Use Schema to decode files, environment values and payloads, Config for settings, and `@effect/platform-bun` for the file system and HTTP. A suite that genuinely cannot load Effect (a Node-loaded `.mjs` lint plugin) may stay on `bun:test` with a one-line comment naming why.
