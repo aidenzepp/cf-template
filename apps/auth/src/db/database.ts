@@ -29,7 +29,7 @@ export const migrationsDir = Path.Path.use((path) => path.fromFileUrl(MIGRATIONS
  * @param stage - The decoded stage name.
  * @returns `true` for `prod`.
  */
-const retainsD1 = (stage: string): boolean => stage === "prod";
+const retainsD1 = (stage: string) => stage === "prod";
 
 /**
  * The properties of the auth D1 database for a stage.
@@ -55,13 +55,17 @@ export const d1Props = (
   stage: string,
   locationHint: Option.Option<Cloudflare.D1.PrimaryLocationHint>,
   migrations: string,
-): Cloudflare.D1.DatabaseProps =>
-  stage === "prod"
-    ? Option.match(locationHint, {
-        onNone: () => ({ migrations }),
-        onSome: (primaryLocationHint) => ({ migrations, primaryLocationHint }),
-      })
-    : { migrations, name: `${stack}-auth-db-${stage}-${AUTH_MIGRATIONS_DIGEST}` };
+) => {
+  const props: Cloudflare.D1.DatabaseProps =
+    stage === "prod"
+      ? Option.match(locationHint, {
+          onNone: () => ({ migrations }),
+          onSome: (primaryLocationHint) => ({ migrations, primaryLocationHint }),
+        })
+      : { migrations, name: `${stack}-auth-db-${stage}-${AUTH_MIGRATIONS_DIGEST}` };
+
+  return props;
+};
 
 /**
  * Declare the auth D1 database with the given resource constructor, retained on `prod` only.

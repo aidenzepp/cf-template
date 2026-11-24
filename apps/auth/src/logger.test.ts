@@ -51,11 +51,7 @@ const collected = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
  * @param args - The extra arguments.
  * @returns The lines written.
  */
-const logged = (
-  level: "warn" | "error",
-  message: string,
-  ...args: ReadonlyArray<LogArgument>
-): Effect.Effect<ReadonlyArray<Line>> =>
+const logged = (level: "warn" | "error", message: string, ...args: ReadonlyArray<LogArgument>) =>
   Effect.gen(function* write() {
     const { lines } = yield* collected(
       Effect.gen(function* emit() {

@@ -159,7 +159,7 @@ export const handle = Effect.fn("handle")(function* handle(path: string, init: R
  * @param response - A response that sets cookies.
  * @returns The `name=value` pairs joined for a `Cookie` header.
  */
-export const cookieOf = (response: Response): string =>
+export const cookieOf = (response: Response) =>
   response.headers
     .getSetCookie()
     .map((cookie) => cookie.split(";")[0] ?? "")
@@ -172,7 +172,7 @@ export const cookieOf = (response: Response): string =>
  * @param cookie - A `Cookie` header from a sign-in.
  * @returns The header with only the other cookies.
  */
-export const tokenOnly = (cookie: string): string =>
+export const tokenOnly = (cookie: string) =>
   cookie
     .split("; ")
     .filter((pair) => !pair.includes("session_data"))
