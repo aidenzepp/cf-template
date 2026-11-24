@@ -144,15 +144,24 @@ export const ruleScopeOverrides: NonNullable<NonNullable<ViteUserConfig["lint"]>
     // Alchemy Domain Stories assert recorded events with `Story.then(...)`, a step of the
     // Story DSL, not a promise. Story files are declarative step lists and run no promises.
     // `prefer-catch` is off too: it reads `Story.then(subject, event)` as `then(a, b)`.
+    // `prefer-top-level-await` is off too: it reads `Story.then(...)` as a promise chain.
     files: ["**/*.story.ts"],
-    rules: { "promise/prefer-await-to-then": "off", "promise/prefer-catch": "off" },
+    rules: {
+      "promise/prefer-await-to-then": "off",
+      "promise/prefer-catch": "off",
+      "unicorn/prefer-top-level-await": "off",
+    },
   },
   {
-    // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
-    // boundaries: Vitest calls a plain async function, so the Effect that validates the stage
-    // and runs `alchemy`, or that builds the harness and runs axe-core, runs here. They keep
-    // the data-access bans.
-    files: ["test/cloud/global-setup.ts", "test/browser/support/browser-harness.ts"],
+    // The cloud suite's and the `tools` project's Vitest global setups and the browser tier's
+    // `scan` command are run boundaries: Vitest calls a plain async function, so the Effect that
+    // validates the stage and runs `alchemy`, that runs the Better Auth CLI, or that builds the
+    // harness and runs axe-core, runs here. They keep the data-access bans.
+    files: [
+      "test/cloud/global-setup.ts",
+      "tools/db/global-setup.ts",
+      "test/browser/support/browser-harness.ts",
+    ],
     rules: { "no-restricted-properties": ["error", ...dataAccessMembers] },
   },
   {
@@ -177,7 +186,12 @@ export const ruleScopeOverrides: NonNullable<NonNullable<ViteUserConfig["lint"]>
     // on Effect `Service.use(...)` calls elsewhere.
     files: ["apps/web/**/*.tsx"],
     plugins: react.plugins,
-    rules: react.rules,
+    rules: {
+      ...react.rules,
+      // Adopted from the Cloudflare Oxlint preset (#437); the preset leaves both off.
+      "react/no-unknown-property": "error",
+      "react/require-render-return": "error",
+    },
   },
   {
     // React Doctor's per-file rules, scoped to `apps/web` like `react` above: the recommended set
@@ -194,14 +208,9 @@ export const ruleScopeOverrides: NonNullable<NonNullable<ViteUserConfig["lint"]>
       ...REACT_COMPILER_RULES,
       ...RECOMMENDED_RULES,
       ...TANSTACK_START_RULES,
-      // Findings in existing `apps/web` code at adoption (58 diagnostics). `vp check` denies
-      // warnings, so they are off until a follow-up fixes the code; then delete these lines.
-      "react-doctor/jsx-no-jsx-as-prop": "off",
-      "react-doctor/jsx-no-new-function-as-prop": "off",
       // The two server-data guards `docs/capabilities.md` names. Neither is in a React Doctor
       // rule set, so each is switched on here.
       "react-doctor/no-collapse-request-error-to-empty-state": "error",
-      "react-doctor/only-export-components": "off",
       "react-doctor/tanstack-start-no-direct-fetch-in-loader": "error",
     },
   },
@@ -220,6 +229,15 @@ export const ruleScopeOverrides: NonNullable<NonNullable<ViteUserConfig["lint"]>
     // `packages/contract/src/**` and every `table.ts` keep it too.
     files: ["apps/web/src/**", "packages/contract/src/**", "**/table.ts"],
     rules: { "sort-keys": "off" },
+  },
+  {
+    // Adopted from the Cloudflare Oxlint preset (#437), scoped to plain JavaScript as there: the
+    // TypeScript checker already reports an undefined name in a `.ts` file. The preset's
+    // `browser` and `node` environments are scoped with it: the lint-rule tests run on Bun and
+    // the bundle fixtures stand in for browser assets.
+    env: { browser: true, node: true },
+    files: ["**/*.{js,mjs,cjs}"],
+    rules: { "no-undef": "error" },
   },
   {
     // The lint-rule tests import bun:test from plain JavaScript. The type-aware checker does
