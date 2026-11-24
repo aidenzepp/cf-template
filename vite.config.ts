@@ -208,6 +208,16 @@ export default defineConfig({
     // off under `routes/`; two of its decisions are copied as scoped overrides instead. `effect` is
     // the `@effect/tsgo` Effect rule set: it runs in this one `vp check` pass only while
     // `effect-tsgo patch --oxlint --tsrs` has patched the toolchain, and the canary test turns red if not.
+    // Not adopted from the Cloudflare Oxlint preset (#437): `import/no-namespace`, which Ultracite core
+    // also leaves off. Effect is imported by name; the one `effect/Effect` namespace import is a test
+    // that lists the module's exports. The 67 findings at adoption were `import * as` from `alchemy` and
+    // `@alchemy.run/*` (54, Alchemy's documented style), `@distilled.cloud/cloudflare/*` (9), the local
+    // Drizzle schema handed to the Better Auth adapter (2), `@effect/sql-d1/D1Client` (1) and
+    // `effect/Effect` (1).
+    // Adopted from the Cloudflare Oxlint preset (#437): no whole category is on by default, so an
+    // Oxlint upgrade cannot switch on a rule unseen. The presets and this file already list every rule
+    // that runs: `vp lint --print-config` and the enabled-rule count (1384) are the same either way.
+    categories: { correctness: "off" },
     extends: [core, antiSlop, shadcn, drizzle, effect],
     ignorePatterns: [
       ".agents/**",
@@ -222,7 +232,13 @@ export default defineConfig({
       "work/**",
       ...vendored,
     ],
-    jsPlugins: ["./tools/lint/plugin.mjs", "@stylistic/eslint-plugin", ...shadcn.jsPlugins],
+    jsPlugins: [
+      "./tools/lint/plugin.mjs",
+      "@stylistic/eslint-plugin",
+      // The plugin carries no name of its own; the Cloudflare preset registers it as `@nkzw` too.
+      { name: "@nkzw", specifier: "@nkzw/eslint-plugin" },
+      ...shadcn.jsPlugins,
+    ],
     // `vp check` runs type-aware rules and the type check only when both are enabled.
     // https://viteplus.dev/guide/check
     options: { reportUnusedDisableDirectives: "error", typeAware: true, typeCheck: true },
@@ -442,8 +458,13 @@ export default defineConfig({
         // Alchemy Domain Stories assert recorded events with `Story.then(...)`, a step of the
         // Story DSL, not a promise. Story files are declarative step lists and run no promises.
         // `prefer-catch` is off too: it reads `Story.then(subject, event)` as `then(a, b)`.
+        // `prefer-top-level-await` is off too: it reads `Story.then(...)` as a promise chain.
         files: ["**/*.story.ts"],
-        rules: { "promise/prefer-await-to-then": "off", "promise/prefer-catch": "off" },
+        rules: {
+          "promise/prefer-await-to-then": "off",
+          "promise/prefer-catch": "off",
+          "unicorn/prefer-top-level-await": "off",
+        },
       },
       {
         // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
@@ -475,7 +496,12 @@ export default defineConfig({
         // on Effect `Service.use(...)` calls elsewhere.
         files: ["apps/web/**/*.tsx"],
         plugins: react.plugins,
-        rules: react.rules,
+        rules: {
+          ...react.rules,
+          // Adopted from the Cloudflare Oxlint preset (#437); the preset leaves both off.
+          "react/no-unknown-property": "error",
+          "react/require-render-return": "error",
+        },
       },
       {
         // React Doctor's per-file rules, scoped to `apps/web` like `react` above: the recommended set
@@ -513,6 +539,15 @@ export default defineConfig({
         // `packages/contract/src/**` and every `table.ts` keep it too.
         files: ["apps/web/src/**", "packages/contract/src/**", "**/table.ts"],
         rules: { "sort-keys": "off" },
+      },
+      {
+        // Adopted from the Cloudflare Oxlint preset (#437), scoped to plain JavaScript as there: the
+        // TypeScript checker already reports an undefined name in a `.ts` file. The preset's
+        // `browser` and `node` environments are scoped with it: the lint-rule tests run on Bun and
+        // the bundle fixtures stand in for browser assets.
+        env: { browser: true, node: true },
+        files: ["**/*.{js,mjs,cjs}"],
+        rules: { "no-undef": "error" },
       },
       {
         // The lint-rule tests import bun:test from plain JavaScript. The type-aware checker does
@@ -587,6 +622,12 @@ export default defineConfig({
       },
     ],
     rules: {
+      // Adopted from the Cloudflare Oxlint preset (#437), which takes both from `@nkzw/oxlint-config`.
+      // `instanceof` breaks across realms and bundled copies of a class; a tagged error is told apart
+      // by `_tag` and a Schema by `Schema.is`.
+      "@nkzw/no-instanceof": "error",
+      // A hook-style `use*` call with an Effect dependency array must name its dependencies.
+      "@nkzw/require-use-effect-arguments": "error",
       "@stylistic/padding-line-between-statements": [
         "error",
         { blankLine: "always", next: topLevelUnit, prev: "*" },
@@ -651,21 +692,36 @@ export default defineConfig({
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/try-catch-in-effect-gen": "off",
       "effecttsgo/unsafe-effect-type-assertion": "warn",
+      // Adopted from the Cloudflare Oxlint preset (#437); the repository had no finding at adoption.
+      // Reports a duplicate export name, which a bundler resolves silently.
+      "import/export": "error",
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],
+      // Reports a value assigned and then overwritten before any read.
+      "no-useless-assignment": "error",
+      // A `return` in `finally` swallows a thrown error and replaces the result.
+      "promise/no-return-in-finally": "error",
       // The Ultracite 8.3 `core` preset turns `sort-keys` off; the 8.1.1 preset had it at `error` with
       // default options, so this keeps the rule the repository already enforced. The scoped
       // overrides above still lift it where key order is the wire or column order.
       "sort-keys": "error",
       // Issue #11 item 10: `ReadonlyArray<T>` is the accepted array spelling.
       "typescript/array-type": ["error", { default: "generic", readonly: "generic" }],
+      // `require()` has no place in an ES module repository; the preset leaves it off.
+      "typescript/no-require-imports": "error",
       // Effect adapters return existing promises without introducing async wrappers.
       "typescript/promise-function-async": "off",
       "unicorn/filename-case": ["error", { case: "kebabCase" }],
       // Replaced by `workspace/no-array-method-this-argument`: the same check with `Effect` ignored, since
       // `Effect.forEach(xs, f, { concurrency })` takes options, not a `thisArg`.
       "unicorn/no-array-method-this-argument": "off",
+      // Adopted from the Cloudflare Oxlint preset (#437). Ultracite core turns it off; `String.raw`
+      // keeps a backslash-heavy literal readable, so it is on again.
+      "unicorn/prefer-string-raw": "error",
+      // Adopted from the Cloudflare Oxlint preset (#437): a module awaits at the top level instead of
+      // chaining a promise. The story override above lifts it.
+      "unicorn/prefer-top-level-await": "error",
       // misfires on Schema.TaggedError<X>()(...) calls and takes no options; throw is already banned in source by the Effect-native rule (AGENTS.md)
       "unicorn/throw-new-error": "off",
       "workspace/error-message-grammar": "error",
