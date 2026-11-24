@@ -63,6 +63,97 @@ const packageProjects = readdirSync(new URL("packages", import.meta.url), { with
   .map((entry) => entry.name)
   .map((name) => ({ test: { ...noOnly, include: [`packages/${name}/src/**/*.test.ts`], name } }));
 
+/**
+ * Every Vitest project, in the order `vp test` lists them. The `ci-test-*` tasks below derive one
+ * task per name, so a project added here gets its own cached task.
+ */
+const testProjects = [
+  {
+    test: {
+      ...noOnly,
+      exclude: ["tools/lint/fixtures/**", "tools/ratchet/fixtures/**"],
+      globalSetup: ["tools/db/global-setup.ts"],
+      include: ["tools/**/*.test.ts"],
+      name: "tools",
+    },
+  },
+  {
+    test: {
+      ...noOnly,
+      exclude: ["test/local/**"],
+      include: ["test/**/*.test.ts"],
+      name: "root",
+    },
+  },
+  { test: { ...noOnly, include: ["apps/web/src/**/*.test.ts"], name: "web" } },
+  { test: { ...noOnly, include: ["apps/api/src/**/*.test.ts"], name: "api" } },
+  { test: { ...noOnly, include: ["apps/auth/src/**/*.test.ts"], name: "auth" } },
+  ...packageProjects,
+  { test: { ...noOnly, include: ["infra/**/*.test.ts"], name: "infra" } },
+  {
+    test: {
+      ...noOnly,
+      include: ["test/local/**/*.test.ts"],
+      name: "local",
+      setupFiles: ["test/local/setup.ts"],
+    },
+  },
+  { test: { ...noOnly, include: ["test/e2e/**/*.e2e.ts"], name: "e2e-local" } },
+];
+
+/**
+ * The inputs every `ci-*` task shares. `work/` is agent scratch (`tools/db/check.ts` leaves a
+ * `db-check-auth-schema-*` directory there on every run) and `.worktrees/` holds sibling checkouts;
+ * both are gitignored and no task reads them, but a task that lists the repository root would miss
+ * the cache whenever either one changes. `.tanstack` is the gitignored route-tree output that the
+ * `web` tests write, and it would flip every task that lists `apps/web` on the next run. `dist` is
+ * the `apps/web` build output: a task that lists `apps/web` before the build exists would miss once
+ * the build has run.
+ */
+const sharedInput = [{ auto: true }, "!work/**", "!.worktrees/**", "!**/.tanstack/**"];
+
+/**
+ * The cache settings of a `ci-*` task that does not read build output. `output: []` stops a cache
+ * hit from restoring files a task wrote as a side effect.
+ */
+const ciCache = { input: [...sharedInput, "!**/dist", "!**/dist/**"], output: [] };
+
+/**
+ * One cached `vp run` task per project that `bun run test` runs; `e2e-local` is the one it
+ * excludes. `vp run` sets `FORCE_COLOR=1` on a task, and the native `tsc` that
+ * `tools/lint/fixtures.test.ts` spawns colors its output whenever `FORCE_COLOR` is present,
+ * whatever its value, so that assertion fails; `NO_COLOR=1` outranks it.
+ * `apps/web/src/ratelimit.harness.test.ts` splits stderr on a plain message and fails under color
+ * codes the same way.
+ */
+const testTasks = Object.fromEntries(
+  testProjects.flatMap(({ test: { name } }) =>
+    name === "e2e-local"
+      ? []
+      : [[`ci-test-${name}`, { cache: ciCache, command: `NO_COLOR=1 vp test --project ${name}` }]],
+  ),
+);
+
+/**
+ * Every `ci-*` task that `vp run ci` waits on.
+ */
+const ciTaskNames = [
+  ...Object.keys(testTasks),
+  "ci-bundle-check",
+  "ci-db-check",
+  "ci-design-lint",
+  "ci-fmt",
+  "ci-hooks-present",
+  "ci-knip",
+  "ci-lint",
+  "ci-ratchet",
+  "ci-runbook",
+  "ci-supdoc",
+  "ci-test-bun-mjs",
+  "ci-typecheck",
+  "ci-ui-typecheck",
+];
+
 export default defineConfig({
   fmt: {
     ignorePatterns: [
@@ -331,6 +422,45 @@ export default defineConfig({
     // The shadcn preset finds the components and the theme through these two entries.
     settings: { shadcn: { ui: ["@workspace/ui/components", "apps/web/src/styles/app.css"] } },
   },
+  run: {
+    tasks: {
+      ...testTasks,
+      ci: { cache: false, command: "echo ci: every task passed", dependsOn: ciTaskNames },
+      // `apps/web/src/server.test.ts` runs `build:prod-harness` into the same `apps/web/dist`, so the
+      // production build waits for the `web` tests and overwrites what they leave, as `bun run test`
+      // then `bun run build` do today.
+      "ci-build-web": {
+        cache: { input: sharedInput },
+        command: "vp build",
+        cwd: "apps/web",
+        dependsOn: ["ci-test-web"],
+      },
+      "ci-bundle-check": {
+        cache: { input: sharedInput, output: [] },
+        command: "bundle-check",
+        dependsOn: ["ci-build-web"],
+      },
+      // `db-check` and `ratchet` read the repository through `git`, which file tracking does not see, and
+      // `hooks-present` asks `git` for `core.hooksPath`; none has a file input that covers what it reads,
+      // so all three run on every CI run.
+      "ci-db-check": { cache: false, command: "db-check" },
+      "ci-design-lint": {
+        cache: ciCache,
+        command:
+          "bun --bun ./node_modules/.bin/design.md lint --format json DESIGN.md | design-md-lint DESIGN.md",
+      },
+      "ci-fmt": { cache: ciCache, command: "vp fmt --check" },
+      "ci-hooks-present": { cache: false, command: "hooks-present" },
+      "ci-knip": { cache: ciCache, command: "knip" },
+      "ci-lint": { cache: ciCache, command: "vp check --no-fmt --deny-warnings" },
+      "ci-ratchet": { cache: false, command: "ratchet" },
+      "ci-runbook": { cache: ciCache, command: "runbook-check docs/spin-up.md" },
+      "ci-supdoc": { cache: ciCache, command: "supdoc check --deny-warnings" },
+      "ci-test-bun-mjs": { cache: ciCache, command: "bun test .test.mjs" },
+      "ci-typecheck": { cache: ciCache, command: "vp check --no-fmt --no-lint" },
+      "ci-ui-typecheck": { cache: ciCache, command: "tsc --noEmit -p .", cwd: "packages/ui" },
+    },
+  },
   // Tests run on Vitest with @effect/vitest. The lint-rule tests in tools/lint import bun:test
   // and run under `bun test`; `bun run test` runs both.
   //
@@ -341,38 +471,6 @@ export default defineConfig({
   test: {
     // The deploy guard: every default project inherits it, and `vite.cloud.config.ts` never sets it.
     env: { ALCHEMY_TEST_DEV: "1" },
-    projects: [
-      {
-        test: {
-          ...noOnly,
-          exclude: ["tools/lint/fixtures/**", "tools/ratchet/fixtures/**"],
-          globalSetup: ["tools/db/global-setup.ts"],
-          include: ["tools/**/*.test.ts"],
-          name: "tools",
-        },
-      },
-      {
-        test: {
-          ...noOnly,
-          exclude: ["test/local/**"],
-          include: ["test/**/*.test.ts"],
-          name: "root",
-        },
-      },
-      { test: { ...noOnly, include: ["apps/web/src/**/*.test.ts"], name: "web" } },
-      { test: { ...noOnly, include: ["apps/api/src/**/*.test.ts"], name: "api" } },
-      { test: { ...noOnly, include: ["apps/auth/src/**/*.test.ts"], name: "auth" } },
-      ...packageProjects,
-      { test: { ...noOnly, include: ["infra/**/*.test.ts"], name: "infra" } },
-      {
-        test: {
-          ...noOnly,
-          include: ["test/local/**/*.test.ts"],
-          name: "local",
-          setupFiles: ["test/local/setup.ts"],
-        },
-      },
-      { test: { ...noOnly, include: ["test/e2e/**/*.e2e.ts"], name: "e2e-local" } },
-    ],
+    projects: testProjects,
   },
 });
