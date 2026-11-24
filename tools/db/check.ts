@@ -45,8 +45,10 @@ interface Finding {
 
 /**
  * Where a run happens: the tree being checked and the `drizzle-kit` binary that checks it.
+ * `authSchema` is the text the Better Auth CLI generates, when the caller already ran it.
  */
 interface Context {
+  readonly authSchema: string | undefined;
   readonly base: string | undefined;
   readonly kit: string;
   readonly root: string;
@@ -500,45 +502,32 @@ const nodeSupported = (version: string) => {
 };
 
 /**
- * `auth-schema`: the committed `apps/auth/src/db/schema.ts` equals what the Better Auth CLI
- * generates from `apps/auth/auth.config.ts`, run on Node, since Bun's output differs. The
- * `auth:generate` script also runs `drizzle-kit generate` and the digest step, so the check invokes
- * only its CLI part, with the same config and `--output` set to a scratch file under `work/`,
- * which is removed when the check ends.
+ * The auth app's directory in a tree, the one database whose schema the Better Auth CLI generates.
  */
-const authSchema: Check = {
-  name: "auth-schema",
-  run: Effect.fn("db.check.authSchema")(function* authSchema(context, database) {
-    if (database.name !== "apps/auth") {
-      return [];
-    }
+const AUTH_APP = "apps/auth";
 
+/**
+ * Runs the Better Auth CLI on Node over the auth app in the tree at `root`, with the same config as
+ * the `auth:generate` script and `--output` set to a scratch file under `work/`, which is removed
+ * when the scope ends. Returns the schema text it wrote, or `undefined` when it wrote none. The run
+ * loads the app's configuration and its dependency graph, so it takes seconds on a cold machine.
+ */
+export const generatedAuthSchema = Effect.fn("db.check.generatedAuthSchema")(
+  function* generatedAuthSchema(root: string) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const app = path.join(context.root, database.name);
-    const subject = `${database.name}/src/db/schema.ts`;
-    const version = yield* run(context.root, "node", ["--version"]).pipe(Effect.option);
 
-    if (Option.isNone(version) || !nodeSupported(version.value)) {
-      return [
-        {
-          reason: `${Option.match(version, { onNone: () => "not found on PATH", onSome: (found) => `${found.trim()} is too old` })}; install Node >= 22.12, which the Better Auth CLI needs`,
-          subject: "node",
-        },
-      ];
-    }
-
-    yield* fs.makeDirectory(path.join(context.root, "work"), { recursive: true });
+    yield* fs.makeDirectory(path.join(root, "work"), { recursive: true });
 
     const scratch = path.join(
       yield* fs.makeTempDirectoryScoped({
-        directory: path.join(context.root, "work"),
+        directory: path.join(root, "work"),
         prefix: "db-check-auth-",
       }),
       "schema.ts",
     );
 
-    yield* run(app, "node", [
+    yield* run(path.join(root, AUTH_APP), "node", [
       "./node_modules/.bin/auth",
       "generate",
       "--config",
@@ -548,7 +537,43 @@ const authSchema: Check = {
       "--yes",
     ]);
 
-    const generated = (yield* fs.exists(scratch)) ? yield* fs.readFileString(scratch) : undefined;
+    return (yield* fs.exists(scratch)) ? yield* fs.readFileString(scratch) : undefined;
+  },
+  Effect.scoped,
+);
+
+/**
+ * `auth-schema`: the committed `apps/auth/src/db/schema.ts` equals what the Better Auth CLI
+ * generates from `apps/auth/auth.config.ts`, run on Node, since Bun's output differs. The
+ * `auth:generate` script also runs `drizzle-kit generate` and the digest step, so the check invokes
+ * only its CLI part, through {@link generatedAuthSchema}, unless the context already carries the
+ * generated text.
+ */
+const authSchema: Check = {
+  name: "auth-schema",
+  run: Effect.fn("db.check.authSchema")(function* authSchema(context, database) {
+    if (database.name !== AUTH_APP) {
+      return [];
+    }
+
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const subject = `${database.name}/src/db/schema.ts`;
+
+    if (context.authSchema === undefined) {
+      const version = yield* run(context.root, "node", ["--version"]).pipe(Effect.option);
+
+      if (Option.isNone(version) || !nodeSupported(version.value)) {
+        return [
+          {
+            reason: `${Option.match(version, { onNone: () => "not found on PATH", onSome: (found) => `${found.trim()} is too old` })}; install Node >= 22.12, which the Better Auth CLI needs`,
+            subject: "node",
+          },
+        ];
+      }
+    }
+
+    const generated = context.authSchema ?? (yield* generatedAuthSchema(context.root));
 
     return generated === (yield* fs.readFileString(path.join(context.root, subject)))
       ? []
@@ -559,7 +584,7 @@ const authSchema: Check = {
             subject,
           },
         ];
-  }, Effect.scoped),
+  }),
 };
 
 /**
@@ -575,11 +600,14 @@ export const checkNames = checks.map((check) => check.name);
 /**
  * Runs the checks named in `only` (all when omitted) over every database in the tree at `root` and
  * returns one `db:check <check>: <file or database>: <reason>` line per finding. `base` is the ref
- * `dangerous-sql` compares against, default `git merge-base HEAD origin/main`.
+ * `dangerous-sql` compares against, default `git merge-base HEAD origin/main`. `authSchema` is the
+ * text the Better Auth CLI generates, when the caller ran it already; `auth-schema` then runs no
+ * CLI.
  */
 export const findings = Effect.fn("db.check.findings")(function* findings(
   root: string,
   options: {
+    readonly authSchema?: string | undefined;
     readonly base?: string | undefined;
     readonly only?: ReadonlyArray<string> | undefined;
   } = {},
@@ -597,7 +625,9 @@ export const findings = Effect.fn("db.check.findings")(function* findings(
       options.only === undefined || options.only.includes(check.name)
         ? [
             Effect.all(
-              databases.map((database) => check.run({ base, kit, root }, database)),
+              databases.map((database) =>
+                check.run({ authSchema: options.authSchema, base, kit, root }, database),
+              ),
               { concurrency: "unbounded" },
             ).pipe(
               Effect.map((perDatabase) =>
