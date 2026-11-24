@@ -221,8 +221,7 @@ export default defineConfig({
       "landmines/declared-test-inputs": "error",
       // Off (25 findings): a size limit; AGENTS.md rules out function-decomposition policies.
       "landmines/max-exports-per-module": "off",
-      // Off (6 findings): a size limit; AGENTS.md rules out function-decomposition policies.
-      "landmines/max-file-lines": "off",
+      "landmines/max-file-lines": "error",
       "landmines/max-files-per-directory": "error",
       "landmines/no-clipboard-read-text": "error",
       "landmines/no-cold-import-in-test": "error",
