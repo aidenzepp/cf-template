@@ -7,6 +7,13 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "@workspace/ui/components/ui/empty";
+import { useCallback } from "react";
+
+/**
+ * The home link both pages render as their button, built once so each render hands the button the
+ * same element.
+ */
+const HOME_LINK = <Link to="/" />;
 
 /**
  * The page for a path no route matches or a thrown `notFound()`. The router answers 404.
@@ -21,7 +28,7 @@ export const NotFoundPage = () => (
         <EmptyDescription>The link may be broken, or the page may have moved.</EmptyDescription>
       </EmptyHeader>
       <EmptyContent>
-        <Button nativeButton={false} render={<Link to="/" />}>
+        <Button nativeButton={false} render={HOME_LINK}>
           Go to the home page
         </Button>
       </EmptyContent>
@@ -39,6 +46,11 @@ export const NotFoundPage = () => (
 export const RouteErrorPage = ({ reset }: { readonly reset: () => void }) => {
   const router = useRouter();
 
+  const retry = useCallback(() => {
+    reset();
+    void router.invalidate();
+  }, [reset, router]);
+
   return (
     <main className="flex min-h-svh">
       <Empty>
@@ -49,15 +61,8 @@ export const RouteErrorPage = ({ reset }: { readonly reset: () => void }) => {
           </EmptyDescription>
         </EmptyHeader>
         <EmptyContent>
-          <Button
-            onClick={() => {
-              reset();
-              void router.invalidate();
-            }}
-          >
-            Try again
-          </Button>
-          <Button nativeButton={false} render={<Link to="/" />} variant="outline">
+          <Button onClick={retry}>Try again</Button>
+          <Button nativeButton={false} render={HOME_LINK} variant="outline">
             Go to the home page
           </Button>
         </EmptyContent>
