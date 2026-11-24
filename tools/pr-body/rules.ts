@@ -75,7 +75,7 @@ const otherClosing =
  */
 const closingList = /\bCloses:? #\d+\b(?:,| and| &)\s*#\d+/giu;
 
-const noIssueLine = /^No issue:[ \t]+\S.*$/mu;
+const noIssueLine = /^(?:[-*][ \t]+)?No issue:[ \t]+\S.*$/mu;
 
 const disclosureLabel =
   /^\*\*AI disclosure:\*\*[ \t]*\n(?:[ \t]*\n)*(?<bullets>(?:- .*(?:\n|$))+)/mu;
@@ -117,8 +117,8 @@ export const parseLinks = (body: string): ReadonlyArray<Link> =>
   });
 
 /**
- * Whether a line outside code is `No issue: <reason>` alone, the escape for a pull request that
- * answers no issue.
+ * Whether a line outside code is `No issue: <reason>` alone, with or without a leading `- ` or
+ * `* ` bullet marker, the escape for a pull request that answers no issue.
  *
  * @param body - The pull request body.
  * @returns True when such a line exists.
