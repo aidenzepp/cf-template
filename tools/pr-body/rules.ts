@@ -155,6 +155,62 @@ const distinct = <A>(items: ReadonlyArray<A>): ReadonlyArray<A> =>
   items.filter((item, index) => items.indexOf(item) === index);
 
 /**
+ * The most issues one merge note reaches. A body that links more gets a note on the first ten and
+ * a warning for the rest.
+ */
+export const MERGE_NOTE_CAP = 10;
+
+/**
+ * The hidden line that marks a pull request's merge note, so a re-run finds it and posts no
+ * second one. The closing ` -->` keeps `#12` from matching the note of `#123`.
+ *
+ * @param number - The pull request number.
+ * @returns The marker line.
+ */
+export const mergeNoteMarker = (number: number): string => `<!-- pr-merge-note:${number} -->`;
+
+/**
+ * Builds the merge note of a pull request: one comment for each distinct issue it links under
+ * `Part of` or `Refs`, the keywords GitHub records nothing for. An issue under `Closes` gets none,
+ * because GitHub adds its own entry when the pull request merges; that holds when the same issue
+ * also appears under a non-closing keyword.
+ *
+ * @param title - The pull request title.
+ * @param number - The pull request number.
+ * @param links - The references parsed from the body.
+ * @returns The comment text, its marker, the issues to note (at most {@link MERGE_NOTE_CAP}) and
+ *   the count of linked issues past the cap.
+ */
+export const mergeNote = (title: string, number: number, links: ReadonlyArray<Link>) => {
+  const closed = new Set(links.flatMap((link) => (link.keyword === "Closes" ? [link.issue] : [])));
+
+  const linked = distinct(
+    links.flatMap((link) =>
+      link.keyword !== "Closes" && !closed.has(link.issue) ? [link.issue] : [],
+    ),
+  );
+
+  const marker = mergeNoteMarker(number);
+
+  return {
+    body: `${marker}\n#${number} merged: ${title.trim()}.`,
+    dropped: Math.max(0, linked.length - MERGE_NOTE_CAP),
+    issues: linked.slice(0, MERGE_NOTE_CAP),
+    marker,
+  };
+};
+
+/**
+ * Whether an issue still needs the note: none of its existing comments carries the marker.
+ *
+ * @param existingBodies - The text of the issue's comments, one entry for each comment or line.
+ * @param marker - The pull request's {@link mergeNoteMarker}.
+ * @returns True when no comment carries the marker.
+ */
+export const needsNote = (existingBodies: ReadonlyArray<string>, marker: string): boolean =>
+  !existingBodies.some((body) => body.includes(marker));
+
+/**
  * Every rule the body breaks: a closing keyword other than `Closes`, a `Closes` list, one issue
  * under both a closing and a non-closing keyword, no issue link and no `No issue:` line, and no
  * disclosure.
