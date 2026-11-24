@@ -663,6 +663,14 @@ export default defineConfig({
       "effecttsgo/process-env-in-effect": "warn",
       "effecttsgo/try-catch-in-effect-gen": "off",
       "effecttsgo/unsafe-effect-type-assertion": "warn",
+      // Landmines test honesty: a test asserts the real behavior, never a replaced dependency or a skipped branch.
+      "landmines/no-conditional-expect": "error",
+      "landmines/no-imported-mutation": "error",
+      "landmines/no-parameter-branch": "error",
+      "landmines/no-silent-catch": "error",
+      "landmines/no-stale-render-assertion": "error",
+      "landmines/no-test-doubles": "error",
+      "landmines/strict-msw": "error",
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],
