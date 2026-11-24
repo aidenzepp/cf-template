@@ -7,7 +7,7 @@ import { customDomain } from "./origin.ts";
  * How `web` is addressed: an owned hostname that turns `workers.dev` off, or the `workers.dev`
  * default. `domain` is `null` on the default, never omitted, so a detach converges explicitly.
  */
-export type DomainConfig =
+type DomainConfig =
   | {
       readonly kind: "hostname";
       readonly hostname: string;
