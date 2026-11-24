@@ -470,11 +470,15 @@ export default defineConfig({
         },
       },
       {
-        // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
-        // boundaries: Vitest calls a plain async function, so the Effect that validates the stage
-        // and runs `alchemy`, or that builds the harness and runs axe-core, runs here. They keep
-        // the data-access bans.
-        files: ["test/cloud/global-setup.ts", "test/browser/support/browser-harness.ts"],
+        // The cloud suite's and the `tools` project's Vitest global setups and the browser tier's
+        // `scan` command are run boundaries: Vitest calls a plain async function, so the Effect that
+        // validates the stage and runs `alchemy`, that runs the Better Auth CLI, or that builds the
+        // harness and runs axe-core, runs here. They keep the data-access bans.
+        files: [
+          "test/cloud/global-setup.ts",
+          "tools/db/global-setup.ts",
+          "test/browser/support/browser-harness.ts",
+        ],
         rules: { "no-restricted-properties": ["error", ...dataAccessMembers] },
       },
       {
@@ -831,6 +835,7 @@ export default defineConfig({
         test: {
           ...noOnly,
           exclude: ["tools/lint/fixtures/**", "tools/ratchet/fixtures/**"],
+          globalSetup: ["tools/db/global-setup.ts"],
           include: ["tools/**/*.test.ts"],
           name: "tools",
         },
