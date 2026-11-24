@@ -38,8 +38,4 @@ export const liveLogLevel = Effect.gen(function* bindLogLevel() {
 export const atLogLevel =
   (level: Effect.Effect<LogLevel.LogLevel>) =>
   <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-    level.pipe(
-      Effect.flatMap((minimum) =>
-        Effect.provideService(effect, References.MinimumLogLevel, minimum),
-      ),
-    );
+    Effect.provideServiceEffect(effect, References.MinimumLogLevel, level);
