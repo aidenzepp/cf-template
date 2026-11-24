@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect, Exit, Option } from "effect";
 import type { PersistedState } from "alchemy/State";
-import { D1LocationHintChanged, createdHint, decideLocationHint } from "./d1-hint-guard.ts";
+import { D1LocationHintChanged, createdHint, decideLocationHint } from "./hint-guard.ts";
 
 const some = (hint: string) => Option.some(hint);
 

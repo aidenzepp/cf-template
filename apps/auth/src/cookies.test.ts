@@ -113,7 +113,7 @@ layer(LocalAuthD1.layer)("the cookie contract under an https PUBLIC_ORIGIN", (it
         for (const url of [
           "https://evil.example/x",
           "//evil.example",
-          "/\\evil.example",
+          String.raw`/\evil.example`,
           "https://other-web.acme.workers.dev",
           `${HTTPS_ORIGIN}.evil.example`,
         ]) {

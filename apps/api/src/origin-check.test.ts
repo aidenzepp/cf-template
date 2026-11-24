@@ -22,9 +22,9 @@ const APP = "https://app.example.test";
 const READ_PATH = "/api/probe";
 
 /**
- * The Notebook group's read of one note, `GET /api/Note/{key}`, for note `n-1` of `owner-1`.
+ * The Notebook group's read of one note, `GET /api/note/{key}`, for note `n-1` of `owner-1`.
  */
-const NOTE_PATH = "/api/Note/owner-1~n-1";
+const NOTE_PATH = "/api/note/owner-1~n-1";
 
 /**
  * The Notebook group's live read of the same note, served as Server-Sent Events.
@@ -77,7 +77,7 @@ const send = (request: Request) =>
   );
 
 /**
- * A `POST /api/CreateNote` command with the given `Origin`, or none.
+ * A `POST /api/create-note` command with the given `Origin`, or none.
  *
  * @param origin - The `Origin` header, or `undefined` to send none.
  * @returns The request.
@@ -89,7 +89,7 @@ const command = (origin: string | undefined) => {
     headers.set("origin", origin);
   }
 
-  return new Request(`${APP}/api/CreateNote`, {
+  return new Request(`${APP}/api/create-note`, {
     body: JSON.stringify({
       commandId: "c-1",
       input: { body: "", id: "n-1", title: "Title" },

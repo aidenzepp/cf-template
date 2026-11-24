@@ -47,6 +47,8 @@ Type-aware engine behind `vp check`: tsrs, since Vite+ 1.7.0 (#433). Vite+ 1.7.0
 
 The adoption accepts both as unmet: the operator's brief for #433, tsrs in place of oxlint-tsgolint, rules it. The tsconfig plugin entry keeps `"diagnostics": false` unless `Effect-TS/tsgo#1025` is closed.
 
+The account holder accepted this override on 2026-11-23, relayed through the lint campaign, with both triggers unmet: no stable tsrs, and a `--tsrs` patch that is still experimental. Those two triggers stay the signal to revisit it.
+
 Approved as a proposal.
 
 ## C29i

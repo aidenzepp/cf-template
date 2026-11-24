@@ -104,10 +104,10 @@ describe("the documentation routes with DOCS_ENABLED on", () => {
       );
 
       assert.includeMembers(operations, [
-        "post /api/CreateNote",
-        "post /api/UpdateNote",
-        "post /api/DeleteNote",
-        "get /api/Note/{key}",
+        "post /api/create-note",
+        "post /api/update-note",
+        "post /api/delete-note",
+        "get /api/note/{key}",
       ]);
 
       for (const operation of operations) {

@@ -27,6 +27,10 @@ export const REQUIRED_CHECKS = ["checks", "browser", "merge-gate", "reviewer-age
 
 /**
  * The labels the declaration names; every other label is a deletion candidate for part 3.
+ *
+ * `autorelease: pending` and `autorelease: tagged` are the two labels release-please puts on its
+ * release pull requests. It creates them itself with GitHub's default color and no description, so
+ * they are declared by name alone and `--check` does not report them as `UNDECLARED`.
  */
 export const LABELS = [
   "convention",
@@ -36,6 +40,8 @@ export const LABELS = [
   "documentation",
   "merge-ready",
   "want",
+  "autorelease: pending",
+  "autorelease: tagged",
 ] as const;
 
 /**
@@ -195,7 +201,7 @@ export const planWarnings = (
  * The repository declares governed fields only, never `isTemplate`, visibility or description.
  * Merge methods and delete-on-merge need the `mergeSettings` capability, auto-merge the `autoMerge`
  * one. The ruleset exists only when `BRANCH_PROTECTION` is `ruleset`, the environments only where
- * `ENVIRONMENTS` is true. The four tier variables and six labels always exist.
+ * `ENVIRONMENTS` is true. The four tier variables and nine labels always exist.
  *
  * @param repository - The guarded repository.
  * @param tier - The detected tier.

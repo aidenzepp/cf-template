@@ -107,12 +107,17 @@ describe("declarationPlan", () => {
     assert.deepStrictEqual(plan.repository.name, "widget");
   });
 
-  it("always declares the seven labels and the four tier variables", () => {
+  it("always declares the nine labels and the four tier variables", () => {
     const plan = planFor("private", freeTier);
 
     assert.deepStrictEqual(
       plan.labels.map((entry) => entry.name),
       [...LABELS],
+    );
+    assert.strictEqual(plan.labels.length, 9);
+    assert.deepStrictEqual(
+      plan.labels.map((entry) => entry.name).filter((name) => name.startsWith("autorelease: ")),
+      ["autorelease: pending", "autorelease: tagged"],
     );
 
     assert.deepStrictEqual(

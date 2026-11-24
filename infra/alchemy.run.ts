@@ -10,8 +10,8 @@ import { issueNotificationAddress, prodIssueNotification } from "./src/alerts.ts
 import { declareApi } from "./src/api.ts";
 import { AUTH_DB_ID } from "../apps/auth/src/db/database.ts";
 import { declareAuth } from "./src/auth.ts";
-import { guardLocationHints } from "./src/d1-hint-guard.ts";
-import { d1LocationHint } from "./src/d1-location.ts";
+import { guardLocationHints } from "./src/d1/hint-guard.ts";
+import { d1LocationHint } from "./src/d1/location.ts";
 import { STATE_STACK, usesProjectState } from "./src/state-selection.ts";
 import { publicOrigin } from "./src/origin.ts";
 import { declareWeb } from "./src/web.ts";

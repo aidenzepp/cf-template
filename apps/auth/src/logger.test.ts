@@ -177,7 +177,7 @@ layer(LocalAuthD1.layer)("the Better Auth logger", (live) => {
     assert.strictEqual(redactEmails("a%2540b.co"), "[email]");
     assert.strictEqual(redactEmails("a&#64;b.co"), "[email]");
     assert.strictEqual(redactEmails("a＠b.co"), "[email]");
-    assert.strictEqual(redactEmails('"a\\"b"@c.co'), "[email]");
+    assert.strictEqual(redactEmails(String.raw`"a\"b"@c.co`), "[email]");
     assert.strictEqual(redactEmails("100%"), "100%");
   });
 

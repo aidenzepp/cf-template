@@ -2,6 +2,10 @@
 
 What changes and why.
 
+## Issue
+
+Write one bullet: `- Closes #<issue>` (closes the issue when this merges), `- Part of #<issue>` or `- Refs #<issue>` (links it and leaves it open), or `- No issue: <reason>`.
+
 ## Native capability check
 
 For each new helper or hook, give one of:
@@ -14,3 +18,10 @@ Write `none` only when the diff adds no helper or hook.
 ## Evidence
 
 Before and after, captured from the running change.
+
+---
+
+**AI disclosure:**
+
+- **Provider:** <provider>
+- **Model:** <model>
