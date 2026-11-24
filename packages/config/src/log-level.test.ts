@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Logger } from "effect";
 import type { LogLevel } from "effect";
-import { LiveKnobs, fromSource } from "./knob.ts";
+import { LiveKnobs, fromSource } from "./live-knobs.ts";
 import { CloudflarePlanKnob } from "./plan.ts";
 import { LogLevelKnob, atLogLevel, liveLogLevel } from "./log-level.ts";
 

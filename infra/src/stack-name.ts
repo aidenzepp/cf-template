@@ -2,7 +2,8 @@ import { BunServices } from "@effect/platform-bun";
 import { Config, Effect, Option, Schema } from "effect";
 import { Digest } from "effect/crypto";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { CLOUD_STAGE, STACK_NAME_MAX, base32Sha256, kindOf } from "../stages.ts";
+import { CLOUD_STAGE, base32Sha256, kindOf } from "../stages.ts";
+import { STACK_NAME_MAX } from "../worker-names.ts";
 import type { StageName } from "../stages.ts";
 
 /**

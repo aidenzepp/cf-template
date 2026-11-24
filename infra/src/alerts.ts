@@ -1,7 +1,7 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import type { Input } from "alchemy/Input";
 import { Config, Effect, Option, Schema } from "effect";
-import { Workers, workerName } from "../stages.ts";
+import { Workers, workerName } from "../worker-names.ts";
 import type { StageName } from "../stages.ts";
 
 /**

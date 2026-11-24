@@ -3,7 +3,8 @@ import { Effect } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { sonnerComponent, stockComponents } from "./components.ts";
-import { componentsDirectory, lockFile, writeLock } from "./lock.ts";
+import { componentsDirectory, lockFile } from "./lock-paths.ts";
+import { writeLock } from "./lock.ts";
 import { themeFile, writeTheme } from "./theme.ts";
 
 /**

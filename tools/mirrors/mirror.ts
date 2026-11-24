@@ -11,63 +11,19 @@ import {
   Stream,
 } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-
-/**
- * One upstream repository to mirror: the `bun.lock` package whose version picks the tag, and the
- * sparse patterns that bound the checkout. `{version}` in `tag` is replaced by the locked version.
- */
-export const Mirror = Schema.Struct({
-  anchor: Schema.String,
-  name: Schema.String,
-  repository: Schema.String,
-  sparse: Schema.Array(Schema.String),
-  tag: Schema.String,
-  verify: Schema.String,
-});
-
-type Entry = typeof Mirror.Type;
-
-/**
- * The text of `mirrors.json`.
- */
-export const Mirrors = Schema.fromJsonString(Schema.Array(Mirror));
-
-/**
- * What a finished checkout records, so a warm run can tell whether anything changed.
- */
-export const Stamp = Schema.Struct({
-  exclusions: Schema.Array(Schema.String),
-  sparse: Schema.Array(Schema.String),
-  tag: Schema.String,
-});
+import { readPackages, versionOf } from "./bun-lock.ts";
+import type { Packages } from "./bun-lock.ts";
+import { Mirrors, Stamp, compareStamp, exclusions, expectedStamp } from "./stamp.ts";
+import type { Entry } from "./stamp.ts";
 
 type StampValue = typeof Stamp.Type;
 
+/**
+ * What a mirror needs to become current: a fresh clone, or only a new sparse list.
+ */
+type Stale = Option.Option.Value<ReturnType<typeof compareStamp>>;
+
 const StampJson = Schema.fromJsonString(Stamp);
-
-/**
- * The part of `bun.lock` the anchors come from.
- */
-const LockJson = Schema.fromJsonString(
-  Schema.Struct({
-    packages: Schema.Record(
-      Schema.String,
-      Schema.TupleWithRest(Schema.Tuple([Schema.String]), [Schema.Unknown]),
-    ),
-  }),
-);
-
-/**
- * The `packages` table of `bun.lock`: each key maps to an array whose first element reads
- * `<name>@<version>`.
- */
-type Packages = typeof LockJson.Type.packages;
-
-/**
- * The negative sparse patterns: files that instruct a harness are reference data here, not
- * instructions.
- */
-export const exclusions = ["!CLAUDE.md", "!**/.agents/", "!**/.claude/", "!**/skills/"];
 
 const stampName = ".mirror-stamp.json";
 
@@ -104,12 +60,12 @@ const indexIntro = [
 /**
  * A failure the mirrors command reports as one line.
  */
-export class MirrorError extends Schema.TaggedError<
-  MirrorError,
-  { readonly brand: unique symbol }
->()("MirrorError", {
-  message: Schema.String,
-}) {}
+class MirrorError extends Schema.TaggedError<MirrorError, { readonly brand: unique symbol }>()(
+  "MirrorError",
+  {
+    message: Schema.String,
+  },
+) {}
 
 /**
  * The result of syncing one mirror: its printed line and whether it ended well.
@@ -126,82 +82,6 @@ interface Report {
   readonly line: string;
   readonly stale: boolean;
 }
-
-/**
- * What a mirror needs to become current: a fresh clone, or only a new sparse list.
- */
-interface Stale {
-  readonly action: "clone" | "sparse";
-  readonly reason: string;
-}
-
-/**
- * Matches a string literal (kept) or a comment (dropped), so only text outside strings changes.
- */
-const comments = /(?<kept>"(?:[^"\\]|\\.)*")|\/\/[^\n]*|\/\*[\s\S]*?\*\//gu;
-
-/**
- * Matches a string literal (kept) or a comma that closes an object or array (dropped).
- */
-const trailingCommas = /(?<kept>"(?:[^"\\]|\\.)*")|,(?=\s*[}\]])/gu;
-
-/**
- * Turns JSONC into JSON by dropping comments and trailing commas outside strings. `Bun.JSONC` does
- * this on Bun, but the Vitest suite runs on Node, which has no `Bun` global.
- */
-const jsoncToJson = (text: string): string =>
-  text.replaceAll(comments, "$<kept>").replaceAll(trailingCommas, "$<kept>");
-
-/**
- * Parses `bun.lock` (JSONC, with trailing commas) into its `packages` table.
- */
-export const readPackages = Effect.fn("mirrors.readPackages")(function* readPackages(text: string) {
-  return (yield* Schema.decodeEffect(LockJson)(jsoncToJson(text))).packages;
-});
-
-/**
- * The locked version of `anchor`: the text after the last `@` of the package's first element,
- * which reads `<name>@<version>` (the name is read from the element because aliases resolve to
- * another name). Nothing when the anchor is not in the lock.
- */
-export const versionOf = (packages: Packages, anchor: string): Option.Option<string> =>
-  Option.fromNullishOr(packages[anchor]?.[0]).pipe(
-    Option.map((spec) => spec.slice(spec.lastIndexOf("@") + 1)),
-  );
-
-/**
- * The stamp a current checkout of `entry` at the locked `version` carries.
- */
-export const expectedStamp = (entry: Entry, version: string): StampValue => ({
-  exclusions,
-  sparse: entry.sparse,
-  tag: entry.tag.replace("{version}", version),
-});
-
-/**
- * Compares a checkout's stamp with the expected one: a missing stamp or another tag means a fresh
- * clone, other lists mean a new sparse checkout only.
- */
-export const compareStamp = (
-  actual: Option.Option<StampValue>,
-  expected: StampValue,
-): Option.Option<Stale> => {
-  if (Option.isNone(actual)) {
-    return Option.some<Stale>({ action: "clone", reason: "no stamp" });
-  }
-
-  if (actual.value.tag !== expected.tag) {
-    return Option.some<Stale>({
-      action: "clone",
-      reason: `tag ${actual.value.tag}, lock wants ${expected.tag}`,
-    });
-  }
-
-  return JSON.stringify([actual.value.sparse, actual.value.exclusions]) ===
-    JSON.stringify([expected.sparse, expected.exclusions])
-    ? Option.none()
-    : Option.some<Stale>({ action: "sparse", reason: "sparse patterns or exclusions changed" });
-};
 
 /**
  * Where a mirror's checkout lives.
@@ -463,10 +343,7 @@ export const writeIndex = Effect.fn("mirrors.writeIndex")(function* writeIndex(
  * when any mirror is stale; otherwise every mirror is synced, the index is written, and the total
  * size and wall time are printed. Returns the process exit code.
  */
-export const program = Effect.fn("mirrors.program")(function* program(
-  root: string,
-  check: boolean,
-) {
+const program = Effect.fn("mirrors.program")(function* program(root: string, check: boolean) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
 

@@ -1,13 +1,16 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Path } from "effect";
 import { AUTH_PASSWORD_SCRYPT } from "@workspace/config/auth-password";
-import { limitKnobs, limitsFor } from "@workspace/config/limits";
+import { limitKnobs } from "@workspace/config/limits";
+import { limitsFor } from "@workspace/config/cpu-limits";
 import type { Auth } from "../../apps/auth/src/contract.ts";
 import type { ApiWorker } from "../../apps/api/src/worker.ts";
 import type { WebEnv } from "../../apps/web/src/env.ts";
 import { FORWARD_PREFIXES } from "../../apps/web/src/forward-prefixes.ts";
 import { namespaceId } from "../../apps/web/src/ratelimit.ts";
-import { Stages, kindOf, workerName } from "../stages.ts";
+import { Stages } from "../stage-values.ts";
+import { kindOf } from "../stages.ts";
+import { workerName } from "../worker-names.ts";
 import type { StageName } from "../stages.ts";
 import { encodedAuthMethods, encodedOrphanGrace } from "./auth.ts";
 import { compat } from "./compat.ts";

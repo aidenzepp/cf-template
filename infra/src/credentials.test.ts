@@ -1,35 +1,23 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Console, Effect, Option, Schema } from "effect";
 import bootstrapStack, {
-  BOOTSTRAP_SECRETS,
-  BOOTSTRAP_VARIABLES,
   CI_TOKEN_PERMISSION_GROUPS,
   bootstrapInputs,
   ciTokenPolicies,
 } from "../stacks/bootstrap.ts";
-import {
-  CredentialsError,
-  BootstrapRecord,
-  NO_STACK_NAME,
-  PLAN_PAGE,
-  SpinUp,
-  collision,
-  credentials,
-  listsBootstrapRecord,
-  stateReadJson,
-  decidePin,
-  parseArguments,
-  permissionPreflight,
-  planOf,
-  workersPlan,
-} from "./credentials.ts";
+import { BOOTSTRAP_SECRETS, BOOTSTRAP_VARIABLES } from "../stacks/bootstrap-names.ts";
+import { CredentialsError, NO_STACK_NAME, SpinUp } from "./spin-up.ts";
+import { BootstrapRecord } from "./credentials-types.ts";
+import { PLAN_PAGE, permissionPreflight, planOf, workersPlan } from "./preflight.ts";
+import { collision, listsBootstrapRecord, stateReadJson, decidePin } from "./stack-pin.ts";
+import { credentials, parseArguments } from "./credentials.ts";
 import type {
   DeployInput,
   FrozenIdentity,
   Plan,
   ReadProbe,
   RepositoryView,
-} from "./credentials.ts";
+} from "./credentials-types.ts";
 
 /**
  * The repository every fake run targets. The id and shapes are inferred from the GitHub REST

@@ -2,7 +2,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { PRO, base, harness } from "./fake-github.ts";
 import { DEFAULT_LABELS, applyRestLabels } from "./rest-labels.ts";
-import { RestSettingsError } from "./rest.ts";
+import { RestSettingsError } from "./rest-outcome.ts";
 
 const analyses = `GET ${base}/code-scanning/analyses`;
 

@@ -1,9 +1,12 @@
 import type * as Cloudflare from "@alchemy.run/cloudflare";
 import { Effect, Layer, Path } from "effect";
 import ApiWorkerImpl, { ApiDeployment, ApiWorker } from "../../apps/api/src/worker.ts";
-import { limitKnobs, limitsFor } from "@workspace/config/limits";
-import { kindOf, workerName } from "../stages.ts";
-import type { StageName, StageValues } from "../stages.ts";
+import { limitKnobs } from "@workspace/config/limits";
+import { limitsFor } from "@workspace/config/cpu-limits";
+import { kindOf } from "../stages.ts";
+import { workerName } from "../worker-names.ts";
+import type { StageName } from "../stages.ts";
+import type { StageValues } from "../stage-values.ts";
 import { compat } from "./compat.ts";
 import { issuesObservability, telemetryOptions } from "./telemetry.ts";
 

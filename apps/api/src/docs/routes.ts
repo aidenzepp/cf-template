@@ -3,7 +3,7 @@ import { HttpRouter, HttpServerResponse, Url } from "effect/http";
 import { HttpApiMiddleware, HttpApiScalar, OpenApi } from "effect/http-api";
 import * as DomainHttp from "@alchemy.run/domain/Http";
 import { DocsEnabledKnob, DocsLiveRead } from "@workspace/config/docs";
-import { LiveKnobs } from "@workspace/config/knob";
+import { LiveKnobs } from "@workspace/config/live-knobs";
 import { Api } from "@workspace/contract/api/api";
 import { DOCS_PATH, LLMS_PATH, OPENAPI_PATH } from "@workspace/contract/api/docs-paths";
 import { NotebookApi } from "../notes/notebook.api.ts";

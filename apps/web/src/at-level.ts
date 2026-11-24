@@ -1,6 +1,6 @@
 import { ConfigProvider, Context, Effect, Layer } from "effect";
-import { LiveKnobs } from "@workspace/config/knob";
-import type { LiveKnobsPort } from "@workspace/config/knob";
+import { LiveKnobs } from "@workspace/config/live-knobs";
+import type { LiveKnobsPort } from "@workspace/config/live-knobs";
 import { atLogLevel, liveLogLevel } from "@workspace/config/log-level";
 
 /**

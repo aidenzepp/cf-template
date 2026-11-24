@@ -99,7 +99,7 @@ const check = (
  * @param rawStage - The `--stage` value.
  * @returns The namespace, or a failure before any write.
  */
-export const resolveNamespace = Effect.fn("knob.resolveNamespace")(function* resolveNamespace(
+const resolveNamespace = Effect.fn("knob.resolveNamespace")(function* resolveNamespace(
   rawStage: string,
 ) {
   const stage = yield* Schema.decodeEffect(Stage)(rawStage).pipe(

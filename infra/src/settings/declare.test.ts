@@ -1,13 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Option } from "effect";
-import {
-  ACTIONS_INTEGRATION_ID,
-  LABELS,
-  REQUIRED_CHECKS,
-  declarationPlan,
-  planWarnings,
-  reviewerAppId,
-} from "./declare.ts";
+import { ACTIONS_INTEGRATION_ID, LABELS, REQUIRED_CHECKS } from "./declare-constants.ts";
+import { declarationPlan, planWarnings, reviewerAppId } from "./declare.ts";
 import { PRO, PUBLIC } from "./fake-github.ts";
 import type { GuardedRepository } from "./repository.ts";
 import type { Tier } from "./tier.ts";

@@ -45,7 +45,7 @@ export class LogKeyRefused extends Schema.TaggedError<
 /**
  * One parsed command line.
  */
-export interface LogKeyRequest {
+interface LogKeyRequest {
   readonly email: string;
   readonly stage: string;
 }

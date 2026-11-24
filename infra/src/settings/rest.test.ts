@@ -1,7 +1,8 @@
 import { assert, describe, it } from "@effect/vitest";
 import { Effect } from "effect";
 import { PRO, PUBLIC, base, harness } from "./fake-github.ts";
-import { RestSettingsError, applyRest } from "./rest.ts";
+import { applyRest } from "./rest.ts";
+import { RestSettingsError } from "./rest-outcome.ts";
 
 /**
  * The `security_and_analysis` object with both features at one status.

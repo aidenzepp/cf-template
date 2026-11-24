@@ -7,6 +7,8 @@ import {
   D1_REPLACE_NOTE,
   EMPTY_PLAN_NOTE,
   WORKER_REMOVED_NOTE,
+} from "./plan-prod-notes.ts";
+import {
   checkFingerprint,
   decide,
   renderSummary,

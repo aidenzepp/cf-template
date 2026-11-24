@@ -2,7 +2,8 @@ import { assert, describe, it, layer } from "@effect/vitest";
 import { Effect, Exit } from "effect";
 import { AuthService } from "./auth.ts";
 import { socialProviders } from "./providers.ts";
-import { LocalAuthD1, asExecution, authOver, handle } from "./test-harness.ts";
+import { LocalAuthD1, asExecution, authOver } from "./test-harness.ts";
+import { handle } from "./test-requests.ts";
 
 /**
  * Ask Better Auth to start a sign-in with `provider`, without following the redirect.

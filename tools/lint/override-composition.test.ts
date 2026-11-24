@@ -5,10 +5,9 @@ import {
   authFetchMembers,
   dataAccessMembers,
   dataAccessMembersWithoutPrepare,
-  globalThisFetch,
   registryMembers,
-  runMembers,
-} from "./rules/restricted-properties.ts";
+} from "./rules/banned-members.ts";
+import { globalThisFetch, runMembers } from "./rules/restricted-properties.ts";
 import {
   basePaths,
   libraryPatterns,

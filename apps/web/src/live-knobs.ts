@@ -1,6 +1,6 @@
 import { Effect, Option } from "effect";
-import { LiveSourceError, fromSource } from "@workspace/config/knob";
-import type { LiveKnobsPort } from "@workspace/config/knob";
+import { LiveSourceError, fromSource } from "@workspace/config/live-knobs";
+import type { LiveKnobsPort } from "@workspace/config/live-knobs";
 import type { KnobsBinding } from "./env.ts";
 
 /**

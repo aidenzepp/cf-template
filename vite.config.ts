@@ -34,10 +34,9 @@ import {
   authFetchMembers,
   dataAccessMembers,
   dataAccessMembersWithoutPrepare,
-  globalThisFetch,
   registryMembers,
-  runMembers,
-} from "./tools/lint/rules/restricted-properties.ts";
+} from "./tools/lint/rules/banned-members.ts";
+import { globalThisFetch, runMembers } from "./tools/lint/rules/restricted-properties.ts";
 
 /**
  * Matches module declarations and calls without spacing local call groups.
@@ -562,7 +561,7 @@ export default defineConfig({
       {
         // `fromSource`'s per-isolate knob cache stays a `Map` (#248, #247): Effect `Cache` shares
         // in-flight lookups, which the Workers request boundary forbids.
-        files: ["packages/config/src/knob.ts"],
+        files: ["packages/config/src/live-knobs.ts"],
         rules: { "workspace/no-keyed-ttl-map": "off" },
       },
       {

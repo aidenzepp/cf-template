@@ -13,7 +13,7 @@ export interface RateLimitBinding {
  * The two limiter classes: `public` brakes every request, `credential` additionally brakes the
  * password routes.
  */
-export type RateLimitClass = "public" | "credential";
+type RateLimitClass = "public" | "credential";
 
 /**
  * The seconds a refused caller is told to wait, the period of the binding's class. The binding

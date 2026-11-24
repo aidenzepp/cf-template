@@ -2,7 +2,8 @@ import { assert, describe, it } from "@effect/vitest";
 import * as EffectModule from "effect/Effect";
 import config from "../../vite.config.ts";
 import { basePaths } from "./rules/restrict-imports.ts";
-import { dataAccessMembers, runMembers, runNames } from "./rules/restricted-properties.ts";
+import { dataAccessMembers } from "./rules/banned-members.ts";
+import { runMembers, runNames } from "./rules/restricted-properties.ts";
 
 /**
  * The `run[A-Z]*` exports of `effect/Effect` at the installed pin.

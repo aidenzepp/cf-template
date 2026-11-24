@@ -1,7 +1,8 @@
 import { assert, describe, it } from "@effect/vitest";
 import { ConfigProvider, Effect, Layer } from "effect";
 import { HttpClient, HttpClientResponse } from "effect/http";
-import { AdminGuardError, RepositoryError, guardAdmin, resolveRepository } from "./repository.ts";
+import { AdminGuardError, RepositoryError } from "./repository-errors.ts";
+import { guardAdmin, resolveRepository } from "./repository.ts";
 
 /**
  * A fake `HttpClient` that answers each path from `routes` and 404s every other path.

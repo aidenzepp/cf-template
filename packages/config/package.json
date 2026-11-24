@@ -5,6 +5,7 @@
   "type": "module",
   "exports": {
     "./knob": "./src/knob.ts",
+    "./live-knobs": "./src/live-knobs.ts",
     "./docs": "./src/docs.ts",
     "./log-level": "./src/log-level.ts",
     "./worker-requirements": "./src/worker-requirements.ts",
@@ -14,6 +15,7 @@
     "./auth-orphan-grace": "./src/auth-orphan-grace.ts",
     "./auth-password": "./src/auth-password.ts",
     "./limits": "./src/limits.ts",
+    "./cpu-limits": "./src/cpu-limits.ts",
     "./mailer": "./src/mailer.ts",
     "./observability": "./src/observability.ts",
     "./waf": "./src/waf.ts",

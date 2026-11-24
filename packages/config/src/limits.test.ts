@@ -6,10 +6,8 @@ import {
   CPU_LIMIT_HEADROOM,
   WEB_CPU_LIMIT_MS,
   WORKER_SUBREQUEST_LIMIT,
-  authCpuLimitMs,
-  limitsFor,
-  scryptCostMs,
 } from "./limits.ts";
+import { authCpuLimitMs, limitsFor, scryptCostMs } from "./cpu-limits.ts";
 
 const reference = { ln: 15, p: 3, r: 8 };
 

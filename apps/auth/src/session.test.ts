@@ -4,16 +4,8 @@ import { Session } from "@workspace/contract/domain/session";
 import { AuthService } from "./auth.ts";
 import { CookieCacheMaxAgeKnob } from "./config.ts";
 import { CheckSession } from "./session.ts";
-import {
-  LocalAuthD1,
-  asExecution,
-  authOver,
-  cookieOf,
-  disposedD1,
-  signIn,
-  signUp,
-  tokenOnly,
-} from "./test-harness.ts";
+import { LocalAuthD1, asExecution, authOver, disposedD1 } from "./test-harness.ts";
+import { cookieOf, signIn, signUp, tokenOnly } from "./test-requests.ts";
 
 layer(LocalAuthD1.layer)("checkSession", (it) => {
   it.effect("returns the Session for the sign-in cookie", () =>

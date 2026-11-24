@@ -1,32 +1,8 @@
-import { Context, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { kindOf } from "../stages.ts";
 import type { StageName } from "../stages.ts";
-
-/**
- * A zone, by id and name.
- */
-export interface ZoneRef {
-  readonly id: string;
-  readonly name: string;
-}
-
-/**
- * One rule of a zone's `http_ratelimit` entrypoint, as the guard reads it: Cloudflare's id and the
- * `ref` the rule was written with, if any.
- */
-export interface EntrypointRule {
-  readonly id: string;
-  readonly ref: string | undefined;
-}
-
-/**
- * The zone that holds a hostname and the rules of its `http_ratelimit` entrypoint. An absent
- * entrypoint reads as no rules.
- */
-export interface ZoneEntrypoint {
-  readonly zone: ZoneRef;
-  readonly rules: ReadonlyArray<EntrypointRule>;
-}
+import { RateLimitEntrypoint } from "./zone-entrypoint.ts";
+import type { EntrypointRule } from "./zone-entrypoint.ts";
 
 /**
  * The refusal of a zone whose `http_ratelimit` entrypoint holds rules this stack did not create.
@@ -47,33 +23,6 @@ export class ForeignRateLimitRules extends Schema.TaggedError<
     return `Refusing to deploy: the rate-limit entrypoint of zone ${this.zone} holds ${this.ruleIds.length} rule(s) whose ref is not ${this.ownRef} (${this.ruleIds.join(", ")}). A zone has one rate-limit entrypoint with one owner, and deploying would overwrite those rules. Remove or move them in the Cloudflare dashboard, or set ${this.variable} to a hostname on a zone with no rate-limit rules. If this stack was renamed, its earlier rule carries the old ref and counts as foreign.`;
   }
 }
-
-/**
- * The failure of a Cloudflare call the guard made, or of a zone it could not find. Its message says
- * the deploy was refused and what the credentials need.
- */
-export class RateLimitEntrypointError extends Schema.TaggedError<
-  RateLimitEntrypointError,
-  { readonly brand: unique symbol }
->()("RateLimitEntrypointError", { message: Schema.String }) {}
-
-/**
- * The one read the guard makes. Tests provide a fake; `RateLimitEntrypointLive` provides the real
- * one.
- */
-export class RateLimitEntrypoint extends Context.Service<
-  RateLimitEntrypoint,
-  {
-    /**
-     * The zone of `hostname` and the rules of its `http_ratelimit` entrypoint; `variable` names the
-     * setting that supplied the hostname, for the error that asks for another.
-     */
-    readonly read: (
-      hostname: string,
-      variable: string,
-    ) => Effect.Effect<ZoneEntrypoint, RateLimitEntrypointError>;
-  }
->()("infra/RateLimitEntrypoint") {}
 
 /**
  * The `ref` this stack gives its rate-limit rule on one stage and hostname; the guard recognises

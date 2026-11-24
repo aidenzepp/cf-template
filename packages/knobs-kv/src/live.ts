@@ -1,8 +1,8 @@
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { RemovalPolicy, RuntimeContext } from "alchemy";
 import { Context, Effect, Layer, Option } from "effect";
-import { LiveKnobs, LiveSourceError, fromSource } from "@workspace/config/knob";
-import type { LiveKnobsPort } from "@workspace/config/knob";
+import { LiveKnobs, LiveSourceError, fromSource } from "@workspace/config/live-knobs";
+import type { LiveKnobsPort } from "@workspace/config/live-knobs";
 
 /**
  * How long a read result, success or failure, is reused before the next request reads the key
