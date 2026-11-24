@@ -495,7 +495,6 @@ export default defineConfig({
           // The two server-data guards `docs/capabilities.md` names. Neither is in a React Doctor
           // rule set, so each is switched on here.
           "react-doctor/no-collapse-request-error-to-empty-state": "error",
-          "react-doctor/only-export-components": "off",
           "react-doctor/tanstack-start-no-direct-fetch-in-loader": "error",
         },
       },
