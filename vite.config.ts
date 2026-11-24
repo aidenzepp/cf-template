@@ -442,8 +442,13 @@ export default defineConfig({
         // Alchemy Domain Stories assert recorded events with `Story.then(...)`, a step of the
         // Story DSL, not a promise. Story files are declarative step lists and run no promises.
         // `prefer-catch` is off too: it reads `Story.then(subject, event)` as `then(a, b)`.
+        // `prefer-top-level-await` is off too: it reads `Story.then(...)` as a promise chain.
         files: ["**/*.story.ts"],
-        rules: { "promise/prefer-await-to-then": "off", "promise/prefer-catch": "off" },
+        rules: {
+          "promise/prefer-await-to-then": "off",
+          "promise/prefer-catch": "off",
+          "unicorn/prefer-top-level-await": "off",
+        },
       },
       {
         // The cloud suite's Vitest global setup and the browser tier's `scan` command are run
@@ -697,6 +702,9 @@ export default defineConfig({
       // Adopted from the Cloudflare Oxlint preset (#437). Ultracite core turns it off; `String.raw`
       // keeps a backslash-heavy literal readable, so it is on again.
       "unicorn/prefer-string-raw": "error",
+      // Adopted from the Cloudflare Oxlint preset (#437): a module awaits at the top level instead of
+      // chaining a promise. The story override above lifts it.
+      "unicorn/prefer-top-level-await": "error",
       // misfires on Schema.TaggedError<X>()(...) calls and takes no options; throw is already banned in source by the Effect-native rule (AGENTS.md)
       "unicorn/throw-new-error": "off",
       "workspace/error-message-grammar": "error",
