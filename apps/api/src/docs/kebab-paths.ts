@@ -13,7 +13,7 @@ import { kebabCase } from "effect/String";
  * @param path - A router path such as `/CreateNote` or `/Note/:key/watch`.
  * @returns The same path with every plain segment in kebab-case, such as `/create-note`.
  */
-export const kebabPath = (path: string): string =>
+export const kebabPath = (path: string) =>
   path
     .split("/")
     .map((segment) => (segment === "" || segment.startsWith(":") ? segment : kebabCase(segment)))
@@ -30,8 +30,13 @@ export const kebabPath = (path: string): string =>
  * @param path - The path of the clone.
  * @returns A new endpoint equal to `endpoint` in everything but its path.
  */
-const withPath = (endpoint: HttpApiEndpoint.Top, path: string): HttpApiEndpoint.Top =>
-  Object.assign(endpoint.annotateMerge(Context.empty()), { path });
+const withPath = (endpoint: HttpApiEndpoint.Top, path: string) => {
+  const clone: HttpApiEndpoint.Top = Object.assign(endpoint.annotateMerge(Context.empty()), {
+    path,
+  });
+
+  return clone;
+};
 
 /**
  * Convert the path of every endpoint of a group to kebab-case. `HttpApiGroup.add` replaces an
@@ -43,7 +48,7 @@ const withPath = (endpoint: HttpApiEndpoint.Top, path: string): HttpApiEndpoint.
  */
 export const kebabGroup = <Name extends string>(
   group: HttpApiGroup.HttpApiGroup<Name, HttpApiEndpoint.Top>,
-): HttpApiGroup.HttpApiGroup<Name, HttpApiEndpoint.Top> => {
+) => {
   let converted = group;
 
   for (const endpoint of Object.values<HttpApiEndpoint.Top>(group.endpoints)) {
@@ -64,11 +69,16 @@ export const kebabGroup = <Name extends string>(
  * @param surface - What `DomainHttp.toHttpApi` returns for an Api.
  * @returns A surface of the same shape whose paths are all kebab-case.
  */
-export const kebabPaths = <Name extends string, R>(
-  surface: HttpApiSurface<Name, R>,
-): HttpApiSurface<Name, R> => {
+export const kebabPaths = <Name extends string, R>(surface: HttpApiSurface<Name, R>) => {
   const group = kebabGroup(surface.group);
   const api = HttpApi.make(surface.api.identifier).add(group);
 
-  return { api, group, layer: surface.layerFor(api), layerFor: surface.layerFor };
+  const kebabbed: HttpApiSurface<Name, R> = {
+    api,
+    group,
+    layer: surface.layerFor(api),
+    layerFor: surface.layerFor,
+  };
+
+  return kebabbed;
 };

@@ -142,9 +142,7 @@ layer(LocalAuthD1.layer)("the cookie contract under an https PUBLIC_ORIGIN", (it
           { host: "https://attacker.test", origin: HTTPS_ORIGIN },
         );
 
-        const { url } = yield* Effect.promise((): Promise<{ readonly url: string }> =>
-          response.json(),
-        );
+        const { url } = yield* Effect.promise<{ readonly url: string }>(() => response.json());
 
         assert.strictEqual(
           new URL(url).searchParams.get("redirect_uri"),

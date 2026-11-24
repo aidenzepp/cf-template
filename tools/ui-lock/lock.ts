@@ -88,7 +88,7 @@ export const readTree = Effect.fn("ui-lock.readTree")(function* readTree(directo
 /**
  * The lines describing how `actual` differs from `expected`: one per added, removed or edited file.
  */
-export const diffLock = (expected: Lock, actual: Lock): ReadonlyArray<string> => [
+export const diffLock = (expected: Lock, actual: Lock) => [
   ...Object.keys(actual)
     .filter((name) => !(name in expected))
     .map((name) => `added: ${name}`),

@@ -138,10 +138,7 @@ export const detectPlan = Effect.fn("detectPlan")(
  * @param plan - The lower-case plan name.
  * @returns The capabilities the tier offers.
  */
-const capabilitiesFor = (
-  visibility: Tier["visibility"],
-  plan: string,
-): ReadonlyArray<Capability> => {
+const capabilitiesFor = (visibility: Tier["visibility"], plan: string) => {
   if (visibility === "public") {
     return PUBLIC;
   }
@@ -155,7 +152,7 @@ const capabilitiesFor = (
  * @param capabilities - The tier's capabilities.
  * @returns `ruleset` first, then `classic`, else `none`.
  */
-const protectionFor = (capabilities: ReadonlySet<Capability>): Tier["branchProtection"] => {
+const protectionFor = (capabilities: ReadonlySet<Capability>) => {
   if (capabilities.has("rulesets")) {
     return "ruleset";
   }
@@ -208,5 +205,4 @@ export const reportLine = (
   tier: Pick<Tier, "visibility" | "plan">,
   applied: number,
   unavailable: number,
-): string =>
-  `tier: ${tier.visibility}/${tier.plan}; applied ${applied}; unavailable ${unavailable}`;
+) => `tier: ${tier.visibility}/${tier.plan}; applied ${applied}; unavailable ${unavailable}`;

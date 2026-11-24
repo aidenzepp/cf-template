@@ -23,7 +23,7 @@ const PARAM_NAME = /^[a-z][A-Za-z0-9]*$/u;
  * @param segment - One `/`-separated segment of an endpoint path, such as `notes` or `:key`.
  * @returns The broken rule with the segment, or `undefined` when the segment follows the rules.
  */
-const segmentViolation = (segment: string): string | undefined => {
+const segmentViolation: (segment: string) => string | undefined = (segment) => {
   if (segment.startsWith(":")) {
     const name = segment.slice(1);
 
@@ -43,7 +43,7 @@ const segmentViolation = (segment: string): string | undefined => {
  */
 const pathViolations = <Id extends string, Groups extends HttpApiGroup.Constraint>(
   api: HttpApi.HttpApi<Id, Groups>,
-): ReadonlyArray<string> => {
+) => {
   const found: Array<string> = [];
 
   HttpApi.reflect(api, {

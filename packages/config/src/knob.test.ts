@@ -57,7 +57,7 @@ const captureLogs = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 /**
  * A live source that answers every read with `value`.
  */
-const sourceOf = (value: string): LiveSource => ({
+const sourceOf = (value: string) => ({
   name: "test-source",
   read: () => Effect.succeedSome(value),
 });

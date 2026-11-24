@@ -31,8 +31,8 @@ const subscribeTheme = (onChange: () => void) => {
  *
  * @returns The resolved theme.
  */
-const useResolvedTheme = (): "light" | "dark" =>
-  useSyncExternalStore(
+const useResolvedTheme = () =>
+  useSyncExternalStore<"light" | "dark">(
     subscribeTheme,
     () => (matchMedia(DARK_QUERY).matches ? "dark" : "light"),
     () => "light",

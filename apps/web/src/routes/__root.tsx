@@ -21,7 +21,7 @@ const FALLBACK_RETRY_AFTER_SECONDS = 5;
  * @returns The whole seconds, or {@link FALLBACK_RETRY_AFTER_SECONDS} when the header is absent or
  *   not a whole number.
  */
-const parseRetryAfter = (header: string | undefined): number => {
+const parseRetryAfter = (header: string | undefined) => {
   const seconds = Number(header);
 
   return Number.isInteger(seconds) && seconds >= 0 ? seconds : FALLBACK_RETRY_AFTER_SECONDS;

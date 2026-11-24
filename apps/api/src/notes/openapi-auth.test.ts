@@ -74,7 +74,7 @@ type Sample = string | number | null | { readonly [name: string]: Sample };
  * @param schema - A schema of the document.
  * @returns A value the schema accepts.
  */
-const sample = (schema: BodySchema): Sample => {
+const sample: (schema: BodySchema) => Sample = (schema) => {
   const [first] = schema.anyOf ?? [];
 
   if (first !== undefined) {

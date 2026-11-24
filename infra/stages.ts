@@ -129,7 +129,7 @@ export type StageKind = "prod" | "staging" | "test" | "local";
  * @param stage - A stage decoded by {@link Stage}.
  * @returns The kind that owns the stage's knob values.
  */
-export const kindOf = (stage: StageName): StageKind => {
+export const kindOf = (stage: StageName) => {
   if (stage === "prod") {
     return "prod";
   }
@@ -192,7 +192,7 @@ export const workerName = (parts: {
   readonly stack: string;
   readonly worker: string;
   readonly stage: StageName;
-}): Effect.Effect<string, WorkerNameTooLongError> => {
+}) => {
   const name = `${parts.stack}-${parts.worker}-${parts.stage}`.toLowerCase();
 
   return name.length > WORKER_NAME_MAX
@@ -213,7 +213,7 @@ export const workerName = (parts: {
  * @param raw - The string form of the value.
  * @returns The decoded value.
  */
-const validated = <A>(knob: { readonly decodeSync: (raw: string) => A }, raw: string): A =>
+const validated = <A>(knob: { readonly decodeSync: (raw: string) => A }, raw: string) =>
   knob.decodeSync(raw);
 
 /**
@@ -248,7 +248,7 @@ const stageRow = (
     readonly docs: string;
     readonly problemDetails: string;
   },
-): StageValues => ({
+) => ({
   AUTH_CHECK_SESSION_TIMEOUT_MS: validated(AuthCheckSessionTimeoutKnob, "1500"),
   AUTH_COOKIE_CACHE_MAX_AGE_S: CookieCacheMaxAgeKnob.default,
   AUTH_COOKIE_CACHE_STRATEGY: CookieCacheStrategyKnob.default,
@@ -333,9 +333,7 @@ const pickOverride = Struct.lambda<PickOverride>(
  * @param stage - The decoded stage.
  * @returns The knob values, or the failure of an invalid override.
  */
-export const stageValues = Effect.fn("stageValues")(function* stageValues(
-  stage: StageName,
-): Effect.fn.Return<StageValues, Config.ConfigError> {
+export const stageValues = Effect.fn("stageValues")(function* stageValues(stage: StageName) {
   const kind = kindOf(stage);
   const base = Stages[kind];
 

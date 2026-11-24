@@ -30,7 +30,7 @@ export class ProdStageRefused extends Schema.TaggedError<
   phase: Schema.String,
   stage: Schema.String,
 }) {
-  override get message(): string {
+  override get message() {
     return `Stage ${this.stage} is refused for ${this.phase} unless CI=true. Deploy and destroy prod from the CI workflow, not a laptop.`;
   }
 }

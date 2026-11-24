@@ -51,9 +51,9 @@ export type KnobRequest = { readonly stage: string } & (
  * @param args - The raw arguments.
  * @returns The request, or a {@link KnobRefused}.
  */
-export const parseRequest = (
+export const parseRequest: (
   args: ReadonlyArray<string>,
-): Effect.Effect<KnobRequest, KnobRefused> => {
+) => Effect.Effect<KnobRequest, KnobRefused> = (args) => {
   const flag = args.indexOf("--stage");
   const stage = flag === -1 ? "" : (args[flag + 1] ?? "");
 

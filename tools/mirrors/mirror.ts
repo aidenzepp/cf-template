@@ -149,7 +149,7 @@ const trailingCommas = /(?<kept>"(?:[^"\\]|\\.)*")|,(?=\s*[}\]])/gu;
  * Turns JSONC into JSON by dropping comments and trailing commas outside strings. `Bun.JSONC` does
  * this on Bun, but the Vitest suite runs on Node, which has no `Bun` global.
  */
-const jsoncToJson = (text: string): string =>
+const jsoncToJson = (text: string) =>
   text.replaceAll(comments, "$<kept>").replaceAll(trailingCommas, "$<kept>");
 
 /**
@@ -164,7 +164,7 @@ export const readPackages = Effect.fn("mirrors.readPackages")(function* readPack
  * which reads `<name>@<version>` (the name is read from the element because aliases resolve to
  * another name). Nothing when the anchor is not in the lock.
  */
-export const versionOf = (packages: Packages, anchor: string): Option.Option<string> =>
+export const versionOf = (packages: Packages, anchor: string) =>
   Option.fromNullishOr(packages[anchor]?.[0]).pipe(
     Option.map((spec) => spec.slice(spec.lastIndexOf("@") + 1)),
   );
@@ -172,7 +172,7 @@ export const versionOf = (packages: Packages, anchor: string): Option.Option<str
 /**
  * The stamp a current checkout of `entry` at the locked `version` carries.
  */
-export const expectedStamp = (entry: Entry, version: string): StampValue => ({
+export const expectedStamp = (entry: Entry, version: string) => ({
   exclusions,
   sparse: entry.sparse,
   tag: entry.tag.replace("{version}", version),
@@ -182,10 +182,7 @@ export const expectedStamp = (entry: Entry, version: string): StampValue => ({
  * Compares a checkout's stamp with the expected one: a missing stamp or another tag means a fresh
  * clone, other lists mean a new sparse checkout only.
  */
-export const compareStamp = (
-  actual: Option.Option<StampValue>,
-  expected: StampValue,
-): Option.Option<Stale> => {
+export const compareStamp = (actual: Option.Option<StampValue>, expected: StampValue) => {
   if (Option.isNone(actual)) {
     return Option.some<Stale>({ action: "clone", reason: "no stamp" });
   }
@@ -247,8 +244,7 @@ const staleness = Effect.fn("mirrors.staleness")(function* staleness(
   return compareStamp(yield* readStamp(dir), expectedStamp(entry, version));
 });
 
-const skipLine = (entry: Entry): string =>
-  `${entry.name}: anchor ${entry.anchor} not in bun.lock, skipped`;
+const skipLine = (entry: Entry) => `${entry.name}: anchor ${entry.anchor} not in bun.lock, skipped`;
 
 /**
  * The offline `--check`: one report per mirror that is stale or skipped, and nothing is written.
@@ -410,8 +406,8 @@ const syncEntry = Effect.fn("mirrors.syncEntry")(function* syncEntry(
 export const syncOne = (root: string, entry: Entry, packages: Packages) =>
   syncEntry(root, entry, packages).pipe(
     Effect.match({
-      onFailure: (error): Outcome => ({ line: `${entry.name}: ${error.message}`, ok: false }),
-      onSuccess: (outcome): Outcome => outcome,
+      onFailure: (error) => ({ line: `${entry.name}: ${error.message}`, ok: false }),
+      onSuccess: (outcome) => outcome,
     }),
   );
 

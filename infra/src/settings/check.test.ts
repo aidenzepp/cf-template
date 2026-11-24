@@ -21,7 +21,7 @@ const environment = {
  * @param body - The JSON body.
  * @returns The reply.
  */
-const ok = (body: Schema.Json): Reply => ({ body, status: 200 });
+const ok = (body: Schema.Json) => ({ body, status: 200 });
 
 /**
  * The live state of a private Pro repository that matches the declaration, with overrides per

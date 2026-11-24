@@ -44,7 +44,7 @@ const FNV_PRIME = 0x01_00_01_93;
  * @param byte - The byte to mix in, from `0` to `255`.
  * @returns The hash with its low byte XORed with `byte`.
  */
-const xorLowByte = (hash: number, byte: number): number => {
+const xorLowByte = (hash: number, byte: number) => {
   const low = hash % 256;
 
   const differing = Array.from({ length: 8 }, (_, bit) => 2 ** bit).filter(
@@ -60,7 +60,7 @@ const xorLowByte = (hash: number, byte: number): number => {
  * @param text - The text to hash.
  * @returns The hash, from `0` to `4294967295`.
  */
-export const fnv1a32 = (text: string): number => {
+export const fnv1a32 = (text: string) => {
   let hash = FNV_OFFSET_BASIS;
 
   for (const byte of new TextEncoder().encode(text)) {
@@ -79,7 +79,7 @@ export const fnv1a32 = (text: string): number => {
  * @param cls - The limiter class.
  * @returns An id from `1` to `2147483646`.
  */
-export const namespaceId = (stack: string, stage: string, cls: RateLimitClass): number =>
+export const namespaceId = (stack: string, stage: string, cls: RateLimitClass) =>
   1 + (fnv1a32(`${stack}:${stage}:${cls}`) % 2_147_483_646);
 
 /**
@@ -89,7 +89,7 @@ export const namespaceId = (stack: string, stage: string, cls: RateLimitClass): 
  * @param ip - The `cf-connecting-ip` value.
  * @returns The key; an address that does not parse is returned as is.
  */
-export const rateLimitKey = (ip: string): string => {
+export const rateLimitKey = (ip: string) => {
   if (!ip.includes(":") || !Address6.isValid(ip)) {
     return ip;
   }
@@ -114,7 +114,7 @@ export const rateLimitKey = (ip: string): string => {
  * @param path - A percent-decoded path.
  * @returns The path in lower case with single slashes and no trailing slash, except the root.
  */
-const normalizePath = (path: string): string => {
+const normalizePath = (path: string) => {
   const collapsed = path.toLowerCase().replaceAll(/\/+/gu, "/");
 
   return collapsed.length > 1 && collapsed.endsWith("/") ? collapsed.slice(0, -1) : collapsed;
@@ -128,10 +128,7 @@ const normalizePath = (path: string): string => {
  * @param credentialPaths - Every path that hashes or verifies a password.
  * @returns `credential` for a listed path or an undecodable one, else `public`.
  */
-export const classify = (
-  pathname: string,
-  credentialPaths: ReadonlyArray<string>,
-): RateLimitClass => {
+export const classify = (pathname: string, credentialPaths: ReadonlyArray<string>) => {
   const decoded = Result.try(() => decodeURIComponent(pathname));
 
   return Result.isFailure(decoded) ||
@@ -206,7 +203,7 @@ export const checkRateLimit = (
   request: Request,
   env: RateLimitEnv,
   credentialPaths: ReadonlyArray<string>,
-): Effect.Effect<Response | null> => {
+) => {
   const ip = request.headers.get("cf-connecting-ip");
 
   if (ip === null) {

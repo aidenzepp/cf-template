@@ -31,7 +31,7 @@ const SCRYPT_WORK_CEILING = 4_194_304;
  * @param params - The cost parameters.
  * @returns The work, in `N x r x p` units.
  */
-const workOf = (params: { readonly ln: number; readonly r: number; readonly p: number }): number =>
+const workOf = (params: { readonly ln: number; readonly r: number; readonly p: number }) =>
   2 ** params.ln * params.r * params.p;
 
 /**
@@ -40,7 +40,7 @@ const workOf = (params: { readonly ln: number; readonly r: number; readonly p: n
  * @param params - The cost parameters.
  * @returns The bytes of working memory.
  */
-const memoryOf = (params: { readonly ln: number; readonly r: number }): number =>
+const memoryOf = (params: { readonly ln: number; readonly r: number }) =>
   128 * 2 ** params.ln * params.r;
 
 /**
@@ -109,4 +109,4 @@ export const AUTH_PASSWORD_SCRYPT = Knob.make(
  * @param params - The cost parameters.
  * @returns The `maxmem` option.
  */
-export const scryptMaxmem = (params: ScryptCost): number => 2 * memoryOf(params);
+export const scryptMaxmem = (params: ScryptCost) => 2 * memoryOf(params);

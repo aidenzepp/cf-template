@@ -70,7 +70,7 @@ describe("applyRestLabels", () => {
         PRO,
         noAnalysis(
           new Map(
-            DEFAULT_LABELS.map((label): [string, number] => [
+            DEFAULT_LABELS.map((label) => [
               `DELETE ${base}/labels/${encodeURIComponent(label)}`,
               404,
             ]),

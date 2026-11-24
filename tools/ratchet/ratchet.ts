@@ -32,7 +32,7 @@ const KNIP = "knip.jsonc";
  * Joins the parts of a directive's spelling. The scan counts literal substrings, so a source file
  * that wrote a directive out whole would count itself; the spellings below are assembled instead.
  */
-const spell = (...parts: ReadonlyArray<string>): string => parts.join("");
+const spell = (...parts: ReadonlyArray<string>) => parts.join("");
 
 /**
  * The suppression directives the scan counts, as literal substrings of tracked source.
@@ -137,7 +137,7 @@ export interface Outcome {
 /**
  * Collapses a failure message to the one line the ratchet prints.
  */
-const oneLine = (message: string): string => message.trim().replaceAll("\n", " ");
+const oneLine = (message: string) => message.trim().replaceAll("\n", " ");
 
 /**
  * Runs `git <args>` in the current directory, with colour off whatever the configuration says, and
@@ -175,7 +175,7 @@ const gitOutput = Effect.fn("ratchet.gitOutput")(function* gitOutput(args: Reado
 /**
  * Whether `value` is the all-zero object name a push event names for a new branch.
  */
-const isNullSha = (value: string): boolean => /^0+$/u.test(value);
+const isNullSha = (value: string) => /^0+$/u.test(value);
 
 /**
  * Resolves the base commit: `RATCHET_BASE` when set to something other than empty or an all-zero
@@ -212,7 +212,7 @@ const resolveBase = Effect.fn("ratchet.resolveBase")(function* resolveBase() {
  * Parses the count after the last colon of one `git grep -c` line, failing with {@link GitFailed}
  * when it is not a non-negative integer.
  */
-const parseCount = (line: string): Effect.Effect<number, GitFailed> => {
+const parseCount = (line: string) => {
   const raw = line.slice(line.lastIndexOf(":") + 1);
 
   return /^\d+$/u.test(raw)
@@ -223,7 +223,7 @@ const parseCount = (line: string): Effect.Effect<number, GitFailed> => {
 /**
  * Sums the per-file counts `git grep -c` prints, one `[<ref>:]<path>:<count>` line per file.
  */
-export const sumCounts = (stdout: string): Effect.Effect<number, GitFailed> =>
+export const sumCounts = (stdout: string) =>
   Effect.forEach(
     stdout.split("\n").filter((line) => line !== ""),
     parseCount,
@@ -259,11 +259,7 @@ const directiveLines = Effect.fn("ratchet.directiveLines")(function* directiveLi
  * accepts the trailing commas the formatter writes into `knip.jsonc`; `effect/encoding/Jsonc` does
  * not.
  */
-const decodeFile = <A, I>(
-  file: string,
-  text: string,
-  schema: Schema.Codec<A, I>,
-): Effect.Effect<A, CountedFileInvalid> => {
+const decodeFile = <A, I>(file: string, text: string, schema: Schema.Codec<A, I>) => {
   const invalid = () =>
     new CountedFileInvalid({
       message: `${file} is not valid JSON with the expected shape; restore it from git or regenerate it`,
@@ -309,7 +305,7 @@ const isText = Schema.is(Schema.String);
  * The entries beneath an `ignore*` key: a string leaf anywhere counts 1, and so does every array
  * item that is not itself an array or object. Booleans outside an array are settings, not entries.
  */
-const leaves = (value: Schema.Json, inList: boolean): number => {
+const leaves: (value: Schema.Json, inList: boolean) => number = (value, inList) => {
   if (isList(value)) {
     return value.reduce((total: number, item) => total + leaves(item, true), 0);
   }
@@ -325,7 +321,7 @@ const leaves = (value: Schema.Json, inList: boolean): number => {
  * The entries beneath every `ignore*` key in a parsed knip configuration, at any depth: a string,
  * an array or an object such as `ignoreIssues`.
  */
-export const ignoreEntries = (value: Schema.Json): number => {
+export const ignoreEntries: (value: Schema.Json) => number = (value) => {
   if (isList(value)) {
     return value.reduce((total: number, item) => total + ignoreEntries(item), 0);
   }
@@ -395,7 +391,7 @@ const count = Effect.fn("ratchet.count")(function* count(root: string, ref: Opti
  * either side; the knip counter compares only when both trees hold `knip.jsonc`, and fails when
  * only the base does; the ceiling-zero directive fails on `head` alone.
  */
-export const compare = (head: Counts, base: Counts): ReadonlyArray<string> => {
+export const compare = (head: Counts, base: Counts) => {
   const rules = Object.entries(head.rules).flatMap(([rule, total]) => {
     const before = base.rules[rule] ?? 0;
 

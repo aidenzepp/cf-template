@@ -165,6 +165,11 @@ export const report = (kind: Kind, setting: string, status: number | "tier", det
   ).pipe(Effect.as(kind));
 
 /**
+ * The outcome of a request that got no response: a transport failure.
+ */
+const FAILED: Outcome = { kind: "failed", status: 0 };
+
+/**
  * Print the line of a setting that already held its declared value and was not written.
  *
  * @param setting - The setting's name.
@@ -189,7 +194,7 @@ export const reportResponse = <E, R>(
 ) =>
   sent.pipe(
     Effect.flatMap((response) => settle(response, options)),
-    Effect.orElseSucceed((): Outcome => ({ kind: "failed", status: 0 })),
+    Effect.orElseSucceed(() => FAILED),
     Effect.flatMap(({ detail, kind, status }) => report(kind, setting, status, detail)),
   );
 
@@ -264,7 +269,10 @@ const isMap = Schema.is(Schema.Record(Schema.String, Schema.Json));
  * @param declared - The declared value, or the part of it that must hold.
  * @returns Whether `live` holds `declared`.
  */
-const holds = (live: Schema.Json | undefined, declared: Schema.Json): boolean => {
+const holds: (live: Schema.Json | undefined, declared: Schema.Json) => boolean = (
+  live,
+  declared,
+) => {
   if (isList(declared)) {
     return (
       isList(live) &&
@@ -320,10 +328,10 @@ export const alreadyHolds = (send: Send, path: string, declared?: RequestBody) =
  * @param slug - The `owner/repo` path segment.
  * @returns The calls.
  */
-const callsFor = (slug: string): ReadonlyArray<Call> => {
+const callsFor = (slug: string) => {
   const repo = `/repos/${slug}`;
 
-  return [
+  const calls: ReadonlyArray<Call> = [
     {
       body: {
         allow_update_branch: true,
@@ -402,6 +410,8 @@ const callsFor = (slug: string): ReadonlyArray<Call> => {
       setting: "fork-approval",
     },
   ];
+
+  return calls;
 };
 
 /**
@@ -434,18 +444,18 @@ const applyConfirmed = (send: Send, call: Call, confirm: string) =>
               }),
             ),
           ),
-          Effect.map((repository): Outcome =>
+          Effect.map((repository) =>
             repository.security_and_analysis?.[confirm]?.status === "enabled"
               ? outcome
-              : {
+              : ({
                   detail: "silently ignored by GitHub",
                   kind: "unavailable",
                   status: outcome.status,
-                },
+                } satisfies Outcome),
           ),
         ),
     ),
-    Effect.orElseSucceed((): Outcome => ({ kind: "failed", status: 0 })),
+    Effect.orElseSucceed(() => FAILED),
     Effect.flatMap(({ detail, kind, status }) => report(kind, call.setting, status, detail)),
   );
 

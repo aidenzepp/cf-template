@@ -8,7 +8,7 @@ import { Option } from "effect";
  * @returns The host name, or `localhost` for text that does not parse, which the origin schema has
  *   already ruled out.
  */
-const relyingPartyId = (origin: string): string =>
+const relyingPartyId = (origin: string) =>
   Option.fromNullishOr(URL.parse(origin)).pipe(
     Option.map((url) => url.hostname),
     Option.getOrElse(() => "localhost"),

@@ -27,27 +27,18 @@ interface Link {
 }
 
 /**
+ * The keyword each lowercased matched text spells.
+ */
+const KEYWORDS = new Map<string, Keyword>([
+  ["closes", "Closes"],
+  ["part of", "Part of"],
+  ["refs", "Refs"],
+]);
+
+/**
  * Names the keyword a matched text spells, whatever its case, or nothing for any other text.
  */
-const toKeyword = (text: string): Keyword | undefined => {
-  switch (text.toLowerCase()) {
-    case "closes": {
-      return "Closes";
-    }
-
-    case "part of": {
-      return "Part of";
-    }
-
-    case "refs": {
-      return "Refs";
-    }
-
-    default: {
-      return undefined;
-    }
-  }
-};
+const toKeyword = (text: string) => KEYWORDS.get(text.toLowerCase());
 
 /**
  * A fenced code block: three or more backticks or tildes, up to the same fence or the end of the
@@ -98,7 +89,7 @@ export const expectedDisclosure = [
  * @param body - The pull request body.
  * @returns The body without code.
  */
-export const stripCode = (body: string): string =>
+export const stripCode = (body: string) =>
   body.replaceAll("\r\n", "\n").replaceAll(fencedBlock, "").replaceAll(inlineCode, "");
 
 /**
@@ -108,12 +99,12 @@ export const stripCode = (body: string): string =>
  * @param body - The pull request body.
  * @returns The references in the order they appear.
  */
-export const parseLinks = (body: string): ReadonlyArray<Link> =>
+export const parseLinks = (body: string) =>
   [...stripCode(body).matchAll(linkPattern)].flatMap((match) => {
     const keyword = toKeyword(match.groups?.keyword ?? "");
     const issue = Number(match.groups?.issue);
 
-    return keyword === undefined ? [] : [{ issue, keyword }];
+    return keyword === undefined ? [] : [{ issue, keyword } satisfies Link];
   });
 
 /**
@@ -123,7 +114,7 @@ export const parseLinks = (body: string): ReadonlyArray<Link> =>
  * @param body - The pull request body.
  * @returns True when such a line exists.
  */
-export const hasNoIssue = (body: string): boolean => noIssueLine.test(stripCode(body));
+export const hasNoIssue = (body: string) => noIssueLine.test(stripCode(body));
 
 /**
  * Whether the body carries the disclosure: a line `**AI disclosure:**` followed, after any blank
@@ -133,7 +124,7 @@ export const hasNoIssue = (body: string): boolean => noIssueLine.test(stripCode(
  * @param body - The pull request body.
  * @returns True when the label line and both bullets are present outside code.
  */
-export const hasDisclosure = (body: string): boolean => {
+export const hasDisclosure = (body: string) => {
   const bullets = disclosureLabel.exec(stripCode(body))?.groups?.bullets ?? "";
 
   return /^- \*\*Provider:\*\* \S/mu.test(bullets) && /^- \*\*Model:\*\* \S/mu.test(bullets);
@@ -174,12 +165,12 @@ interface PullOrigin {
  *   and the pull request title.
  * @returns True when every fact of one of the two forms matches.
  */
-export const isExempt = (pull: PullOrigin): boolean =>
+export const isExempt = (pull: PullOrigin) =>
   pull.authorType === "Bot" &&
   ((pull.branch.startsWith("release-please--branches--") && releaseTitle.test(pull.title)) ||
     (pull.branch.startsWith("renovate/") && pull.authorLogin === renovateLogin));
 
-const distinct = <A>(items: ReadonlyArray<A>): ReadonlyArray<A> =>
+const distinct = <A>(items: ReadonlyArray<A>) =>
   items.filter((item, index) => items.indexOf(item) === index);
 
 /**
@@ -190,7 +181,7 @@ const distinct = <A>(items: ReadonlyArray<A>): ReadonlyArray<A> =>
  * @param body - The pull request body.
  * @returns One sentence for each problem; empty when the body passes.
  */
-export const problems = (body: string): ReadonlyArray<string> => {
+export const problems = (body: string) => {
   const prose = stripCode(body);
   const links = parseLinks(body);
 
@@ -237,7 +228,7 @@ export const problems = (body: string): ReadonlyArray<string> => {
 /**
  * Renders the failure text: each problem, then the block the body needs.
  */
-const render = (found: ReadonlyArray<string>): string =>
+const render = (found: ReadonlyArray<string>) =>
   [
     "The pull request body does not pass:",
     ...found.map((problem) => `- ${problem}`),

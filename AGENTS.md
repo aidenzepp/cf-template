@@ -9,7 +9,7 @@ This repository is an intentionally empty TypeScript project on Bun and Effect. 
 - Fix code instead of weakening policy. Do not turn off rules, add broad disable comments, or skip checks without explicit approval.
 - Use Effect error channels; built-in try/catch is prohibited by lint.
 - Name files and directories in kebab-case. `unicorn/filename-case` and `workspace/kebab-case-paths` enforce it.
-- Do not add function-decomposition, type-design, or require-doc-comment lint policies.
+- Do not add require-doc-comment lint policies; the Landmines `no-comments` rule stays off until the `document-code` rewrite (#461).
 - Preserve the pinned dependency versions. Add a dependency only with a stated reason; a library that `docs/capabilities.md` lists needs only the name of its registry row.
 - Before writing code, walk the ladder: a Cloudflare platform capability, then an Alchemy resource or binding, then an Effect module, service or layer, then an installed dependency or the stack's standard library (check `docs/capabilities.md`), then code in this repository, and only then an external service.
 

@@ -197,7 +197,7 @@ const guardCase = (
   origin: Origin,
   expected: Expected,
   options: { readonly env?: Readonly<Record<string, string>>; readonly variation?: Variation } = {},
-): void => {
+) => {
   it.effect(
     title,
     () =>
