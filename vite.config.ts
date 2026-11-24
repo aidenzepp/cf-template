@@ -684,6 +684,7 @@ export default defineConfig({
       "landmines/no-test-doubles": "error",
       "landmines/no-unsignaled-poll": "error",
       "landmines/strict-msw": "error",
+      "landmines/test-dir-only-cross-functional": "error",
       // Related Effect schemas and errors form one cohesive module.
       "max-classes-per-file": "off",
       "no-restricted-properties": ["error", ...runMembers, ...dataAccessMembers],
