@@ -74,3 +74,5 @@ A Better Auth bump reaches `prod` before its previews sign in with a provider: `
 Create the project state store once, from a laptop, before the first deploy: `bun run alchemy state bootstrap --profile admin --config infra/alchemy.run.ts`. It creates the `<stack>-state` Worker and its two Secrets Store entries in the `admin` profile's account, with `STACK_NAME` when set and the derived name otherwise. The command passes no stage, so Alchemy builds the state layer with its placeholder stage (`PLACEHOLDER_STAGE`, `alchemy/src/Alchemist/Operations.ts`); `infra/alchemy.run.ts` builds the project store for that stage without decoding it as an app stage. Every deploy stage still decodes strictly.
 
 I-38 fills the rest of this section.
+
+<!-- probe S2: docs-only edit for the #474 cache measurement -->
