@@ -21,14 +21,15 @@
         "@google/design.md": "0.4.0",
         "@interfere/landmines": "0.3.0",
         "@nkzw/eslint-plugin": "3.0.0",
-        "@oxlint/plugins": "1.94.0",
         "@shadcn/lint": "0.2.5",
         "@stylistic/eslint-plugin": "5.10.0",
         "@types/bun": "1.4.4",
         "@types/node": "26.6.6",
         "@vitest/browser-playwright": "5.1.0",
         "@workspace/config": "workspace:*",
+        "@workspace/infra": "workspace:*",
         "@workspace/knobs-kv": "workspace:*",
+        "@workspace/tools": "workspace:*",
         "alchemy": "2.0.0-beta.85",
         "axe-core": "4.14.0",
         "drizzle-kit": "1.0.0-rc.5",
@@ -116,6 +117,10 @@
     },
     "infra": {
       "name": "@workspace/infra",
+      "bin": {
+        "credentials": "./src/credentials.ts",
+        "settings": "./stacks/settings.ts",
+      },
       "dependencies": {
         "@alchemy.run/cloudflare": "2.0.0-beta.85",
         "@alchemy.run/github": "2.0.0-beta.85",
@@ -203,6 +208,27 @@
       "devDependencies": {
         "@types/react": "19.3.0",
         "@types/react-dom": "19.3.0",
+      },
+    },
+    "tools": {
+      "name": "@workspace/tools",
+      "bin": {
+        "advisories-audit": "./advisories/audit.ts",
+        "bundle-check": "./bundle/check.ts",
+        "db-check": "./db/check.ts",
+        "db-migrations-digest": "./db/migrations-digest.ts",
+        "design-md-generate": "./design-md/generate.ts",
+        "design-md-lint": "./design-md/lint.ts",
+        "hooks-present": "./hooks/present.ts",
+        "knob": "./knob/knob.ts",
+        "log-key": "./log-key/log-key.ts",
+        "mirrors": "./mirrors/mirror.ts",
+        "ratchet": "./ratchet/ratchet.ts",
+        "runbook-check": "./docs/runbook-check.ts",
+        "ui-lock-reinstall": "./ui-lock/reinstall.ts",
+      },
+      "devDependencies": {
+        "@oxlint/plugins": "1.94.0",
       },
     },
   },
@@ -1161,6 +1187,8 @@
     "@workspace/infra": ["@workspace/infra@workspace:infra"],
 
     "@workspace/knobs-kv": ["@workspace/knobs-kv@workspace:packages/knobs-kv"],
+
+    "@workspace/tools": ["@workspace/tools@workspace:tools"],
 
     "@workspace/ui": ["@workspace/ui@workspace:packages/ui"],
 

@@ -1,6 +1,6 @@
 # Agent instructions
 
-This repository is an intentionally empty TypeScript project on Bun and Effect. It is a foundation for a new project, not a sample application. Add only the source the project needs under the workspace that owns it (`apps/*`, `packages/*`, `infra`); do not pre-create shared modules, packages, or example code.
+This repository is an intentionally empty TypeScript project on Bun and Effect. It is a foundation for a new project, not a sample application. Add only the source the project needs under the workspace that owns it (`apps/*`, `packages/*`, `infra`, `tools`); do not pre-create shared modules, packages, or example code.
 
 ## Policy
 
@@ -12,6 +12,7 @@ This repository is an intentionally empty TypeScript project on Bun and Effect. 
 - Do not add require-doc-comment lint policies; the Landmines `no-comments` rule stays off until the `document-code` rewrite (#461).
 - Preserve the pinned dependency versions. Add a dependency only with a stated reason; a library that `docs/capabilities.md` lists needs only the name of its registry row.
 - Before writing code, walk the ladder: a Cloudflare platform capability, then an Alchemy resource or binding, then an Effect module, service or layer, then an installed dependency or the stack's standard library (check `docs/capabilities.md`), then code in this repository, and only then an external service.
+- No `scripts/` directories. A package's entry points live in its `src/` behind `import.meta.main`; repository tools live in `tools/` (`@workspace/tools`), and package scripts call them by bin name.
 
 If a rule appears inappropriate, explain the failing rule, why changing the code would be worse, the smallest policy change, and its consequences. Change the policy only after approval.
 

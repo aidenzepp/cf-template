@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect, FileSystem, Path, Schema, Stdio } from "effect";
 import { migrationsDigest } from "../../infra/migrations-digest.ts";
@@ -26,7 +27,7 @@ class UnknownDatabase extends Schema.TaggedError<
  * `apps/<database>/migrations/`. This is the step of `db:generate` and `auth:generate` that
  * follows the database's `drizzle-kit generate`.
  *
- * Usage, from the repository root: `bun tools/db/migrations-digest.ts <api|auth>`.
+ * Usage, from the repository root: `bun run db-migrations-digest <api|auth>`.
  */
 const program = Effect.gen(function* writeDigest() {
   const [argument = ""] = yield* (yield* Stdio.Stdio).args;
@@ -37,7 +38,7 @@ const program = Effect.gen(function* writeDigest() {
     Effect.mapError(
       () =>
         new UnknownDatabase({
-          message: `Unknown database ${JSON.stringify(argument)}. Run: bun tools/db/migrations-digest.ts <api|auth>.`,
+          message: `Unknown database ${JSON.stringify(argument)}. Run: bun run db-migrations-digest <api|auth>.`,
         }),
     ),
   );

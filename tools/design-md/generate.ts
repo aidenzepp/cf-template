@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Effect, FileSystem, Path, Schema } from "effect";
 import { CssSyntaxError, parse } from "postcss";

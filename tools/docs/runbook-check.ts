@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect, FileSystem, Path } from "effect";
 
@@ -162,7 +163,7 @@ if (import.meta.main) {
       const runbook = process.argv.at(2);
 
       if (runbook === undefined) {
-        yield* Console.error("usage: bun tools/docs/runbook-check.ts <runbook path>");
+        yield* Console.error("usage: bun run runbook-check <runbook path>");
         yield* Effect.sync(() => {
           process.exitCode = 1;
         });
