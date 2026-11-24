@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Console, Effect, FileSystem, Path, Schema, Stdio } from "effect";
 import { migrationsDigest } from "../../infra/migrations-digest.ts";

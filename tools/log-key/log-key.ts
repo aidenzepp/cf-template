@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import * as Cloudflare from "@alchemy.run/cloudflare";
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import * as Alchemy from "alchemy";

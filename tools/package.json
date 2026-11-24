@@ -1,0 +1,25 @@
+{
+  "name": "@workspace/tools",
+  "private": true,
+  "description": "Owns the repository commands the root package scripts call: the advisory audit, hook presence, runbook, DESIGN.md, database, UI lock, knob, log key, mirror, ratchet and bundle checks. Must not own request code, a Worker import, or a command that belongs to one app.",
+  "bin": {
+    "advisories-audit": "./advisories/audit.ts",
+    "bundle-check": "./bundle/check.ts",
+    "db-check": "./db/check.ts",
+    "db-migrations-digest": "./db/migrations-digest.ts",
+    "design-md-generate": "./design-md/generate.ts",
+    "design-md-lint": "./design-md/lint.ts",
+    "hooks-present": "./hooks/present.ts",
+    "knob": "./knob/knob.ts",
+    "log-key": "./log-key/log-key.ts",
+    "mirrors": "./mirrors/mirror.ts",
+    "ratchet": "./ratchet/ratchet.ts",
+    "runbook-check": "./docs/runbook-check.ts",
+    "ui-lock-reinstall": "./ui-lock/reinstall.ts"
+  },
+  "type": "module",
+  "exports": {},
+  "devDependencies": {
+    "@oxlint/plugins": "1.94.0"
+  }
+}

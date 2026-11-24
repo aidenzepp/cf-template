@@ -1,3 +1,4 @@
+#!/usr/bin/env bun
 import { BunRuntime, BunServices } from "@effect/platform-bun";
 import { Clock, Config, Console, Effect, Layer, Schema, Stdio } from "effect";
 import { Digest } from "effect/crypto";
