@@ -201,7 +201,7 @@ hash = "0c94b038261ada96b07f12e0e7a16f618a6f7f6bc229a8fea454a87f1b9754ab"
 [[link]]
 source = "AGENTS.md"
 target = ".agents/skills/work-with-stacks/SKILL.md"
-hash = "851afb5a7b76cf227e7e9e209a19463861a15b27e65f6cfa3927699d10938a1e"
+hash = "08d100133e34c9c7d30dd02dee381f2fb07d08d4d309cb496e8bfa22cf90bdbb"
 
 [[link]]
 source = "AGENTS.md"

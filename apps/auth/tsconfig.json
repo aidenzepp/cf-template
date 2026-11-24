@@ -6,5 +6,5 @@
     "rootDir": "../..",
     "types": ["bun", "node", "vite/client"]
   },
-  "include": ["auth.config.ts", "drizzle.config.ts", "scripts", "src"]
+  "include": ["auth.config.ts", "drizzle.config.ts", "src"]
 }

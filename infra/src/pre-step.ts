@@ -19,9 +19,9 @@ import {
 import { FetchHttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { CloudflarePlanKnob } from "@workspace/config/plan";
-import { STATE_STACK } from "../src/state-selection.ts";
+import { STATE_STACK } from "./state-selection.ts";
 import { Workers } from "../stages.ts";
-import { APP_STACK_ENTRY } from "../src/app-stack.ts";
+import { APP_STACK_ENTRY } from "./app-stack.ts";
 
 /**
  * The failure of the preview pre-step, with the message the workflow log shows.

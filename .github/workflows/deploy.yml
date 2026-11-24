@@ -195,7 +195,7 @@ jobs:
             echo "SMOKE_PROVIDERS=[$providers]"
           } >> "$GITHUB_ENV"
       - run: alchemy provider check-env --provider Cloudflare
-      - run: bun scripts/pre-step.ts
+      - run: bun src/pre-step.ts
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -224,7 +224,7 @@ jobs:
             alchemy deploy infra/alchemy.run.ts --stage "staging-$PULL_REQUEST" --yes
           fi
       - if: github.event.action != 'closed'
-        run: bun scripts/smoke.ts
+        run: bun src/smoke.ts
 
   # The cloud suite on the fixed serialized stage test-ci (#43 item 5): merge-ready, not draft,
   # same-repository pull requests, deploys on. On an alchemy-upgrade pull request it also runs the

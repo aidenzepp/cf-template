@@ -3,7 +3,7 @@ import { assert, describe, it } from "@effect/vitest";
 import { Effect, Layer, Schema } from "effect";
 import { Cookies, HttpClient, HttpClientRequest } from "effect/http";
 import { Digest } from "effect/crypto";
-import { retryPlatformNotFound } from "../../infra/scripts/smoke.ts";
+import { retryPlatformNotFound } from "../../infra/src/smoke.ts";
 import { publicOrigin } from "../../infra/src/origin.ts";
 import { resolveStackName } from "../../infra/src/stack-name.ts";
 import { CLOUD_STAGE, Stage } from "../../infra/stages.ts";

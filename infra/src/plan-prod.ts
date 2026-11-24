@@ -13,8 +13,8 @@ import {
   Stdio,
 } from "effect";
 import { Digest } from "effect/crypto";
-import { APP_STACK_ENTRY } from "../src/app-stack.ts";
-import { isStatefulType } from "../src/stateful-types.ts";
+import { APP_STACK_ENTRY } from "./app-stack.ts";
+import { isStatefulType } from "./stateful-types.ts";
 
 /**
  * The failure of the prod plan, with the message the workflow log shows. A failed run writes
@@ -325,7 +325,7 @@ const parseArgs = (args: ReadonlyArray<string>) => {
     : Effect.fail(
         new PlanProdError({
           message:
-            "Usage, from the repository root: bun infra/scripts/plan-prod.ts [--fingerprint <64-character lowercase sha256>].",
+            "Usage, from the repository root: bun infra/src/plan-prod.ts [--fingerprint <64-character lowercase sha256>].",
         }),
       );
 };
