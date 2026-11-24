@@ -147,7 +147,7 @@ export const retryPlatformNotFound = <E, R>(client: HttpClient.HttpClient.With<E
     ),
     HttpClient.retry({
       schedule: retrySchedule,
-      while: (error) => error instanceof PlatformNotFound,
+      while: Schema.is(PlatformNotFound),
     }),
   );
 

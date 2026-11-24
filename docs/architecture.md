@@ -752,7 +752,7 @@ agents; it reads live state through its own GETs, lists undeclared rulesets, env
 (RS4), compares the live `STACK_NAME` to the C15f derivation and reports `MISMATCH` without writing (RS12), and exits
 non-zero on any diff. It declares the governed repository fields, the one `main` ruleset (`adopt(true)`, PR required,
 strict checks, squash only, linear history, no deletion or force push, empty bypass list, C24b), the `prod` and
-`prod-destructive` environments where the tier has them, and six labels; an own-code step of idempotent REST calls
+`prod-destructive` environments where the tier has them, and nine labels (the two `autorelease:` labels release-please applies among them); an own-code step of idempotent REST calls
 covers what the Alchemy provider does not (merge extras, security and analysis, Dependabot alerts, CodeQL default
 setup, the SHA-pin setting, workflow permissions, fork approval, the seven default labels' deletion; RS1). The admin
 guard refuses without `permissions.admin` on the canonical repository (RS14); the tier is detected from `GET /repos`
